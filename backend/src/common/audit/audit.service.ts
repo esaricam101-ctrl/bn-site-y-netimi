@@ -77,7 +77,7 @@ export class AuditServisi {
   async zinciriDogrula(
     tx: Prisma.TransactionClient,
     tenantId: TenantId,
-  ): Promise<{ gecerli: boolean; bozukKayitId: string | null; incelenen: number }> {
+  ): Promise<{ gecerli: boolean; bozukKayitId: string | null; incelenen: number; ilkHata?: string | null }> {
     const kayitlar = await tx.auditKaydi.findMany({
       where: { tenantId },
       orderBy: { olusmaAni: 'asc' },
@@ -86,16 +86,30 @@ export class AuditServisi {
     let oncekiHash: string | null = null;
     for (const k of kayitlar) {
       if (k.oncekiHash !== oncekiHash) {
-        return { gecerli: false, bozukKayitId: k.id, incelenen: kayitlar.length };
+        return {
+          gecerli: false,
+          bozukKayitId: k.id,
+          incelenen: kayitlar.length,
+          ilkHata: 'onceki hash uyusmazligi',
+        };
       }
       const beklenen = createHash('sha256')
-        .update(auditHashGirdisi({ ...k, oncekiDeger: k.oncekiDeger as Record<string, unknown> | null, sonrakiDeger: k.sonrakiDeger as Record<string, unknown> | null } as never))
+        .update(auditHashGirdisi({
+          ...k,
+          oncekiDeger: k.oncekiDeger as Record<string, unknown> | null,
+          sonrakiDeger: k.sonrakiDeger as Record<string, unknown> | null,
+        } as never))
         .digest('hex');
       if (beklenen !== k.hash) {
-        return { gecerli: false, bozukKayitId: k.id, incelenen: kayitlar.length };
+        return {
+          gecerli: false,
+          bozukKayitId: k.id,
+          incelenen: kayitlar.length,
+          ilkHata: 'hash uyusmazligi',
+        };
       }
       oncekiHash = k.hash;
     }
-    return { gecerli: true, bozukKayitId: null, incelenen: kayitlar.length };
+    return { gecerli: true, bozukKayitId: null, incelenen: kayitlar.length, ilkHata: null };
   }
 }

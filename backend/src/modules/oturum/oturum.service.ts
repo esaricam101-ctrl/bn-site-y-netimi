@@ -158,6 +158,19 @@ export class OturumServisi {
     }
 
     const izinler = izinleriBirlestir(kullanici.roller.map((r) => r.rolKodu as RolKodu));
+    const tid = tenantId(kullanici.tenantId);
+    const baglam = mevcutBaglam();
+
+    await this.prisma.tenantIslemi(async (tx) => {
+      await this.audit.yaz(tx, {
+        tenantId: tid,
+        principal: { id: kullanici.id, tip: 'INSAN', tenantId: tid, izinler },
+        eylem: 'GUNCELLE', varlik: 'Kullanici', varlikId: kullanici.id,
+        correlationId: baglam?.correlationId ?? randomUUID(),
+        ip: baglam?.ip ?? null, kullaniciAjani: baglam?.kullaniciAjani ?? null,
+      });
+    }, tid);
+
     const accessToken = await this.jwt.signAsync(
       { sub: kullanici.id, tip: 'INSAN', tid: kullanici.tenantId, izinler },
       { expiresIn: process.env['JWT_ACCESS_TTL'] ?? '15m' },

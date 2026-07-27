@@ -7,6 +7,7 @@
  *   4. RLS Query'e de uygulanır: domain'i atlamak izolasyonu atlamak DEĞİLDİR
  */
 import { Injectable } from '@nestjs/common';
+import type { Principal } from '@bnos/kernel';
 import { KayitBulunamadi } from '@bnos/core-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -24,21 +25,23 @@ export interface TenantOzeti {
 export class TenantQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async ozet(id: string): Promise<TenantOzeti> {
+  async ozet(id: string, _principal: Principal): Promise<TenantOzeti> {
     const kayit = await this.prisma.tenant.findUnique({
       where: { id },
       select: {
         id: true, kod: true, ad: true, durum: true, saatDilimi: true,
-        _count: { select: { bagimsizBolumler: true, kisiler: true } },
       },
     });
     if (!kayit) throw new KayitBulunamadi(`Apartman bulunamadı: ${id}`);
 
+    const bolumSayisi = await this.prisma.bagimsizBolum.count({ where: { tenantId: id } });
+    const kisiSayisi = await this.prisma.kisi.count({ where: { tenantId: id } });
+
     return {
       id: kayit.id, kod: kayit.kod, ad: kayit.ad,
       durum: kayit.durum, saatDilimi: kayit.saatDilimi,
-      bolumSayisi: kayit._count.bagimsizBolumler,
-      kisiSayisi: kayit._count.kisiler,
+      bolumSayisi,
+      kisiSayisi,
     };
   }
 }

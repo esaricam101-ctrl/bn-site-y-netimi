@@ -55,6 +55,14 @@ export class TenantCommandService {
         );
       }
 
+      const mevcutKod = await tx.tenant.findUnique({ where: { kod: dto.kod } });
+      if (mevcutKod) {
+        throw new CakismaHatasi(
+          `'${dto.kod}' kodu başka bir apartman tarafından kullanılıyor.`,
+          'Farklı bir kod seçin.',
+        );
+      }
+
       const a = tenant.anlik();
       await tx.tenant.create({
         data: {

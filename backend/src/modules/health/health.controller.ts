@@ -4,6 +4,14 @@ import { APARTMAN_MANIFEST, SOZLESME_TESTLERI } from '@bnos/module-sdk';
 import { Public } from '../../common/decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
+interface SaglikYaniti {
+  readonly durum: 'saglikli' | 'bozuk';
+  readonly veritabani: 'açık' | 'kapalı';
+  readonly surum: string;
+  readonly modul: typeof APARTMAN_MANIFEST;
+  readonly testSayisi: number;
+}
+
 @ApiTags('Sistem')
 @Controller('saglik')
 export class HealthController {
@@ -12,13 +20,20 @@ export class HealthController {
   @Get()
   @Public('Yük dengeleyici ve konteyner sağlık kontrolü — kimlik gerektirmez.')
   @ApiOperation({ summary: 'Sağlık kontrolü' })
-  async saglik(): Promise<{ durum: string; veritabani: string; surum: string }> {
-    let veritabani = 'kapalı';
+  async saglik(): Promise<SaglikYaniti> {
+    let veritabani: 'açık' | 'kapalı' = 'kapalı';
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       veritabani = 'açık';
     } catch { /* durum kapalı kalır */ }
-    return { durum: veritabani === 'açık' ? 'saglikli' : 'bozuk', veritabani, surum: APARTMAN_MANIFEST.surum };
+
+    return {
+      durum: veritabani === 'açık' ? 'saglikli' : 'bozuk',
+      veritabani,
+      surum: APARTMAN_MANIFEST.surum,
+      modul: APARTMAN_MANIFEST,
+      testSayisi: SOZLESME_TESTLERI.length,
+    };
   }
 
   @Get('manifest')

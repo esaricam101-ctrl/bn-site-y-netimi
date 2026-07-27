@@ -32,7 +32,8 @@ export class KisiController {
     @Query('imlec') imlec?: string,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
   ): Promise<SayfaliSonuc<KisiSatiri>> {
-    return this.query.listele(principal, imlec, Math.min(limit, 200));
+    const temizLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50;
+    return this.query.listele(principal, imlec, temizLimit);
   }
 
   @Delete(':id')

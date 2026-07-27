@@ -36,40 +36,42 @@ export class OutboxYayincisi implements OnModuleInit, OnModuleDestroy {
 
   private async dongu(): Promise<void> {
     try {
-      const bekleyenler = await this.prisma.outboxKayit.findMany({
-        where: { yayinlanmaTarihi: null, denemeSayisi: { lt: AZAMI_DENEME } },
-        orderBy: { olusturulmaTarihi: 'asc' },
-        take: 100,
-      });
+      await this.prisma.sistemIslemi(async (tx) => {
+        const bekleyenler = await tx.outboxKayit.findMany({
+          where: { yayinlanmaTarihi: null, denemeSayisi: { lt: AZAMI_DENEME } },
+          orderBy: { olusturulmaTarihi: 'asc' },
+          take: 100,
+        });
 
-      for (const kayit of bekleyenler) {
-        try {
-          await this.redis.xadd(
-            AKIS, '*',
-            'eventId', kayit.id,
-            'eventType', kayit.eventType,
-            'tenantId', kayit.tenantId,
-            'zarf', JSON.stringify(kayit.zarf),
-          );
-          await this.prisma.outboxKayit.update({
-            where: { id: kayit.id },
-            data: { yayinlanmaTarihi: new Date() },
-          });
-        } catch (hata) {
-          const yeniDeneme = kayit.denemeSayisi + 1;
-          await this.prisma.outboxKayit.update({
-            where: { id: kayit.id },
-            data: { denemeSayisi: yeniDeneme, sonHata: (hata as Error).message },
-          });
-          if (yeniDeneme >= AZAMI_DENEME) {
-            // Ölü mektup: sessiz kalmaz, alarm üretir.
-            this.logger.error(
-              `Event ${AZAMI_DENEME} denemede teslim edilemedi: ${kayit.eventType} (${kayit.id}). ` +
-                `Ölü mektup kuyruğuna alındı — yönetici müdahalesi gerekiyor.`,
+        for (const kayit of bekleyenler) {
+          try {
+            await this.redis.xadd(
+              AKIS, '*',
+              'eventId', kayit.id,
+              'eventType', kayit.eventType,
+              'tenantId', kayit.tenantId,
+              'zarf', JSON.stringify(kayit.zarf),
             );
+            await tx.outboxKayit.update({
+              where: { id: kayit.id },
+              data: { yayinlanmaTarihi: new Date() },
+            });
+          } catch (hata) {
+            const yeniDeneme = kayit.denemeSayisi + 1;
+            await tx.outboxKayit.update({
+              where: { id: kayit.id },
+              data: { denemeSayisi: yeniDeneme, sonHata: (hata as Error).message },
+            });
+            if (yeniDeneme >= AZAMI_DENEME) {
+              // Ölü mektup: sessiz kalmaz, alarm üretir.
+              this.logger.error(
+                `Event ${AZAMI_DENEME} denemede teslim edilemedi: ${kayit.eventType} (${kayit.id}). ` +
+                  `Ölü mektup kuyruğuna alındı — yönetici müdahalesi gerekiyor.`,
+              );
+            }
           }
         }
-      }
+      });
     } catch (hata) {
       this.logger.error(`Outbox döngüsü hatası: ${(hata as Error).message}`);
     }

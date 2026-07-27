@@ -26,6 +26,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     super({ log: [{ emit: 'event', level: 'warn' }, { emit: 'event', level: 'error' }] });
+    this.$extends(softDeleteUzantisi());
   }
 
   async onModuleInit(): Promise<void> {

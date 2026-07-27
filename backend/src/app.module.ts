@@ -9,6 +9,7 @@ import { TenantGuard } from './common/guards/tenant.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { AuditModule } from './common/audit/audit.module';
+import { CorrelationInterceptor } from './common/context/correlation.interceptor';
 import { OutboxModule } from './common/outbox/outbox.module';
 import { NumberingModule } from './common/numbering/numbering.module';
 import { HealthModule } from './modules/health/health.module';
@@ -34,6 +35,7 @@ import { KisiModule } from './modules/kisi/kisi.module';
     { provide: APP_GUARD, useClass: AuthGuard },        // Kapı 1 — Kimlik
     { provide: APP_GUARD, useClass: TenantGuard },      // Kapı 2 — Kiracı
     { provide: APP_GUARD, useClass: PermissionGuard },  // Kapı 3 — İzin
+    { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })

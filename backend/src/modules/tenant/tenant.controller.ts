@@ -28,7 +28,7 @@ export class TenantController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Apartman özetini getir', description: 'Apartmana ait özet bilgileri döndürür.' })
-  async ozet(@Param('id') id: string) {
-    return this.query.ozet(id);
+  async ozet(@Param('id') id: string, @CurrentUser() principal: Principal) {
+    return this.query.ozet(id, principal);
   }
 }

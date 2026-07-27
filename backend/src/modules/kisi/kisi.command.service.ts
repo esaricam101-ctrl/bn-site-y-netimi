@@ -31,11 +31,24 @@ export class KisiCommandService {
     const id = randomUUID();
 
     return this.prisma.tenantIslemi(async (tx) => {
+      if (dto.eposta) {
+        const mevcut = await tx.kisi.findFirst({
+          where: { tenantId: principal.tenantId, eposta: dto.eposta.toLowerCase().trim() },
+          select: { id: true },
+        });
+        if (mevcut) {
+          throw new IsKuraliIhlali(
+            'Bu e-posta adresi bu apartmanda zaten kayıtlı.',
+            'Farklı bir e-posta adresi kullanın.',
+          );
+        }
+      }
+
       await tx.kisi.create({
         data: {
           id, tenantId: principal.tenantId,
           ad: dto.ad, soyad: dto.soyad,
-          eposta: dto.eposta ?? null, telefon: dto.telefon ?? null,
+          eposta: dto.eposta ? dto.eposta.toLowerCase().trim() : null, telefon: dto.telefon ?? null,
         },
       });
 

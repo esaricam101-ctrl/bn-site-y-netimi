@@ -19,8 +19,13 @@ export const RequirePermission = (...izinler: Izin[]): MethodDecorator =>
 
 /** Çözülmüş principal. */
 export const AktifPrincipal = createParamDecorator(
-  (_veri: unknown, ctx: ExecutionContext): Principal =>
-    ctx.switchToHttp().getRequest<{ principal: Principal }>().principal,
+  (_veri: unknown, ctx: ExecutionContext): Principal => {
+    const principal = ctx.switchToHttp().getRequest<{ principal?: Principal }>().principal;
+    if (!principal) {
+      throw new Error('Principal çözülmedi. AuthGuard önce çalışmalıdır.');
+    }
+    return principal;
+  },
 );
 
 export { CurrentUser } from './current-user.decorator';

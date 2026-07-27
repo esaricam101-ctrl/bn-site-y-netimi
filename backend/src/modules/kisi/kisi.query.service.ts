@@ -38,9 +38,11 @@ export class KisiQueryService {
 
     const fazlaVar = kayitlar.length > limit;
     const sayfa = fazlaVar ? kayitlar.slice(0, limit) : kayitlar;
+    const sonKayit = sayfa[sayfa.length - 1];
+
     return {
       kayitlar: sayfa,
-      sonrakiImlec: fazlaVar ? (sayfa[sayfa.length - 1]?.id ?? null) : null,
+      sonrakiImlec: fazlaVar && sonKayit ? sonKayit.id : null,
     };
   }
 }
