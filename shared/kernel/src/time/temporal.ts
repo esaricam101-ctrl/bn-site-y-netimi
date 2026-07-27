@@ -35,6 +35,32 @@ export const takvimTarihi = (deger: string): TakvimTarihi => {
 };
 
 /**
+ * Veritabanı `DATE` kolonundan okunan değeri takvim tarihine çevirir.
+ *
+ * Bir `DATE` kolonu sürücüler tarafından UTC gece yarısına oturtulmuş bir
+ * `Date` olarak döner. Bu değerden YEREL bileşenlerle (`getFullYear`,
+ * `getMonth`, `getDate`) tarih üretmek, negatif offsetli bir sunucuda her
+ * tarihi BİR GÜN GERİ kaydırır: `2026-01-01` → `2025-12-31`.
+ *
+ * Hata sessizdir ve yalnızca sunucunun saat dilimi değiştiğinde ortaya çıkar;
+ * o noktada vade tarihi, ilişki başlangıcı ve gecikme günü sayısı birlikte
+ * kayar. Dönüşüm bu yüzden daima UTC bileşenleriyle yapılır.
+ */
+export function takvimTarihiniOku(deger: Date): TakvimTarihi {
+  return takvimTarihi(deger.toISOString().slice(0, 10));
+}
+
+/** Boş geçilebilen `DATE` kolonları için. */
+export function takvimTarihiniOkuVeyaNull(deger: Date | null): TakvimTarihi | null {
+  return deger === null ? null : takvimTarihiniOku(deger);
+}
+
+/** Takvim tarihini `DATE` kolonuna yazılacak UTC gece yarısına çevirir. */
+export function takvimTarihiniYaz(gun: TakvimTarihi): Date {
+  return new Date(`${gun}T00:00:00.000Z`);
+}
+
+/**
  * Bir anı, tenant takviminde hangi güne düştüğüne çevirir.
  * Gecikme günü hesabı UTC'de değil, TENANT TAKVİMİNDE yapılır.
  */

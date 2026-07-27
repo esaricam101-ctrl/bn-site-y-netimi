@@ -31,13 +31,58 @@ export interface BolumIliskisi {
 }
 
 /** Verilen tarihte gecerli iliskiler. */
-function tarihtekiIliskiler(
+export function tarihtekiIliskiler(
   iliskiler: readonly BolumIliskisi[],
   tarih: TakvimTarihi,
 ): readonly BolumIliskisi[] {
   return iliskiler.filter(
     (i) => i.baslangic <= tarih && (i.bitis === null || i.bitis >= tarih),
   );
+}
+
+/**
+ * Acik uclu iliskinin bitisi yerine kullanilan ust sinir. TakvimTarihi
+ * YYYY-MM-DD bicimindedir; sozlukse karsilastirma tarih sirasiyla ortusur.
+ */
+const ACIK_UC = '9999-12-31' as TakvimTarihi;
+
+function araliklarKesisiyorMu(a: BolumIliskisi, b: BolumIliskisi): boolean {
+  return a.baslangic <= (b.bitis ?? ACIK_UC) && b.baslangic <= (a.bitis ?? ACIK_UC);
+}
+
+/**
+ * Ayni rolde zaman araligi cakismasini reddeder.
+ *
+ * NEDEN KRITIK: `borcSorumlulariniCoz` gecerli iliskiler arasindan
+ * `.find(rol === 'MALIK')` ile TEK kayit secer. Iki malik kaydi ayni tarihte
+ * gecerliyse dizideki ilki secilir — borc yanlis kisiye yazilir ve HATA
+ * SESSIZDIR. Cozumleme tarafinda savunma yoktur; kural yazma aninda zorlanmak
+ * zorundadir.
+ *
+ * Bir bolumde ayni anda en fazla bir malik ve en fazla bir kiraci bulunur.
+ * Farkli roller serbestce ortusur — kiracili bir bolumun maliki de vardir.
+ */
+export function iliskiyiDogrula(
+  mevcut: readonly BolumIliskisi[],
+  yeni: BolumIliskisi,
+): void {
+  if (yeni.bitis !== null && yeni.bitis < yeni.baslangic) {
+    throw new DogrulamaHatasi(
+      `Iliski bitis tarihi (${yeni.bitis}) baslangictan (${yeni.baslangic}) once olamaz.`,
+      'Tarihleri kontrol edin.',
+    );
+  }
+
+  const cakisan = mevcut.find(
+    (m) => m.rol === yeni.rol && araliklarKesisiyorMu(m, yeni),
+  );
+  if (cakisan) {
+    const aralik = `${cakisan.baslangic} – ${cakisan.bitis ?? 'suresiz'}`;
+    throw new DogrulamaHatasi(
+      `Bu bolumde ${yeni.rol} rolu ${aralik} araliginda zaten dolu; tarihler cakisiyor.`,
+      'Once mevcut iliskiyi sonlandirin, sonra yenisini baslatin.',
+    );
+  }
 }
 
 /**

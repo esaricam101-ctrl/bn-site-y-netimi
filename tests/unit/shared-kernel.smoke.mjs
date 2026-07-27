@@ -70,6 +70,39 @@ test('zaman: takvim tarihi saat bilgisi kabul etmez', () => {
   assert.equal(K.takvimTarihi('2026-07-26'), '2026-07-26');
 });
 
+test('zaman: DATE kolonu gidis-donusu tarihi KAYDIRMAZ', () => {
+  // Bu donusumun hatasi SESSIZDIR: yerel bilesenler kullanilsaydi negatif
+  // offsetli bir sunucuda her tarih bir gun geri kayardi ve vade, iliski
+  // baslangici, gecikme gunu birlikte bozulurdu.
+  for (const t of ['2026-01-01', '2025-12-31', '2028-02-29', '2026-03-29', '2026-10-25']) {
+    const gun = K.takvimTarihi(t);
+    assert.equal(K.takvimTarihiniOku(K.takvimTarihiniYaz(gun)), t, `${t} kaydi`);
+  }
+});
+
+test('zaman: DATE yazimi UTC gece yarisidir', () => {
+  assert.equal(K.takvimTarihiniYaz(K.takvimTarihi('2026-01-01')).toISOString(), '2026-01-01T00:00:00.000Z');
+});
+
+test('zaman: DATE okumasi sunucu saat diliminden BAGIMSIZDIR', () => {
+  const eski = process.env.TZ;
+  try {
+    for (const tz of ['UTC', 'America/New_York', 'Asia/Tokyo', 'Pacific/Kiritimati']) {
+      process.env.TZ = tz;
+      const okunan = K.takvimTarihiniOku(new Date('2026-01-01T00:00:00.000Z'));
+      assert.equal(okunan, '2026-01-01', `TZ=${tz}`);
+    }
+  } finally {
+    if (eski === undefined) delete process.env.TZ;
+    else process.env.TZ = eski;
+  }
+});
+
+test('zaman: bos gecilebilen DATE kolonu null doner', () => {
+  assert.equal(K.takvimTarihiniOkuVeyaNull(null), null);
+  assert.equal(K.takvimTarihiniOkuVeyaNull(new Date('2026-05-05T00:00:00.000Z')), '2026-05-05');
+});
+
 test('zaman: gun farki saat dilimi kaymasi uretmez', () => {
   assert.equal(K.gunFarki(K.takvimTarihi('2026-02-28'), K.takvimTarihi('2026-03-01')), 1);
   assert.equal(K.gunFarki(K.takvimTarihi('2026-01-01'), K.takvimTarihi('2026-12-31')), 364);

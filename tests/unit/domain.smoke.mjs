@@ -145,6 +145,60 @@ test('gider: borc alicisi eksen 2 ile belirlenir', () => {
   assert.equal(AD.borcAlicisiTipi(temizlik, false), 'MALIK');
 });
 
+/* ---------------- Bolum iliskisi cakismasi (ADR v1.1 §5) ---------------- */
+
+const iliski = (rol, baslangic, bitis = null, kisiId = 'k1') => ({
+  kisiId, rol,
+  baslangic: K.takvimTarihi(baslangic),
+  bitis: bitis === null ? null : K.takvimTarihi(bitis),
+});
+
+test('iliski: ayni rolde tarih cakismasi REDDEDILIR', () => {
+  const mevcut = [iliski('MALIK', '2026-01-01', '2026-12-31')];
+  // Icten kesisme
+  assert.throws(() => AD.iliskiyiDogrula(mevcut, iliski('MALIK', '2026-06-01', '2027-01-01', 'k2')), /cakisiyor/);
+  // Tam kapsama
+  assert.throws(() => AD.iliskiyiDogrula(mevcut, iliski('MALIK', '2025-01-01', '2027-01-01', 'k2')), /cakisiyor/);
+  // Tek gunluk temas — bitis ile baslangic ayni gun
+  assert.throws(() => AD.iliskiyiDogrula(mevcut, iliski('MALIK', '2026-12-31', null, 'k2')), /cakisiyor/);
+});
+
+test('iliski: cakismayan ardisik donemler KABUL EDILIR', () => {
+  const mevcut = [iliski('MALIK', '2026-01-01', '2026-12-31')];
+  // Bir gun sonra baslar — temas yok.
+  assert.doesNotThrow(() => AD.iliskiyiDogrula(mevcut, iliski('MALIK', '2027-01-01', null, 'k2')));
+  assert.doesNotThrow(() => AD.iliskiyiDogrula(mevcut, iliski('MALIK', '2020-01-01', '2025-12-31', 'k2')));
+});
+
+test('iliski: FARKLI roller ortusebilir — kiracili bolumun maliki de vardir', () => {
+  const mevcut = [iliski('MALIK', '2026-01-01', null)];
+  assert.doesNotThrow(() => AD.iliskiyiDogrula(mevcut, iliski('KIRACI', '2026-03-01', null, 'k2')));
+});
+
+test('iliski: acik uclu kayit sonraki her donemi bloke eder', () => {
+  const mevcut = [iliski('KIRACI', '2026-01-01', null)];
+  assert.throws(() => AD.iliskiyiDogrula(mevcut, iliski('KIRACI', '2030-01-01', null, 'k2')), /cakisiyor/);
+});
+
+test('iliski: bitis baslangictan once olamaz', () => {
+  assert.throws(() => AD.iliskiyiDogrula([], iliski('MALIK', '2026-06-01', '2026-01-01')), /once olamaz/);
+});
+
+test('iliski: cakisma engellenmezse borc YANLIS kisiye yazilir', () => {
+  // Bu test kuralin NEDEN var oldugunu sabitler: iki gecerli malik varsa
+  // borcSorumlulariniCoz dizideki ilkini secer, digerini sessizce yok sayar.
+  const demirbas = AD.KMK_VARSAYILAN_GIDERLER.find((g) => g.kod === 'DEMIRBAS');
+  const cakisan = [
+    iliski('MALIK', '2026-01-01', null, 'gercek-malik'),
+    iliski('MALIK', '2026-01-01', null, 'yanlis-malik'),
+  ];
+  const zincir = AD.borcSorumlulariniCoz(demirbas, cakisan, K.takvimTarihi('2026-06-01'));
+  assert.equal(zincir.length, 1);
+  assert.equal(zincir[0].kisiId, 'gercek-malik'); // ikincisi kayboldu — hata sessiz
+  // Yazma aninda dogrulama bu durumun olusmasini engeller:
+  assert.throws(() => AD.iliskiyiDogrula([cakisan[0]], cakisan[1]), /cakisiyor/);
+});
+
 test('gider: yonetim plani kaynakli kural referans zorunlu tutar', () => {
   const hatalar = AD.giderTuruDogrula({
     kod: 'OZEL', ad: 'Özel', paylasimKurali: 'ESIT',

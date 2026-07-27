@@ -7,6 +7,105 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-28 · Oturum 5 — Bölüm ilişkisi (malik / kiracı)
+
+**Kapsam:** `BolumIliskisi` modülü · zaman çakışması invaryantı · DATE dönüşümü
+**Sonuç:** Kişi ↔ bölüm bağı kuruldu · 68 birim testi (58 → 68)
+**Önceki durum:** Oturum 4 — bölüm ve kişi vardı, aralarında bağ yoktu
+
+### 1. Yapılan işler
+
+#### 1.1 Eksik halka
+
+`borcSorumlulariniCoz()` — malik/kiracı borç zincirini çözen fonksiyon —
+domain'de yazılıydı ve `readonly BolumIliskisi[]` bekliyordu. Ancak bu ilişkiyi
+**oluşturan hiçbir uygulama kodu yoktu**; fonksiyonu besleyecek veri hiçbir
+zaman üretilemiyordu. Bölümler ve kişiler vardı, aralarındaki bağ yoktu.
+
+Eklendi: [`backend/src/modules/iliski/`](backend/src/modules/iliski/).
+
+| Uç | İzin | İşlev |
+|---|---|---|
+| `POST /bolumler/:bolumId/iliskiler` | `bolum.manage` | Malik/kiracı bağla |
+| `GET /bolumler/:bolumId/iliskiler?tarih=` | `bolum.view` | Geçmiş; `tarih` ile o gün geçerli olanlar |
+| `PATCH /bolumler/:bolumId/iliskiler/:id/sonlandir` | `bolum.manage` | Bitiş tarihi ver |
+
+**Silme ucu bilinçli olarak yoktur.** Borç sorumluluğu borcun oluştuğu anda
+çözülüp kayda yazılır (snapshot). Geçmiş bir ilişkiyi silmek o snapshot'ın
+dayanağını yok eder ve *"bu borç neden bu kişide?"* sorusu cevapsız kalır.
+Kiracı taşındığında ilişki `bitis` alır, yok edilmez.
+
+#### 1.2 Sessizce yanlış kişiye borç yazan çakışma
+
+`borcSorumlulariniCoz` geçerli ilişkiler arasından `.find(rol === 'MALIK')` ile
+**tek** kayıt seçer. İki malik kaydı aynı tarihte geçerliyse dizideki ilki
+seçilir, diğeri sessizce yok sayılır — borç yanlış kişiye yazılır ve hiçbir hata
+fırlatılmaz. Çözümleme tarafında savunma yoktur; kural yazma anında zorlanmak
+zorundadır.
+
+Eklendi: `iliskiyiDogrula()` (apartman-domain). Bir bölümde aynı anda en fazla
+bir malik ve en fazla bir kiracı bulunur; farklı roller serbestçe örtüşür —
+kiracılı bir bölümün maliki de vardır.
+
+Kuralın **neden** var olduğunu sabitleyen bir test yazıldı: çakışan iki malik
+verilip `borcSorumlulariniCoz` çağrılıyor, ikinci malikin kaybolduğu
+gösteriliyor, ardından aynı verinin `iliskiyiDogrula` tarafından reddedildiği
+doğrulanıyor. Kural silinirse test, neyin bozulacağını anlatır.
+
+Kalan risk: kontrol ile yazma arasında dar bir yarış penceresi vardır. Kalıcı
+çözüm örtüşme dışlayan bir constraint'tir (PostgreSQL `EXCLUDE USING gist`) ve
+migration gerektirir — TODO-3'e yazıldı.
+
+#### 1.3 DATE dönüşümü kernel'e taşındı
+
+İlişkiler `@db.Date` kolonları taşır. Prisma bunları UTC gece yarısına oturmuş
+`Date` olarak döndürür; **yerel** bileşenlerle (`getFullYear`/`getMonth`/
+`getDate`) tarih üretmek negatif offsetli bir sunucuda her tarihi bir gün geri
+kaydırır (`2026-01-01` → `2025-12-31`). Hata sessizdir ve yalnızca sunucunun
+saat dilimi değiştiğinde ortaya çıkar; o noktada vade tarihi, ilişki başlangıcı
+ve gecikme günü sayısı **birlikte** kayar.
+
+Dönüşüm önce `backend/src/common/time/` altına yazıldı, sonra
+[`shared/kernel/src/time/temporal.ts`](shared/kernel/src/time/temporal.ts)
+içine taşındı: `takvimTarihiniOku` · `takvimTarihiniOkuVeyaNull` ·
+`takvimTarihiniYaz`. Gerekçe iki katlı —
+
+1. **Kavramsal yer.** Dönüşüm Prisma'ya özgü değildir; `Date` ↔ `TakvimTarihi`
+   çevirisi zaten `temporal.ts`'in konusudur ve `tenantTakvimGunu` ile aynı
+   ailedendir.
+2. **Test edilebilirlik.** Backend altındayken çevrimdışı test edilemiyordu:
+   derlenen CJS modül `require('@bnos/kernel')` yapıyor, kernel ise ESM-only
+   (`exports` haritasında `require` koşulu yok) → `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+   Kernel içinde ise mevcut duman testi altyapısı doğrudan kapsıyor.
+
+Dört test eklendi; biri dönüşümü `UTC`, `America/New_York`, `Asia/Tokyo` ve
+`Pacific/Kiritimati` altında koşarak saat diliminden bağımsızlığı kanıtlıyor.
+
+#### 1.4 Event kataloğu
+
+`apartman.bolum_iliskisi.kuruldu` ve `.sonlandirildi` eklendi (katalog 7 → 9).
+Çalışma zamanında kabul edildikleri doğrulandı.
+
+### 2. Değiştirilen dosyalar
+
+| Dosya | Değişiklik | Sınıf |
+|---|---|---|
+| `backend/src/modules/iliski/` | **YENİ** — 5 dosya | Özellik |
+| `shared/apartman-domain/src/borc/borc-sorumlusu.ts` | `iliskiyiDogrula()`; `tarihtekiIliskiler` dışa açıldı | **Invaryant** |
+| `shared/kernel/src/time/temporal.ts` | Üç DATE dönüşüm fonksiyonu | Sözleşme |
+| `shared/core-domain/src/outbox/domain-event.ts` | İki event kaydı | Sözleşme |
+| `backend/src/app.module.ts` | `IliskiModule` kaydı | Bağlama |
+| `tests/unit/domain.smoke.mjs` | 6 çakışma testi | Test |
+| `tests/unit/shared-kernel.smoke.mjs` | 4 DATE dönüşüm testi | Test |
+
+### 3. Bu oturumda çalıştırılmayanlar
+
+- Modülün uçtan uca davranışı — PostgreSQL gerektirir (TODO-3). Çakışma kuralı
+  ve DATE dönüşümü **birim düzeyinde kanıtlıdır**; HTTP uçları gerçek bir
+  veritabanına karşı hiç çağrılmadı.
+
+---
+
 ## 2026-07-27 · Oturum 4 — Bağımsız Bölüm modülü
 
 **Kapsam:** Apartman yönetimi çekirdek varlığı · Blok-1 dikey dilimi
@@ -505,6 +604,7 @@ ettiği kanıtlanmadan Blok-1'in ilerisine geçilmemelidir."*
 | CT-04 · üç kapı | `oturum.spec.ts` | Yazılmış, tipleri temiz (Oturum 2) |
 | CT-13/CT-14 · numaralandırma, kullanıcı sayımı | `numaralandirma.spec.ts` · `oturum.spec.ts` | Yazılmış |
 | **Bölüm modülü uçtan uca** | **YAZILMADI** | Oturum 4'te eklenen 4 uç hiç çağrılmadı |
+| **İlişki modülü uçtan uca** | **YAZILMADI** | Oturum 5'te eklenen 3 uç hiç çağrılmadı |
 
 Son satır bu oturumun bıraktığı borçtur: `BolumModule` derleme, lint, paket
 sınırı ve dairesel bağımlılık denetimlerinden geçti, ancak **gerçek bir
@@ -516,6 +616,11 @@ veritabanına karşı hiç çalıştırılmadı.** Özellikle doğrulanmamış o
   kısıtı **yoktur**, dar bir yarış penceresi taşır (kalıcı çözüm:
   `(tenant_id, blok_id, kapi_no)` kısmi unique index, migration gerektirir)
 - `arsa-payi-durumu` ucunun gerçek veride doğru toplam ürettiği
+- **(Oturum 5)** Malik/kiracı çakışma kuralının eşzamanlı istekte de tuttuğu.
+  Kural birim düzeyinde kanıtlıdır ancak DB kısıtı **yoktur**; kalıcı çözüm
+  `EXCLUDE USING gist` ile örtüşme dışlayan bir constraint'tir ve migration
+  gerektirir. Yarış kazanılırsa iki geçerli malik oluşur ve borç sessizce
+  yanlış kişiye yazılır
 
 Oturum 2'nin dersi burada geçerlidir: **hiç koşmamış bir test yeşil sayılamaz** —
 CT-12 ilk koştuğunda 2/5 başarısızdı.
@@ -589,10 +694,15 @@ tüketiliyor. Faz 0 ile paralel başlatılmalıydı.
 
 **Başlangıç noktası:** Veritabanı gerektirmeyen her doğrulama yeşil. Build 9/9
 (`@bnos/mobile`'ın build script'i yoktur), ESLint 0, dependency-cruiser 0 ihlal
-(249 modül), **58 birim + 14 negatif** + 5 CT-12 testi geçiyor; belge lint ve
+(254 modül), **68 birim + 14 negatif** + 5 CT-12 testi geçiyor; belge lint ve
 bağlantı denetimi 0 hata. **Tek açık teknik engel TODO-3'tür (Docker).**
 
-Modüller: `health` · `oturum` · `tenant` · `kisi` · **`bolum`** (Oturum 4).
+Modüller: `health` · `oturum` · `tenant` · `kisi` · `bolum` (Oturum 4) ·
+**`iliski`** (Oturum 5).
+
+Zincirin bugünkü hâli: giriş → tenant → kişi → bölüm → malik/kiracı ilişkisi.
+Sıradaki halka **gider türü ve tahakkuk**tur; `paylastir.ts` ile
+`borcSorumlulariniCoz()` domain'de hazır ve artık besleyecek verisi de var.
 
 ### Ortamı geri kazanma
 
