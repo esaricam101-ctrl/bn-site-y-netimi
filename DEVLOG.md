@@ -7,6 +7,78 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-28 · Oturum 7 — Profesyonel yönetim sprinti · 1. parça: temel
+
+**Kapsam:** ADR-0008 · hiyerarşi · 7 aidat yöntemi · çoklu malik · şema + migration
+**Sonuç:** 93 birim testi (68 → 93) · 275 modül · zincir yeşil
+**Devam ediyor:** Malik/Kiracı/Sakin/GiderTuru API'leri ve UI — bkz. §4
+
+### 1. ADR-0008 — Site, tenant'ın ÜSTÜNE değil KENDİSİ oldu
+
+Sprint "Site → Apartman → Blok → Kat → Bağımsız Bölüm" istiyordu.
+[ADR-0002](docs/adr/log/0002-tenant-modeli.md) ise *"`portfolio`, `group`,
+`site` kapsamları bu modülde uygulanmaz"* diyor ve gerekçesi RLS: çapraz-tenant
+toplama tanım gereği imkânsız. Aynı ADR, ileride *"kolay yolun (RLS by-pass)
+cazip görünmemesi için"* özel bir not düşmüş.
+
+Çatışma, Site'yi tenant'ın **kendisi** yaparak çözüldü —
+[ADR-0008](docs/adr/log/0008-tenant-yonetilen-yerleske.md). `TenantTipi` zaten
+`SITE` değerini taşıyordu. Böylece bütün hiyerarşi aynı `tenant_id` altında
+kalır; RLS politikası değişmez, izolasyon kanıtı (CT-01) aynen geçerlidir.
+
+Site'yi tenant'ın üstüne koymak birden çok tenant'ı tek sorguda okumayı
+gerektirirdi — ADR-0002'nin açıkça yasakladığı şey. ADR-0008 bunu iptal
+etmez, kapsamını genişletir.
+
+### 2. Kesirli aritmetik — iki yerde birden sessiz kusur
+
+Hisse doğrulaması yazarken kendi testim kendi hatamı yakaladı: ölçekli tam
+sayıya çevirip toplamak 1/3 gibi paylarda **daima eksik verir**
+(333.333 × 3 = 999.999). Üç eşit hisseli bir daire, hiçbir şey yanlış olmadığı
+hâlde sürekli "hatalı" görünürdü.
+
+Aynı kusur **mevcut `arsaPaylariniDogrula`'da da vardı** (KMK md. 3) —
+Faz 0'dan beri duruyordu, sadece hiç üçte birle test edilmemişti. Üç eşit arsa
+paylı bir binada tahakkuk kalıcı olarak bloke olurdu.
+
+Çözüm: [`kesir.ts`](shared/apartman-domain/src/kesir.ts) — EBOB ile
+sadeleştirilen kayıpsız kesir toplamı. Her iki doğrulama da buna geçti.
+Regresyon testi ikisini de sabitliyor.
+
+### 3. Teslim edilenler
+
+| Alan | Durum |
+|---|---|
+| **Hiyerarşi** | Tenant → Apartman → Blok → Kat → Bölüm. Üst kayıt olmadan alt kayıt oluşturulamaz; her seviyede tenant sahipliği doğrulanır |
+| **Bölüm alanları** | İç kapı no, daire tipi, kullanım amacı, durum, 6 tapu alanı eklendi |
+| **Aidat modeli** | 7 yöntem: EŞİT · ARSA_PAYI · BRUT_M2 · NET_M2 · TÜKETİM · SABİT_TUTAR · **KARMA**. `METREKARE` geriye dönük korundu |
+| **Çoklu malik** | Hisse pay/payda, %100 invaryantı, tapu türü/tarihleri, vekâlet |
+| **Borç bölüşümü** | EŞİT · HİSSE_ORANI · MANUEL; kişi bazlı `pay`/`odenen` |
+| **Şema** | 6 yeni tablo, 4 yeni enum, `BorcSorumlusu` genişletildi |
+| **Migration 0002** | RLS blokları dahil — **doğrulanmamış**, bkz. §4 |
+
+**Kural değişikliği:** Oturum 5'te malik için tekillik zorlanıyordu. Çoklu malik
+gereksinimiyle kural **kaldırılmadı, yeri değişti**: tekillik yerine hisse
+bütünlüğü invaryantı geldi. Kiracı için tekillik aynen sürüyor.
+`asilSorumlu()` artık çoklu ASIL'da sessizce ilkini seçmek yerine **hata
+veriyor**; çağıranlar `asilSorumlular()` kullanmalı.
+
+### 4. Bu oturumda TAMAMLANMAYANLAR
+
+Sprint'in tamamı tek oturuma sığmadı. Aşağıdakiler **yazılmadı**:
+
+- **Malik · Kiracı · Sakin · GiderTuru API'leri.** Şema, domain kuralları ve
+  testleri hazır; HTTP yüzeyleri yok. Bir sonraki parça budur.
+- **UI ekranları.** Frontend hâlâ 3 sayfalık iskelet (`giris`, `yonetim`,
+  `sakin`). Dokuz yönetim ekranı ayrı bir parçadır.
+- **Migration doğrulaması.** `0002_*/migration.sql` **elle yazıldı**,
+  `prisma migrate dev` ile üretilmedi ve hiçbir veritabanına uygulanmadı —
+  Docker yok (TODO-3). Dosyanın başında bu uyarı duruyor. İlk uygulamadan önce
+  Prisma'nın ürettiği DDL ile karşılaştırılmalıdır; §3'teki RLS listesi eksik
+  kalırsa yeni tablolar RLS'siz kalır ve **hata sessizdir**.
+
+---
+
 ## 2026-07-28 · Oturum 6 — Blok modülü ve tenant sızıntısı düzeltmesi
 
 **Kapsam:** `Blok` modülü · Oturum 4'te girilen bir kusurun kapatılması

@@ -5,8 +5,35 @@
  * bir gider hem arsa payina gore dagitilip hem kullanana yansitilabilir.
  */
 
-/** Eksen 1 — paylasim kurali */
-export type PaylasimKurali = 'ESIT' | 'ARSA_PAYI' | 'METREKARE' | 'TUKETIM' | 'SABIT_TUTAR';
+/**
+ * Eksen 1 — paylasim kurali.
+ *
+ * `METREKARE` geriye donuk uyumluluk icindir ve `BRUT_M2` ile ayni davranir;
+ * yeni tanimlarda hangi olcunun kastedildigi acik yazilmalidir (BFS v1 §11).
+ *
+ * `MALIK_HISSE` burada YOKTUR ve bu bilinclidir: hisse orani bir gideri
+ * bolumlere dagitmaz, bir bolumun borcunu O BOLUMUN malikleri arasinda boler.
+ * Ayri bir eksendir — bkz. `MalikPaylasimi` (malik/malik.ts).
+ */
+export type PaylasimKurali =
+  | 'ESIT'
+  | 'ARSA_PAYI'
+  | 'BRUT_M2'
+  | 'NET_M2'
+  | 'METREKARE'
+  | 'TUKETIM'
+  | 'SABIT_TUTAR'
+  | 'KARMA';
+
+/**
+ * KARMA modelin bir bileseni: giderin `yuzde` kadarlik kismi `kural` ile
+ * dagitilir. Ornek: yakitin %30'u esit, %70'i brut m2.
+ */
+export interface KarmaBilesen {
+  readonly kural: Exclude<PaylasimKurali, 'KARMA'>;
+  /** Tam sayi yuzde. Bilesenlerin toplami 100 olmak zorundadir. */
+  readonly yuzde: number;
+}
 
 /**
  * Eksen 2 — sorumluluk tipi
@@ -26,6 +53,8 @@ export interface GiderTuru {
   readonly kuralKaynagi: KuralKaynagi;
   /** YONETIM_PLANI veya GENEL_KURUL_KARARI ise referans zorunludur. */
   readonly kaynakReferansi: string | null;
+  /** Yalnizca `paylasimKurali === 'KARMA'` iken doludur. */
+  readonly karmaBilesenler?: readonly KarmaBilesen[];
 }
 
 /**
@@ -57,6 +86,39 @@ export function giderTuruDogrula(g: GiderTuru): readonly string[] {
         `(yonetim plani maddesi veya genel kurul karar no).`,
     );
   }
+
+  const bilesenler = g.karmaBilesenler ?? [];
+
+  if (g.paylasimKurali === 'KARMA') {
+    if (bilesenler.length === 0) {
+      hatalar.push(`'${g.kod}': KARMA paylasim en az bir bilesen tasimalidir.`);
+    } else {
+      const toplam = bilesenler.reduce((t, b) => t + b.yuzde, 0);
+      if (toplam !== 100) {
+        hatalar.push(
+          `'${g.kod}': KARMA bilesenlerinin toplami 100 olmalidir, ${toplam} verildi. ` +
+            `Aksi halde giderin bir kismi dagitilmadan kalir ya da fazla dagitilir.`,
+        );
+      }
+      for (const b of bilesenler) {
+        if (!Number.isInteger(b.yuzde) || b.yuzde <= 0) {
+          hatalar.push(`'${g.kod}': KARMA bilesen yuzdesi pozitif tam sayi olmalidir: ${b.yuzde}`);
+        }
+      }
+      const tekrar = bilesenler.length !== new Set(bilesenler.map((b) => b.kural)).size;
+      if (tekrar) {
+        hatalar.push(`'${g.kod}': ayni kural KARMA icinde birden fazla kez kullanilamaz.`);
+      }
+    }
+  } else if (bilesenler.length > 0) {
+    // Sessizce yok saymak, yoneticinin tanimladigi kuralin uygulandigini
+    // sanmasina yol acar.
+    hatalar.push(
+      `'${g.kod}': karma bilesenler yalnizca KARMA paylasiminda tanimlanir, ` +
+        `kural '${g.paylasimKurali}'.`,
+    );
+  }
+
   return hatalar;
 }
 

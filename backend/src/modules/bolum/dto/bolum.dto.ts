@@ -6,22 +6,55 @@ import {
 
 export const BOLUM_NITELIKLERI = ['MESKEN', 'ISYERI', 'DEPO', 'OTOPARK', 'ORTAK_ALAN'] as const;
 
+export const DAIRE_TIPLERI = [
+  'STUDYO', 'BIR_SIFIR', 'BIR_BIR', 'IKI_BIR', 'UC_BIR',
+  'DORT_BIR', 'BES_BIR', 'DUBLEKS', 'DIGER',
+] as const;
+
+export const BOLUM_DURUMLARI = ['AKTIF', 'BOS', 'TADILATTA', 'KULLANIM_DISI'] as const;
+
 export class BolumOlusturDto {
   @ApiPropertyOptional({ description: 'Blok kimliği. Tek bloklu apartmanlarda boş bırakılır.' })
   @IsOptional() @IsUUID()
   blokId?: string;
 
+  @ApiPropertyOptional({ description: 'Kat kimliği. Verilirse bloğa ait olmalıdır.' })
+  @IsOptional() @IsUUID()
+  katId?: string;
+
   @ApiProperty({ example: '12' })
   @IsString() @Length(1, 16)
   kapiNo!: string;
+
+  @ApiPropertyOptional({ example: '12A', description: 'Daire içi numara; kapı numarasından farklı olabilir.' })
+  @IsOptional() @IsString() @Length(1, 16)
+  icKapiNo?: string;
 
   @ApiProperty({ example: 3, description: 'Bodrum katlar negatif olabilir.' })
   @IsInt() @Min(-10) @Max(200)
   kat!: number;
 
-  @ApiProperty({ enum: BOLUM_NITELIKLERI, example: 'MESKEN' })
+  @ApiProperty({
+    enum: BOLUM_NITELIKLERI, example: 'MESKEN',
+    description: 'Tapudaki hukuki vasıf. Fiili kullanım durumu için `durum` alanı kullanılır.',
+  })
   @IsIn(BOLUM_NITELIKLERI)
   nitelik!: (typeof BOLUM_NITELIKLERI)[number];
+
+  @ApiPropertyOptional({ enum: DAIRE_TIPLERI, example: 'IKI_BIR', description: '2+1 → IKI_BIR' })
+  @IsOptional() @IsIn(DAIRE_TIPLERI)
+  daireTipi?: (typeof DAIRE_TIPLERI)[number];
+
+  @ApiPropertyOptional({ example: 'konut', description: 'Fiili kullanım amacı; nitelikten ayrıdır.' })
+  @IsOptional() @IsString() @Length(1, 80)
+  kullanimAmaci?: string;
+
+  @ApiPropertyOptional({
+    enum: BOLUM_DURUMLARI, example: 'AKTIF',
+    description: 'KULLANIM_DISI bölümler aidat dağıtımına GİRMEZ.',
+  })
+  @IsOptional() @IsIn(BOLUM_DURUMLARI)
+  durum?: (typeof BOLUM_DURUMLARI)[number];
 
   @ApiProperty({ example: 120.5 })
   @IsPositive()
@@ -51,6 +84,35 @@ export class BolumOlusturDto {
   })
   @IsOptional() @IsBoolean()
   aidatMuafiyeti?: boolean;
+
+  // --- Tapu bilgileri (KMK md. 12) — hepsi isteğe bağlıdır ---
+
+  @ApiPropertyOptional({ example: '1234' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuAda?: string;
+
+  @ApiPropertyOptional({ example: '56' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuParsel?: string;
+
+  @ApiPropertyOptional({ example: 'G21b' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuPafta?: string;
+
+  @ApiPropertyOptional({
+    example: '7',
+    description: 'Tapudaki bağımsız bölüm numarası; kapı numarasından FARKLI olabilir.',
+  })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuBagimsizBolumNo?: string;
+
+  @ApiPropertyOptional({ example: '12' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuCilt?: string;
+
+  @ApiPropertyOptional({ example: '1180' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuSahife?: string;
 }
 
 export class BolumSilDto {

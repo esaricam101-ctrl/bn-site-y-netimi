@@ -5,6 +5,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export interface BlokSatiri {
   readonly id: string;
   readonly ad: string;
+  readonly apartmanId: string;
+  readonly apartmanAdi: string;
+  readonly katSayisi: number;
   readonly bolumSayisi: number;
 }
 
@@ -18,16 +21,26 @@ export class BlokQueryService {
    *
    * Soft delete filtresi Prisma uzantısı tarafından MERKEZÎ uygulanır.
    */
-  async listele(principal: Principal): Promise<readonly BlokSatiri[]> {
+  async listele(principal: Principal, apartmanId?: string): Promise<readonly BlokSatiri[]> {
     const kayitlar = await this.prisma.blok.findMany({
-      where: { tenantId: principal.tenantId },
-      select: { id: true, ad: true, _count: { select: { bolumler: true } } },
-      orderBy: { ad: 'asc' },
+      where: {
+        tenantId: principal.tenantId,
+        ...(apartmanId ? { apartmanId } : {}),
+      },
+      select: {
+        id: true, ad: true, apartmanId: true,
+        apartman: { select: { ad: true } },
+        _count: { select: { bolumler: true, katlar: true } },
+      },
+      orderBy: [{ apartmanId: 'asc' }, { ad: 'asc' }],
     });
 
     return kayitlar.map((k) => ({
       id: k.id,
       ad: k.ad,
+      apartmanId: k.apartmanId,
+      apartmanAdi: k.apartman.ad,
+      katSayisi: k._count.katlar,
       bolumSayisi: k._count.bolumler,
     }));
   }

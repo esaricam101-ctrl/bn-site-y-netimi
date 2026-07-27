@@ -3,28 +3,28 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
-import { BlokCommandService } from './blok.command.service';
-import { BlokQueryService, type BlokSatiri } from './blok.query.service';
-import { BlokOlusturDto, BlokSilDto } from './dto/blok.dto';
+import { KatCommandService } from './kat.command.service';
+import { KatQueryService, type KatSatiri } from './kat.query.service';
+import { KatOlusturDto, KatSilDto } from './dto/kat.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
-@ApiTags('Blok')
+@ApiTags('Kat')
 @ApiBearerAuth()
-@Controller('bloklar')
-export class BlokController {
+@Controller('katlar')
+export class KatController {
   constructor(
-    private readonly command: BlokCommandService,
-    private readonly query: BlokQueryService,
+    private readonly command: KatCommandService,
+    private readonly query: KatQueryService,
   ) {}
 
   @Post()
   @RequirePermission(IZINLER.BOLUM_YONET)
   @ApiOperation({
-    summary: 'Blok oluştur',
-    description: 'Tek bloklu apartmanlarda blok kaydı gerekmez; bölümler bloksuz açılabilir.',
+    summary: 'Kat oluştur',
+    description: 'Kat bir bloğa bağlıdır; blok olmadan kat oluşturulamaz.',
   })
   olustur(
-    @Body() dto: BlokOlusturDto,
+    @Body() dto: KatOlusturDto,
     @AktifPrincipal() principal: Principal,
   ): Promise<KomutSonucu> {
     return this.command.olustur(dto, principal);
@@ -32,24 +32,24 @@ export class BlokController {
 
   @Get()
   @RequirePermission(IZINLER.BOLUM_GORUNTULE)
-  @ApiQuery({ name: 'apartmanId', required: false, description: 'Verilirse yalnızca o apartmanın blokları.' })
-  @ApiOperation({ summary: 'Blokları listele (kat ve bölüm sayısıyla)' })
+  @ApiQuery({ name: 'blokId', required: true })
+  @ApiOperation({ summary: 'Bloğun katlarını listele (bölüm sayısıyla)' })
   listele(
+    @Query('blokId') blokId: string,
     @AktifPrincipal() principal: Principal,
-    @Query('apartmanId') apartmanId?: string,
-  ): Promise<readonly BlokSatiri[]> {
-    return this.query.listele(principal, apartmanId);
+  ): Promise<readonly KatSatiri[]> {
+    return this.query.listele(blokId, principal);
   }
 
   @Delete(':id')
   @RequirePermission(IZINLER.BOLUM_YONET)
   @ApiOperation({
-    summary: 'Bloğu soft-delete et',
-    description: 'Gerekçe zorunludur. Bağımsız bölümü olan blok silinemez.',
+    summary: 'Katı soft-delete et',
+    description: 'Gerekçe zorunludur. Bağımsız bölümü olan kat silinemez.',
   })
   sil(
     @Param('id') id: string,
-    @Body() dto: BlokSilDto,
+    @Body() dto: KatSilDto,
     @AktifPrincipal() principal: Principal,
   ): Promise<KomutSonucu> {
     return this.command.softSil(id, dto.gerekce, principal);

@@ -51,16 +51,23 @@ function araliklarKesisiyorMu(a: BolumIliskisi, b: BolumIliskisi): boolean {
 }
 
 /**
- * Ayni rolde zaman araligi cakismasini reddeder.
+ * Iliski tarihlerini ve tekillik kurallarini dogrular.
  *
- * NEDEN KRITIK: `borcSorumlulariniCoz` gecerli iliskiler arasindan
- * `.find(rol === 'MALIK')` ile TEK kayit secer. Iki malik kaydi ayni tarihte
- * gecerliyse dizideki ilki secilir — borc yanlis kisiye yazilir ve HATA
- * SESSIZDIR. Cozumleme tarafinda savunma yoktur; kural yazma aninda zorlanmak
- * zorundadir.
+ * ROLE GORE FARKLI KURAL:
  *
- * Bir bolumde ayni anda en fazla bir malik ve en fazla bir kiraci bulunur.
- * Farkli roller serbestce ortusur — kiracili bir bolumun maliki de vardir.
+ * `KIRACI` — bir bolumde ayni anda EN FAZLA BIR kiraci bulunur. Iki gecerli
+ * kira iliskisi olursa `borcSorumlulariniCoz` dizideki ilkini secer ve digerini
+ * sessizce yok sayar; kullanana ait gider yanlis kisiye yazilir.
+ *
+ * `MALIK` — cakisma SERBESTTIR. Hisseli mulkiyet gercektir (miras, ortak alim,
+ * esler arasi paylasim) ve birden cok malik ayni anda gecerlidir. Buradaki
+ * koruma tekillik degil, hisse toplaminin tami etmesidir — `hisseleriDogrula`
+ * (malik/malik.ts) bu isi yapar ve tahakkuk oncesi zorlanir.
+ *
+ * NOT: Oturum 5'te malik icin de tekillik zorlaniyordu. Coklu malik
+ * gereksinimiyle birlikte o kural KALDIRILMADI, YERI DEGISTI: tekillik yerine
+ * hisse butunlugu invaryanti gelir. Iki kural da ayni seyi korur — bir bolumun
+ * borcunun tam olarak bir kez ve dogru kisilere yazilmasini.
  */
 export function iliskiyiDogrula(
   mevcut: readonly BolumIliskisi[],
@@ -73,14 +80,16 @@ export function iliskiyiDogrula(
     );
   }
 
+  if (yeni.rol !== 'KIRACI') return;
+
   const cakisan = mevcut.find(
-    (m) => m.rol === yeni.rol && araliklarKesisiyorMu(m, yeni),
+    (m) => m.rol === 'KIRACI' && araliklarKesisiyorMu(m, yeni),
   );
   if (cakisan) {
     const aralik = `${cakisan.baslangic} – ${cakisan.bitis ?? 'suresiz'}`;
     throw new DogrulamaHatasi(
-      `Bu bolumde ${yeni.rol} rolu ${aralik} araliginda zaten dolu; tarihler cakisiyor.`,
-      'Once mevcut iliskiyi sonlandirin, sonra yenisini baslatin.',
+      `Bu bolumde KIRACI rolu ${aralik} araliginda zaten dolu; tarihler cakisiyor.`,
+      'Once mevcut kira iliskisini sonlandirin, sonra yenisini baslatin.',
     );
   }
 }
@@ -99,10 +108,11 @@ export function borcSorumlulariniCoz(
   tahakkukTarihi: TakvimTarihi,
 ): readonly BorcSorumlusu[] {
   const gecerli = tarihtekiIliskiler(iliskiler, tahakkukTarihi);
-  const malik = gecerli.find((i) => i.rol === 'MALIK');
+  // Coklu malik desteklenir; TEK malik durumunda cikti eskisiyle birebir aynidir.
+  const malikler = gecerli.filter((i) => i.rol === 'MALIK');
   const kiraci = gecerli.find((i) => i.rol === 'KIRACI');
 
-  if (!malik) {
+  if (malikler.length === 0) {
     throw new DogrulamaHatasi(
       `${tahakkukTarihi} tarihinde bagimsiz bolumun malik kaydi yok. Borc olusturulamaz.`,
       'Malik kaydini tamamlayip tahakkuku tekrar calistirin.',
@@ -111,22 +121,47 @@ export function borcSorumlulariniCoz(
 
   const alici = borcAlicisiTipi(gider, kiraci !== undefined);
 
-  if (alici === 'MALIK') {
-    return [
-      { kisiId: malik.kisiId, sira: 'ASIL', rol: 'MALIK', cozumlemeTarihi: tahakkukTarihi },
-    ];
-  }
+  const malikSorumlulari = (sira: SorumlulukSirasi): readonly BorcSorumlusu[] =>
+    malikler.map((m) => ({
+      kisiId: m.kisiId, sira, rol: 'MALIK' as const, cozumlemeTarihi: tahakkukTarihi,
+    }));
 
-  // KULLANANA_AIT + kiraci var: kiraci asil, malik ikincil.
+  // MALIKE_AIT: kiraci zincire hic girmez, tum malikler asil sorumludur.
+  if (alici === 'MALIK') return malikSorumlulari('ASIL');
+
+  // KULLANANA_AIT + kiraci var: kiraci asil, malikler ikincil. Malik her
+  // durumda zincirdedir — kiraci odemezse basvurulacak taraf kaybolmaz.
   return [
     { kisiId: (kiraci as BolumIliskisi).kisiId, sira: 'ASIL', rol: 'KIRACI', cozumlemeTarihi: tahakkukTarihi },
-    { kisiId: malik.kisiId, sira: 'IKINCIL', rol: 'MALIK', cozumlemeTarihi: tahakkukTarihi },
+    ...malikSorumlulari('IKINCIL'),
   ];
 }
 
-/** Zincirdeki asil sorumlu — tahsilat once buradan istenir. */
+/** Zincirdeki tum asil sorumlular — tahsilat once bunlardan istenir. */
+export function asilSorumlular(zincir: readonly BorcSorumlusu[]): readonly BorcSorumlusu[] {
+  const asillar = zincir.filter((s) => s.sira === 'ASIL');
+  if (asillar.length === 0) {
+    throw new DogrulamaHatasi('Borc sorumluluk zincirinde ASIL sorumlu yok.');
+  }
+  return asillar;
+}
+
+/**
+ * Zincirdeki TEK asil sorumlu.
+ *
+ * Coklu malik geldiginde MALIKE_AIT bir giderde birden fazla ASIL bulunur ve
+ * "ilkini al" davranisi tam olarak kacinilmak istenen sessiz secimdir: borcun
+ * bir kismi gorunmez olur. Bu yuzden belirsizlik HATA verir; cagiran taraf
+ * `asilSorumlular()` kullanmalidir.
+ */
 export function asilSorumlu(zincir: readonly BorcSorumlusu[]): BorcSorumlusu {
-  const asil = zincir.find((s) => s.sira === 'ASIL');
-  if (!asil) throw new DogrulamaHatasi('Borc sorumluluk zincirinde ASIL sorumlu yok.');
-  return asil;
+  const asillar = asilSorumlular(zincir);
+  if (asillar.length > 1) {
+    throw new DogrulamaHatasi(
+      `Zincirde ${asillar.length} asil sorumlu var; tek sorumlu varsayilamaz. ` +
+        'Hisseli mulkiyette borc maliklere bolunur — asilSorumlular() kullanin.',
+      'Tahsilati kisi bazinda ele alin.',
+    );
+  }
+  return asillar[0] as BorcSorumlusu;
 }

@@ -39,14 +39,27 @@ export class BolumCommandService {
       id,
       tenantId: principal.tenantId,
       blokId: dto.blokId ?? null,
+      katId: dto.katId ?? null,
       kapiNo: dto.kapiNo.trim(),
+      icKapiNo: dto.icKapiNo?.trim() ?? null,
       kat: dto.kat,
       nitelik: dto.nitelik,
+      daireTipi: dto.daireTipi ?? null,
+      kullanimAmaci: dto.kullanimAmaci?.trim() ?? null,
+      durum: dto.durum ?? 'AKTIF',
       brutM2: dto.brutM2,
       netM2: dto.netM2,
       arsaPayiPay: BigInt(dto.arsaPayiPay),
       arsaPayiPayda: BigInt(dto.arsaPayiPayda),
       aidatMuafiyeti: dto.aidatMuafiyeti ?? false,
+      tapu: {
+        ada: dto.tapuAda ?? null,
+        parsel: dto.tapuParsel ?? null,
+        pafta: dto.tapuPafta ?? null,
+        bagimsizBolumNo: dto.tapuBagimsizBolumNo ?? null,
+        cilt: dto.tapuCilt ?? null,
+        sahife: dto.tapuSahife ?? null,
+      },
     });
     const o = bolum.anlik();
 
@@ -61,6 +74,28 @@ export class BolumCommandService {
           select: { id: true },
         });
         if (!blok) throw new KayitBulunamadi(`Blok bulunamadı: ${o.blokId}`);
+      }
+
+      // Kat da tenant kapsamlidir; ayrica VERILEN BLOGA ait olmalidir, aksi
+      // halde hiyerarsi tutarsizlasir (bolum A blogunda, kati B blogunda).
+      if (o.katId !== null) {
+        const kat = await tx.kat.findFirst({
+          where: { id: o.katId, tenantId: principal.tenantId },
+          select: { id: true, blokId: true, no: true },
+        });
+        if (!kat) throw new KayitBulunamadi(`Kat bulunamadı: ${o.katId}`);
+        if (o.blokId !== null && kat.blokId !== o.blokId) {
+          throw new IsKuraliIhlali(
+            'Seçilen kat, seçilen bloğa ait değil.',
+            'Kat ve blok seçimini kontrol edin.',
+          );
+        }
+        if (kat.no !== o.kat) {
+          throw new IsKuraliIhlali(
+            `Kat numarası (${o.kat}) seçilen kat kaydıyla (${kat.no}) uyuşmuyor.`,
+            'Kat numarasını kat kaydıyla eşitleyin.',
+          );
+        }
       }
 
       // Ayni blokta ayni kapi no iki kez bulunamaz. NOT: bu kontrol ile yazma
@@ -82,14 +117,25 @@ export class BolumCommandService {
           id: o.id,
           tenantId: o.tenantId,
           blokId: o.blokId,
+          katId: o.katId,
           kapiNo: o.kapiNo,
+          icKapiNo: o.icKapiNo,
           kat: o.kat,
           nitelik: o.nitelik,
+          daireTipi: o.daireTipi,
+          kullanimAmaci: o.kullanimAmaci,
+          durum: o.durum,
           brutM2: o.brutM2,
           netM2: o.netM2,
           arsaPayiPay: o.arsaPayiPay,
           arsaPayiPayda: o.arsaPayiPayda,
           aidatMuafiyeti: o.aidatMuafiyeti,
+          tapuAda: o.tapu.ada,
+          tapuParsel: o.tapu.parsel,
+          tapuPafta: o.tapu.pafta,
+          tapuBagimsizBolumNo: o.tapu.bagimsizBolumNo,
+          tapuCilt: o.tapu.cilt,
+          tapuSahife: o.tapu.sahife,
         },
       });
 

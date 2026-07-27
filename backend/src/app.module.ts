@@ -19,6 +19,8 @@ import { KisiModule } from './modules/kisi/kisi.module';
 import { BolumModule } from './modules/bolum/bolum.module';
 import { IliskiModule } from './modules/iliski/iliski.module';
 import { BlokModule } from './modules/blok/blok.module';
+import { ApartmanModule } from './modules/apartman/apartman.module';
+import { KatModule } from './modules/kat/kat.module';
 
 @Module({
   imports: [
@@ -31,9 +33,12 @@ import { BlokModule } from './modules/blok/blok.module';
     OturumModule,
     TenantModule,
     KisiModule,
+    // Hiyerarşi sırası (ADR-0008): Apartman → Blok → Kat → BagimsizBolum
+    ApartmanModule,
+    BlokModule,
+    KatModule,
     BolumModule,
     IliskiModule,
-    BlokModule,
   ],
   providers: [
     // ÜÇ KAPI — sıra değişmez (ADR-0006 · BFS v1 §3).

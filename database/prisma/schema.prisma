@@ -54,8 +54,14 @@ model Tenant {
 
   kisiler          Kisi[]
   kullanicilar     Kullanici[]
+  apartmanlar      Apartman[]
   bloklar          Blok[]
+  katlar           Kat[]
   bagimsizBolumler BagimsizBolum[]
+  malikler         Malik[]
+  kiracilar        Kiraci[]
+  sakinler         Sakin[]
+  giderTurleri     GiderTuru[]
   hesaplar         Hesap[]
   yevmiyeler       YevmiyeFisi[]
   borclar          Borc[]
@@ -95,6 +101,10 @@ model Kisi {
   kullanici       Kullanici?
   bolumIliskileri BolumIliskisi[]
   borcSorumluluk  BorcSorumlusu[]
+  maliklikleri    Malik[]          @relation("MalikKisi")
+  vekillikleri    Malik[]          @relation("MalikVekil")
+  kiraciliklari   Kiraci[]
+  sakinlikleri    Sakin[]
 
   @@index([tenantId, soyad, ad])
   @@map("kisi")
@@ -151,10 +161,38 @@ enum BolumNiteligi {
   ORTAK_ALAN
 }
 
+/// ADR-0008 — Tenant bir apartman ya da bir SİTE olabilir. Site birden çok
+/// apartman taşır; tek apartmanlı tenant'ta bu tabloda bir kayıt bulunur.
+/// Tenant SINIRI AŞILMAZ: bütün hiyerarşi aynı tenant_id altındadır.
+model Apartman {
+  id       String  @id @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  ad       String  @db.VarChar(120)
+  adres    String?
+  /// Site içindeki kısa kod — 'A', 'Kuzey' gibi. Site dışı tenant'ta boş kalır.
+  siteIciKod String? @map("site_ici_kod") @db.VarChar(16)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id])
+  bloklar Blok[]
+
+  @@index([tenantId])
+  @@map("apartman")
+}
+
 model Blok {
-  id       String @id @db.Uuid
-  tenantId String @map("tenant_id") @db.Uuid
-  ad       String @db.VarChar(40)
+  id         String @id @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  /// Üst kayıt olmadan alt kayıt oluşturulamaz — blok daima bir apartmana bağlıdır.
+  apartmanId String @map("apartman_id") @db.Uuid
+  ad         String @db.VarChar(40)
 
   silindiMi      Boolean   @default(false) @map("silindi_mi")
   silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
@@ -163,21 +201,67 @@ model Blok {
 
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
 
-  tenant  Tenant          @relation(fields: [tenantId], references: [id])
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  apartman Apartman        @relation(fields: [apartmanId], references: [id])
+  katlar   Kat[]
   bolumler BagimsizBolum[]
 
+  @@index([tenantId, apartmanId])
   @@map("blok")
+}
+
+/// Kat, blok içindeki düzeydir. `no` negatif olabilir (bodrum).
+model Kat {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  blokId   String @map("blok_id") @db.Uuid
+  no       Int
+  ad       String? @db.VarChar(40)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  blok     Blok            @relation(fields: [blokId], references: [id])
+  bolumler BagimsizBolum[]
+
+  @@index([tenantId, blokId])
+  @@map("kat")
 }
 
 model BagimsizBolum {
   id       String        @id @db.Uuid
   tenantId String        @map("tenant_id") @db.Uuid
   blokId   String?       @map("blok_id") @db.Uuid
+  katId    String?       @map("kat_id") @db.Uuid
   kapiNo   String        @map("kapi_no") @db.VarChar(16)
+  /// Bina dışından görünen kapı no ile daire içi numara farklı olabilir.
+  icKapiNo String?       @map("ic_kapi_no") @db.VarChar(16)
+  /// Kat numarası; `katId` verildiğinde onunla tutarlı olmalıdır.
   kat      Int
+  /// Tapudaki hukuki vasıf. Değişmez.
   nitelik  BolumNiteligi @default(MESKEN)
+  /// 1+1, 2+1 gibi. Serbest metin değil — raporlanabilir olsun diye enum.
+  daireTipi DaireTipi?   @map("daire_tipi")
+  /// Fiili kullanım amacı: 'konut', 'muayenehane' gibi. `nitelik`ten ayrıdır.
+  kullanimAmaci String?  @map("kullanim_amaci") @db.VarChar(80)
+  /// Günlük işletme durumu. `nitelik` hukuki, `durum` fiilidir.
+  durum    BolumDurumu   @default(AKTIF)
   brutM2   Decimal       @map("brut_m2") @db.Decimal(10, 2)
   netM2    Decimal       @map("net_m2") @db.Decimal(10, 2)
+
+  /// --- Tapu bilgileri (KMK md. 12) ---
+  tapuAda            String? @map("tapu_ada") @db.VarChar(20)
+  tapuParsel         String? @map("tapu_parsel") @db.VarChar(20)
+  tapuPafta          String? @map("tapu_pafta") @db.VarChar(20)
+  /// Tapudaki bağımsız bölüm numarası; kapı numarasından FARKLI olabilir.
+  tapuBagimsizBolumNo String? @map("tapu_bagimsiz_bolum_no") @db.VarChar(20)
+  tapuCilt           String? @map("tapu_cilt") @db.VarChar(20)
+  tapuSahife         String? @map("tapu_sahife") @db.VarChar(20)
   /// Arsa payı pay/payda olarak tutulur — ondalık yuvarlama hatası olmasın (KMK md. 3).
   arsaPayiPay    BigInt  @map("arsa_payi_pay")
   arsaPayiPayda  BigInt  @map("arsa_payi_payda")
@@ -193,11 +277,35 @@ model BagimsizBolum {
 
   tenant    Tenant          @relation(fields: [tenantId], references: [id])
   blok      Blok?           @relation(fields: [blokId], references: [id])
+  katKaydi  Kat?            @relation(fields: [katId], references: [id])
   iliskiler BolumIliskisi[]
+  malikler  Malik[]
+  kiracilar Kiraci[]
+  sakinler  Sakin[]
   borclar   Borc[]
 
   @@index([tenantId, blokId])
+  @@index([tenantId, katId])
   @@map("bagimsiz_bolum")
+}
+
+enum DaireTipi {
+  STUDYO
+  BIR_SIFIR
+  BIR_BIR
+  IKI_BIR
+  UC_BIR
+  DORT_BIR
+  BES_BIR
+  DUBLEKS
+  DIGER
+}
+
+enum BolumDurumu {
+  AKTIF
+  BOS
+  TADILATTA
+  KULLANIM_DISI
 }
 
 enum IliskiRolu {
@@ -222,6 +330,192 @@ model BolumIliskisi {
 
   @@index([tenantId, bolumId, rol])
   @@map("bolum_iliskisi")
+}
+
+// ===========================================================================
+// MALİK · KİRACI · SAKİN
+//
+// Üçü AYRI kavramdır ve karıştırılmaz:
+//   Malik  — tapu sahibi. Birden çok olabilir, hisselidir, oturmayabilir.
+//   Kiracı — kira sözleşmesinin tarafı. Oturmayabilir (şirket kiracı olabilir).
+//   Sakin  — fiilen oturan. Malik, kiracı ya da onların yakını olabilir.
+//
+// HİÇBİRİ SİLİNMEZ. Geçmiş kayıtlar tarihçe olarak kalır; ilişki `bitis`
+// tarihi alarak kapanır. Borç sorumluluğu borcun oluştuğu anda çözülüp
+// yazılır (snapshot) — geçmişi silmek o kaydın dayanağını yok eder.
+// ===========================================================================
+
+enum TapuTuru {
+  KAT_MULKIYETI
+  KAT_IRTIFAKI
+  ARSA_PAYLI
+  MIRAS_ISTIRAK
+  DIGER
+}
+
+/// Hisseli mülkiyet. Aynı bölümde aynı tarihte birden çok malik GEÇERLİDİR;
+/// koruma tekillik değil, hisse toplamının tamı etmesidir (KMK md. 3 deseni).
+model Malik {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  bolumId  String @map("bolum_id") @db.Uuid
+  kisiId   String @map("kisi_id") @db.Uuid
+
+  /// Hisse pay/payda olarak tutulur; ondalık yüzde 1/3'te toplamı bozar (ADR-0007).
+  hissePay   BigInt @map("hisse_pay")
+  hissePayda BigInt @map("hisse_payda")
+
+  tapuTuru       TapuTuru  @default(KAT_MULKIYETI) @map("tapu_turu")
+  /// BFS v1 §4.1 — takvim tarihi, saat dilimsiz DATE.
+  tapuBaslangic  DateTime  @map("tapu_baslangic") @db.Date
+  tapuBitis      DateTime? @map("tapu_bitis") @db.Date
+  tapuYevmiyeNo  String?   @map("tapu_yevmiye_no") @db.VarChar(40)
+
+  /// Vekil de bir kişidir; vekâletname referansı ayrı tutulur (C-4 hukuki görüş).
+  vekilKisiId       String? @map("vekil_kisi_id") @db.Uuid
+  vekaletnameNo     String? @map("vekaletname_no") @db.VarChar(40)
+  vekaletBitisTarihi DateTime? @map("vekalet_bitis_tarihi") @db.Date
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  bolum  BagimsizBolum @relation(fields: [bolumId], references: [id])
+  kisi   Kisi          @relation("MalikKisi", fields: [kisiId], references: [id])
+  vekil  Kisi?         @relation("MalikVekil", fields: [vekilKisiId], references: [id])
+
+  @@index([tenantId, bolumId, tapuBaslangic])
+  @@map("malik")
+}
+
+model Kiraci {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  bolumId  String @map("bolum_id") @db.Uuid
+  kisiId   String @map("kisi_id") @db.Uuid
+
+  baslangic DateTime  @db.Date
+  bitis     DateTime? @db.Date
+
+  sozlesmeNo       String?  @map("sozlesme_no") @db.VarChar(40)
+  sozlesmeTarihi   DateTime? @map("sozlesme_tarihi") @db.Date
+  /// Para: numeric(18,4) — ADR-0007 ölçeklenmiş bigint ile birebir örtüşür.
+  depozito         Decimal? @db.Decimal(18, 4)
+  depozitoIadeTarihi DateTime? @map("depozito_iade_tarihi") @db.Date
+
+  tahliyeTarihi   DateTime? @map("tahliye_tarihi") @db.Date
+  tahliyeGerekcesi String?  @map("tahliye_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  bolum  BagimsizBolum @relation(fields: [bolumId], references: [id])
+  kisi   Kisi          @relation(fields: [kisiId], references: [id])
+
+  @@index([tenantId, bolumId, baslangic])
+  @@map("kiraci")
+}
+
+enum YakinlikDerecesi {
+  KENDISI
+  ES
+  COCUK
+  ANNE_BABA
+  KARDES
+  AKRABA
+  MISAFIR
+  CALISAN
+  DIGER
+}
+
+/// Fiilen oturan kişi. Kiracıdan AYRIDIR: malik oturabilir, kiracı oturmayıp
+/// ailesi oturabilir, kiracı dışında sakinler bulunabilir.
+model Sakin {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  bolumId  String @map("bolum_id") @db.Uuid
+  kisiId   String @map("kisi_id") @db.Uuid
+
+  yakinlikDerecesi YakinlikDerecesi @default(KENDISI) @map("yakinlik_derecesi")
+  girisTarihi      DateTime  @map("giris_tarihi") @db.Date
+  cikisTarihi      DateTime? @map("cikis_tarihi") @db.Date
+
+  acilDurumKisiAdi   String? @map("acil_durum_kisi_adi") @db.VarChar(120)
+  acilDurumTelefon   String? @map("acil_durum_telefon") @db.VarChar(24)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  bolum  BagimsizBolum @relation(fields: [bolumId], references: [id])
+  kisi   Kisi          @relation(fields: [kisiId], references: [id])
+
+  @@index([tenantId, bolumId, girisTarihi])
+  @@map("sakin")
+}
+
+// ===========================================================================
+// GİDER TÜRÜ — aidat kuralları VERİ'dir, koda gömülmez (ADR-0004 · ADR v1.1 §4)
+// ===========================================================================
+
+enum PaylasimKurali {
+  ESIT
+  ARSA_PAYI
+  BRUT_M2
+  NET_M2
+  METREKARE
+  TUKETIM
+  SABIT_TUTAR
+  KARMA
+}
+
+enum SorumlulukTipi {
+  MALIKE_AIT
+  KULLANANA_AIT
+}
+
+enum KuralKaynagi {
+  KMK_VARSAYILAN
+  YONETIM_PLANI
+  GENEL_KURUL_KARARI
+}
+
+/// Tenant başına gider türü kataloğu. KMK varsayılanları tohumla yüklenir;
+/// yönetim planı veya genel kurul kararı ile override edilir ve override
+/// DAİMA kaynak referansı taşır — bir kuralın nereden geldiği kaybolmaz.
+model GiderTuru {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  kod      String @db.VarChar(40)
+  ad       String @db.VarChar(120)
+
+  paylasimKurali PaylasimKurali @map("paylasim_kurali")
+  sorumlulukTipi SorumlulukTipi @map("sorumluluk_tipi")
+  kuralKaynagi   KuralKaynagi   @map("kural_kaynagi")
+  kaynakReferansi String?       @map("kaynak_referansi") @db.VarChar(200)
+
+  /// KARMA bileşenleri: [{ kural, yuzde }]. Toplam 100 olmak zorundadır;
+  /// kısıt uygulama katmanında `giderTuruDogrula` ile zorlanır.
+  karmaBilesenler Json? @map("karma_bilesenler")
+
+  /// Bir bölümün borcunun malikler arasında nasıl bölüneceği.
+  malikPaylasimi String @default("HISSE_ORANI") @map("malik_paylasimi") @db.VarChar(20)
+
+  aktifMi Boolean @default(true) @map("aktif_mi")
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, kod])
+  @@map("gider_turu")
 }
 
 // ===========================================================================
@@ -358,6 +652,15 @@ model BorcSorumlusu {
   rol      IliskiRolu
   /// SNAPSHOT kanıtı — sorumluluk bu tarihte çözüldü ve DEĞİŞMEZ.
   cozumlemeTarihi DateTime @map("cozumleme_tarihi") @db.Date
+
+  /// Bu kişiden istenen tutar. Hisseli mülkiyette borç maliklere BÖLÜNÜR;
+  /// bir malik kendi payını ödediğinde diğerlerinin borcu açık kalmalıdır.
+  /// Tek sorumlu varsa borcun tamamına eşittir.
+  pay      Decimal @db.Decimal(18, 4)
+  odenen   Decimal @default(0) @db.Decimal(18, 4)
+  /// Dağıtımda kullanılan ağırlık — hisse oranı ya da manuel değer.
+  agirlik  BigInt  @default(1)
+  kapandiMi Boolean @default(false) @map("kapandi_mi")
 
   borc Borc @relation(fields: [borcId], references: [id])
   kisi Kisi @relation(fields: [kisiId], references: [id])

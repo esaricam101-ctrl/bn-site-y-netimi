@@ -33,23 +33,34 @@ export class BlokCommandService {
     const ad = dto.ad.trim();
 
     return this.prisma.tenantIslemi(async (tx) => {
+      // Apartman bu tenant'a ait olmalidir. FK kontrolu bunu YAKALAMAZ:
+      // PostgreSQL referans butunlugu tetikleyicileri RLS'i baypas eder.
+      const apartman = await tx.apartman.findFirst({
+        where: { id: dto.apartmanId, tenantId: principal.tenantId },
+        select: { id: true, ad: true },
+      });
+      if (!apartman) throw new KayitBulunamadi(`Apartman bulunamadı: ${dto.apartmanId}`);
+
+      // Blok adi APARTMAN icinde tekildir — sitede iki apartmanin da 'A Blok'u olabilir.
       const mevcut = await tx.blok.findFirst({
-        where: { tenantId: principal.tenantId, ad },
+        where: { tenantId: principal.tenantId, apartmanId: dto.apartmanId, ad },
         select: { id: true },
       });
       if (mevcut) {
         throw new IsKuraliIhlali(
-          `'${ad}' adında bir blok bu apartmanda zaten var.`,
+          `'${apartman.ad}' apartmanında '${ad}' adında bir blok zaten var.`,
           'Farklı bir blok adı kullanın.',
         );
       }
 
-      await tx.blok.create({ data: { id, tenantId: principal.tenantId, ad } });
+      await tx.blok.create({
+        data: { id, tenantId: principal.tenantId, apartmanId: dto.apartmanId, ad },
+      });
 
       await this.audit.yaz(tx, {
         tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
         varlik: 'Blok', varlikId: id,
-        sonrakiDeger: { ad },
+        sonrakiDeger: { ad, apartmanId: dto.apartmanId },
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
       });
@@ -58,7 +69,7 @@ export class BlokCommandService {
         eventType: 'apartman.blok.olusturuldu', eventVersion: 1,
         tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
         aggregate: { tip: 'Blok', id, version: 1 },
-        payload: { ad },
+        payload: { ad, apartmanId: dto.apartmanId },
       });
 
       return { id, durum: 'AKTIF' };

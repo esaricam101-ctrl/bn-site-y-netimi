@@ -31,6 +31,11 @@ export const EVENT_KATALOGU: readonly EventKatalogKaydi[] = [
   { eventType: 'apartman.bolum_iliskisi.sonlandirildi', eventVersion: 1, sahipModul: 'iliski', aciklama: 'Malik veya kiraci iliskisi bitis tarihi aldi' },
   { eventType: 'apartman.blok.olusturuldu', eventVersion: 1, sahipModul: 'blok', aciklama: 'Blok kaydi olusturuldu' },
   { eventType: 'apartman.blok.silindi', eventVersion: 1, sahipModul: 'blok', aciklama: 'Blok kaydi soft-delete edildi' },
+  // ADR-0008 — tenant bir apartman ya da site olabilir; apartman tenant ICINDEDIR.
+  { eventType: 'apartman.apartman.olusturuldu', eventVersion: 1, sahipModul: 'apartman', aciklama: 'Apartman kaydi olusturuldu' },
+  { eventType: 'apartman.apartman.silindi', eventVersion: 1, sahipModul: 'apartman', aciklama: 'Apartman kaydi soft-delete edildi' },
+  { eventType: 'apartman.kat.olusturuldu', eventVersion: 1, sahipModul: 'kat', aciklama: 'Kat kaydi olusturuldu' },
+  { eventType: 'apartman.kat.silindi', eventVersion: 1, sahipModul: 'kat', aciklama: 'Kat kaydi soft-delete edildi' },
 ];
 
 const KATALOG_INDEKS = new Map(
