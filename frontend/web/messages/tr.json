@@ -1,0 +1,67 @@
+{
+  "genel": {
+    "uygulamaAdi": "BNOS Apartman Yönetimi",
+    "yukleniyor": "Yükleniyor…",
+    "hata": "Bir sorun oluştu",
+    "tekrarDene": "Tekrar dene",
+    "iptal": "İptal",
+    "kaydet": "Kaydet",
+    "sil": "Sil",
+    "veriYok": "Kayıt bulunamadı",
+    "kapat": "Kapat"
+  },
+  "giris": {
+    "baslik": "Giriş yap",
+    "aciklama": "Apartman yönetim panelinize erişin",
+    "eposta": "E-posta",
+    "sifre": "Şifre",
+    "gonder": "Giriş yap",
+    "hataliKimlik": "E-posta veya şifre hatalı",
+    "oturumSuresiDoldu": "Oturumunuzun süresi doldu. Yeniden giriş yapın."
+  },
+  "navigasyon": {
+    "genelBakis": "Genel Bakış",
+    "sakinler": "Sakinler",
+    "bolumler": "Bağımsız Bölümler",
+    "finans": "Finans",
+    "talepler": "Talepler",
+    "belgeler": "Belgeler",
+    "ayarlar": "Ayarlar",
+    "cikis": "Çıkış"
+  },
+  "panel": {
+    "baslik": "Genel Bakış",
+    "apartman": "Apartman",
+    "bolumSayisi": "Bağımsız bölüm",
+    "kisiSayisi": "Kayıtlı kişi",
+    "durum": "Durum",
+    "durumKURULUM": "Kurulum",
+    "durumAKTIF": "Aktif",
+    "durumASKIDA": "Askıda",
+    "durumARSIV": "Arşiv",
+    "veriTazeligi": "Veriler {saat} itibarıyla",
+    "finansalVeriTaze": "Finansal rakamlar her zaman kaynaktan okunur; önbelleklenmez."
+  },
+  "kisi": {
+    "baslik": "Sakinler",
+    "yeni": "Yeni kişi",
+    "ad": "Ad",
+    "soyad": "Soyad",
+    "eposta": "E-posta",
+    "telefon": "Telefon",
+    "silOnay": "Bu kişiyi silmek istediğinize emin misiniz?",
+    "silGerekce": "Silme gerekçesi",
+    "silGerekceIpucu": "En az 10 karakter. Denetim kaydına yazılır.",
+    "silUyari": "Bu işlem kişiyi arşivler. KVKK kapsamındaki silme talebi ayrı bir işlemdir."
+  },
+  "yetki": {
+    "erisimYok": "Bu sayfaya erişim yetkiniz yok",
+    "gerekenIzin": "Gereken izin: {izin}",
+    "yoneticiyeBasvurun": "Yöneticinizden bu izni talep edin."
+  },
+  "hatalar": {
+    "ag": "Sunucuya ulaşılamadı",
+    "destekNumarasi": "Destek numarası: {correlationId}",
+    "sonrakiEylem": "Ne yapmalı: {eylem}"
+  }
+}

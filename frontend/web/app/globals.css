@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tasarim token'lari @bnos/ui-tokens'tan gelir.
+ * Buradaki degerler cssDegiskenleri() ciktisiyla ayni kaynaktandir;
+ * yeni renk veya olcu TANIMLANMAZ.
+ */
+:root {
+  --primary: #0E7490;
+  --secondary: #2563EB;
+  --dark: #0F172A;
+  --darker: #060B14;
+  --text: #E2E8F0;
+  --success: #10B981;
+  --warn: #F59E0B;
+  --crit: #EF4444;
+  --info: #38BDF8;
+  --muted: rgba(226, 232, 240, .68);
+  --muted-2: rgba(226, 232, 240, .52);
+  --line: rgba(255, 255, 255, .06);
+  --glass-bg: rgba(15, 23, 42, .6);
+  --grad: linear-gradient(135deg, #0E7490, #2563EB);
+  --glow: 0 0 60px rgba(14, 116, 144, .15);
+  --r: 14px;
+  --rs: 10px;
+  --pad: 20px;
+  --cardpad: 20px;
+  --rowh: 44px;
+  --fz: 14px;
+}
+
+/* Yogunluk anahtari — tek aralik-token degisimi (V22'den korunmustur). */
+body[data-density='sikisik'] {
+  --pad: 12px; --cardpad: 14px; --rowh: 34px; --fz: 13px;
+}
+
+body {
+  background: var(--dark);
+  color: var(--text);
+  font-size: var(--fz);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Erisilebilirlik — prototiplerden korunan davranislar */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.skip {
+  position: absolute; left: -999px; top: 8px; z-index: 200;
+  background: var(--grad); color: #fff; padding: 10px 16px;
+  border-radius: var(--rs); font-weight: 700;
+}
+.skip:focus { left: 8px; }
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.num { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

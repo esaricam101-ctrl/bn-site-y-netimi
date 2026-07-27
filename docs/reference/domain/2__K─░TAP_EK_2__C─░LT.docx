@@ -1,0 +1,11117 @@
+1.2 Tasarım İlkesi
+
+BNOS'ta hiçbir AI Agent kendi belleğini tutamaz.
+
+Yanlış yaklaşım:
+
+Agent
+
+ ├── Memory
+
+ ├── Context
+
+ ├── History
+
+Doğru yaklaşım:
+
+               Enterprise Memory
+
+                      │
+
+      ┌───────────────┼───────────────┐
+
+      │               │               │
+
+  Agent A         Agent B        Workflow
+
+      │               │               │
+
+      └───────────────┼───────────────┘
+
+                      │
+
+                 Knowledge Graph
+
+Bu sayede:
+
+- Ajan değişse bile bilgi kaybolmaz. 
+
+- LLM değişse bile bağlam korunur. 
+
+- Modüller ortak kurumsal hafızayı kullanır. 
+
+1.3 Enterprise Memory'nin Görevleri
+
+Enterprise Memory aşağıdaki soruların cevabını tutar:
+
+Kim?
+
+- kullanıcı 
+
+- müşteri 
+
+- çalışan 
+
+- yönetici 
+
+- firma 
+
+- tedarikçi 
+
+Ne?
+
+- belge 
+
+- sözleşme 
+
+- toplantı 
+
+- karar 
+
+- görev 
+
+- rapor 
+
+Nerede?
+
+- modül 
+
+- tenant 
+
+- proje 
+
+- departman 
+
+- workflow 
+
+Ne zaman?
+
+- oluşturulma 
+
+- güncelleme 
+
+- son erişim 
+
+- son kullanım 
+
+- son doğrulama 
+
+Neden?
+
+Kararın oluşma nedeni.
+
+Business Rule geçmişi.
+
+Nasıl?
+
+İş akışının tamamı.
+
+1.4 Enterprise Memory'nin Temel İlkeleri
+
+Rule 1
+
+Memory merkezi olacaktır.
+
+Hiçbir modül kendi hafızasını yönetemez.
+
+Rule 2
+
+Memory immutable event geçmişini koruyacaktır.
+
+Silmek yerine versiyon oluşturacaktır.
+
+Rule 3
+
+Her kayıt metadata taşıyacaktır.
+
+Örneğin:
+
+- Owner 
+
+- Scope 
+
+- Classification 
+
+- Importance 
+
+- Source 
+
+- Trust Level 
+
+- Expiration 
+
+- Encryption Level 
+
+- Security Label 
+
+Rule 4
+
+Memory her zaman sorgulanabilir olacaktır.
+
+SQL
+
+Graph
+
+Semantic
+
+Hybrid
+
+Vector
+
+gibi farklı yöntemlerle erişilebilecektir.
+
+Rule 5
+
+Memory AI'dan bağımsız olacaktır.
+
+AI yalnızca okuyabilir ve yazabilir.
+
+Memory'nin sahibi AI değildir.
+
+1.5 BNOS Yürütme Zinciri
+
+Bu zincir değiştirilemez.
+
+User Request
+
+      │
+
+      ▼
+
+Authentication
+
+      │
+
+Authorization
+
+      │
+
+Enterprise Memory
+
+      │
+
+Knowledge Graph
+
+      │
+
+Business Rules
+
+      │
+
+Workflow Engine
+
+      │
+
+AI Orchestrator
+
+      │
+
+LLM Gateway
+
+      │
+
+Tool Execution
+
+      │
+
+Response
+
+Bu sıralama BNOS'un temel mimari sözleşmesidir.
+
+1.6 Enterprise Memory'nin Kapsamı
+
+Enterprise Memory aşağıdaki bilgi türlerini yönetir:
+
+Working Memory
+
+İşlem sırasında geçici bağlam.
+
+Episodic Memory
+
+Geçmiş olaylar.
+
+Semantic Memory
+
+Kurumsal bilgi.
+
+Procedural Memory
+
+İş süreçleri.
+
+Organizational Memory
+
+Şirket politikaları.
+
+Agent Memory
+
+Ajanların öğrendiği bilgiler.
+
+Workflow Memory
+
+Süreçlerin durumu.
+
+Conversation Memory
+
+Kullanıcı etkileşim geçmişi.
+
+Decision Memory
+
+Verilen kararların gerekçeleri.
+
+Audit Memory
+
+Denetim kayıtları.
+
+1.7 Enterprise Memory'nin Sahibi
+
+Enterprise Memory hiçbir modüle ait değildir.
+
+Sahibi yalnızca:
+
+BNOS Kernel
+
+olacaktır.
+
+Hiçbir Engine doğrudan Memory yönetemez.
+
+1.8 Sprint 0.9 Hedefi
+
+Sprint 0.9'da henüz veritabanı yazılmayacaktır.
+
+Amaç:
+
+- Memory sözleşmeleri (Contracts) 
+
+- Abstraction katmanı 
+
+- Provider modeli 
+
+- Yaşam döngüsü 
+
+- Kapsam (Scope) 
+
+- Metadata modeli 
+
+- Güvenlik modeli 
+
+- Genişletilebilirlik (Extensibility) 
+
+gibi temel mimariyi oluşturmaktır.
+
+Kodun bu mimariye göre yazılması Sprint 0.9'un teslim kriteri olacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 2 — Enterprise Memory Domain Model
+
+Bu bölüm artık teoriden çıkar ve doğrudan yazılım mimarisini tanımlar.
+
+Burada alınan kararlar Sprint 0.9 kodunun tamamını belirleyecektir.
+
+2.1 Tasarım Prensibi
+
+Enterprise Memory bir tablo değildir.
+
+Bir koleksiyon değildir.
+
+Bir cache değildir.
+
+Bir Entity Framework modeli değildir.
+
+Enterprise Memory bir Domain'dir.
+
+Yani kendi:
+
+- kuralları 
+
+- yaşam döngüsü 
+
+- versiyonları 
+
+- olayları 
+
+- güvenliği 
+
+- politikaları 
+
+vardır.
+
+2.2 Aggregate Root
+
+Memory dünyasının merkezi Aggregate'ı:
+
+MemoryRecord
+
+olacaktır.
+
+Hiçbir Entity doğrudan Repository tarafından yönetilemez.
+
+Daima Aggregate üzerinden yönetilir.
+
+MemoryRecord
+
+ ├── Metadata
+
+ ├── Content
+
+ ├── References
+
+ ├── Security
+
+ ├── Versions
+
+ ├── Tags
+
+ ├── Embeddings
+
+ └── Audit
+
+2.3 MemoryRecord
+
+Her bilgi MemoryRecord'dur.
+
+Örneğin;
+
+Bir toplantı
+
+Bir aidat kararı
+
+Bir bakım planı
+
+Bir PDF
+
+Bir AI cevabı
+
+Bir telefon görüşmesi
+
+Bir Workflow sonucu
+
+Bir Agent çıktısı
+
+hepsi MemoryRecord olur.
+
+MemoryRecord;
+
+Identity
+
+Type
+
+Scope
+
+Owner
+
+Content
+
+Metadata
+
+CreatedAt
+
+ModifiedAt
+
+ExpiresAt
+
+Importance
+
+Security
+
+Classification
+
+TrustLevel
+
+Language
+
+Source
+
+Version
+
+bilgilerini taşır.
+
+2.4 Content Ayrımı
+
+Memory ikiye ayrılır.
+
+Content
+
+Gerçek bilgi.
+
+Örneğin
+
+"Blok A asansör bakımı 15 Ağustos'ta yapılacaktır."
+
+Metadata
+
+Bilgiyi açıklayan bilgi.
+
+Örneğin
+
+Kategori
+
+Etiket
+
+Güven
+
+Dil
+
+Kaynak
+
+İmza
+
+Hash
+
+Versiyon
+
+Tenant
+
+Modül
+
+BNOS hiçbir zaman Metadata ile Content'i aynı nesnede karıştırmayacaktır.
+
+2.5 Value Objects
+
+Memory içerisinde aşağıdaki nesneler Value Object olacaktır.
+
+MemoryId
+
+MemoryScope
+
+MemoryType
+
+Importance
+
+TrustLevel
+
+Language
+
+Classification
+
+RetentionPolicy
+
+SecurityLabel
+
+ContentHash
+
+Checksum
+
+VersionNumber
+
+Bunların tamamı immutable olacaktır.
+
+2.6 Entity'ler
+
+Memory Aggregate içerisinde yaşayacak Entity'ler:
+
+MemoryReference
+
+MemoryAttachment
+
+MemoryVersion
+
+MemoryTag
+
+MemoryComment
+
+MemoryEmbedding
+
+MemoryPermission
+
+MemoryAudit
+
+MemoryRelation
+
+2.7 Memory Type
+
+Her kayıt tek bir MemoryType taşır.
+
+Working
+
+Semantic
+
+Episodic
+
+Procedural
+
+Organizational
+
+Conversation
+
+Workflow
+
+Decision
+
+Learning
+
+Temporary
+
+Cached
+
+Reference
+
+2.8 Scope
+
+Scope BNOS'un en önemli kavramlarından biridir.
+
+Aynı bilgi farklı tenantlarda farklı görünür.
+
+Bu nedenle Scope zorunludur.
+
+Global
+
+Organization
+
+Tenant
+
+Project
+
+Department
+
+Module
+
+Workflow
+
+Conversation
+
+Session
+
+Agent
+
+User
+
+Hiçbir kayıt Scope olmadan oluşamaz.
+
+2.9 Importance
+
+Her kayıt önem derecesi taşır.
+
+Critical
+
+High
+
+Medium
+
+Low
+
+Temporary
+
+Bu değer;
+
+Retention,
+
+Backup,
+
+Replication,
+
+Compression
+
+algoritmalarını etkiler.
+
+2.10 Trust Level
+
+BNOS yalnızca bilgiyi saklamaz.
+
+Bilginin güven seviyesini de bilir.
+
+Verified
+
+Trusted
+
+Probable
+
+Unknown
+
+Generated
+
+External
+
+Deprecated
+
+Örneğin;
+
+AI cevabı
+
+Generated
+
+olacaktır.
+
+Resmi yönetmelik
+
+Verified
+
+olacaktır.
+
+2.11 Classification
+
+Kurumsal güvenlik.
+
+Public
+
+Internal
+
+Confidential
+
+Secret
+
+TopSecret
+
+Bu alan Authorization Engine tarafından kullanılacaktır.
+
+2.12 Versioning
+
+Memory overwrite edilmez.
+
+Yeni Version oluşur.
+
+Version 1
+
+↓
+
+Version 2
+
+↓
+
+Version 3
+
+Silme işlemi bile yeni Version oluşturacaktır.
+
+2.13 Memory State
+
+Her kayıt aşağıdaki yaşam döngüsünü takip eder.
+
+Created
+
+↓
+
+Validated
+
+↓
+
+Indexed
+
+↓
+
+Available
+
+↓
+
+Archived
+
+↓
+
+Expired
+
+↓
+
+Deleted(Logical)
+
+Physical Delete varsayılan olarak yasaktır.
+
+2.14 Memory Events
+
+Memory Domain Event üretir.
+
+MemoryCreated
+
+MemoryUpdated
+
+MemoryValidated
+
+MemoryIndexed
+
+MemoryArchived
+
+MemoryExpired
+
+MemoryDeleted
+
+MemoryAccessed
+
+MemoryRestored
+
+Bu event'ler EventBus üzerinden yayınlanacaktır.
+
+2.15 Repository
+
+Repository yalnızca Aggregate yönetir.
+
+IMemoryRepository
+
+Ancak Repository hiçbir zaman:
+
+Redis
+
+SQL
+
+VectorDB
+
+dosya sistemi
+
+bilmez.
+
+Repository yalnızca Domain konuşur.
+
+2.16 Provider
+
+Storage tamamen Provider tarafından yapılacaktır.
+
+IMemoryProvider
+
+implementasyonları:
+
+SQL
+
+PostgreSQL
+
+Redis
+
+CosmosDB
+
+MongoDB
+
+FileSystem
+
+Azure Blob
+
+S3
+
+Future Providers
+
+Kernel Provider'ın nasıl çalıştığını bilmeyecektir.
+
+2.17 Memory Identity
+
+Kimlikler sıralı integer olmayacaktır.
+
+BNOS genelinde:
+
+- dağıtık sistem uyumlu, 
+
+- küresel benzersiz, 
+
+- sıralanabilir, 
+
+- yüksek performanslı 
+
+bir kimlik standardı kullanılmalıdır (ör. GUID türevleri veya benzeri modern dağıtık kimlikler). Kesin seçim ayrı bir mimari kararı olarak belirlenecektir.
+
+2.18 Immutable Policy
+
+Memory oluşturulduktan sonra;
+
+Owner
+
+CreatedAt
+
+Hash
+
+Identity
+
+değiştirilemez.
+
+Yalnızca yeni Version oluşabilir.
+
+2.19 Domain Kuralları
+
+Enterprise Memory aşağıdaki kuralları zorunlu uygular:
+
+- Scope olmadan kayıt oluşturulamaz. 
+
+- Type olmadan kayıt oluşturulamaz. 
+
+- Metadata boş olamaz. 
+
+- Hash doğrulaması başarısız kayıt kabul edilmez. 
+
+- Güvenlik etiketi olmayan kayıt oluşturulamaz. 
+
+- Her kayıt Version 1 ile başlar. 
+
+- Her kayıt Domain Event üretir. 
+
+- Fiziksel silme varsayılan olarak yapılmaz. 
+
+- Değişiklikler Audit geçmişine yazılır. 
+
+- Provider hiçbir zaman Domain kurallarını değiştiremez. 
+
+2.20 Sprint 0.9 Çıktısı
+
+Sprint 0.9 tamamlandığında henüz veritabanına veri yazan bir sistem değil, aşağıdaki özelliklere sahip sağlam bir çekirdek elde edilmiş olacaktır:
+
+- Enterprise Memory Domain Model 
+
+- Aggregate ve Entity yapıları 
+
+- Value Object'ler 
+
+- Domain Event'ler 
+
+- Repository ve Provider sözleşmeleri 
+
+- Versioning modeli 
+
+- Scope ve güvenlik modeli 
+
+- Yaşam döngüsü (State Machine) 
+
+- Genişletilebilir depolama mimarisi 
+
+Bu tamamlandıktan sonra Bölüm 3 – Enterprise Memory Provider Architecture ile Memory'nin SQL, Redis, dosya sistemi, nesne depolama ve gelecekteki diğer sağlayıcılar üzerinde aynı sözleşmeyle çalışmasını sağlayacak altyapı tasarlanacaktır. Bu bölüm, Sprint 0.9'un implementasyonuna geçmeden önce tamamlanması gereken son büyük mimari parçalardan biridir.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 3 — Enterprise Memory Provider Architecture
+
+Bu bölüm BNOS'un en önemli tasarım kararlarından birini tanımlar.
+
+Enterprise Memory hiçbir zaman depolama teknolojisine bağımlı olmayacaktır.
+
+Başka bir ifadeyle;
+
+BNOS;
+
+- SQL Server 
+
+- PostgreSQL 
+
+- Redis 
+
+- MongoDB 
+
+- Azure Cosmos 
+
+- Azure Blob 
+
+- S3 
+
+- Local File System 
+
+- gelecekte çıkacak herhangi bir depolama sistemi 
+
+üzerinde kod değiştirmeden çalışabilecektir.
+
+3.1 Temel Tasarım İlkesi
+
+BNOS üç katmanlı Memory mimarisi kullanır.
+
+               Enterprise Memory
+
+                       │
+
+             Memory Abstractions
+
+                       │
+
+              Provider Interface
+
+                       │
+
+    ┌──────────┬──────────┬──────────┐
+
+   SQL      Redis      Blob      Future
+
+Kernel hiçbir zaman SQL bilmez.
+
+Kernel Redis bilmez.
+
+Kernel MongoDB bilmez.
+
+Kernel yalnızca Provider Interface bilir.
+
+3.2 Provider Modeli
+
+Her Provider aynı sözleşmeyi uygular.
+
+IMemoryProvider
+
+Provider;
+
+Storage değildir.
+
+Provider;
+
+Storage'ın sürücüsüdür.
+
+3.3 Provider Sorumlulukları
+
+Bir Provider yalnızca;
+
+- Kaydet 
+
+- Oku 
+
+- Güncelle 
+
+- Sürüm oluştur 
+
+- Sil (Logical) 
+
+- Arama 
+
+- Batch 
+
+- Transaction 
+
+- Stream 
+
+işlemlerini gerçekleştirir.
+
+Business Rule çalıştırmaz.
+
+Authorization yapmaz.
+
+Workflow çalıştırmaz.
+
+LLM çağırmaz.
+
+3.4 Provider Türleri
+
+BNOS çekirdeği aşağıdaki sağlayıcı türlerini destekleyecek şekilde tasarlanmalıdır.
+
+Relational Provider
+
+SQL Server
+
+PostgreSQL
+
+MySQL
+
+Oracle
+
+Document Provider
+
+MongoDB
+
+CosmosDB
+
+CouchDB
+
+Cache Provider
+
+Redis
+
+MemoryCache
+
+Object Storage
+
+Azure Blob
+
+S3
+
+MinIO
+
+NAS
+
+Vector Provider
+
+İlk Sprintte implementasyon yapılmayacaktır.
+
+Ancak sözleşme hazırlanacaktır.
+
+Desteklenecek mimari:
+
+Pinecone
+
+Qdrant
+
+Weaviate
+
+Milvus
+
+PgVector
+
+Azure AI Search
+
+Future Providers
+
+3.5 Multi Provider
+
+BNOS tek Provider kullanmaz.
+
+Örneğin;
+
+Metadata
+
+↓
+
+SQL
+
+PDF
+
+↓
+
+Blob Storage
+
+Embedding
+
+↓
+
+Vector Database
+
+Cache
+
+↓
+
+Redis
+
+Hepsi aynı Enterprise Memory altında görünür.
+
+3.6 Provider Pipeline
+
+Bir kayıt oluşturulduğunda;
+
+MemoryRecord
+
+↓
+
+Validation
+
+↓
+
+Policy Check
+
+↓
+
+Encryption
+
+↓
+
+Compression
+
+↓
+
+Provider Routing
+
+↓
+
+Storage
+
+↓
+
+Index
+
+↓
+
+Audit
+
+↓
+
+EventBus
+
+Bu sıralama değiştirilemez.
+
+3.7 Provider Routing
+
+Provider seçimi;
+
+Storage tarafından değil,
+
+Policy Engine tarafından yapılacaktır.
+
+Örneğin;
+
+PDF
+
+↓
+
+Blob
+
+JSON
+
+↓
+
+SQL
+
+Large File
+
+↓
+
+S3
+
+Temporary
+
+↓
+
+Redis
+
+Bu kararları kullanıcı değil,
+
+BNOS verir.
+
+3.8 Provider Registry
+
+Kernel içinde;
+
+Provider Listesi bulunacaktır.
+
+Registered Providers
+
+↓
+
+Select Provider
+
+↓
+
+Capability Check
+
+↓
+
+Route
+
+Provider bulunamazsa;
+
+Memory işlemi başarısız olur.
+
+Fallback otomatik yapılmaz.
+
+3.9 Capability Model
+
+Her Provider;
+
+kendi yeteneklerini bildirir.
+
+Örneğin;
+
+Supports Version
+
+Supports Batch
+
+Supports Stream
+
+Supports Transaction
+
+Supports Encryption
+
+Supports Compression
+
+Supports Search
+
+Supports Embedding
+
+Supports Snapshot
+
+Kernel buna göre davranır.
+
+3.10 Compression
+
+Compression Provider'ın görevi değildir.
+
+Compression;
+
+Provider'dan önce çalışır.
+
+Memory
+
+↓
+
+Compression
+
+↓
+
+Provider
+
+3.11 Encryption
+
+Şifreleme de Provider'ın görevi değildir.
+
+Encrypt
+
+↓
+
+Store
+
+Provider yalnızca byte yazar.
+
+3.12 Index
+
+Storage tamamlandıktan sonra;
+
+Index oluşturulur.
+
+Bu işlem;
+
+Memory Indexer tarafından yapılacaktır.
+
+Provider Index oluşturmaz.
+
+3.13 Transaction
+
+Provider;
+
+Transaction destekliyorsa kullanılır.
+
+Desteklemiyorsa;
+
+Kernel farklı strateji uygular.
+
+Bu nedenle;
+
+Transaction zorunlu değildir.
+
+Capability'dir.
+
+3.14 Streaming
+
+Çok büyük Memory kayıtları;
+
+RAM'e alınmayacaktır.
+
+BNOS;
+
+Stream tabanlı çalışacaktır.
+
+Örneğin;
+
+500 MB PDF
+
+↓
+
+Stream
+
+↓
+
+Chunk
+
+↓
+
+Store
+
+3.15 Provider Yaşam Döngüsü
+
+Register
+
+↓
+
+Initialize
+
+↓
+
+Health Check
+
+↓
+
+Ready
+
+↓
+
+Serving
+
+↓
+
+Maintenance
+
+↓
+
+Shutdown
+
+3.16 Health
+
+Her Provider;
+
+Health Check yayınlayacaktır.
+
+Örneğin;
+
+Healthy
+
+Degraded
+
+Unavailable
+
+Scheduler gerektiğinde Provider'ı devre dışı bırakabilir.
+
+3.17 Retry Policy
+
+Retry;
+
+Provider içinde değildir.
+
+Retry;
+
+Kernel tarafından yönetilir.
+
+Provider deterministik olmalıdır.
+
+3.18 Provider Extension Model
+
+Yeni Provider eklemek için;
+
+mevcut kod değiştirilmeyecektir.
+
+Yalnızca yeni bir implementasyon geliştirilecektir.
+
+Bu, Open/Closed Principle (OCP) ilkesini korur.
+
+3.19 Provider Güvenlik Kuralları
+
+Bir Provider;
+
+- Authorization atlayamaz. 
+
+- Encryption'ı kapatamaz. 
+
+- Hash doğrulamasını değiştiremez. 
+
+- Audit kaydını engelleyemez. 
+
+- Domain Event üretimini engelleyemez. 
+
+- Domain kurallarını değiştiremez. 
+
+Provider yalnızca veri depolar ve geri getirir.
+
+3.20 Sprint 0.9 Açısından Sonuç
+
+Bu bölüm tamamlandığında Sprint 0.9 için gerekli üç ana mimari sütun tanımlanmış olur:
+
+- Enterprise Memory'nin amacı ve yaşam döngüsü (Bölüm 1) 
+
+- Enterprise Memory Domain Modeli (Bölüm 2) 
+
+- Provider Architecture (Bölüm 3) 
+
+Bundan Sonra Ne Gelecek?
+
+Bir sonraki bölüm Bölüm 4 – Memory Retrieval & Query Architecture olacaktır. Bu bölüm, BNOS'un Enterprise Memory'den bilgiyi nasıl bulacağını tanımlayacaktır. Burada şu konular ayrıntılı olarak tasarlanacaktır:
+
+- Query Pipeline 
+
+- Hybrid Search 
+
+- Semantic Retrieval 
+
+- Scope filtreleme 
+
+- Relevance Ranking 
+
+- Permission-aware Search 
+
+- Context Assembly 
+
+- Memory Retrieval Strategies 
+
+Bu bölüm tamamlandıktan sonra Sprint 0.9'un kodlanması için mimari temel büyük ölçüde hazır hale gelecektir.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 4 — Memory Retrieval & Query Architecture
+
+Temel İlke
+
+Enterprise Memory'nin değeri yalnızca bilgiyi saklamasında değil, doğru bilgiyi, doğru zamanda, doğru kullanıcıya, doğru bağlamda sunabilmesindedir.
+
+Bu nedenle BNOS'ta Retrieval (erişim) ile Storage (depolama) tamamen ayrıdır.
+
+4.1 Retrieval Nedir?
+
+Retrieval yalnızca "arama" değildir.
+
+Retrieval;
+
+- bilgi bulma 
+
+- bağlam oluşturma 
+
+- yetki kontrolü 
+
+- önem sıralaması 
+
+- bağlamsal filtreleme 
+
+- sonuç birleştirme 
+
+işlemlerinin tamamıdır.
+
+4.2 Retrieval Pipeline
+
+BNOS'ta tüm sorgular aşağıdaki sıralamayı izler.
+
+Request
+
+    │
+
+    ▼
+
+Identity Validation
+
+    │
+
+Authorization
+
+    │
+
+Scope Resolution
+
+    │
+
+Query Validation
+
+    │
+
+Provider Selection
+
+    │
+
+Memory Retrieval
+
+    │
+
+Knowledge Graph Expansion
+
+    │
+
+Business Rules Filter
+
+    │
+
+Ranking
+
+    │
+
+Context Assembly
+
+    │
+
+Response
+
+Bu sıra değiştirilemez.
+
+4.3 Query Türleri
+
+Enterprise Memory aşağıdaki sorgu tiplerini destekler.
+
+Exact Query
+
+Tam eşleşme.
+
+Örnek:
+
+Aidat Kararı
+
+Metadata Query
+
+Metadata üzerinden arama.
+
+Örnek:
+
+Classification = Confidential
+
+Tag Query
+
+#Bakım
+
+Scope Query
+
+Tenant = A
+
+Semantic Query
+
+Anlam temelli arama.
+
+Örnek:
+
+"Asansörle ilgili son kararlar"
+
+Hybrid Query
+
+Birden fazla sorgu yöntemini birlikte kullanır.
+
+Örnek:
+
+Tenant=ABC
+
++
+
+"Asansör"
+
++
+
+2026
+
+4.4 Query Object
+
+Her sorgu immutable bir Query nesnesidir.
+
+Örnek alanlar:
+
+QueryText
+
+Scope
+
+Language
+
+Filters
+
+Sorting
+
+Paging
+
+Limit
+
+UserContext
+
+Timeout
+
+CancellationToken
+
+4.5 Scope Resolution
+
+Retrieval başlamadan önce Scope çözülür.
+
+Örnek:
+
+Global
+
+↓
+
+Organization
+
+↓
+
+Tenant
+
+↓
+
+Project
+
+↓
+
+Module
+
+↓
+
+Conversation
+
+↓
+
+Session
+
+Sorgu yalnızca izin verilen Scope içinde çalışır.
+
+4.6 Authorization
+
+Authorization Retrieval'dan önce yapılır.
+
+Yani;
+
+Yetkisi olmayan kayıtlar
+
+arama sonuçlarına hiç girmez.
+
+Filtrelenmez.
+
+Hiç bulunmamış gibi davranılır.
+
+Bu bilgi sızıntısını önler.
+
+4.7 Ranking Engine
+
+Bulunan kayıtlar puanlanır.
+
+Örnek kriterler:
+
+- Relevance 
+
+- Trust 
+
+- Importance 
+
+- Freshness 
+
+- Scope Distance 
+
+- User Affinity 
+
+- Workflow Context 
+
+4.8 Trust Ranking
+
+İki kayıt aynı şeyi söylüyorsa;
+
+BNOS güvenilir olanı önce gösterir.
+
+Örnek:
+
+Generated AI
+
+↓
+
+Official Document
+
+Resmi belge üstte gelir.
+
+4.9 Freshness
+
+Yakın zamanda doğrulanan kayıtlar daha yüksek puan alabilir.
+
+Ancak Freshness tek kriter değildir.
+
+4.10 Context Expansion
+
+Retrieval yalnızca tek kayıt döndürmez.
+
+İlgili kayıtları da bulur.
+
+Örneğin;
+
+Toplantı
+
+↓
+
+Kararlar
+
+↓
+
+Görevler
+
+↓
+
+Ekler
+
+↓
+
+Workflow
+
+↓
+
+Agent Notes
+
+4.11 Knowledge Graph Expansion
+
+Memory tek başına çalışmaz.
+
+Bulunan kayıt;
+
+Knowledge Graph üzerinden genişletilir.
+
+Örneğin:
+
+"Asansör"
+
+↓
+
+Bakım Firması
+
+↓
+
+Teknisyen
+
+↓
+
+Fatura
+
+↓
+
+Garanti
+
+↓
+
+Risk Analizi
+
+4.12 Duplicate Resolution
+
+Aynı bilgi birden fazla Provider'da olabilir.
+
+BNOS bunları tek sonuç olarak gösterir.
+
+4.13 Context Builder
+
+LLM hiçbir zaman ham Retrieval sonucu almaz.
+
+Önce Context Builder çalışır.
+
+Retrieval
+
+↓
+
+Merge
+
+↓
+
+Summarize
+
+↓
+
+Compress
+
+↓
+
+Context Window
+
+↓
+
+LLM
+
+4.14 Retrieval Cache
+
+Cache;
+
+Enterprise Memory değildir.
+
+Sadece performans katmanıdır.
+
+Silinebilir.
+
+Tekrar üretilebilir.
+
+4.15 Paging
+
+Memory milyonlarca kayıt içerebilir.
+
+Hiçbir sorgu varsayılan olarak tüm kayıtları döndürmez.
+
+Paging zorunludur.
+
+4.16 Streaming Retrieval
+
+Büyük sonuç kümeleri stream edilir.
+
+Result
+
+↓
+
+Chunk
+
+↓
+
+Chunk
+
+↓
+
+Chunk
+
+Bu sayede bellek tüketimi kontrol altında tutulur.
+
+4.17 Query Cancellation
+
+Uzun süren sorgular iptal edilebilir olmalıdır.
+
+Tüm Retrieval API'leri CancellationToken desteği sağlamalıdır.
+
+4.18 Observability
+
+Her Retrieval işlemi ölçülür.
+
+Kaydedilecek metrikler:
+
+- Sorgu süresi 
+
+- Provider gecikmesi 
+
+- Sonuç sayısı 
+
+- Cache isabet oranı 
+
+- Yetki nedeniyle elenen kayıt sayısı 
+
+- Hata oranı 
+
+Bu metrikler Observability katmanına aktarılır.
+
+4.19 Retrieval Tasarım Kuralları
+
+- Retrieval hiçbir zaman Business Rule değiştiremez. 
+
+- Retrieval kayıt oluşturamaz. 
+
+- Retrieval kayıt silemez. 
+
+- Retrieval Provider bağımsızdır. 
+
+- Authorization her zaman Retrieval'dan önce çalışır. 
+
+- Scope çözülmeden sorgu başlatılamaz. 
+
+- Sonuçlar Importance ve Trust bilgisiyle birlikte değerlendirilir. 
+
+- LLM ham sorgu sonucu değil, Context Builder çıktısını alır. 
+
+- Tüm sorgular gözlemlenebilir olmalıdır. 
+
+- Retrieval deterministik davranmalıdır; aynı veri ve aynı koşullarda aynı sonucu üretmelidir. 
+
+4.20 Sprint 0.9 Açısından Sonuç
+
+Bu bölümle birlikte Enterprise Memory'nin erişim katmanı tanımlanmış olur.
+
+Artık elimizde şu dört temel mimari bileşen vardır:
+
+- Bölüm 1: Enterprise Memory'nin amacı ve temel ilkeleri 
+
+- Bölüm 2: Domain Model 
+
+- Bölüm 3: Provider Architecture 
+
+- Bölüm 4: Retrieval & Query Architecture 
+
+Bu dört bölüm Sprint 0.9'un çekirdeğini oluşturur.
+
+Bundan Sonra
+
+Bir sonraki bölüm Bölüm 5 – Enterprise Memory Security & Governance olacaktır. Bu bölümde aşağıdaki konular ayrıntılı olarak tanımlanacaktır:
+
+- Çok katmanlı güvenlik modeli 
+
+- Memory ACL ve izin yapısı 
+
+- Şifreleme mimarisi 
+
+- Veri sınıflandırma ve yaşam döngüsü 
+
+- KVKK/GDPR uyumluluğu 
+
+- Tenant izolasyonu 
+
+- Audit ve değiştirilemez kayıtlar 
+
+- Veri saklama (Retention) ve imha (Disposition) politikaları 
+
+Bu bölüm tamamlandıktan sonra Enterprise Memory yalnızca işlevsel değil, kurumsal güvenlik ve yönetişim açısından da üretim ortamına uygun bir mimariye sahip olacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 5 — Enterprise Memory Security & Governance
+
+5.1 Temel Prensip
+
+Enterprise Memory yalnızca bilgiyi saklayan bir sistem değildir.
+
+Aynı zamanda;
+
+- bilginin sahibi, 
+
+- erişim yetkisi, 
+
+- güven seviyesi, 
+
+- yaşam süresi, 
+
+- denetlenebilirliği 
+
+konularını da yönetir.
+
+Bu nedenle Enterprise Memory'nin güvenliği veritabanının değil, Kernel'in sorumluluğudur.
+
+5.2 Zero Trust Memory
+
+BNOS Memory aşağıdaki prensiple çalışır.
+
+Hiçbir kullanıcı,
+hiçbir Agent,
+hiçbir Workflow,
+hiçbir Module
+
+varsayılan olarak hiçbir Memory kaydına erişemez.
+
+Her erişim doğrulanır.
+
+Her erişim yetkilendirilir.
+
+5.3 Güvenlik Katmanları
+
+Her Memory kaydı aşağıdaki katmanlardan geçer.
+
+Identity
+
+↓
+
+Authentication
+
+↓
+
+Authorization
+
+↓
+
+Scope Validation
+
+↓
+
+Classification Check
+
+↓
+
+Retention Check
+
+↓
+
+Audit
+
+↓
+
+Access Granted
+
+Katmanlardan biri başarısız olursa işlem sonlanır.
+
+5.4 Memory Ownership
+
+Her kayıt mutlaka bir Owner taşır.
+
+Owner;
+
+- User 
+
+- Organization 
+
+- Tenant 
+
+- Workflow 
+
+- System 
+
+- Agent 
+
+olabilir.
+
+Owner değiştirilemez.
+
+Transfer edilmez.
+
+5.5 Memory ACL (Access Control List)
+
+Her Memory kaydı kendi ACL bilgisini taşır.
+
+Örnek:
+
+Owner
+
+Read
+
+Write
+
+Delete
+
+Archive
+
+Restore
+
+Share
+
+Delegate
+
+Audit
+
+Bu bilgiler Domain içinde tutulur.
+
+5.6 Security Labels
+
+Her kayıt aşağıdaki etiketlerden birini taşır.
+
+Public
+
+Internal
+
+Restricted
+
+Confidential
+
+Highly Confidential
+
+Secret
+
+Top Secret
+
+Bu alan yalnızca görüntüleme amacıyla değildir.
+
+Authorization Engine bu alanı aktif olarak kullanacaktır.
+
+5.7 Tenant Isolation
+
+BNOS Multi Tenant çalışacaktır.
+
+Temel kural:
+
+Hiçbir Tenant;
+
+başka Tenant'ın Memory kayıtlarını göremez.
+
+Bu izolasyon;
+
+UI'da değil,
+
+Kernel seviyesinde uygulanır.
+
+5.8 Agent Isolation
+
+Her Agent ortak Memory kullanır.
+
+Ancak Agent'ın erişebileceği Scope sınırlıdır.
+
+Örneğin;
+
+Muhasebe Agentı
+
+İK kayıtlarını göremez.
+
+5.9 Workflow Isolation
+
+Workflow yalnızca kendi Context'ini görebilir.
+
+Başka Workflow'ların geçici hafızasına erişemez.
+
+5.10 Encryption
+
+Encryption Provider'ın görevi değildir.
+
+Pipeline'da gerçekleşir.
+
+Content
+
+↓
+
+Encrypt
+
+↓
+
+Provider
+
+↓
+
+Storage
+
+Provider yalnızca şifrelenmiş veriyi saklar.
+
+5.11 Encryption Levels
+
+BNOS aşağıdaki seviyeleri destekler.
+
+None
+
+Standard
+
+Strong
+
+Enterprise
+
+Hardware Protected
+
+Bu seviyeler ileride farklı sağlayıcılarla eşleştirilebilir.
+
+5.12 Hash Verification
+
+Her kayıt Hash taşır.
+
+Kayıt okunurken;
+
+Hash doğrulanır.
+
+Hash uyuşmuyorsa;
+
+kayıt bozulmuş kabul edilir.
+
+5.13 Digital Signature
+
+İsteğe bağlı olarak;
+
+Memory kayıtları dijital imza taşıyabilir.
+
+Örneğin;
+
+- Resmi sözleşmeler 
+
+- Yönetim Kurulu Kararları 
+
+- Finansal raporlar 
+
+5.14 Immutable Audit
+
+Hiçbir Memory işlemi Audit üretmeden tamamlanamaz.
+
+Audit kayıtları;
+
+ayrı Memory değildir.
+
+Kendi Domain'ine sahiptir.
+
+5.15 Access Audit
+
+Her erişim kaydedilir.
+
+Kim
+
+Ne zaman
+
+Nereden
+
+Hangi IP
+
+Hangi Agent
+
+Hangi Workflow
+
+Hangi Tenant
+
+Hangi Scope
+
+5.16 Data Classification Policy
+
+Sınıflandırma yalnızca kullanıcı tarafından yapılmaz.
+
+BNOS otomatik öneri üretebilir.
+
+Örneğin;
+
+"Kredi Kartı"
+
+içeren belge;
+
+Confidential olarak önerilebilir.
+
+Karar yine Business Rules ve kullanıcı onayı ile verilir.
+
+5.17 Retention Policy
+
+Her kayıt yaşam süresi taşır.
+
+Örnek:
+
+30 Gün
+
+90 Gün
+
+1 Yıl
+
+5 Yıl
+
+10 Yıl
+
+Süresiz
+
+Süre dolunca kayıt hemen silinmez.
+
+Önce Archive durumuna geçer.
+
+5.18 Legal Hold
+
+Bazı kayıtlar silinemez.
+
+Örneğin;
+
+Devam eden dava
+
+Denetim
+
+Vergi incelemesi
+
+Bu durumda kayıt "Legal Hold" durumuna alınır ve normal saklama politikalarından etkilenmez.
+
+5.19 Right to be Forgotten
+
+KVKK/GDPR gibi düzenlemeler bazı verilerin silinmesini gerektirebilir.
+
+BNOS bu talepleri desteklemelidir.
+
+Ancak:
+
+- Hukuki zorunluluklar 
+
+- Finansal kayıtlar 
+
+- Denetim yükümlülükleri 
+
+ile çelişiyorsa Business Rules Engine karar verir.
+
+Silme işlemi, Audit bütünlüğünü bozmayacak şekilde tasarlanmalıdır.
+
+5.20 Backup & Disaster Recovery
+
+Enterprise Memory tek bir kopyaya güvenmez.
+
+Temel ilkeler:
+
+- Düzenli yedekleme 
+
+- Versiyonlu yedekler 
+
+- Geri yükleme testleri 
+
+- Bölgesel çoğaltma (gerektiğinde) 
+
+- Kurtarma hedefleri (RPO/RTO) kurum politikalarına göre tanımlanabilir 
+
+Bu politikaların uygulanması altyapıya bağlıdır; mimari bunları destekleyecek şekilde tasarlanmalıdır.
+
+5.21 Security Events
+
+Aşağıdaki olaylar Domain Event üretir.
+
+UnauthorizedAccessDetected
+
+PermissionChanged
+
+ClassificationChanged
+
+EncryptionFailed
+
+RetentionExpired
+
+LegalHoldApplied
+
+LegalHoldReleased
+
+IntegrityViolationDetected
+
+SecurityPolicyViolated
+
+5.22 Governance İlkeleri
+
+Enterprise Memory şu ilkeleri garanti eder:
+
+- Her kayıt bir Owner'a sahiptir. 
+
+- Her kayıt bir Scope'a sahiptir. 
+
+- Her kayıt sınıflandırılmıştır. 
+
+- Her erişim denetlenir. 
+
+- Her değişiklik Audit üretir. 
+
+- Şifreleme depolamadan önce uygulanır. 
+
+- Yetkilendirme Retrieval'dan önce yapılır. 
+
+- Tenant izolasyonu Kernel tarafından uygulanır. 
+
+- Güvenlik politikaları Provider tarafından değiştirilemez. 
+
+- Audit kayıtları değiştirilemez. 
+
+5.23 Sprint 0.9 Açısından Sonuç
+
+Bu bölüm ile Enterprise Memory'nin güvenlik ve yönetişim modeli tanımlanmıştır.
+
+Artık Sprint 0.9 mimarisinin beş temel sütunu oluşmuştur:
+
+- Bölüm 1: Temel prensipler 
+
+- Bölüm 2: Domain Model 
+
+- Bölüm 3: Provider Architecture 
+
+- Bölüm 4: Retrieval & Query 
+
+- Bölüm 5: Security & Governance 
+
+Bundan Sonra
+
+Bir sonraki kritik bölüm Bölüm 6 – Enterprise Memory API & SDK Architecture olacaktır.
+
+Bu bölümde şu konular tanımlanacaktır:
+
+- Public API sözleşmeleri 
+
+- Kernel Abstraction katmanı 
+
+- IMemoryService ve uygulama servisleri 
+
+- Command/Query sözleşmeleri 
+
+- SDK genişletme modeli 
+
+- Asenkron API tasarımı 
+
+- Hata modeli (Result/Error) 
+
+- Sürümleme (API Versioning) 
+
+- Geriye dönük uyumluluk (Backward Compatibility) 
+
+Bu bölüm tamamlandığında, Sprint 0.9 için yalnızca kavramsal değil, geliştiricilerin doğrudan kod yazabileceği seviyede teknik sözleşmeler de tamamlanmış olacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 6 — Enterprise Memory API & SDK Architecture
+
+6.1 Tasarım Felsefesi
+
+Enterprise Memory'nin API katmanı yalnızca geliştiricilerin kullanacağı bir servis değildir.
+
+Bu katman;
+
+- Workflow Engine 
+
+- Business Rules Engine 
+
+- Knowledge Graph 
+
+- AI Orchestrator 
+
+- LLM Gateway 
+
+- Enterprise Search 
+
+- Scheduler 
+
+- Notification Engine 
+
+tarafından ortak kullanılacaktır.
+
+Bu nedenle API;
+
+kararlı (stable), genişletilebilir (extensible) ve teknoloji bağımsız (technology-agnostic) olmalıdır.
+
+6.2 Katmanlar
+
+Memory API aşağıdaki katmanlardan oluşur.
+
+Application
+
+↓
+
+Memory Service
+
+↓
+
+Domain
+
+↓
+
+Repository
+
+↓
+
+Provider
+
+↓
+
+Storage
+
+Application hiçbir zaman Provider ile konuşamaz.
+
+6.3 Public Abstractions
+
+Kernel aşağıdaki temel sözleşmeleri yayınlar.
+
+IEnterpriseMemory
+
+IMemoryService
+
+IMemoryQueryService
+
+IMemoryCommandService
+
+IMemoryRepository
+
+IMemoryProvider
+
+IMemoryIndexer
+
+IMemorySerializer
+
+IMemoryCompressor
+
+IMemoryEncryptor
+
+IMemoryValidator
+
+Bunlar Sprint 0.9'un temel arayüzleri olacaktır.
+
+6.4 Read / Write Ayrımı (CQRS)
+
+BNOS Enterprise Memory, CQRS (Command Query Responsibility Segregation) yaklaşımını benimser.
+
+Bu nedenle:
+
+Read
+
+↓
+
+IMemoryQueryService
+
+ve
+
+Write
+
+↓
+
+IMemoryCommandService
+
+ayrı sözleşmelerdir.
+
+Bir sorgu hiçbir zaman veri değiştirmez.
+
+Bir komut hiçbir zaman veri okumak için kullanılmaz.
+
+6.5 Command Model
+
+Yazma işlemleri Command nesneleri üzerinden yürütülür.
+
+Örnekler:
+
+CreateMemoryCommand
+
+UpdateMemoryCommand
+
+ArchiveMemoryCommand
+
+RestoreMemoryCommand
+
+DeleteMemoryCommand
+
+ValidateMemoryCommand
+
+IndexMemoryCommand
+
+Her Command immutable olmalıdır.
+
+6.6 Query Model
+
+Okuma işlemleri Query nesneleriyle yapılır.
+
+GetMemoryByIdQuery
+
+SearchMemoryQuery
+
+SearchByTagQuery
+
+SearchByScopeQuery
+
+SearchSemanticQuery
+
+SearchHybridQuery
+
+6.7 Result Model
+
+API hiçbir zaman exception tabanlı iş akışına dayanmaz.
+
+Temel dönüş modeli:
+
+Result<T>
+
+↓
+
+Success
+
+Failure
+
+ValidationError
+
+AuthorizationError
+
+Conflict
+
+NotFound
+
+ProviderError
+
+Timeout
+
+Cancelled
+
+Beklenmeyen sistem hataları dışında Result<T> tercih edilir; gerçekten olağanüstü durumlar için exception kullanılabilir.
+
+6.8 Async Model
+
+Tüm IO işlemleri asenkron olmalıdır.
+
+Örnek:
+
+Read
+
+Write
+
+Search
+
+Batch
+
+Stream
+
+Index
+
+Hepsi async destekler.
+
+CPU işlemleri gereksiz yere async yapılmaz.
+
+6.9 Streaming API
+
+Büyük Memory kayıtları:
+
+RAM'e yüklenmez.
+
+API;
+
+stream döndürür.
+
+Open Stream
+
+↓
+
+Read Chunk
+
+↓
+
+Read Chunk
+
+↓
+
+Complete
+
+6.10 Batch API
+
+Kurumsal sistemlerde binlerce kayıt aynı anda işlenebilir.
+
+Bu nedenle Batch sözleşmeleri bulunur.
+
+CreateBatch
+
+UpdateBatch
+
+DeleteBatch
+
+SearchBatch
+
+Batch desteği Provider yeteneklerine bağlı olarak uygulanabilir.
+
+6.11 Cancellation
+
+Tüm uzun süren işlemler iptal edilebilir.
+
+Bu nedenle;
+
+Cancellation desteği API seviyesinde zorunludur.
+
+6.12 Versioning
+
+API versiyonlanacaktır.
+
+Örneğin:
+
+v1
+
+v2
+
+v3
+
+Yeni sürümler eski istemcileri mümkün olduğunca bozmadan ilerlemelidir.
+
+6.13 SDK
+
+BNOS yalnızca kendi modülleri için değildir.
+
+Üçüncü parti geliştiriciler de Memory kullanabilecektir.
+
+SDK aşağıdaki hedefleri desteklemelidir:
+
+.NET
+
+REST
+
+gRPC (gelecekte)
+
+CLI (gelecekte)
+
+6.14 Extension Points
+
+Genişletilebilirlik noktaları:
+
+Custom Provider
+
+Custom Serializer
+
+Custom Encryptor
+
+Custom Validator
+
+Custom Indexer
+
+Custom Ranking Strategy
+
+Custom Retention Policy
+
+Mevcut kod değiştirilmeden eklenebilmelidir.
+
+6.15 Dependency Injection
+
+Tüm servisler Composition Root üzerinden kaydedilir.
+
+Örnek:
+
+AddEnterpriseMemory()
+
+↓
+
+AddMemoryProvider()
+
+↓
+
+AddMemoryIndexer()
+
+↓
+
+AddMemoryEncryption()
+
+Hiçbir servis manuel oluşturulmaz.
+
+6.16 Error Contract
+
+Her hata standart bir sözleşmeye sahiptir.
+
+Temel alanlar:
+
+Code
+
+Category
+
+Message
+
+Details
+
+CorrelationId
+
+Timestamp
+
+Retryable
+
+Bu model tüm BNOS modüllerinde ortak olmalıdır.
+
+6.17 Telemetry
+
+Her API çağrısı aşağıdaki bilgileri üretebilir:
+
+- İşlem süresi 
+
+- Başarı durumu 
+
+- Hata kategorisi 
+
+- Provider 
+
+- Scope 
+
+- Kullanıcı/Tenant bağlamı 
+
+- CorrelationId 
+
+Bu veriler Observability katmanına aktarılır.
+
+6.18 Backward Compatibility
+
+Yeni sürümler;
+
+- mevcut sözleşmeleri bozmaz, 
+
+- kaldırılacak API'ler önce "deprecated" olarak işaretlenir, 
+
+- geçiş süresi tanınır. 
+
+Ani kırıcı değişikliklerden kaçınılır.
+
+6.19 API Tasarım Kuralları
+
+- Provider doğrudan çağrılmaz. 
+
+- Repository dış dünyaya açılmaz. 
+
+- Query veri değiştirmez. 
+
+- Command veri okumaz. 
+
+- Tüm uzun işlemler iptal edilebilir olmalıdır. 
+
+- IO işlemleri async çalışmalıdır. 
+
+- API teknoloji bağımsız olmalıdır. 
+
+- Genişletilebilirlik Composition Root üzerinden sağlanmalıdır. 
+
+- Standart hata modeli kullanılmalıdır. 
+
+- Geriye dönük uyumluluk korunmalıdır. 
+
+6.20 Sprint 0.9 Açısından Sonuç
+
+Bu bölüm ile Enterprise Memory'nin dış dünyaya açılan teknik sözleşmeleri tanımlanmıştır.
+
+Artık Sprint 0.9 için aşağıdaki ana mimari belgeler hazırdır:
+
+- Bölüm 1: Temel İlkeler 
+
+- Bölüm 2: Domain Model 
+
+- Bölüm 3: Provider Architecture 
+
+- Bölüm 4: Retrieval & Query 
+
+- Bölüm 5: Security & Governance 
+
+- Bölüm 6: API & SDK Architecture 
+
+Mimar Gözüyle Bir Öneri
+
+Burada kısa bir değerlendirme yapmak istiyorum.
+
+Şu ana kadar yazdığımız altı bölüm, Enterprise Memory'nin yaklaşık %35-40'ını kapsıyor. Henüz aşağıdaki kritik konular tasarlanmadı:
+
+- Bölüm 7: Memory Lifecycle & State Machine (ayrıntılı) 
+
+- Bölüm 8: Memory Indexing & Search Engine 
+
+- Bölüm 9: Memory Provider SDK Specification 
+
+- Bölüm 10: Performance & Scalability 
+
+- Bölüm 11: High Availability & Disaster Recovery 
+
+- Bölüm 12: AI Integration Layer 
+
+- Bölüm 13: Knowledge Graph Integration 
+
+- Bölüm 14: Business Rules Integration 
+
+- Bölüm 15: Enterprise Memory Implementation Specification (Sprint 0.9 kodlama sözleşmesi)
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 7 — Memory Lifecycle & State Machine
+
+7.1 Temel İlke
+
+Enterprise Memory'de hiçbir kayıt rastgele oluşmaz.
+
+Hiçbir kayıt rastgele değişmez.
+
+Hiçbir kayıt rastgele silinmez.
+
+Her Memory kaydı belirlenmiş bir yaşam döngüsüne sahiptir.
+
+Bu yaşam döngüsü Kernel tarafından yönetilir.
+
+7.2 Memory State Machine
+
+Her MemoryRecord aşağıdaki yaşam döngüsünü takip eder.
+
+Draft
+
+    │
+
+    ▼
+
+Created
+
+    │
+
+    ▼
+
+Validated
+
+    │
+
+    ▼
+
+Encrypted
+
+    │
+
+    ▼
+
+Compressed
+
+    │
+
+    ▼
+
+Persisted
+
+    │
+
+    ▼
+
+Indexed
+
+    │
+
+    ▼
+
+Available
+
+Buradan sonra;
+
+Available
+
+├── Updated
+
+├── Archived
+
+├── Expired
+
+├── Legal Hold
+
+├── Restored
+
+└── Deleted(Logical)
+
+7.3 Draft
+
+Henüz Domain'e kabul edilmemiş bilgidir.
+
+Örneğin:
+
+- API isteği 
+
+- Workflow çıktısı 
+
+- AI cevabı 
+
+- PDF yüklemesi 
+
+Henüz Memory değildir.
+
+7.4 Created
+
+Memory Aggregate oluşturulmuştur.
+
+Bu aşamada:
+
+✓ Identity oluşmuştur
+
+✓ Metadata oluşmuştur
+
+✓ Version=1
+
+✓ Domain Event üretilmiştir.
+
+Henüz Storage'a yazılmamıştır.
+
+7.5 Validation
+
+Kernel doğrular.
+
+Kontroller:
+
+- Scope 
+
+- Metadata 
+
+- Owner 
+
+- Security 
+
+- Classification 
+
+- Type 
+
+- Retention 
+
+Eksik varsa süreç durur.
+
+7.6 Encryption
+
+Validation başarılıysa;
+
+Content şifrelenir.
+
+Metadata tamamen şifrelenmez.
+
+Yalnızca gerekli alanlar korunur.
+
+7.7 Compression
+
+Şifrelenen içerik gerekiyorsa sıkıştırılır.
+
+Compression Policy;
+
+Content Type'a göre çalışır.
+
+Örneğin:
+
+- JSON 
+
+- PDF 
+
+- DOCX 
+
+- TXT 
+
+farklı stratejiler kullanabilir.
+
+7.8 Persisted
+
+Provider artık veriyi saklamıştır.
+
+Ancak kullanıcı henüz göremez.
+
+Çünkü Index oluşmamıştır.
+
+7.9 Indexed
+
+Memory Indexer çalışır.
+
+Şunları üretir:
+
+- Search Index 
+
+- Metadata Index 
+
+- Scope Index 
+
+- Tag Index 
+
+- Graph Link 
+
+- Embedding Link (varsa) 
+
+Artık kayıt erişilebilir hale gelir.
+
+7.10 Available
+
+Memory artık kullanılabilir.
+
+Bu aşamada:
+
+- Search 
+
+- Retrieval 
+
+- Workflow 
+
+- AI 
+
+erişebilir.
+
+7.11 Updated
+
+Güncelleme overwrite değildir.
+
+Yeni Version oluşur.
+
+Version 1
+
+↓
+
+Version 2
+
+↓
+
+Version 3
+
+Eski kayıt korunur.
+
+7.12 Archived
+
+Kayıt aktif kullanım dışındadır.
+
+Silinmez.
+
+Arşivde tutulur.
+
+Search varsayılan olarak göstermez.
+
+7.13 Expired
+
+Retention süresi dolmuştur.
+
+Henüz silinmez.
+
+Policy beklenir.
+
+7.14 Legal Hold
+
+En kritik state.
+
+Legal Hold'daki kayıt;
+
+- silinemez 
+
+- arşivlenemez 
+
+- expire olamaz 
+
+Sadece okunabilir.
+
+7.15 Deleted (Logical)
+
+Deleted;
+
+Physical Delete değildir.
+
+Yalnızca:
+
+State
+
+=
+
+Deleted
+
+olur.
+
+Audit korunur.
+
+7.16 Physical Delete
+
+Varsayılan olarak yasaktır.
+
+Sadece;
+
+- KVKK 
+
+- GDPR 
+
+- Mahkeme Kararı 
+
+- Özel Business Rule 
+
+ile yapılabilir.
+
+7.17 Restore
+
+Archived
+
+↓
+
+Available
+
+dönüşü mümkündür.
+
+Deleted(Logical)
+
+↓
+
+Restore
+
+da mümkündür.
+
+7.18 Invalid State Transition
+
+Kernel aşağıdaki geçişleri reddeder.
+
+Örneğin:
+
+Draft
+
+↓
+
+Available
+
+olamaz.
+
+Created
+
+↓
+
+Archived
+
+olamaz.
+
+Deleted
+
+↓
+
+Updated
+
+olamaz.
+
+State Machine buna izin vermez.
+
+7.19 Lifecycle Events
+
+Her geçiş Event üretir.
+
+MemoryCreated
+
+↓
+
+MemoryValidated
+
+↓
+
+MemoryEncrypted
+
+↓
+
+MemoryCompressed
+
+↓
+
+MemoryPersisted
+
+↓
+
+MemoryIndexed
+
+↓
+
+MemoryAvailable
+
+↓
+
+MemoryUpdated
+
+↓
+
+MemoryArchived
+
+↓
+
+MemoryExpired
+
+↓
+
+MemoryDeleted
+
+↓
+
+MemoryRestored
+
+7.20 Retry
+
+Provider başarısızsa;
+
+State geri alınmaz.
+
+Kernel Retry Policy uygular.
+
+Deterministik davranış korunur.
+
+7.21 Compensation
+
+Workflow başarısız olursa;
+
+Memory rollback yapılmaz.
+
+Yeni Event oluşur.
+
+Yeni Version oluşur.
+
+Bu sayede Event geçmişi korunur.
+
+7.22 Idempotency
+
+Aynı Create isteği iki kez gelirse;
+
+Kernel bunu algılayabilmelidir.
+
+Tekrarlanan istekler ikinci bir MemoryRecord oluşturmamalıdır.
+
+Bunun için istemci tarafından sağlanan veya Kernel tarafından üretilen bir Idempotency Key mekanizması kullanılmalıdır.
+
+7.23 Concurrency
+
+İki kullanıcı aynı kaydı güncellerse;
+
+Conflict oluşur.
+
+Kernel;
+
+Optimistic Concurrency kullanmalıdır.
+
+Version uyuşmuyorsa;
+
+Update reddedilir.
+
+7.24 Lifecycle Metrics
+
+Her state ölçülür.
+
+Örneğin:
+
+- Validation süresi 
+
+- Encryption süresi 
+
+- Compression süresi 
+
+- Provider gecikmesi 
+
+- Index gecikmesi 
+
+- Available olma süresi 
+
+Observability bunları toplar.
+
+7.25 State Machine Kuralları
+
+- State atlanamaz. 
+
+- State geri alınamaz (yalnızca tanımlı geçişlerle ilerlenir). 
+
+- Her geçiş Event üretir. 
+
+- Her geçiş Audit üretir. 
+
+- Physical Delete varsayılan değildir. 
+
+- Version geçmişi korunur. 
+
+- Legal Hold tüm Retention politikalarının önündedir. 
+
+- Kernel dışındaki hiçbir katman State değiştiremez. 
+
+- Provider State yönetemez. 
+
+- Workflow doğrudan State değiştiremez; yalnızca uygun Command'ları çalıştırabilir. 
+
+Sprint 0.9 Açısından Durum
+
+Artık Enterprise Memory için aşağıdaki ana mimari bileşenler tanımlanmıştır:
+
+- ✅ Bölüm 1 — Foundation 
+
+- ✅ Bölüm 2 — Domain Model 
+
+- ✅ Bölüm 3 — Provider Architecture 
+
+- ✅ Bölüm 4 — Retrieval & Query 
+
+- ✅ Bölüm 5 — Security & Governance 
+
+- ✅ Bölüm 6 — API & SDK 
+
+- ✅ Bölüm 7 — Lifecycle & State Machine 
+
+Sonraki Kritik Bölüm
+
+Bir sonraki bölüm Bölüm 8 – Memory Indexing & Search Engine Architecture olmalıdır.
+
+Bu bölümde şu konular ayrıntılı olarak tanımlanacaktır:
+
+- Çok katmanlı indeks mimarisi 
+
+- Metadata, Tag ve Scope indeksleri 
+
+- Full-text ve semantik arama hazırlığı 
+
+- Artımlı (incremental) indeksleme 
+
+- Yeniden indeksleme (reindex) 
+
+- Tutarlılık ve indeks yaşam döngüsü 
+
+- Performans ve ölçeklenebilirlik stratejileri 
+
+Bu bölüm tamamlandığında Enterprise Memory'nin depolama, erişim ve yaşam döngüsüne ek olarak arama altyapısı da mimari olarak tanımlanmış olacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 8 — Memory Indexing & Search Engine Architecture
+
+8.1 Temel İlke
+
+Depolama (Storage) ile İndeksleme (Indexing) aynı şey değildir.
+
+Storage'ın amacı veriyi güvenli şekilde saklamaktır.
+
+Index'in amacı veriyi hızlı bulmaktır.
+
+Bu iki sorumluluk hiçbir zaman aynı bileşende bulunmayacaktır.
+
+8.2 BNOS Index Mimarisi
+
+                 Memory Record
+
+                      │
+
+                      ▼
+
+              Index Pipeline
+
+                      │
+
+      ┌───────────────┼───────────────┐
+
+      ▼               ▼               ▼
+
+ Metadata Index   Content Index   Graph Index
+
+      │               │               │
+
+      └───────────────┼───────────────┘
+
+                      ▼
+
+             Search Engine Layer
+
+                      ▼
+
+             Retrieval Pipeline
+
+Index hiçbir zaman Memory'nin yerine geçmez.
+
+8.3 Index Katmanları
+
+Enterprise Memory aşağıdaki bağımsız indeksleri oluşturur.
+
+Metadata Index
+
+Örnek alanlar:
+
+- Type 
+
+- Scope 
+
+- Owner 
+
+- Tenant 
+
+- Module 
+
+- Workflow 
+
+- Language 
+
+- TrustLevel 
+
+- Importance 
+
+Content Index
+
+İçerik üzerinde arama.
+
+Örneğin:
+
+"Asansör bakım raporu"
+
+Tag Index
+
+#Muhasebe
+
+#Bakım
+
+#Toplantı
+
+#Personel
+
+Relation Index
+
+Knowledge Graph bağlantıları.
+
+Security Index
+
+ACL
+
+Classification
+
+Permission
+
+Version Index
+
+Tüm versiyonlar.
+
+Audit Index
+
+Audit kayıtları.
+
+8.4 Index Pipeline
+
+Her kayıt aşağıdaki sırayla indekslenir.
+
+Persisted
+
+      │
+
+      ▼
+
+Metadata Index
+
+      │
+
+      ▼
+
+Tag Index
+
+      │
+
+      ▼
+
+Content Index
+
+      │
+
+      ▼
+
+Relation Index
+
+      │
+
+      ▼
+
+Security Index
+
+      │
+
+      ▼
+
+Available
+
+8.5 Incremental Index
+
+Her güncellemede;
+
+tüm sistem yeniden indekslenmez.
+
+Yalnızca değişen kayıt yeniden işlenir.
+
+Bu milyonlarca kayıt için zorunludur.
+
+8.6 Full Reindex
+
+Tam yeniden indeksleme yalnızca:
+
+- Provider değişimi 
+
+- Büyük şema değişikliği 
+
+- Kurtarma (Recovery) 
+
+gibi durumlarda çalıştırılır.
+
+Bu işlem yönetimsel bir operasyondur ve normal kullanıcı isteklerinden ayrıdır.
+
+8.7 Index Consistency
+
+Storage başarılı,
+
+Index başarısız olabilir.
+
+Bu durumda:
+
+Persisted
+
+↓
+
+Index Pending
+
+durumu oluşur.
+
+Background Indexer eksik indeksleri tamamlar.
+
+8.8 Background Indexer
+
+Indexer ayrı bir servistir.
+
+Görevleri:
+
+- Eksik indeksleri bulmak 
+
+- Yeniden indekslemek 
+
+- Bozuk indeksleri onarmak 
+
+- Performansı izlemek 
+
+Indexer, Memory Provider değildir.
+
+8.9 Search Engine
+
+Search Engine;
+
+Memory'nin sahibi değildir.
+
+Sadece indeksleri kullanır.
+
+Search Engine;
+
+- kayıt oluşturamaz 
+
+- kayıt silemez 
+
+- kayıt güncelleyemez 
+
+8.10 Index Priority
+
+Her kayıt aynı öncelikte değildir.
+
+Örneğin:
+
+Critical
+
+↓
+
+Immediate Index
+
+Low
+
+↓
+
+Background Index
+
+8.11 Index Policies
+
+Her Memory Type farklı strateji kullanabilir.
+
+Örneğin:
+
+Conversation
+
+↓
+
+Hızlı indeks
+
+PDF
+
+↓
+
+Arka plan indeksleme
+
+Large File
+
+↓
+
+Parçalı indeksleme
+
+8.12 Chunk Index
+
+Büyük belgeler tek parça indekslenmez.
+
+PDF
+
+↓
+
+Chunk
+
+↓
+
+Chunk
+
+↓
+
+Chunk
+
+↓
+
+Index
+
+Bu hem performansı artırır hem de daha doğru Retrieval sağlar.
+
+8.13 Duplicate Detection
+
+Indexer aynı içeriği iki kez indekslememelidir.
+
+İçerik hash'i, içerik kimliği ve versiyon bilgisi birlikte değerlendirilerek mükerrer indeksler engellenmelidir.
+
+8.14 Language Awareness
+
+Index;
+
+çok dilli çalışmalıdır.
+
+Türkçe
+
+İngilizce
+
+Almanca
+
+Arapça
+
+gibi diller desteklenebilir.
+
+Dil bilgisi Metadata'dan alınır.
+
+8.15 Stop Words
+
+Dil bazlı stop-word desteği olmalıdır.
+
+Örneğin:
+
+ve
+
+ile
+
+bir
+
+de
+
+Her dil için farklı kurallar uygulanabilir.
+
+8.16 Search Ranking
+
+Search;
+
+tek kritere göre çalışmaz.
+
+Önemli sinyaller:
+
+- Relevance 
+
+- Trust 
+
+- Importance 
+
+- Freshness 
+
+- Scope 
+
+- Security 
+
+- User Context 
+
+Bu puanlar Retrieval katmanında birlikte değerlendirilir.
+
+8.17 Index Health
+
+Her Index izlenmelidir.
+
+Örneğin:
+
+- Son indeksleme zamanı 
+
+- Bekleyen kayıt sayısı 
+
+- Hata sayısı 
+
+- Ortalama süre 
+
+- Başarısız indeksleme oranı 
+
+8.18 Recovery
+
+Index kaybolursa;
+
+Storage kaybolmaz.
+
+Yeni Index oluşturulur.
+
+Bu nedenle Index her zaman yeniden üretilebilir olmalıdır.
+
+8.19 Index Tasarım Kuralları
+
+- Index Storage değildir. 
+
+- Storage Index değildir. 
+
+- Index yeniden üretilebilir olmalıdır. 
+
+- Incremental Index varsayılandır. 
+
+- Full Reindex yönetimsel işlemdir. 
+
+- Büyük dosyalar parçalı indekslenmelidir. 
+
+- Search yalnızca Index kullanır. 
+
+- Background Indexer bağımsız çalışır. 
+
+- Index başarısızlığı veri kaybı anlamına gelmez. 
+
+- Güvenlik filtreleri Retrieval aşamasında tekrar uygulanır. 
+
+8.20 Sprint 0.9 Açısından Sonuç
+
+Bu bölüm ile Enterprise Memory'nin arama altyapısı ve indeksleme modeli tanımlanmıştır.
+
+Artık Enterprise Memory mimarisi aşağıdaki çekirdek bileşenleri kapsamaktadır:
+
+- Foundation 
+
+- Domain Model 
+
+- Provider Architecture 
+
+- Retrieval & Query 
+
+- Security & Governance 
+
+- API & SDK 
+
+- Lifecycle & State Machine 
+
+- Indexing & Search Engine 
+
+Mimari Değerlendirme
+
+Bu noktada Enterprise Memory'nin kavramsal mimarisi büyük ölçüde oluşmuş durumda. Ancak Sprint 0.9 koduna geçmeden önce hâlâ üç kritik tasarım alanının netleştirilmesini öneririm:
+
+- Provider SDK Specification
+Yeni depolama sağlayıcılarının (SQL, Redis, S3 vb.) hangi sözleşmeleri eksiksiz uygulamak zorunda olduğunu tanımlar. 
+
+- Performance & Scalability Architecture
+Milyonlarca kayıt, çok kiracılı (multi-tenant) kullanım, yatay ölçekleme, önbellekleme ve yük dengeleme stratejilerini belirler. 
+
+- Implementation Specification (Sprint 0.9)
+Claude'un doğrudan kod üretebilmesi için proje yapısı, namespace'ler, dosya listesi, interface'ler, sınıflar, test projeleri ve kabul kriterlerini ayrıntılı biçimde tanımlar. 
+
+Bu üç belge tamamlandıktan sonra Sprint 0.9'un implementasyonu, mimari açıdan çok daha güvenli ve tutarlı bir şekilde başlatılabilir.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 9 — Memory Provider SDK Specification
+
+9.1 Amaç
+
+Enterprise Memory'nin en önemli özelliklerinden biri genişletilebilir olmasıdır.
+
+BNOS hiçbir zaman yalnızca SQL Server için geliştirilmiş bir sistem olmayacaktır.
+
+Yarın;
+
+- yeni bir veritabanı, 
+
+- yeni bir Object Storage, 
+
+- yeni bir Vector Database, 
+
+- yeni bir Cloud Provider 
+
+çıktığında çekirdek kod değişmeyecektir.
+
+Sadece yeni bir Provider eklenecektir.
+
+9.2 SDK Felsefesi
+
+Provider;
+
+Enterprise Memory değildir.
+
+Provider;
+
+Enterprise Memory'nin bir sürücüsüdür.
+
+Nasıl ki Windows işletim sistemi ekran kartını tanımaz;
+
+Driver tanır.
+
+BNOS da Storage'ı tanımaz.
+
+Provider tanır.
+
+9.3 Provider Yaşam Döngüsü
+
+Her Provider aşağıdaki yaşam döngüsüne sahip olmalıdır.
+
+Install
+
+↓
+
+Register
+
+↓
+
+Initialize
+
+↓
+
+Validate Configuration
+
+↓
+
+Health Check
+
+↓
+
+Ready
+
+↓
+
+Serving
+
+↓
+
+Maintenance
+
+↓
+
+Shutdown
+
+↓
+
+Dispose
+
+9.4 Provider Sözleşmesi
+
+Her Provider aşağıdaki minimum yetenekleri sağlamalıdır.
+
+Storage
+
+- Write 
+
+- Read 
+
+- Update 
+
+- Archive 
+
+- Logical Delete 
+
+Search
+
+- By Id 
+
+- By Metadata 
+
+- Batch Read 
+
+Health
+
+- Ping 
+
+- Health 
+
+- Status 
+
+Capability
+
+Kendi özelliklerini bildirmelidir.
+
+9.5 Capability Contract
+
+Her Provider aşağıdaki özellikleri ilan eder.
+
+SupportsTransaction
+
+SupportsStreaming
+
+SupportsCompression
+
+SupportsEncryption
+
+SupportsSnapshot
+
+SupportsVersioning
+
+SupportsBatch
+
+SupportsAsync
+
+SupportsLargeObject
+
+SupportsSearch
+
+Kernel buna göre davranır.
+
+9.6 Provider Registration
+
+Provider otomatik bulunmaz.
+
+Reflection ile taranmaz.
+
+Composition Root üzerinden kayıt edilir.
+
+Örnek mantık:
+
+AddSqlMemoryProvider()
+
+↓
+
+AddRedisMemoryProvider()
+
+↓
+
+AddBlobMemoryProvider()
+
+9.7 Provider Configuration
+
+Provider konfigürasyonu Domain içerisinde bulunmaz.
+
+Provider yalnızca Configuration nesnesi alır.
+
+Örnek bilgiler:
+
+- Connection 
+
+- Timeout 
+
+- Retry 
+
+- Pool Size 
+
+- Region 
+
+9.8 Provider Validation
+
+Başlatılırken doğrulama yapılır.
+
+Kontroller:
+
+- Bağlantı 
+
+- Kimlik doğrulama 
+
+- İzinler 
+
+- Sürüm uyumluluğu 
+
+- Gerekli özellikler 
+
+Başarısız olursa Provider Ready durumuna geçmez.
+
+9.9 Provider Isolation
+
+Hiçbir Provider başka Provider'ı çağıramaz.
+
+Örneğin;
+
+Redis Provider
+
+↓
+
+Blob Provider
+
+çağıramaz.
+
+Tüm koordinasyon Kernel tarafından yapılır.
+
+9.10 Provider Routing
+
+Kernel Provider seçerken şu kriterleri kullanabilir:
+
+- MemoryType 
+
+- Classification 
+
+- Boyut 
+
+- Tenant Politikası 
+
+- Business Rule 
+
+- Retention Policy 
+
+Provider kendi kendine yönlendirme yapmaz.
+
+9.11 Provider Thread Safety
+
+Provider implementasyonları eşzamanlı erişime uygun olmalıdır.
+
+Kurallar:
+
+- Paylaşılan durum en aza indirilmeli. 
+
+- Gereksiz kilitlemelerden kaçınılmalı. 
+
+- Yarış koşulları engellenmeli. 
+
+- Uzun işlemler iptal edilebilir olmalı. 
+
+9.12 Provider Error Model
+
+Provider ham exception döndürmez.
+
+Standart hata kategorileri kullanılır.
+
+Örneğin:
+
+- ConnectionFailure 
+
+- Timeout 
+
+- PermissionDenied 
+
+- StorageUnavailable 
+
+- ValidationFailed 
+
+- SerializationError 
+
+Bu hatalar üst katmanlarda ortak modele dönüştürülür.
+
+9.13 Provider Observability
+
+Her Provider aşağıdaki metrikleri üretmelidir.
+
+- Ortalama yazma süresi 
+
+- Ortalama okuma süresi 
+
+- Hata oranı 
+
+- Timeout oranı 
+
+- Başarılı işlem sayısı 
+
+- Eşzamanlı istek sayısı 
+
+9.14 Provider Retry
+
+Retry Provider'ın sorumluluğu değildir.
+
+Retry politikası Kernel tarafından uygulanır.
+
+Provider deterministik davranmalıdır.
+
+9.15 Provider Security
+
+Provider;
+
+- Authorization uygulamaz. 
+
+- Business Rule çalıştırmaz. 
+
+- Workflow başlatmaz. 
+
+- Memory State değiştirmez. 
+
+- Event yayınlamaz. 
+
+Provider yalnızca depolama işlemlerini gerçekleştirir.
+
+9.16 Provider Test Standardı
+
+Her Provider için en az aşağıdaki testler bulunmalıdır.
+
+- Bağlantı testi 
+
+- Yazma/okuma testi 
+
+- Büyük dosya testi 
+
+- Eşzamanlı erişim testi 
+
+- Hata senaryoları 
+
+- Performans testi 
+
+- İptal (Cancellation) testi 
+
+9.17 Provider Versioning
+
+SDK sözleşmeleri sürümlenir.
+
+Yeni Provider'lar eski Kernel sürümleriyle uyumluluk kurallarına göre geliştirilir.
+
+Kırıcı değişiklikler kontrollü şekilde yönetilir.
+
+9.18 Provider Certification
+
+BNOS'a eklenecek her resmi Provider aşağıdaki kriterleri sağlamalıdır:
+
+- Mimari sözleşmelere tam uyum 
+
+- Thread-safe davranış 
+
+- Asenkron API desteği 
+
+- Standart hata modeli 
+
+- Test kapsamı 
+
+- Gözlemlenebilirlik (Observability) 
+
+- Dokümantasyon 
+
+Bu şartları sağlamayan Provider'lar resmi BNOS dağıtımına dahil edilmez.
+
+9.19 Provider Tasarım Kuralları
+
+- Provider yalnızca depolama katmanıdır. 
+
+- Provider Domain kurallarını değiştiremez. 
+
+- Provider başka Provider çağırmaz. 
+
+- Provider Composition Root üzerinden kaydedilir. 
+
+- Provider sağlık durumunu raporlar. 
+
+- Provider Capability bilgisini yayınlar. 
+
+- Provider thread-safe olmalıdır. 
+
+- Provider standart hata modeline uymalıdır. 
+
+- Provider gözlemlenebilir olmalıdır. 
+
+- Provider Kernel'den bağımsız iş mantığı içermez. 
+
+9.20 Sprint 0.9 Açısından Sonuç
+
+Bu bölümle birlikte Enterprise Memory'nin Provider SDK mimarisi tamamlanmıştır.
+
+Şu anda Enterprise Memory için şu ana mimari başlıklar tanımlanmış durumdadır:
+
+- Foundation 
+
+- Domain Model 
+
+- Provider Architecture 
+
+- Retrieval & Query 
+
+- Security & Governance 
+
+- API & SDK 
+
+- Lifecycle & State Machine 
+
+- Indexing & Search 
+
+- Provider SDK Specification 
+
+CTO Değerlendirmesi
+
+Bu noktada Enterprise Memory'nin mimarisi, kod yazımına yaklaşacak olgunluğa ulaşıyor. Ancak üretim kalitesinde bir platform için iki kritik belge daha öneririm:
+
+- Bölüm 10 – Performance & Scalability Architecture: yüksek hacimli veri, çok kiracılı yapı, yatay ölçekleme, önbellek stratejileri ve performans hedefleri. 
+
+- Bölüm 11 – Sprint 0.9 Implementation Specification: proje yapısı, namespace'ler, dosya listesi, interface ve sınıf envanteri, test projeleri ve kabul kriterleri. 
+
+Özellikle Bölüm 11, Claude'un Sprint 0.9'u yorum yapmadan ve mimariyi değiştirmeden üretebilmesi için doğrudan uygulanabilir teknik spesifikasyon olacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 10 — Performance & Scalability Architecture
+
+10.1 Amaç
+
+Enterprise Memory yalnızca doğru çalışan bir sistem değil, aynı zamanda yük altında öngörülebilir şekilde çalışan bir sistem olmalıdır.
+
+Performans sonradan eklenen bir özellik değildir.
+
+Mimarinin ayrılmaz bir parçasıdır.
+
+Bu nedenle BNOS'ta performans kararları en baştan mimariye işlenir.
+
+10.2 Temel Performans Prensipleri
+
+Enterprise Memory aşağıdaki ilkeleri benimser.
+
+- Ölçeklenebilirlik (Scalability) 
+
+- Düşük gecikme (Low Latency) 
+
+- Yüksek Throughput 
+
+- Deterministik Davranış 
+
+- Kaynak Verimliliği 
+
+- Yatay Ölçekleme Önceliği 
+
+10.3 Ölçeklenebilirlik Modeli
+
+BNOS tek makine için tasarlanmaz.
+
+Desteklenen büyüme modeli:
+
+Single Node
+
+↓
+
+Multi Process
+
+↓
+
+Multi Server
+
+↓
+
+Cluster
+
+↓
+
+Distributed Enterprise
+
+↓
+
+Multi Region
+
+Her seviye aynı mimari sözleşmeleri kullanır.
+
+10.4 Stateless Kernel
+
+Kernel mümkün olduğunca stateless tasarlanmalıdır.
+
+Kalıcı durum;
+
+- Enterprise Memory 
+
+- Cache 
+
+- Queue 
+
+- Storage 
+
+gibi bileşenlerde tutulur.
+
+Bu sayede Kernel instance'ları kolayca çoğaltılabilir.
+
+10.5 Horizontal Scaling
+
+BNOS'un varsayılan ölçekleme modeli:
+
+Scale Out
+
+Yeni sunucu eklenerek kapasite artırılır.
+
+Kernel, belirli bir sunucuya bağımlı çalışmamalıdır.
+
+10.6 Vertical Scaling
+
+Daha güçlü CPU/RAM ile büyüme desteklenir.
+
+Ancak mimari hiçbir zaman yalnızca dikey ölçeklemeye bağımlı değildir.
+
+10.7 Cache Architecture
+
+Cache;
+
+Memory değildir.
+
+Cache;
+
+Memory'nin hızlandırıcısıdır.
+
+Temel kullanım alanları:
+
+- Sık okunan metadata 
+
+- Konfigürasyon 
+
+- Yetkilendirme verileri 
+
+- Sık kullanılan sorgu sonuçları 
+
+Cache doğruluk kaynağı (source of truth) değildir.
+
+10.8 Cache Katmanları
+
+L1 Cache
+
+(Process)
+
+↓
+
+L2 Cache
+
+(Distributed)
+
+↓
+
+Enterprise Memory
+
+↓
+
+Provider
+
+Her katmanın kullanım amacı farklıdır.
+
+10.9 Cache Invalidation
+
+Yanlış cache, cache olmamasından daha kötüdür.
+
+Bu nedenle:
+
+- Güncelleme 
+
+- Silme 
+
+- Arşivleme 
+
+- Restore 
+
+işlemleri ilgili cache girişlerini geçersiz kılmalıdır.
+
+10.10 Connection Pooling
+
+Her Provider bağlantı havuzundan yararlanmalıdır.
+
+Her istek için yeni bağlantı açılması performans kaybına neden olur.
+
+Bağlantı havuzu politikaları yapılandırılabilir olmalıdır.
+
+10.11 Asynchronous Processing
+
+Aşağıdaki işlemler arka planda çalıştırılabilir:
+
+- İndeksleme 
+
+- Büyük dosya işleme 
+
+- Embedding üretimi 
+
+- Bildirimler 
+
+- Analitik 
+
+Kullanıcı isteğini gereksiz yere bekletmemelidir.
+
+10.12 Parallel Processing
+
+Bağımsız işler paralel yürütülebilir.
+
+Örneğin:
+
+Validation
+
+      │
+
+      ├─────────► Metadata Validation
+
+      ├─────────► ACL Validation
+
+      └─────────► Schema Validation
+
+Ancak sonuçların tutarlılığı korunmalıdır.
+
+10.13 Large Object Strategy
+
+Büyük nesneler (Large Objects):
+
+- Belleğe tamamen yüklenmez. 
+
+- Stream olarak işlenir. 
+
+- Gerekirse parçalanarak aktarılır. 
+
+Bu yaklaşım bellek tüketimini kontrol altında tutar.
+
+10.14 Read Optimization
+
+Okuma işlemleri için hedefler:
+
+- Gereksiz veri yüklememek 
+
+- Filtreleri erken uygulamak 
+
+- Sayfalama (Paging) 
+
+- Stream desteği 
+
+- İndekslerden yararlanmak 
+
+10.15 Write Optimization
+
+Yazma işlemleri için hedefler:
+
+- Toplu işlemler (Batch) 
+
+- Minimum ağ trafiği 
+
+- Gecikmeli indeksleme (uygun olduğunda) 
+
+- Gereksiz yeniden yazımlardan kaçınmak 
+
+10.16 Multi-Tenant Performance
+
+Bir Tenant'ın yoğun yükü diğer Tenant'ları etkilememelidir.
+
+Bunun için:
+
+- Kaynak kotaları 
+
+- Önceliklendirme 
+
+- İzolasyon 
+
+- Adil kaynak paylaşımı 
+
+desteklenmelidir.
+
+10.17 Rate Limiting
+
+Aşırı istekler kontrol altına alınmalıdır.
+
+Rate limiting;
+
+- Kullanıcı 
+
+- Tenant 
+
+- API Anahtarı 
+
+- IP 
+
+- Agent 
+
+bazında uygulanabilir.
+
+Bu mekanizma güvenlik ve performansı birlikte destekler.
+
+10.18 Queue-Based Workload
+
+Uzun süren işlemler doğrudan HTTP isteği içerisinde tamamlanmak zorunda değildir.
+
+Örnekler:
+
+- Büyük veri içe aktarma 
+
+- Toplu indeksleme 
+
+- Embedding oluşturma 
+
+- Toplu arşivleme 
+
+Bu işlemler kuyruk tabanlı çalıştırılabilir.
+
+10.19 Resource Monitoring
+
+Her bileşen aşağıdaki metrikleri üretmelidir.
+
+- CPU kullanımı 
+
+- Bellek kullanımı 
+
+- Disk kullanımı 
+
+- Ağ gecikmesi 
+
+- Aktif bağlantılar 
+
+- Kuyruk uzunluğu 
+
+- Ortalama yanıt süresi 
+
+- P95 / P99 gecikmeleri 
+
+10.20 Performance Budget
+
+Her modül için kabul edilebilir performans hedefleri tanımlanmalıdır.
+
+Örnek olarak:
+
+| **İşlem** | **Hedef** |
+| --- | --- |
+| Metadata sorgusu | < 100 ms |
+| Kimliğe göre okuma | < 50 ms |
+| Basit yazma | < 200 ms |
+| Büyük dosya yükleme | Boyuta bağlı |
+| Arka plan indeksleme | SLA'ya göre |
+
+Bu değerler referans niteliğindedir; dağıtım mimarisi ve altyapıya göre değişebilir.
+
+10.21 Scalability Testleri
+
+Performans yalnızca benchmark ile değil;
+
+- Yük testi 
+
+- Stres testi 
+
+- Dayanıklılık (Soak) testi 
+
+- Ani yük (Spike) testi 
+
+- Kurtarma testi 
+
+ile doğrulanmalıdır.
+
+10.22 Performans Tasarım Kuralları
+
+- Kernel mümkün olduğunca stateless olmalıdır. 
+
+- Scale-out öncelikli tasarlanmalıdır. 
+
+- Cache doğruluk kaynağı değildir. 
+
+- Büyük dosyalar stream ile işlenmelidir. 
+
+- Uzun işler kuyruk tabanlı çalıştırılabilir. 
+
+- Her bileşen ölçülebilir olmalıdır. 
+
+- Performans metrikleri standartlaştırılmalıdır. 
+
+- Çok kiracılı izolasyon korunmalıdır. 
+
+- Bağlantılar havuzlanmalıdır. 
+
+- Performans optimizasyonları mimari kuralları ihlal etmemelidir. 
+
+10.23 Sprint 0.9 Açısından Sonuç
+
+Bu bölüm ile Enterprise Memory'nin performans ve ölçeklenebilirlik mimarisi tanımlanmıştır.
+
+Tamamlanan ana bölümler:
+
+- ✅ Bölüm 1 — Foundation 
+
+- ✅ Bölüm 2 — Domain Model 
+
+- ✅ Bölüm 3 — Provider Architecture 
+
+- ✅ Bölüm 4 — Retrieval & Query 
+
+- ✅ Bölüm 5 — Security & Governance 
+
+- ✅ Bölüm 6 — API & SDK 
+
+- ✅ Bölüm 7 — Lifecycle & State Machine 
+
+- ✅ Bölüm 8 — Indexing & Search 
+
+- ✅ Bölüm 9 — Provider SDK 
+
+- ✅ Bölüm 10 — Performance & Scalability 
+
+Enterprise Mimari Değerlendirmesi
+
+Bu noktadan sonra, Sprint 0.9'u gerçekten kurumsal seviyede uygulanabilir hâle getirecek son ve en kritik belgeye geçiyoruz:
+
+Bölüm 11 — Sprint 0.9 Implementation Specification
+
+Bu bölüm, mimariyi doğrudan geliştirilebilir teknik spesifikasyona dönüştürecektir. İçeriğinde:
+
+- Proje/solution yapısı 
+
+- Namespace standartları 
+
+- Klasör organizasyonu 
+
+- Interface envanteri 
+
+- Sınıf envanteri 
+
+- Command/Query dosyaları 
+
+- Domain Event listesi 
+
+- Dependency Injection kayıtları 
+
+- Test projeleri ve kapsamı 
+
+- Kodlama standartları 
+
+- Kabul kriterleri 
+
+- "Definition of Done" kontrol listesi 
+
+yer alacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt II – Enterprise Memory Architecture (EMA)
+
+Bölüm 11 — Sprint 0.9 Implementation Specification
+
+Amaç: Bu bölüm, önceki on bölümde tanımlanan mimariyi doğrudan geliştirilebilir teknik spesifikasyona dönüştürür. Sprint 0.9 implementasyonu bu belgeye göre geliştirilmelidir.
+
+11.1 Sprint 0.9 Kapsamı
+
+Sprint 0.9 yalnızca Enterprise Memory Foundation'ı kapsar.
+
+Bu sprintte aşağıdaki modüller tamamlanacaktır.
+
+- Enterprise Memory Domain 
+
+- Application Layer 
+
+- Provider Abstractions 
+
+- Repository 
+
+- Command Pipeline 
+
+- Query Pipeline 
+
+- Lifecycle Engine 
+
+- Security Integration 
+
+- Audit Integration 
+
+- Dependency Injection 
+
+- Configuration 
+
+- Unit Tests 
+
+Bu sprintte Knowledge Graph, Embedding, RAG, LLM veya Semantic Search implementasyonu yapılmayacaktır.
+
+11.2 Solution Yapısı
+
+BNOS.sln
+
+src/
+
+BNOS.Kernel
+
+BNOS.Shared
+
+BNOS.Memory.Domain
+
+BNOS.Memory.Application
+
+BNOS.Memory.Infrastructure
+
+BNOS.Memory.Persistence
+
+BNOS.Memory.API
+
+tests/
+
+BNOS.Memory.Domain.Tests
+
+BNOS.Memory.Application.Tests
+
+BNOS.Memory.Infrastructure.Tests
+
+BNOS.Memory.Integration.Tests
+
+benchmarks/
+
+BNOS.Memory.Benchmarks
+
+Her proje tek sorumluluk prensibini takip etmelidir.
+
+11.3 Namespace Standardı
+
+BNOS.Memory.Domain
+
+BNOS.Memory.Domain.Entities
+
+BNOS.Memory.Domain.Events
+
+BNOS.Memory.Domain.ValueObjects
+
+BNOS.Memory.Domain.Repositories
+
+BNOS.Memory.Application
+
+BNOS.Memory.Application.Commands
+
+BNOS.Memory.Application.Queries
+
+BNOS.Memory.Application.Services
+
+BNOS.Memory.Infrastructure
+
+BNOS.Memory.Infrastructure.Storage
+
+BNOS.Memory.Infrastructure.Security
+
+BNOS.Memory.Infrastructure.Indexing
+
+Namespace'ler katmanlar arası bağımlılık kurallarını yansıtmalıdır.
+
+11.4 Domain Katmanı
+
+Domain yalnızca iş kurallarını içerir.
+
+İçermemelidir:
+
+- SQL 
+
+- HTTP 
+
+- JSON 
+
+- Configuration 
+
+- Logger 
+
+- Cache 
+
+- Framework bağımlılıkları 
+
+Domain saf (Pure Domain) olmalıdır.
+
+11.5 Domain Envanteri
+
+Temel Aggregate:
+
+- MemoryRecord 
+
+Temel Entity'ler:
+
+- MemoryAttachment 
+
+- MemoryVersion 
+
+- MemoryPermission 
+
+- MemoryRelation 
+
+- MemoryAuditReference 
+
+Value Object'ler:
+
+- MemoryId 
+
+- ScopeId 
+
+- MemoryType 
+
+- TrustLevel 
+
+- Importance 
+
+- Classification 
+
+- SecurityLabel 
+
+- RetentionPolicy 
+
+- VersionNumber 
+
+- ContentHash 
+
+11.6 Domain Event Envanteri
+
+Sprint 0.9 kapsamındaki olaylar:
+
+- MemoryCreated 
+
+- MemoryValidated 
+
+- MemoryEncrypted 
+
+- MemoryCompressed 
+
+- MemoryPersisted 
+
+- MemoryIndexed 
+
+- MemoryAvailable 
+
+- MemoryUpdated 
+
+- MemoryArchived 
+
+- MemoryDeleted 
+
+- MemoryRestored 
+
+- MemoryExpired 
+
+Bu olaylar immutable olmalıdır.
+
+11.7 Command Envanteri
+
+Application Layer aşağıdaki Command'ları içerir.
+
+- CreateMemoryCommand 
+
+- UpdateMemoryCommand 
+
+- ArchiveMemoryCommand 
+
+- RestoreMemoryCommand 
+
+- DeleteMemoryCommand 
+
+- ValidateMemoryCommand 
+
+Her Command için tek bir Handler bulunmalıdır.
+
+11.8 Query Envanteri
+
+- GetMemoryByIdQuery 
+
+- SearchMemoryQuery 
+
+- SearchByMetadataQuery 
+
+- SearchByScopeQuery 
+
+- SearchByTagQuery 
+
+Query'ler yalnızca okuma işlemi yapar.
+
+11.9 Application Services
+
+Application katmanında aşağıdaki servisler bulunmalıdır.
+
+- MemoryCommandService 
+
+- MemoryQueryService 
+
+- MemoryLifecycleService 
+
+- MemoryValidationService 
+
+- MemoryAuthorizationService 
+
+Bu servisler Domain mantığını tekrar etmez; Domain kurallarını orkestre eder.
+
+11.10 Repository
+
+Repository yalnızca Aggregate yönetir.
+
+Repository;
+
+- Business Rule çalıştırmaz. 
+
+- Yetkilendirme yapmaz. 
+
+- Event yayınlamaz. 
+
+Görevi yalnızca Aggregate'ı kalıcı hale getirmektir.
+
+11.11 Provider
+
+Sprint 0.9 için yalnızca temel Provider sözleşmeleri oluşturulur.
+
+Örnek implementasyonlar:
+
+- InMemory Provider (test amaçlı) 
+
+- File Provider (opsiyonel geliştirme ortamı) 
+
+- SQL Provider iskeleti (tam implementasyon değil) 
+
+Bu sprintte belirli bir veritabanına bağımlılık zorunlu değildir.
+
+11.12 Dependency Injection
+
+Tüm servis kayıtları tek giriş noktasından yapılmalıdır.
+
+Örnek modüller:
+
+- AddEnterpriseMemory() 
+
+- AddMemoryDomain() 
+
+- AddMemoryInfrastructure() 
+
+- AddMemoryPersistence() 
+
+Hiçbir servis doğrudan new ile oluşturulmamalıdır.
+
+11.13 Configuration
+
+Yapılandırma sınıfları aşağıdaki alanları kapsayabilir:
+
+- Varsayılan Provider 
+
+- Şifreleme seçenekleri 
+
+- Sıkıştırma seçenekleri 
+
+- Varsayılan Retention Policy 
+
+- Batch limitleri 
+
+- Maksimum kayıt boyutu 
+
+- Timeout değerleri 
+
+Domain katmanı bu ayarlardan haberdar olmamalıdır.
+
+11.14 Logging
+
+Application ve Infrastructure katmanları yapılandırılmış (structured) log üretebilir.
+
+Log'lar:
+
+- CorrelationId 
+
+- Tenant 
+
+- Scope 
+
+- Operation 
+
+- Duration 
+
+gibi alanları desteklemelidir.
+
+Gizli veri (secret, anahtar, şifrelenmemiş içerik) log'lanmamalıdır.
+
+11.15 Test Yapısı
+
+Her katman ayrı test edilir.
+
+Domain
+
+- Entity davranışları 
+
+- Value Object doğrulamaları 
+
+- Domain Rule testleri 
+
+Application
+
+- Command Handler 
+
+- Query Handler 
+
+- Lifecycle 
+
+Infrastructure
+
+- Provider 
+
+- Repository 
+
+- Encryption 
+
+- Compression 
+
+Integration
+
+- Uçtan uca senaryolar 
+
+- Provider entegrasyonu 
+
+- Yaşam döngüsü akışı 
+
+11.16 Kodlama Standartları
+
+Kod tabanı aşağıdaki ilkelere uymalıdır:
+
+- SOLID 
+
+- DRY 
+
+- KISS 
+
+- Composition over Inheritance 
+
+- Dependency Inversion 
+
+- Immutable DTO 
+
+- Nullable Reference Types 
+
+- Async IO 
+
+- Deterministic Behavior 
+
+11.17 Performans Hedefleri
+
+Sprint 0.9 için ölçülebilir hedefler:
+
+- Başlangıç süresi öngörülebilir olmalıdır. 
+
+- Gereksiz bellek tahsisi azaltılmalıdır. 
+
+- IO işlemleri bloklamamalıdır. 
+
+- Büyük içerikler stream ile işlenebilmelidir. 
+
+- Toplu işlemler desteklenmeye hazır olmalıdır. 
+
+Kesin sayısal eşikler üretim ortamına göre belirlenecektir.
+
+11.18 Definition of Done
+
+Sprint 0.9 aşağıdaki koşullar sağlanmadan tamamlanmış kabul edilmez.
+
+- Domain kuralları eksiksiz uygulanmıştır. 
+
+- Mimari katman bağımlılıkları ihlal edilmemiştir. 
+
+- Tüm Command ve Query akışları çalışmaktadır. 
+
+- Unit testler başarılıdır. 
+
+- Integration testleri başarılıdır. 
+
+- Statik analiz kritik hata üretmemektedir. 
+
+- Dokümantasyon günceldir. 
+
+- API sözleşmeleri tamamlanmıştır. 
+
+- Dependency Injection doğrulanmıştır. 
+
+- Kod incelemesi tamamlanmıştır. 
+
+11.19 Sprint 0.9 Teslimatları
+
+Sprint sonunda aşağıdakiler teslim edilmiş olmalıdır:
+
+- Kaynak kod 
+
+- Mimari diyagramlar 
+
+- API dokümantasyonu 
+
+- Test raporları 
+
+- Performans ölçümleri 
+
+- Kod kalite raporu 
+
+- Sprint değişiklik günlüğü 
+
+11.20 Sprint 0.9 Kabul Kriterleri
+
+Sprint kabulü için aşağıdaki şartların tamamı sağlanmalıdır:
+
+- Mimaride tanımlanan katmanlar eksiksiz uygulanmıştır. 
+
+- Domain katmanı altyapı bağımlılığı içermez. 
+
+- Yaşam döngüsü kuralları uygulanır. 
+
+- Güvenlik ve yetkilendirme akışları çalışır. 
+
+- Audit mekanizması devrededir. 
+
+- Provider soyutlamaları kullanılmaktadır. 
+
+- Test kapsamı kabul edilen seviyededir. 
+
+- Kritik mimari ihlali bulunmamaktadır. 
+
+- Kod gözden geçirme süreci tamamlanmıştır. 
+
+- Sonraki sprintler (Knowledge Graph, RAG, AI Orchestrator) için genişletilebilir temel hazırdır. 
+
+Enterprise Memory Architecture Durumu
+
+Bu bölümün tamamlanmasıyla birlikte Sprint 0.9 için gerekli çekirdek mimari ve implementasyon spesifikasyonu tamamlanmıştır.
+
+Enterprise Memory artık şu seviyelerde tanımlanmıştır:
+
+- Kavramsal Mimari 
+
+- Domain Mimarisi 
+
+- Uygulama Mimarisi 
+
+- Provider Mimarisi 
+
+- Güvenlik Modeli 
+
+- Yaşam Döngüsü 
+
+- API Sözleşmeleri 
+
+- Performans Mimarisi 
+
+- Implementasyon Spesifikasyonu 
+
+Sonraki Aşama
+
+Enterprise Memory tamamlandıktan sonra BNOS çekirdeğinin doğal ilerleme sırası şu olmalıdır:
+
+- Sprint 1.0 — Knowledge Graph Foundation 
+
+- Sprint 1.1 — Semantic Retrieval & Enterprise Search 
+
+- Sprint 1.2 — Business Rules Engine 
+
+- Sprint 1.3 — Workflow Engine 
+
+- Sprint 1.4 — AI Orchestrator 
+
+- Sprint 1.5 — LLM Gateway 
+
+Bu sıra, önceki mimari bölümlerde tanımlanan bağımlılık zinciriyle uyumludur ve her katmanın kendinden önceki katman üzerine inşa edilmesini sağlar.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt III — Knowledge Graph Architecture (KGA)
+
+Not: Enterprise Memory mimarisi tamamlanmıştır. Bundan sonraki katman, BNOS çekirdeğinin ikinci temel taşı olan Knowledge Graph'tır. Bu katman, Enterprise Memory üzerine inşa edilir ve daha sonra Business Rules, Workflow Engine, AI Orchestrator ve LLM Gateway tarafından ortak kullanılacaktır.
+
+Bölüm 1 — Knowledge Graph Foundation
+
+1.1 Amaç
+
+Enterprise Memory bilgiyi saklar.
+
+Knowledge Graph ise bu bilgiler arasındaki anlamlı ilişkileri yönetir.
+
+Başka bir ifadeyle;
+
+Enterprise Memory cevap verir:
+
+"Ne biliyorum?"
+
+Knowledge Graph cevap verir:
+
+"Bu bilgiler birbirleriyle nasıl ilişkilidir?"
+
+1.2 Tanım
+
+BNOS Knowledge Graph;
+
+Enterprise Memory içinde bulunan tüm varlıklar (Entity), kavramlar (Concept), olaylar (Event), kişiler (Person), organizasyonlar (Organization), belgeler (Document), süreçler (Workflow) ve kararlar (Decision) arasındaki ilişkileri yöneten kurumsal bilgi ağıdır.
+
+Graph, verinin sahibi değildir.
+
+Graph yalnızca ilişkilerin sahibidir.
+
+1.3 Temel Prensip
+
+Knowledge Graph;
+
+- Veriyi kopyalamaz. 
+
+- Veriyi taşımaz. 
+
+- Veriyi değiştirmez. 
+
+Sadece referans verir.
+
+Bu nedenle Enterprise Memory tek doğruluk kaynağı (Single Source of Truth) olmaya devam eder.
+
+1.4 Bağımlılık Zinciri
+
+Enterprise Memory
+
+        │
+
+        ▼
+
+Knowledge Graph
+
+        │
+
+        ▼
+
+Business Rules Engine
+
+        │
+
+        ▼
+
+Workflow Engine
+
+        │
+
+        ▼
+
+AI Orchestrator
+
+        │
+
+        ▼
+
+LLM Gateway
+
+Hiçbir üst katman, Enterprise Memory'yi atlayarak Graph'a erişmez.
+
+1.5 Graph'ın Sorumlulukları
+
+Knowledge Graph aşağıdaki görevlerden sorumludur:
+
+- Varlıklar arasındaki ilişkileri yönetmek 
+
+- İlişkileri sorgulamak 
+
+- Bağlam (Context) oluşturmak 
+
+- Etki analizi yapmak 
+
+- Bağımlılık analizi yapmak 
+
+- Navigasyon sağlamak 
+
+- Semantic Retrieval'i desteklemek 
+
+1.6 Graph'ın Sorumlu Olmadığı Alanlar
+
+Knowledge Graph;
+
+- Memory saklamaz. 
+
+- Dosya saklamaz. 
+
+- Yetkilendirme yapmaz. 
+
+- Workflow çalıştırmaz. 
+
+- Business Rule uygulamaz. 
+
+- LLM çağırmaz. 
+
+1.7 Graph Modeli
+
+Knowledge Graph üç temel yapıdan oluşur.
+
+Node
+
+↓
+
+Edge
+
+↓
+
+Property
+
+Bütün grafik bu üç yapı üzerine kuruludur.
+
+1.8 Node
+
+Node;
+
+gerçek dünyadaki bir nesneyi temsil eder.
+
+Örnekler:
+
+- Person 
+
+- Building 
+
+- Apartment 
+
+- Employee 
+
+- Invoice 
+
+- Budget 
+
+- Contract 
+
+- Asset 
+
+- WorkOrder 
+
+- Meeting 
+
+- Decision 
+
+- Project 
+
+Node, veriyi içermez.
+
+MemoryRecord'a referans verir.
+
+1.9 Edge
+
+Edge;
+
+iki Node arasındaki ilişkiyi temsil eder.
+
+Örneğin:
+
+Manager
+
+MANAGES
+
+Building
+
+veya
+
+Invoice
+
+BELONGS_TO
+
+Budget
+
+1.10 Property
+
+Node ve Edge üzerinde metadata tutulabilir.
+
+Örnek:
+
+- CreatedAt 
+
+- Confidence 
+
+- Weight 
+
+- Source 
+
+- Status 
+
+- ValidUntil 
+
+Property, Domain kurallarını değiştirmez.
+
+1.11 Kimlik (Identity)
+
+Her Node benzersiz bir Graph kimliğine sahiptir.
+
+Her Edge de benzersiz kimliğe sahiptir.
+
+Graph kimliği, MemoryRecord kimliğinden bağımsızdır ancak ona referans verir.
+
+Bu ayrım, aynı MemoryRecord'un birden fazla ilişki ağı içerisinde temsil edilmesini sağlar.
+
+1.12 Graph Türleri
+
+BNOS aşağıdaki mantıksal grafik türlerini destekleyebilir:
+
+- Organization Graph 
+
+- Process Graph 
+
+- Document Graph 
+
+- Knowledge Graph 
+
+- Asset Graph 
+
+- Workflow Graph 
+
+- AI Context Graph 
+
+Hepsi aynı çekirdek altyapıyı kullanır.
+
+1.13 Graph Scope
+
+Her Graph elemanı bir Scope taşır.
+
+Örnek:
+
+- Global 
+
+- Tenant 
+
+- Organization 
+
+- Department 
+
+- Project 
+
+- Workflow 
+
+- Session 
+
+Scope kuralları Enterprise Memory ile uyumlu olmalıdır.
+
+1.14 Graph Yaşam Döngüsü
+
+Bir Node aşağıdaki yaşam döngüsünü izler:
+
+Created
+
+    │
+
+    ▼
+
+Validated
+
+    │
+
+    ▼
+
+Connected
+
+    │
+
+    ▼
+
+Indexed
+
+    │
+
+    ▼
+
+Available
+
+    │
+
+    ▼
+
+Archived
+
+Graph yaşam döngüsü, Memory yaşam döngüsü ile senkronize çalışır.
+
+1.15 Graph Tasarım Kuralları
+
+- Graph, Memory'nin yerine geçmez. 
+
+- Node veri içermez; referans içerir. 
+
+- Edge yalnızca ilişkiyi temsil eder. 
+
+- Graph tek doğruluk kaynağı değildir. 
+
+- Yetkilendirme Memory kurallarına tabidir. 
+
+- Scope kuralları ihlal edilemez. 
+
+- Node ve Edge sürümlenebilir olmalıdır. 
+
+- İlişkiler denetlenebilir (audit edilebilir) olmalıdır. 
+
+- Graph, Business Rules'tan bağımsızdır. 
+
+- Graph, AI'dan bağımsız çalışmalıdır. 
+
+1.16 Sprint 1.0 Açısından Sonuç
+
+Bu bölüm ile Knowledge Graph Foundation tanımlanmıştır.
+
+Bir sonraki bölüm:
+
+Bölüm 2 — Graph Domain Model
+
+Bu bölümde ayrıntılı olarak:
+
+- GraphNode Aggregate 
+
+- GraphEdge Entity 
+
+- GraphProperty Value Objects 
+
+- İlişki türleri (Relationship Taxonomy) 
+
+- Yönlü/Yönsüz ilişkiler 
+
+- Cardinality (1:1, 1:N, N:N) 
+
+- Hyper Edge desteği 
+
+- Graph Domain Events 
+
+- Graph Repository sözleşmeleri 
+
+tanımlanacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt III — Knowledge Graph Architecture (KGA)
+
+Bölüm 2 — Graph Domain Model
+
+2.1 Tasarım Felsefesi
+
+Knowledge Graph Domain modeli, BNOS'un diğer tüm Domain'leri gibi aşağıdaki prensiplere uyar.
+
+- Domain bağımsızdır. 
+
+- Infrastructure bağımsızdır. 
+
+- Provider bağımsızdır. 
+
+- Database bağımsızdır. 
+
+- Graph Engine bağımsızdır. 
+
+Domain hiçbir zaman;
+
+- Neo4j 
+
+- Cosmos DB 
+
+- SQL Graph 
+
+- JanusGraph 
+
+gibi teknolojileri bilmez.
+
+2.2 Aggregate Root
+
+Knowledge Graph'ın Aggregate Root'u:
+
+GraphNode
+
+olacaktır.
+
+Her Aggregate tek bir Node'u temsil eder.
+
+Node;
+
+ilişkilerin merkezidir.
+
+2.3 GraphNode
+
+Her Node aşağıdaki temel alanları içerir.
+
+NodeId
+
+MemoryReference
+
+NodeType
+
+Scope
+
+Status
+
+CreatedAt
+
+UpdatedAt
+
+Owner
+
+Version
+
+Metadata
+
+Node hiçbir zaman gerçek belgeyi içermez.
+
+Yalnızca Enterprise Memory'deki kayda referans verir.
+
+2.4 MemoryReference
+
+En önemli alanlardan biridir.
+
+GraphNode
+
+↓
+
+MemoryReference
+
+↓
+
+Enterprise Memory
+
+Node ile Memory ayrılmaz şekilde bağlıdır.
+
+Ancak birbirinden bağımsız yaşarlar.
+
+2.5 NodeType
+
+Node tipi aşağıdaki örneklerden biri olabilir.
+
+Person
+
+Organization
+
+Building
+
+Apartment
+
+Vehicle
+
+Asset
+
+Contract
+
+Invoice
+
+Budget
+
+Meeting
+
+Decision
+
+Workflow
+
+Policy
+
+Project
+
+Task
+
+Document
+
+Risk
+
+Incident
+
+Vendor
+
+Customer
+
+Employee
+
+AI Agent
+
+Yeni tipler eklenebilir.
+
+2.6 GraphEdge
+
+GraphEdge Aggregate değildir.
+
+Entity'dir.
+
+Alanları:
+
+EdgeId
+
+SourceNodeId
+
+TargetNodeId
+
+RelationshipType
+
+Direction
+
+Weight
+
+Status
+
+CreatedAt
+
+Version
+
+2.7 RelationshipType
+
+İlişki tipi açıkça tanımlanmalıdır.
+
+Örnekler:
+
+OWNS
+
+MANAGES
+
+APPROVES
+
+REPORTS_TO
+
+BELONGS_TO
+
+DEPENDS_ON
+
+REFERENCES
+
+CREATED_BY
+
+UPDATED_BY
+
+PART_OF
+
+LOCATED_IN
+
+CONNECTED_TO
+
+USES
+
+SUPERVISES
+
+TRIGGERS
+
+CONTAINS
+
+İlişki isimleri standart sözlükten gelir.
+
+2.8 Relationship Catalog
+
+BNOS Relationship Catalog merkezi olarak yönetilir.
+
+Amaç:
+
+Farklı ekiplerin
+
+aynı ilişkiye farklı isim vermesini engellemektir.
+
+Örneğin;
+
+OWNS
+
+OWNER_OF
+
+HAS_OWNER
+
+aynı anda kullanılamaz.
+
+Tek standart vardır.
+
+2.9 Direction
+
+Relationship;
+
+Directed
+
+veya
+
+Undirected
+
+olabilir.
+
+Örneğin;
+
+Manager
+
+MANAGES
+
+Employee
+
+yönlüdür.
+
+Apartment
+
+CONNECTED_TO
+
+Apartment
+
+çift yönlü olabilir.
+
+2.10 Cardinality
+
+Graph aşağıdaki ilişkileri destekler.
+
+1 : 1
+
+1 : N
+
+N : 1
+
+N : N
+
+Cardinality Domain tarafından doğrulanır.
+
+2.11 Hyper Edge
+
+Bazı ilişkiler iki Node'dan fazlasını içerir.
+
+Örneğin:
+
+Meeting
+
+↓
+
+Participants
+
+↓
+
+Decision
+
+Bu durumda Hyper Edge modeli kullanılabilir.
+
+Sprint 1.0'da temel destek tanımlanır; gelişmiş kullanım sonraki sprintlerde genişletilebilir.
+
+2.12 Property Model
+
+Hem Node
+
+hem Edge
+
+Property taşıyabilir.
+
+Örnek:
+
+Confidence
+
+Priority
+
+Importance
+
+CreatedBy
+
+ApprovedBy
+
+Source
+
+Language
+
+Tags
+
+Weight
+
+Category
+
+Property'ler Domain doğrulamasına tabidir.
+
+2.13 Versioning
+
+Node overwrite edilmez.
+
+Version 1
+
+↓
+
+Version 2
+
+↓
+
+Version 3
+
+Graph geçmişi korunur.
+
+2.14 Status
+
+Node aşağıdaki durumlardan birinde olabilir.
+
+Draft
+
+Created
+
+Validated
+
+Indexed
+
+Available
+
+Archived
+
+Deleted
+
+Graph State Machine,
+
+Memory State Machine ile uyumludur.
+
+2.15 Node Identity
+
+NodeId;
+
+Enterprise Memory kimliği değildir.
+
+Her Node;
+
+ayrı Graph Identity taşır.
+
+Bu sayede aynı Memory kaydı;
+
+birden fazla Graph'ta temsil edilebilir.
+
+2.16 Graph Domain Events
+
+Graph aşağıdaki Domain Event'leri üretir.
+
+GraphNodeCreated
+
+GraphNodeUpdated
+
+GraphNodeArchived
+
+GraphNodeDeleted
+
+GraphEdgeCreated
+
+GraphEdgeUpdated
+
+GraphEdgeDeleted
+
+RelationshipValidated
+
+RelationshipRejected
+
+2.17 Repository
+
+Temel Repository sözleşmeleri:
+
+IGraphNodeRepository
+
+IGraphEdgeRepository
+
+IGraphQueryRepository
+
+Repository;
+
+Graph hesaplaması yapmaz.
+
+2.18 Factory
+
+Node oluşturma işlemi Factory üzerinden yapılır.
+
+GraphNodeFactory
+
+↓
+
+CreateNode()
+
+↓
+
+Validate()
+
+↓
+
+Aggregate
+
+Factory,
+
+Aggregate kurallarını garanti eder.
+
+2.19 Domain Services
+
+Domain Service gereken senaryolar:
+
+- Relationship Validation 
+
+- Cycle Detection 
+
+- Cardinality Validation 
+
+- Graph Integrity Check 
+
+- Merge Detection 
+
+Bu servisler Entity içine gömülmez.
+
+2.20 Value Objects
+
+Temel Value Object'ler:
+
+GraphNodeId
+
+GraphEdgeId
+
+RelationshipType
+
+NodeType
+
+Direction
+
+Cardinality
+
+Weight
+
+ConfidenceScore
+
+GraphScope
+
+Hepsi immutable olmalıdır.
+
+2.21 Domain Kuralları
+
+- Node gerçek veriyi taşımaz. 
+
+- Edge yalnızca ilişkiyi temsil eder. 
+
+- RelationshipType merkezi katalogdan gelir. 
+
+- Node silinse bile Audit geçmişi korunur. 
+
+- Cardinality ihlal edilemez. 
+
+- Geçersiz ilişki oluşturulamaz. 
+
+- Node versiyonlanır. 
+
+- Graph Identity ile Memory Identity ayrıdır. 
+
+- Property iş kurallarını değiştirmez. 
+
+- Aggregate tutarlılığı yalnızca Domain tarafından sağlanır. 
+
+2.22 Sprint 1.0 Açısından Sonuç
+
+Bu bölüm ile Knowledge Graph Domain Modeli tanımlanmıştır.
+
+Şu anda tamamlanan mimari bölümler:
+
+- ✅ Bölüm 1 — Knowledge Graph Foundation 
+
+- ✅ Bölüm 2 — Graph Domain Model 
+
+Sonraki Bölüm
+
+Bir sonraki bölüm:
+
+**Bölüm 3 — Relationship Engine ****&**** Graph Integrity**
+
+Bu bölüm, BNOS'un Knowledge Graph'ını klasik grafik veritabanlarından ayıran çekirdek mantığı tanımlayacaktır. Ele alınacak başlıklar şunlardır:
+
+- Relationship Engine mimarisi 
+
+- İlişki doğrulama (Relationship Validation) 
+
+- Döngü tespiti (Cycle Detection) 
+
+- Graph Integrity kuralları 
+
+- Duplicate Relationship önleme 
+
+- Yetim (Orphan) Node tespiti 
+
+- Graph Merge ve Split stratejileri 
+
+- Tutarlılık (Consistency) denetimleri 
+
+- İlişki yaşam döngüsü 
+
+- Graph Repair mekanizmaları
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt III — Knowledge Graph Architecture (KGA)
+
+Bölüm 3 — Relationship Engine & Graph Integrity
+
+Amaç: Bu bölüm, BNOS Knowledge Graph'ın yalnızca düğümler (Node) ve ilişkiler (Edge) tutan pasif bir grafik değil, kendi bütünlüğünü koruyan aktif bir kurumsal bilgi ağı olmasını sağlayan mimariyi tanımlar.
+
+3.1 Relationship Engine
+
+Relationship Engine, Knowledge Graph'ın çekirdeğidir.
+
+Görevleri:
+
+- Relationship oluşturmak 
+
+- Relationship doğrulamak 
+
+- Relationship güncellemek 
+
+- Relationship sonlandırmak 
+
+- Graph bütünlüğünü korumak 
+
+- Tutarsızlıkları tespit etmek 
+
+Relationship Engine, Graph Database değildir.
+
+Graph Database yalnızca depolama sağlayıcısıdır.
+
+3.2 Temel Prensip
+
+Hiçbir ilişki;
+
+- doğrudan oluşturulamaz, 
+
+- doğrudan silinemez, 
+
+- doğrudan değiştirilemez. 
+
+Bütün işlemler Relationship Engine üzerinden yürütülür.
+
+Application
+
+      │
+
+      ▼
+
+Relationship Engine
+
+      │
+
+      ▼
+
+Graph Repository
+
+      │
+
+      ▼
+
+Graph Provider
+
+3.3 Relationship Lifecycle
+
+Her ilişki aşağıdaki yaşam döngüsünü takip eder.
+
+Draft
+
+    │
+
+    ▼
+
+Validated
+
+    │
+
+    ▼
+
+Created
+
+    │
+
+    ▼
+
+Indexed
+
+    │
+
+    ▼
+
+Active
+
+    │
+
+    ▼
+
+Archived
+
+    │
+
+    ▼
+
+Deleted(Logical)
+
+State atlanamaz.
+
+3.4 Relationship Validation
+
+Yeni ilişki oluşturulmadan önce aşağıdaki kontroller yapılır.
+
+- Source Node var mı? 
+
+- Target Node var mı? 
+
+- Scope uyumlu mu? 
+
+- Cardinality ihlal ediliyor mu? 
+
+- Duplicate ilişki var mı? 
+
+- Relationship Catalog'da tanımlı mı? 
+
+- Security Policy uygun mu? 
+
+- Graph Rule uygun mu? 
+
+Bir kontrol başarısız olursa ilişki oluşturulmaz.
+
+3.5 Cardinality Validation
+
+Örneğin:
+
+Building
+
+HAS_MANAGER
+
+Manager
+
+Cardinality:
+
+1 : 1
+
+ise;
+
+aynı binaya ikinci Manager atanamaz.
+
+Relationship Engine bunu reddeder.
+
+3.6 Duplicate Relationship Detection
+
+Aşağıdaki iki kayıt aynı kabul edilir.
+
+A
+
+OWNS
+
+B
+
+ve
+
+A
+
+OWNS
+
+B
+
+İkinci kayıt oluşturulmaz.
+
+Ancak;
+
+A
+
+MANAGES
+
+B
+
+ayrı ilişkidir.
+
+3.7 Cycle Detection
+
+Bazı Relationship tiplerinde döngü yasaktır.
+
+Örnek:
+
+Manager
+
+REPORTS_TO
+
+Manager
+
+Şu yapı oluşamaz:
+
+A → B
+
+B → C
+
+C → A
+
+Cycle Detection bunu engeller.
+
+3.8 Allowed Cycles
+
+Bazı Relationship tiplerinde döngü doğaldır.
+
+Örneğin:
+
+CONNECTED_TO
+
+veya
+
+RELATED_TO
+
+Relationship Catalog;
+
+hangi ilişki tiplerinin cycle kabul ettiğini belirtir.
+
+3.9 Orphan Detection
+
+Node;
+
+hiç ilişkiye sahip değilse;
+
+Orphan Node olabilir.
+
+Ancak her Orphan hata değildir.
+
+Örneğin:
+
+Yeni oluşturulmuş Person Node.
+
+Relationship Engine;
+
+gerçek hata ile normal durumu ayırt eder.
+
+3.10 Broken Reference Detection
+
+Node;
+
+Enterprise Memory'deki kayda erişemiyorsa;
+
+Broken Reference oluşur.
+
+Bu durum Graph Health raporuna yansır.
+
+Node otomatik silinmez.
+
+3.11 Relationship Consistency
+
+Her Edge;
+
+iki geçerli Node'a bağlı olmalıdır.
+
+Aşağıdaki durumlar geçersizdir.
+
+Node A
+
+↓
+
+Edge
+
+↓
+
+NULL
+
+veya
+
+NULL
+
+↓
+
+Edge
+
+↓
+
+Node B
+
+3.12 Merge Detection
+
+Aynı gerçek nesneyi temsil eden iki Node bulunabilir.
+
+Örneğin:
+
+Ahmet Yılmaz
+
+ve
+
+A. Yılmaz
+
+Relationship Engine;
+
+bunları aday (Candidate Merge) olarak işaretleyebilir.
+
+Birleştirme otomatik yapılmaz.
+
+3.13 Split Detection
+
+Tek Node yanlışlıkla iki farklı nesneyi temsil ediyor olabilir.
+
+Örneğin:
+
+ABC Yönetim
+
+sonradan;
+
+ABC İstanbul
+
+ABC Ankara
+
+olarak ayrılabilir.
+
+Split işlemi geçmiş ilişkileri koruyarak gerçekleştirilmelidir.
+
+3.14 Relationship Weight
+
+Her ilişki önem derecesi taşıyabilir.
+
+Örnek:
+
+Confidence
+
+0.95
+
+veya
+
+Weight
+
+100
+
+Bu bilgiler Retrieval katmanında kullanılabilir.
+
+3.15 Temporal Relationships
+
+Bazı ilişkiler zaman bağımlıdır.
+
+Örnek:
+
+Employee
+
+WORKED_AT
+
+Company
+
+2021-2024
+
+Süre dolduğunda ilişki silinmez.
+
+Durumu değişir.
+
+3.16 Relationship Versioning
+
+Edge overwrite edilmez.
+
+Edge v1
+
+↓
+
+Edge v2
+
+↓
+
+Edge v3
+
+İlişki geçmişi korunur.
+
+3.17 Graph Integrity Check
+
+Belirli aralıklarla Graph taranır.
+
+Kontroller:
+
+- Orphan Node 
+
+- Broken Reference 
+
+- Duplicate Edge 
+
+- Invalid Cardinality 
+
+- Invalid Scope 
+
+- Invalid Version 
+
+- Invalid RelationshipType 
+
+Sonuçlar Graph Health raporuna yazılır.
+
+3.18 Graph Repair
+
+Graph Repair;
+
+otomatik bakım mekanizmasıdır.
+
+Yapabilecekleri:
+
+- Eksik Index oluşturmak 
+
+- Bozuk referansları işaretlemek 
+
+- Duplicate adaylarını belirlemek 
+
+- Yetim Node raporlamak 
+
+- Tutarsız Property'leri raporlamak 
+
+Repair, veri üzerinde sessiz değişiklik yapmamalıdır.
+
+Otomatik düzeltmeler yalnızca açıkça tanımlanmış kurallarla uygulanabilir.
+
+3.19 Relationship Events
+
+Relationship Engine aşağıdaki Domain Event'leri üretir.
+
+RelationshipCreated
+
+RelationshipUpdated
+
+RelationshipArchived
+
+RelationshipDeleted
+
+RelationshipValidated
+
+RelationshipRejected
+
+RelationshipMerged
+
+RelationshipSplit
+
+GraphIntegrityChecked
+
+GraphRepairCompleted
+
+3.20 Relationship Engine Kuralları
+
+- İlişkiler yalnızca Engine üzerinden oluşturulur. 
+
+- Duplicate ilişki oluşturulamaz. 
+
+- Cardinality ihlal edilemez. 
+
+- Geçersiz Scope'a ilişki kurulamaz. 
+
+- Cycle kuralları RelationshipType'a göre uygulanır. 
+
+- Broken Reference otomatik silinmez. 
+
+- Merge işlemleri denetlenebilir olmalıdır. 
+
+- Split işlemleri geçmişi korumalıdır. 
+
+- Her ilişki sürümlenebilir olmalıdır. 
+
+- Her değişiklik Domain Event ve Audit üretmelidir. 
+
+3.21 Sprint 1.0 Açısından Sonuç
+
+Bu bölüm ile Knowledge Graph'ın Relationship Engine ve Graph Integrity mimarisi tanımlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Knowledge Graph Foundation 
+
+- ✅ Bölüm 2 — Graph Domain Model 
+
+- ✅ Bölüm 3 — Relationship Engine & Graph Integrity 
+
+Enterprise CTO Notu
+
+BNOS'un burada klasik Graph Database kullanan sistemlerden ayrıldığı önemli nokta şudur:
+
+- Graph Database yalnızca veriyi saklar. 
+
+- Relationship Engine ise iş kurallarını, bütünlük denetimlerini ve ilişki yaşam döngüsünü yönetir. 
+
+Bu ayrım sayesinde Neo4j, SQL Graph veya gelecekte farklı bir grafik sağlayıcısına geçiş yapılması, Domain mantığını etkilemez. Bu yaklaşım, BNOS'un teknoloji bağımsız ve uzun ömürlü bir çekirdek mimariye sahip olmasını sağlar.
+
+Sonraki Bölüm
+
+Bölüm 4 — Graph Query Engine & Traversal Architecture
+
+Bu bölümde şu konular ayrıntılı olarak tanımlanacaktır:
+
+- Graph Query Language (BNOS GQL) 
+
+- Traversal Engine 
+
+- Breadth-First (BFS) ve Depth-First (DFS) stratejileri 
+
+- Path Finding 
+
+- Multi-hop sorgular 
+
+- Context Expansion 
+
+- Semantic Neighborhood 
+
+- Query Optimization 
+
+- Cache stratejileri 
+
+- Yetkilendirme ile entegre Graph sorgulama 
+
+Bu bölüm tamamlandığında Knowledge Graph yalnızca ilişkileri yöneten bir yapı değil, kurumsal ölçekte yüksek performanslı sorgulama yapabilen bir altyapıya dönüşecektir.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt III — Knowledge Graph Architecture (KGA)
+
+Bölüm 4 — Graph Query Engine & Traversal Architecture
+
+Amaç: Bu bölüm, BNOS Knowledge Graph üzerinde güvenli, yüksek performanslı ve bağlam farkındalığına sahip sorgulama altyapısını tanımlar.
+
+4.1 Tasarım Felsefesi
+
+Knowledge Graph'ın en büyük değeri veri depolamak değildir.
+
+Asıl değeri;
+
+ilişkileri anlamlandırmak ve sorgulayabilmektir.
+
+Bu nedenle Query Engine, Graph'ın en kritik çalışma zamanıdır.
+
+4.2 Graph Query Engine
+
+Graph Query Engine aşağıdaki görevlerden sorumludur.
+
+- Node sorgulamak 
+
+- Relationship sorgulamak 
+
+- Path bulmak 
+
+- Traversal yapmak 
+
+- Context oluşturmak 
+
+- Semantic Neighborhood oluşturmak 
+
+- Sonuçları filtrelemek 
+
+- Yetkilendirmeyi uygulamak 
+
+4.3 Sorgu Katmanları
+
+Application
+
+      │
+
+      ▼
+
+Graph Query Engine
+
+      │
+
+      ▼
+
+Traversal Engine
+
+      │
+
+      ▼
+
+Relationship Engine
+
+      │
+
+      ▼
+
+Graph Repository
+
+      │
+
+      ▼
+
+Graph Provider
+
+Hiçbir katman Graph Provider'ı doğrudan çağırmaz.
+
+4.4 BNOS Graph Query Language (BGQL)
+
+BNOS, sağlayıcıdan bağımsız mantıksal bir sorgu modeli tanımlar.
+
+Bu model, Neo4j Cypher, Gremlin veya SQL Graph sorgularına doğrudan bağımlı değildir.
+
+Temel sorgu türleri:
+
+- GetNode 
+
+- GetRelationship 
+
+- Traverse 
+
+- FindPath 
+
+- ExpandContext 
+
+- SearchNeighborhood 
+
+- SearchByRelationship 
+
+- SearchByProperty 
+
+Her Provider kendi sorgu diline dönüştürme yapabilir.
+
+4.5 Query Lifecycle
+
+Her Graph sorgusu aşağıdaki yaşam döngüsünü izler.
+
+Query Received
+
+        │
+
+        ▼
+
+Authorization
+
+        │
+
+        ▼
+
+Scope Resolution
+
+        │
+
+        ▼
+
+Validation
+
+        │
+
+        ▼
+
+Traversal Planning
+
+        │
+
+        ▼
+
+Execution
+
+        │
+
+        ▼
+
+Filtering
+
+        │
+
+        ▼
+
+Ranking
+
+        │
+
+        ▼
+
+Response
+
+4.6 Traversal Engine
+
+Traversal Engine;
+
+ilişkiler arasında gezinmeyi yönetir.
+
+Görevleri:
+
+- başlangıç Node'unu belirlemek 
+
+- ziyaret edilen Node'ları takip etmek 
+
+- tekrarları engellemek 
+
+- maksimum derinliği kontrol etmek 
+
+- traversal politikasını uygulamak 
+
+4.7 Breadth First Search (BFS)
+
+BFS;
+
+yakın komşuların bulunması için uygundur.
+
+Örneğin;
+
+Site
+
+↓
+
+Bloklar
+
+↓
+
+Daireler
+
+Önce en yakın katmanlar incelenir.
+
+4.8 Depth First Search (DFS)
+
+DFS;
+
+derin bağımlılık analizlerinde kullanılır.
+
+Örneğin;
+
+Karar
+
+↓
+
+Görev
+
+↓
+
+İş Emri
+
+↓
+
+Teknik Personel
+
+Derin ilişkiler araştırılır.
+
+4.9 Multi-Hop Traversal
+
+BNOS;
+
+tek ilişki ile sınırlı değildir.
+
+Örnek:
+
+Manager
+
+↓
+
+Department
+
+↓
+
+Building
+
+↓
+
+Equipment
+
+↓
+
+Maintenance Plan
+
+Tek sorguda çok adımlı ilişki analizi yapılabilir.
+
+4.10 Traversal Depth
+
+Her sorgu maksimum derinlik taşır.
+
+Örneğin;
+
+Depth = 3
+
+Sonsuz dolaşım engellenir.
+
+4.11 Path Finding
+
+Query Engine;
+
+iki Node arasındaki yolu bulabilir.
+
+Örneğin;
+
+Employee
+
+↓
+
+Department
+
+↓
+
+Project
+
+↓
+
+Budget
+
+Sonuç yalnızca varış noktası değil,
+
+izlenen yol da olabilir.
+
+4.12 Shortest Path
+
+Desteklenmesi planlanan sorgu tipi:
+
+En kısa ilişki zinciri.
+
+Bu özellikle;
+
+- etki analizi 
+
+- organizasyon şeması 
+
+- süreç analizi 
+
+için önemlidir.
+
+Algoritma seçimi Provider'dan bağımsız olarak soyutlanmalıdır.
+
+4.13 Semantic Neighborhood
+
+Bir Node'un yalnızca doğrudan ilişkileri değil;
+
+anlam bakımından en ilgili komşuları da bulunabilir.
+
+Örneğin:
+
+Toplantı Kararı
+
+ile ilişkili;
+
+- Proje 
+
+- Görev 
+
+- Risk 
+
+- Doküman 
+
+- Personel 
+
+aynı bağlamda döndürülebilir.
+
+4.14 Context Expansion
+
+Context Builder;
+
+Traversal sonuçlarını genişletir.
+
+Örnek:
+
+Invoice
+
+↓
+
+Vendor
+
+↓
+
+Contract
+
+↓
+
+Project
+
+↓
+
+Budget
+
+LLM'ye yalnızca Fatura değil,
+
+ilgili tüm bağlam gönderilebilir.
+
+4.15 Query Filters
+
+Her sorgu filtre taşıyabilir.
+
+Örnek filtreler:
+
+- Scope 
+
+- Tenant 
+
+- Date 
+
+- NodeType 
+
+- RelationshipType 
+
+- Status 
+
+- Classification 
+
+- Version 
+
+Filtreler mümkün olduğunca erken uygulanmalıdır.
+
+4.16 Ranking
+
+Sonuç sıralaması aşağıdaki sinyalleri dikkate alabilir:
+
+- İlişki ağırlığı 
+
+- Güven skoru 
+
+- Güncellik 
+
+- Traversal uzaklığı 
+
+- Önem derecesi 
+
+- Kullanıcı bağlamı 
+
+4.17 Authorization
+
+Traversal sırasında;
+
+erişim izni olmayan Node'lar sonuçlara dahil edilmez.
+
+Yetkisiz Node üzerinden yeni ilişkilere geçiş yapılmaması varsayılan davranıştır; farklı bir politika gerekiyorsa açıkça tanımlanmalıdır.
+
+Authorization,
+
+Traversal'dan ayrı düşünülemez.
+
+4.18 Query Cache
+
+Sık kullanılan Graph sorguları önbelleğe alınabilir.
+
+Ancak:
+
+- Graph değiştiğinde 
+
+- Relationship değiştiğinde 
+
+- Security değiştiğinde 
+
+ilgili cache geçersiz kılınmalıdır.
+
+4.19 Streaming Results
+
+Çok büyük Graph sonuçları;
+
+tek seferde dönülmez.
+
+Sonuçlar;
+
+parçalar halinde aktarılabilir.
+
+4.20 Query Metrics
+
+Her Graph sorgusu aşağıdaki metrikleri üretmelidir.
+
+- Traversal süresi 
+
+- Ziyaret edilen Node sayısı 
+
+- İncelenen Edge sayısı 
+
+- Maksimum derinlik 
+
+- Cache isabet oranı 
+
+- Yetkilendirme reddi sayısı 
+
+4.21 Query Kuralları
+
+- Query Provider'dan bağımsızdır. 
+
+- Traversal Engine tek giriş noktasıdır. 
+
+- Yetkilendirme zorunludur. 
+
+- Sonsuz traversal engellenmelidir. 
+
+- Filtreler erken uygulanmalıdır. 
+
+- Context Builder sorgunun parçasıdır. 
+
+- Sonuçlar sıralanabilir olmalıdır. 
+
+- Cache doğruluk kaynağı değildir. 
+
+- Streaming büyük sorgular için desteklenmelidir. 
+
+- Her sorgu ölçülebilir olmalıdır. 
+
+4.22 Sprint 1.0 Açısından Sonuç
+
+Bu bölüm ile Knowledge Graph'ın Graph Query Engine ve Traversal Architecture tamamlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Knowledge Graph Foundation 
+
+- ✅ Bölüm 2 — Graph Domain Model 
+
+- ✅ Bölüm 3 — Relationship Engine & Graph Integrity 
+
+- ✅ Bölüm 4 — Graph Query Engine & Traversal Architecture 
+
+Enterprise CTO Notu
+
+BNOS'un Graph Query Engine'i, klasik grafik veritabanlarının sorgu mekanizmasının ötesine geçmektedir.
+
+BNOS yaklaşımında:
+
+- Traversal, yalnızca Node'lar arasında gezinme değildir. 
+
+- Context Expansion, Enterprise Memory ile birleşerek AI'ya anlamlı çalışma bağlamı oluşturur. 
+
+- Authorization, sorgunun ayrılmaz bir parçasıdır. 
+
+- Ranking, yalnızca grafik mesafesine değil; güven, önem, bağlam ve iş kurallarına göre de şekillenir. 
+
+Bu tasarım sayesinde aynı Graph altyapısı; Enterprise Search, Business Rules Engine, Workflow Engine ve AI Orchestrator tarafından ortak kullanılabilir.
+
+Sonraki Bölüm
+
+Bölüm 5 — Graph Indexing, Optimization & Performance
+
+Bu bölümde şu konular ayrıntılı olarak ele alınacaktır:
+
+- Graph Index mimarisi 
+
+- Adjacency Index ve Relationship Index 
+
+- Traversal optimizasyonları 
+
+- Query Planner 
+
+- Cost-Based Optimization 
+
+- Graph Cache 
+
+- Partitioning ve Sharding 
+
+- Büyük ölçekli Graph yönetimi 
+
+- Performans metrikleri 
+
+- Yatay ölçeklenebilir Graph mimarisi
+
+Bu bölüm tamamlandığında BNOS Knowledge Graph yalnızca işlevsel değil, milyonlarca düğüm ve ilişkiyi kurumsal ölçekte işleyebilecek performans mimarisine de sahip olacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt III — Knowledge Graph Architecture (KGA)
+
+Bölüm 5 — Graph Indexing, Optimization & Performance
+
+Amaç: Bu bölüm, BNOS Knowledge Graph'ın milyonlarca Node ve milyarlarca Relationship üzerinde yüksek performanslı çalışmasını sağlayacak indeksleme, optimizasyon ve ölçeklenebilirlik mimarisini tanımlar.
+
+5.1 Temel Prensip
+
+Knowledge Graph'ın performansı;
+
+- Graph Database'in performansına 
+
+- Donanıma 
+
+- Provider'a 
+
+bağlı olmamalıdır.
+
+BNOS kendi Query Engine'i ve Index Architecture'ı sayesinde ölçeklenebilir olmalıdır.
+
+5.2 Graph Index Architecture
+
+Knowledge Graph tek bir index kullanmaz.
+
+Katmanlı index yapısı kullanır.
+
+                Graph Node
+
+                     │
+
+                     ▼
+
+             Index Pipeline
+
+                     │
+
+ ┌──────────┬────────────┬────────────┬────────────┐
+
+ ▼          ▼            ▼            ▼
+
+Node      Edge      Property     Adjacency
+
+Index     Index      Index        Index
+
+                     │
+
+                     ▼
+
+             Traversal Engine
+
+                     │
+
+                     ▼
+
+              Query Engine
+
+5.3 Node Index
+
+Her Node aşağıdaki bilgiler üzerinden indekslenebilir.
+
+- NodeId 
+
+- NodeType 
+
+- Scope 
+
+- Owner 
+
+- Tenant 
+
+- Status 
+
+- Version 
+
+- Classification 
+
+Node Index, doğrudan erişim için kullanılır.
+
+5.4 Edge Index
+
+Relationship'ler ayrıca indekslenir.
+
+İndeks alanları:
+
+- EdgeId 
+
+- SourceNode 
+
+- TargetNode 
+
+- RelationshipType 
+
+- Weight 
+
+- Status 
+
+- Direction 
+
+Bu indeks, ilişki sorgularını hızlandırır.
+
+5.5 Adjacency Index
+
+Traversal performansının temelidir.
+
+Her Node için komşuluk listesi tutulur.
+
+Building
+
+↓
+
+Block A
+
+↓
+
+Block B
+
+↓
+
+Block C
+
+Traversal sırasında tüm Graph taranmaz.
+
+Yalnızca komşuluk indeksi kullanılır.
+
+5.6 Reverse Index
+
+İlişkiler yalnızca ileri yönde tutulmaz.
+
+Ters yön indeksleri de oluşturulabilir.
+
+Örneğin;
+
+Manager
+
+↓
+
+MANAGES
+
+↓
+
+Employee
+
+aynı zamanda
+
+Employee
+
+↓
+
+Managed By
+
+↓
+
+Manager
+
+şeklinde hızlı erişim sağlanabilir.
+
+5.7 Property Index
+
+Property tabanlı sorgular için ayrı indeks oluşturulur.
+
+Örneğin:
+
+- Language 
+
+- Priority 
+
+- Category 
+
+- Risk Level 
+
+- Confidence Score 
+
+5.8 Full Graph Scan
+
+Varsayılan olarak yasaktır.
+
+Graph'ın tamamını taramak;
+
+yalnızca
+
+- bakım, 
+
+- analiz, 
+
+- yeniden indeksleme 
+
+işlemlerinde kullanılabilir.
+
+5.9 Query Planner
+
+Her sorgu doğrudan çalıştırılmaz.
+
+Önce Query Planner analiz eder.
+
+Query
+
+↓
+
+Planner
+
+↓
+
+Execution Plan
+
+↓
+
+Traversal
+
+Planner;
+
+en düşük maliyetli yolu seçmeye çalışır.
+
+5.10 Cost-Based Optimization
+
+Planner aşağıdaki kriterleri değerlendirebilir.
+
+- Tahmini Node sayısı 
+
+- Tahmini Edge sayısı 
+
+- Traversal derinliği 
+
+- Filtre seçiciliği 
+
+- İndeks kullanılabilirliği 
+
+- Cache durumu 
+
+Böylece en uygun yürütme planı seçilir.
+
+5.11 Traversal Optimization
+
+Traversal sırasında:
+
+- Aynı Node tekrar ziyaret edilmez. 
+
+- Gereksiz Edge'ler elenir. 
+
+- Yetkisiz Node'lar erkenden filtrelenir. 
+
+- Maksimum derinlik uygulanır. 
+
+5.12 Graph Cache
+
+Graph Cache;
+
+Memory Cache değildir.
+
+Tutabileceği örnekler:
+
+- Traversal sonuçları 
+
+- Sık kullanılan yollar 
+
+- Komşuluk listeleri 
+
+- Relationship özetleri 
+
+Cache değişikliklerde geçersiz kılınmalıdır.
+
+5.13 Lazy Loading
+
+Büyük Graph'lar tamamen yüklenmez.
+
+Node'lar ihtiyaç oldukça getirilir.
+
+Bu yaklaşım bellek kullanımını azaltır.
+
+5.14 Prefetch Strategy
+
+Bazı senaryolarda;
+
+Traversal sırasında bir sonraki katman önceden getirilebilir.
+
+Örneğin;
+
+Site
+
+↓
+
+Blok
+
+↓
+
+Kat
+
+↓
+
+Daire
+
+Bu yaklaşım yalnızca faydalı olduğu durumlarda uygulanmalıdır.
+
+5.15 Partitioning
+
+Çok büyük Graph'lar mantıksal bölümlere ayrılabilir.
+
+Örnek:
+
+- Tenant 
+
+- Organization 
+
+- Project 
+
+- Region 
+
+Partition;
+
+Domain tarafından tanımlanır.
+
+5.16 Sharding
+
+Gerekirse Graph fiziksel olarak farklı sunuculara dağıtılabilir.
+
+Sharding stratejisi;
+
+Provider tarafından uygulanabilir.
+
+Kernel,
+
+Shard detayını bilmez.
+
+5.17 Distributed Traversal
+
+Farklı shard'larda bulunan Node'lar arasında traversal gerekebilir.
+
+Traversal Engine;
+
+gerekli olduğunda shard sınırlarını geçebilir.
+
+Bu süreç;
+
+Provider soyutlamasının arkasında gerçekleşir.
+
+5.18 Parallel Traversal
+
+Bağımsız dallar paralel incelenebilir.
+
+Örnek:
+
+Building
+
+├── Block A
+
+├── Block B
+
+└── Block C
+
+Üç blok aynı anda analiz edilebilir.
+
+Sonuçlar deterministik biçimde birleştirilmelidir.
+
+5.19 Performance Metrics
+
+Graph sürekli ölçülmelidir.
+
+Ölçümler:
+
+- Ortalama Traversal süresi 
+
+- Ortalama Query süresi 
+
+- Cache hit oranı 
+
+- Planner başarısı 
+
+- Ortalama Traversal derinliği 
+
+- Ziyaret edilen Node sayısı 
+
+- Ziyaret edilen Edge sayısı 
+
+- Paralel Traversal oranı 
+
+5.20 Scalability Targets
+
+Mimari aşağıdaki hedefleri destekleyecek şekilde tasarlanmalıdır:
+
+- Milyonlarca Node 
+
+- Milyarlarca Relationship 
+
+- Çok kiracılı kullanım 
+
+- Yatay ölçeklenebilirlik 
+
+- Bölgesel dağıtım 
+
+- Yüksek erişilebilirlik 
+
+Kesin kapasite sınırları seçilen altyapıya göre belirlenecektir.
+
+5.21 Graph Performance Kuralları
+
+- Full Graph Scan varsayılan değildir. 
+
+- Adjacency Index temel traversal mekanizmasıdır. 
+
+- Query Planner her sorguyu analiz eder. 
+
+- Cost-Based Optimization desteklenir. 
+
+- Graph Cache doğruluk kaynağı değildir. 
+
+- Lazy Loading varsayılandır. 
+
+- Büyük Graph'lar bölümlendirilebilir. 
+
+- Traversal paralel yürütülebilir. 
+
+- Performans sürekli ölçülür. 
+
+- Ölçeklenebilirlik mimarinin temel hedefidir. 
+
+5.22 Sprint 1.0 Açısından Sonuç
+
+Bu bölüm ile Knowledge Graph'ın Indexing, Optimization ve Performance mimarisi tanımlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Knowledge Graph Foundation 
+
+- ✅ Bölüm 2 — Graph Domain Model 
+
+- ✅ Bölüm 3 — Relationship Engine & Graph Integrity 
+
+- ✅ Bölüm 4 — Graph Query Engine & Traversal 
+
+- ✅ Bölüm 5 — Graph Indexing, Optimization & Performance 
+
+Enterprise CTO Notu
+
+Bu bölümle birlikte BNOS Knowledge Graph, yalnızca mantıksal olarak değil çalışma zamanı (runtime) açısından da kurumsal ölçekte tasarlanmış bir bileşene dönüşmüştür.
+
+Enterprise Memory ile birlikte değerlendirildiğinde BNOS artık iki temel çekirdek katmanı tamamlamıştır:
+
+- Enterprise Memory: Kurumsal bilginin tek doğruluk kaynağı. 
+
+- Knowledge Graph: Kurumsal bilginin ilişki ve bağlam katmanı. 
+
+Bu iki katman tamamlandıktan sonra sıradaki modül olan Business Rules Engine, artık hem Memory hem de Graph üzerinden karar verebilecek güçlü bir altyapıya sahip olacaktır.
+
+Sonraki Bölüm
+
+Cilt IV — Business Rules Engine (BRE)
+
+İlk bölümde şu başlıklar ele alınacaktır:
+
+- Business Rules Foundation 
+
+- Rule Engine felsefesi 
+
+- Rule Domain Model 
+
+- Rule Lifecycle 
+
+- Rule Repository 
+
+- Rule Execution Pipeline 
+
+- Rule Priority 
+
+- Rule Versioning 
+
+- Rule Governance 
+
+- Enterprise Policy Architecture 
+
+Bu noktadan itibaren BNOS, yalnızca bilgi saklayan ve ilişkilendiren değil; kurallara göre karar verebilen gerçek bir kurumsal işletim sistemi kimliği kazanmaya başlayacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt IV — Business Rules Engine Architecture (BRE)
+
+Bölüm 1 — Business Rules Foundation
+
+Amaç: Bu bölüm, BNOS'un karar verme mekanizmasının temelini oluşturan Business Rules Engine (BRE) mimarisini tanımlar. BRE, Enterprise Memory ve Knowledge Graph üzerinde çalışan, teknoloji ve uygulama kodundan bağımsız kurumsal iş kurallarını yöneten çekirdek bileşendir.
+
+1.1 Business Rules Engine Nedir?
+
+Business Rules Engine;
+
+iş kurallarını uygulama kodundan ayıran,
+
+merkezi,
+
+versiyonlanabilir,
+
+denetlenebilir,
+
+çalışma zamanında yönetilebilir
+
+bir karar verme motorudur.
+
+1.2 BNOS İçindeki Konumu
+
+                Enterprise Memory
+
+                        │
+
+                        ▼
+
+               Knowledge Graph
+
+                        │
+
+                        ▼
+
+             Business Rules Engine
+
+                        │
+
+          ┌─────────────┼──────────────┐
+
+          ▼             ▼              ▼
+
+   Workflow Engine  AI Orchestrator  Enterprise Search
+
+                        │
+
+                        ▼
+
+                   LLM Gateway
+
+Business Rules Engine;
+
+AI'nin üzerinde değildir.
+
+Workflow'un altında değildir.
+
+BNOS Kernel'in karar katmanıdır.
+
+1.3 Temel Prensip
+
+BNOS'ta;
+
+iş kuralları
+
+hiçbir zaman
+
+- Controller içinde 
+
+- API içinde 
+
+- Repository içinde 
+
+- SQL Stored Procedure içinde 
+
+- UI içinde 
+
+- Agent Prompt içinde 
+
+bulunamaz.
+
+Tüm iş kuralları Rule Engine içerisinde yaşar.
+
+1.4 Rule Tanımı
+
+Bir Rule;
+
+belirli şartlar gerçekleştiğinde,
+
+belirli kararlar veren,
+
+deterministik çalışan,
+
+versiyonlanabilir
+
+bir Domain nesnesidir.
+
+1.5 Rule Türleri
+
+BNOS aşağıdaki Rule tiplerini destekler.
+
+Validation Rule
+
+Authorization Rule
+
+Calculation Rule
+
+Approval Rule
+
+Workflow Rule
+
+Notification Rule
+
+Compliance Rule
+
+Security Rule
+
+AI Rule
+
+Retention Rule
+
+Routing Rule
+
+Transformation Rule
+
+Policy Rule
+
+Yeni Rule tipleri eklenebilir.
+
+1.6 Rule Sahipliği
+
+Her Rule aşağıdaki alanları taşır.
+
+- RuleId 
+
+- Owner 
+
+- Organization 
+
+- Scope 
+
+- Version 
+
+- Status 
+
+- Category 
+
+- Priority 
+
+Rule anonim olamaz.
+
+1.7 Rule Yapısı
+
+Mantıksal olarak her Rule aşağıdaki bileşenlerden oluşur.
+
+Condition
+
+↓
+
+Evaluation
+
+↓
+
+Decision
+
+↓
+
+Action
+
+Bu dört yapı Rule'un temelidir.
+
+1.8 Rule ve Workflow İlişkisi
+
+Önemli ayrım:
+
+Rule;
+
+karar verir.
+
+Workflow;
+
+iş yapar.
+
+Örneğin;
+
+Aidat > 10.000 TL
+
+↓
+
+Onay Gerekli
+
+kararı Rule'dur.
+
+Onay sürecinin başlatılması ise Workflow'dur.
+
+1.9 Rule ve AI İlişkisi
+
+AI;
+
+Rule oluşturmaz.
+
+AI;
+
+Rule değiştirmez.
+
+AI;
+
+Rule yorumlayabilir.
+
+Ancak son karar Rule Engine tarafından verilir.
+
+Bu yaklaşım, deterministik iş kurallarını olasılıksal AI davranışlarından ayırır.
+
+1.10 Rule ve Enterprise Memory
+
+Rule;
+
+Memory'deki kayıtları kullanabilir.
+
+Ancak Memory'nin sahibi değildir.
+
+Memory
+
+↓
+
+Rule Evaluation
+
+↓
+
+Decision
+
+Memory değişmeden Rule değişebilir.
+
+Rule değişmeden Memory değişebilir.
+
+1.11 Rule ve Knowledge Graph
+
+Rule;
+
+Graph traversal yapabilir.
+
+Örneğin;
+
+Person
+
+↓
+
+Manager
+
+↓
+
+Department
+
+↓
+
+Budget Owner
+
+ilişkisini kullanarak karar verebilir.
+
+Ancak Graph'ı değiştiremez.
+
+1.12 Rule Engine Sorumlulukları
+
+Business Rules Engine aşağıdaki görevlerden sorumludur.
+
+- Rule yüklemek 
+
+- Rule doğrulamak 
+
+- Rule değerlendirmek 
+
+- Rule önceliklendirmek 
+
+- Rule çalıştırmak 
+
+- Rule versiyonlamak 
+
+- Rule denetlemek 
+
+- Rule sonuçlarını yayınlamak 
+
+1.13 Rule Engine'in Sorumlu Olmadıkları
+
+Rule Engine;
+
+- Workflow çalıştırmaz. 
+
+- E-posta göndermez. 
+
+- SQL yazmaz. 
+
+- API çağırmaz. 
+
+- Dosya saklamaz. 
+
+- LLM çağırmaz. 
+
+Bu işlemleri ilgili modüller gerçekleştirir.
+
+1.14 Rule Scope
+
+Her Rule bir kapsam taşır.
+
+Örnek:
+
+- Global 
+
+- Tenant 
+
+- Organization 
+
+- Project 
+
+- Department 
+
+- Workflow 
+
+- Module 
+
+Rule yanlış Scope'ta çalıştırılamaz.
+
+1.15 Rule Önceliği
+
+Her Rule öncelik taşır.
+
+Örnek mantıksal seviyeler:
+
+Critical
+
+High
+
+Normal
+
+Low
+
+Çalıştırma sırası öncelik ve bağımlılık kurallarına göre belirlenir.
+
+1.16 Rule Durumları
+
+Rule yaşam döngüsü:
+
+Draft
+
+↓
+
+Validated
+
+↓
+
+Approved
+
+↓
+
+Published
+
+↓
+
+Active
+
+↓
+
+Deprecated
+
+↓
+
+Archived
+
+Draft durumundaki Rule çalıştırılamaz.
+
+1.17 Rule Determinizmi
+
+Aynı giriş,
+
+aynı Rule sürümü,
+
+aynı bağlam,
+
+aynı veri
+
+ile çalıştırıldığında,
+
+aynı sonuç üretilmelidir.
+
+Bu ilke, denetlenebilirlik ve tekrar üretilebilirlik için zorunludur.
+
+1.18 Rule Sonucu
+
+Bir Rule sonucu yalnızca "True/False" değildir.
+
+Çıktılar şunları içerebilir:
+
+- Decision 
+
+- Reason 
+
+- Severity 
+
+- Messages 
+
+- Suggested Actions 
+
+- Produced Facts 
+
+Bu yapı sonraki modüller tarafından kullanılabilir.
+
+1.19 Rule Foundation Kuralları
+
+- Rule'lar uygulama kodundan ayrıdır. 
+
+- Rule'lar versiyonlanır. 
+
+- Rule'lar denetlenebilir olmalıdır. 
+
+- Rule'lar deterministik çalışmalıdır. 
+
+- Rule'lar Workflow değildir. 
+
+- Rule'lar AI değildir. 
+
+- Rule'lar Enterprise Memory'yi değiştirmez. 
+
+- Rule'lar Knowledge Graph'ı değiştirmez. 
+
+- Rule'lar Scope kurallarına uyar. 
+
+- Rule sonuçları standart sözleşme ile yayınlanır. 
+
+1.20 Sprint 1.2 Açısından Sonuç
+
+Bu bölüm ile Business Rules Foundation tanımlanmıştır.
+
+Business Rules Engine artık BNOS mimarisinde üçüncü çekirdek katman olarak konumlanmıştır.
+
+Tamamlanan Çekirdek Mimariler
+
+Cilt II
+
+- ✅ Enterprise Memory Architecture 
+
+Cilt III
+
+- ✅ Knowledge Graph Architecture 
+
+Cilt IV
+
+- ✅ Bölüm 1 — Business Rules Foundation 
+
+Sonraki Bölüm
+
+Bölüm 2 — Rule Domain Model
+
+Bu bölümde ayrıntılı olarak tanımlanacaktır:
+
+- Rule Aggregate Root 
+
+- Rule Entity yapıları 
+
+- Condition Model 
+
+- Expression Model 
+
+- Decision Model 
+
+- Action Descriptor 
+
+- Rule Versioning 
+
+- Rule Repository 
+
+- Rule Domain Events 
+
+- Rule Value Objects 
+
+- Rule Validation Model 
+
+Bu bölüm tamamlandığında Business Rules Engine'in Domain Driven Design (DDD) temeli de Enterprise Memory ve Knowledge Graph ile aynı mimari disiplin içinde tanımlanmış olacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt IV — Business Rules Engine Architecture (BRE)
+
+Bölüm 2 — Rule Domain Model
+
+Amaç: Bu bölüm, Business Rules Engine'in Domain Driven Design (DDD) mimarisini tanımlar. Rule Engine'in tüm iş kuralları bu Domain modeli üzerine inşa edilir.
+
+2.1 Tasarım Felsefesi
+
+Business Rule;
+
+kod değildir.
+
+Script değildir.
+
+SQL değildir.
+
+Prompt değildir.
+
+Business Rule;
+
+Domain bilgisidir.
+
+Bu nedenle Rule Domain;
+
+- Framework bağımsızdır. 
+
+- Provider bağımsızdır. 
+
+- UI bağımsızdır. 
+
+- AI bağımsızdır. 
+
+- Workflow bağımsızdır. 
+
+2.2 Aggregate Root
+
+Business Rules Engine'in Aggregate Root'u:
+
+BusinessRule
+
+Her Rule tek Aggregate olarak yönetilir.
+
+Aggregate;
+
+Rule'un bütünlüğünden sorumludur.
+
+2.3 BusinessRule
+
+Temel alanlar:
+
+RuleId
+
+Name
+
+Description
+
+Category
+
+Priority
+
+Scope
+
+Status
+
+Version
+
+Owner
+
+CreatedAt
+
+UpdatedAt
+
+EffectiveFrom
+
+EffectiveUntil
+
+Metadata
+
+BusinessRule yalnızca Domain bilgisini içerir.
+
+2.4 Rule Identity
+
+Her Rule;
+
+Enterprise genelinde benzersiz RuleId taşır.
+
+RuleId;
+
+Version'dan bağımsızdır.
+
+RuleId
+
+↓
+
+Version 1
+
+↓
+
+Version 2
+
+↓
+
+Version 3
+
+Kimlik değişmez.
+
+Versiyon değişir.
+
+2.5 Condition
+
+Condition;
+
+Rule'un çalışıp çalışmayacağını belirleyen ifadedir.
+
+Örnek:
+
+Aidat > 10.000 TL
+
+veya
+
+Person.Role == Manager
+
+Condition;
+
+Decision değildir.
+
+2.6 Condition Group
+
+Bir Rule;
+
+birden fazla Condition içerebilir.
+
+Condition
+
+AND
+
+Condition
+
+AND
+
+Condition
+
+veya
+
+Condition
+
+OR
+
+Condition
+
+Gruplama desteklenir.
+
+2.7 Expression Model
+
+Condition;
+
+Expression nesnesi üzerinden değerlendirilir.
+
+Expression örnekleri:
+
+- Equal 
+
+- NotEqual 
+
+- GreaterThan 
+
+- LessThan 
+
+- Between 
+
+- Contains 
+
+- Exists 
+
+- StartsWith 
+
+- EndsWith 
+
+- In 
+
+- NotIn 
+
+- MatchesPattern 
+
+Yeni operatörler genişletilebilir olmalıdır.
+
+2.8 Decision
+
+Condition başarılıysa;
+
+Decision üretilir.
+
+Decision;
+
+Action değildir.
+
+Örneğin:
+
+Approval Required
+
+bir Decision'dır.
+
+2.9 Action Descriptor
+
+Rule doğrudan işlem yapmaz.
+
+Yalnızca yapılacak işi tarif eder.
+
+Örneğin:
+
+Start Approval Workflow
+
+veya
+
+Send Notification
+
+Workflow bu Action Descriptor'ü yorumlar.
+
+2.10 Rule Metadata
+
+Her Rule metadata taşır.
+
+Örnek:
+
+- Department 
+
+- Risk Level 
+
+- Tags 
+
+- Author 
+
+- Reviewer 
+
+- Compliance Reference 
+
+- Documentation URL 
+
+Metadata;
+
+Decision üretmez.
+
+2.11 Rule Category
+
+Rule kategorileri örnek olarak:
+
+- Financial 
+
+- Technical 
+
+- Legal 
+
+- HR 
+
+- Security 
+
+- Compliance 
+
+- Maintenance 
+
+- Procurement 
+
+- Workflow 
+
+- AI Governance 
+
+Kuruma özel kategoriler eklenebilir.
+
+2.12 Priority
+
+Priority;
+
+çalıştırma sırasını etkiler.
+
+Örnek:
+
+Critical
+
+High
+
+Normal
+
+Low
+
+Aynı öncelikteki Rule'lar için ek sıralama kuralları tanımlanabilir.
+
+2.13 Rule Status
+
+Rule aşağıdaki durumlardan birinde olabilir.
+
+Draft
+
+Validated
+
+Approved
+
+Published
+
+Active
+
+Suspended
+
+Deprecated
+
+Archived
+
+Suspended Rule yüklenebilir.
+
+Çalıştırılamaz.
+
+2.14 Effective Period
+
+Her Rule zaman aralığı taşıyabilir.
+
+Effective From
+
+↓
+
+01.01.2027
+
+↓
+
+Effective Until
+
+↓
+
+31.12.2027
+
+Süresi dolmuş Rule değerlendirmeye alınmaz.
+
+2.15 Rule Version
+
+Overwrite yapılmaz.
+
+Version 1
+
+↓
+
+Version 2
+
+↓
+
+Version 3
+
+Tüm geçmiş korunur.
+
+2.16 Rule Dependency
+
+Bir Rule;
+
+başka Rule'a bağlı olabilir.
+
+Örneğin:
+
+Validation Rule
+
+↓
+
+Approval Rule
+
+Bağımlılık döngüsü oluşmasına izin verilmez.
+
+2.17 Rule Groups
+
+Rule'lar mantıksal gruplara ayrılabilir.
+
+Örnek:
+
+- Accounting Rules 
+
+- Security Rules 
+
+- HR Rules 
+
+- Facility Rules 
+
+- Purchasing Rules 
+
+Bu gruplar yönetim kolaylığı sağlar.
+
+2.18 Rule Repository
+
+Temel Repository sözleşmeleri:
+
+IBusinessRuleRepository
+
+IRuleVersionRepository
+
+IRuleQueryRepository
+
+Repository;
+
+Rule çalıştırmaz.
+
+2.19 Rule Factory
+
+Yeni Rule oluşturma:
+
+BusinessRuleFactory
+
+↓
+
+Validate
+
+↓
+
+Create Aggregate
+
+↓
+
+Return Rule
+
+Factory;
+
+Aggregate bütünlüğünü garanti eder.
+
+2.20 Domain Services
+
+Domain Service gerektiren işlemler:
+
+- Condition Validation 
+
+- Dependency Validation 
+
+- Circular Dependency Detection 
+
+- Expression Validation 
+
+- Effective Date Validation 
+
+- Priority Resolution 
+
+Bu işlemler Aggregate içine gömülmez.
+
+2.21 Value Objects
+
+Temel Value Object'ler:
+
+RuleId
+
+RuleVersion
+
+RulePriority
+
+RuleCategory
+
+RuleScope
+
+RuleStatus
+
+ConditionExpression
+
+DecisionType
+
+EffectivePeriod
+
+Tamamı immutable olmalıdır.
+
+2.22 Domain Events
+
+Business Rules Engine aşağıdaki olayları üretir.
+
+RuleCreated
+
+RuleValidated
+
+RuleApproved
+
+RulePublished
+
+RuleActivated
+
+RuleSuspended
+
+RuleDeprecated
+
+RuleArchived
+
+RuleVersionCreated
+
+RuleDependencyAdded
+
+Her olay Audit tarafından kaydedilir.
+
+2.23 Rule Domain Kuralları
+
+- Rule Aggregate tek doğruluk kaynağıdır. 
+
+- Condition ile Decision ayrı kavramlardır. 
+
+- Decision ile Action ayrı kavramlardır. 
+
+- Rule overwrite edilmez. 
+
+- Rule sürümlenir. 
+
+- Geçersiz Expression kabul edilmez. 
+
+- Döngüsel Rule bağımlılığı oluşturulamaz. 
+
+- Süresi dolmuş Rule çalıştırılamaz. 
+
+- Repository iş kuralı içermez. 
+
+- Her Rule değişikliği Domain Event üretir. 
+
+2.24 Sprint 1.2 Açısından Sonuç
+
+Bu bölüm ile Business Rules Engine Domain Modeli tamamlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Business Rules Foundation 
+
+- ✅ Bölüm 2 — Rule Domain Model 
+
+Enterprise CTO Notu
+
+Bu Domain modeli, Rule Engine'i klasik if/else mantığından tamamen ayırmaktadır.
+
+BNOS'ta bir Rule yalnızca bir koşul değil; yaşam döngüsü, versiyonu, bağımlılıkları, kapsamı, önceliği ve denetlenebilirliği olan kurumsal bir Domain Aggregate'dır.
+
+Bu yaklaşım sayesinde aynı Rule Engine;
+
+- Site yönetimi, 
+
+- İnsan kaynakları, 
+
+- Muhasebe, 
+
+- Satın alma, 
+
+- Bakım yönetimi, 
+
+- Hukuk, 
+
+- AI yönetişimi 
+
+gibi tamamen farklı iş alanlarında çekirdek kod değiştirilmeden kullanılabilir.
+
+Sonraki Bölüm
+
+Bölüm 3 — Rule Evaluation Engine & Execution Pipeline
+
+Bu bölümde şu konular ayrıntılı olarak tanımlanacaktır:
+
+- Rule Evaluation Pipeline 
+
+- Rule Compiler 
+
+- Expression Evaluator 
+
+- Rule Dependency Resolver 
+
+- Rule Execution Context 
+
+- Rule Chaining 
+
+- Conflict Resolution 
+
+- Short-Circuit Evaluation 
+
+- Rule Result Model 
+
+- Rule Execution Metrics 
+
+Bu bölüm tamamlandığında Business Rules Engine yalnızca kuralları depolayan değil, kurumsal ölçekte deterministik karar veren bir yürütme motoruna dönüşecektir.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt IV — Business Rules Engine Architecture (BRE)
+
+Bölüm 3 — Rule Evaluation Engine & Execution Pipeline
+
+Amaç: Bu bölüm, Business Rules Engine'in çalışma zamanı (runtime) mimarisini tanımlar. Rule Evaluation Engine, kuralların güvenli, deterministik, yüksek performanslı ve denetlenebilir şekilde değerlendirilmesini sağlar.
+
+3.1 Rule Evaluation Engine
+
+Business Rules Engine'in çalışma zamanı bileşeni;
+
+Rule Evaluation Engine
+
+olarak adlandırılır.
+
+Görevleri:
+
+- Rule yüklemek 
+
+- Rule doğrulamak 
+
+- Rule bağımlılıklarını çözmek 
+
+- Expression değerlendirmek 
+
+- Karar üretmek 
+
+- Sonuçları yayınlamak 
+
+- Audit oluşturmak 
+
+3.2 Execution Pipeline
+
+Her Rule aşağıdaki standart yürütme hattını takip eder.
+
+Request
+
+↓
+
+Execution Context
+
+↓
+
+Rule Selection
+
+↓
+
+Dependency Resolution
+
+↓
+
+Expression Evaluation
+
+↓
+
+Decision Generation
+
+↓
+
+Conflict Resolution
+
+↓
+
+Result Publishing
+
+↓
+
+Audit Logging
+
+Pipeline değiştirilemez.
+
+Yeni adımlar yalnızca genişletilebilir (extensible) mekanizmalar ile eklenebilir.
+
+3.3 Execution Context
+
+Her Rule;
+
+Execution Context içerisinde çalışır.
+
+Context örnek olarak aşağıdaki bilgileri içerir:
+
+- Tenant 
+
+- Organization 
+
+- User 
+
+- Department 
+
+- Current Time 
+
+- Locale 
+
+- Currency 
+
+- Environment 
+
+- Transaction Id 
+
+- Correlation Id 
+
+Context değişmez (Immutable).
+
+3.4 Rule Selection
+
+Evaluation Engine;
+
+çalıştırılacak tüm Rule'ları belirler.
+
+Filtreler:
+
+- Scope 
+
+- Status 
+
+- Effective Period 
+
+- Rule Category 
+
+- Tenant 
+
+- Priority 
+
+Active olmayan Rule değerlendirilmez.
+
+3.5 Dependency Resolution
+
+Rule bağımlılıkları analiz edilir.
+
+Örnek:
+
+Rule A
+
+↓
+
+Rule B
+
+↓
+
+Rule C
+
+Execution sırası otomatik oluşturulur.
+
+3.6 Circular Dependency Detection
+
+Aşağıdaki yapı kabul edilmez.
+
+Rule A
+
+↓
+
+Rule B
+
+↓
+
+Rule C
+
+↓
+
+Rule A
+
+Engine;
+
+Rule çalıştırılmadan önce bunu tespit eder.
+
+3.7 Rule Compiler
+
+Rule çalışma anında yorumlanmak zorunda değildir.
+
+Rule Compiler;
+
+Rule'u optimize edilmiş çalıştırılabilir modele dönüştürebilir.
+
+Rule
+
+↓
+
+Compiler
+
+↓
+
+Execution Model
+
+Bu model önbelleğe alınabilir.
+
+3.8 Expression Evaluator
+
+Condition ifadeleri;
+
+Expression Evaluator tarafından değerlendirilir.
+
+Örnek:
+
+Aidat > 10000
+
+veya
+
+Role == Manager
+
+Tüm operatörler merkezi Expression Library üzerinden çalışır.
+
+3.9 Expression Library
+
+Desteklenen örnek operatörler:
+
+- Equal 
+
+- NotEqual 
+
+- GreaterThan 
+
+- LessThan 
+
+- Between 
+
+- Contains 
+
+- Exists 
+
+- Regex 
+
+- StartsWith 
+
+- EndsWith 
+
+- In 
+
+- NotIn 
+
+- IsNull 
+
+- IsNotNull 
+
+Yeni operatörler eklendiğinde mevcut Rule'lar etkilenmemelidir.
+
+3.10 Rule Chaining
+
+Bir Rule;
+
+başka Rule'un değerlendirilmesini tetikleyebilir.
+
+Validation Rule
+
+↓
+
+Approval Rule
+
+↓
+
+Notification Rule
+
+Rule Chain sonsuz olamaz.
+
+3.11 Short-Circuit Evaluation
+
+Bazı Rule gruplarında;
+
+ilk başarısız Rule sonrasında değerlendirme durdurulabilir.
+
+Örnek:
+
+Security Rule
+
+↓
+
+FAILED
+
+↓
+
+STOP
+
+Bu davranış politika ile belirlenebilir.
+
+3.12 Parallel Rule Execution
+
+Bağımsız Rule'lar aynı anda çalıştırılabilir.
+
+Financial Rules
+
+||
+
+Security Rules
+
+||
+
+Maintenance Rules
+
+Sonuçlar belirlenmiş yürütme düzenine göre birleştirilir.
+
+3.13 Conflict Resolution
+
+Farklı Rule'lar çelişkili sonuç üretebilir.
+
+Örneğin:
+
+Rule A
+
+↓
+
+APPROVE
+
+Rule B
+
+↓
+
+REJECT
+
+Çözüm stratejileri:
+
+- Priority 
+
+- Explicit Override 
+
+- Policy Rule 
+
+- Fail Safe 
+
+Varsayılan strateji sistem genelinde tanımlanmalıdır.
+
+3.14 Decision Generation
+
+Evaluation tamamlandıktan sonra;
+
+tek tip Decision nesnesi oluşturulur.
+
+Örnek alanlar:
+
+- Decision 
+
+- Reason 
+
+- Severity 
+
+- RuleId 
+
+- RuleVersion 
+
+- Timestamp 
+
+- Evidence 
+
+- Produced Facts 
+
+3.15 Produced Facts
+
+Bir Rule;
+
+yeni gerçekler (Facts) üretebilir.
+
+Örnek:
+
+RiskDetected
+
+=
+
+True
+
+Bu bilgiler sonraki Rule'lar tarafından kullanılabilir.
+
+Fact'ler Execution Context kapsamında yaşar; kalıcı hale getirilmeleri gerekiyorsa ilgili servis tarafından Enterprise Memory'ye yazılmalıdır.
+
+3.16 Rule Result Model
+
+Her Rule standart sonuç döndürür.
+
+Success
+
+Decision
+
+Messages
+
+Evidence
+
+Execution Time
+
+Facts
+
+Warnings
+
+Hiçbir Rule farklı sonuç formatı üretemez.
+
+3.17 Audit Trail
+
+Her çalıştırma kaydedilir.
+
+Kayıtlar:
+
+- Rule Id 
+
+- Version 
+
+- User 
+
+- Context 
+
+- Input Summary 
+
+- Output 
+
+- Duration 
+
+- Decision 
+
+- Timestamp 
+
+Audit değiştirilemez.
+
+3.18 Exception Handling
+
+Rule hata üretirse;
+
+Engine çökmemelidir.
+
+Durumlar ayrıştırılır:
+
+- Validation Error 
+
+- Expression Error 
+
+- Dependency Error 
+
+- Execution Error 
+
+- Provider Error 
+
+Her biri standart hata modeline dönüştürülür.
+
+3.19 Execution Metrics
+
+Her Rule için metrikler üretilir.
+
+- Ortalama süre 
+
+- Maksimum süre 
+
+- Başarı oranı 
+
+- Hata oranı 
+
+- Cache kullanım oranı 
+
+- Derleme (compile) isabet oranı 
+
+- Çalıştırma sayısı 
+
+3.20 Rule Evaluation Kuralları
+
+- Rule'lar yalnızca Evaluation Engine üzerinden çalıştırılır. 
+
+- Execution Context immutable olmalıdır. 
+
+- Dependency çözülmeden Rule çalıştırılamaz. 
+
+- Circular Dependency yasaktır. 
+
+- Expression Library merkezi olmalıdır. 
+
+- Rule sonuçları standart sözleşmeye uymalıdır. 
+
+- Audit her çalıştırmada zorunludur. 
+
+- Hatalar Engine'i durdurmamalıdır. 
+
+- Parallel Execution deterministik sonuç üretmelidir. 
+
+- Produced Facts yalnızca tanımlı yaşam döngüsü içinde kullanılmalıdır. 
+
+3.21 Sprint 1.2 Açısından Sonuç
+
+Bu bölüm ile Rule Evaluation Engine ve Execution Pipeline mimarisi tamamlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Business Rules Foundation 
+
+- ✅ Bölüm 2 — Rule Domain Model 
+
+- ✅ Bölüm 3 — Rule Evaluation Engine & Execution Pipeline 
+
+Enterprise CTO Notu
+
+Bu mimari ile BNOS Business Rules Engine, klasik kural motorlarından üç temel noktada ayrılır:
+
+- Execution Context ile her karar bağlama duyarlıdır. 
+
+- Produced Facts sayesinde kurallar birbirleriyle kontrollü biçimde bilgi paylaşabilir. 
+
+- Workflow'dan bağımsızdır; Rule Engine karar verir, Workflow Engine bu kararları uygular. 
+
+Bu ayrım, Business Rules Engine'in yalnızca bir "if/else motoru" değil, BNOS Kernel'in deterministik karar katmanı olmasını sağlar.
+
+Sonraki Bölüm
+
+Bölüm 4 — Rule Repository, Versioning & Governance
+
+Bu bölümde aşağıdaki konular tanımlanacaktır:
+
+- Rule Repository Architecture 
+
+- Rule Registry 
+
+- Rule Package Management 
+
+- Rule Versioning Strategy 
+
+- Rule Approval Workflow 
+
+- Rule Governance Model 
+
+- Rule Audit Architecture 
+
+- Rule Lifecycle Management 
+
+- Rule Deployment Strategy 
+
+- Enterprise Rule Catalog 
+
+Bu bölüm tamamlandığında Business Rules Engine yalnızca çalışan bir karar motoru değil, kurumsal ölçekte yönetilebilen ve yaşam döngüsü kontrol edilen bir yönetişim platformuna dönüşecektir.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt IV — Business Rules Engine Architecture (BRE)
+
+Bölüm 5 — Rule Optimization, Performance & Distributed Execution
+
+Amaç: Bu bölüm, Business Rules Engine'in milyonlarca Rule değerlendirmesini düşük gecikme ile gerçekleştirebilmesini sağlayan performans, optimizasyon ve dağıtık çalışma (distributed execution) mimarisini tanımlar.
+
+5.1 Tasarım Hedefleri
+
+Business Rules Engine aşağıdaki hedefleri desteklemelidir:
+
+- Düşük gecikme (Low Latency) 
+
+- Yüksek işlem hacmi (High Throughput) 
+
+- Yatay ölçeklenebilirlik 
+
+- Deterministik sonuç 
+
+- Dağıtık çalışma 
+
+- Sıfır kesinti ile güncelleme 
+
+- Gerçek zamanlı değerlendirme 
+
+Performans, doğruluktan ödün verilerek elde edilmez.
+
+5.2 Rule Runtime Architecture
+
+              Rule Repository
+
+                     │
+
+                     ▼
+
+               Rule Compiler
+
+                     │
+
+                     ▼
+
+              Compiled Rule Cache
+
+                     │
+
+                     ▼
+
+            Rule Evaluation Engine
+
+                     │
+
+      ┌──────────────┼──────────────┐
+
+      ▼              ▼              ▼
+
+ Worker 1       Worker 2       Worker N
+
+Repository çalışma anında sürekli okunmaz.
+
+Compiled Rule Cache kullanılır.
+
+5.3 Rule Compilation
+
+Rule ilk çalıştırılmadan önce derlenebilir.
+
+Business Rule
+
+↓
+
+Validation
+
+↓
+
+Compilation
+
+↓
+
+Optimized Execution Model
+
+Çalışma zamanında yorumlama maliyeti azaltılır.
+
+5.4 Compiled Rule Cache
+
+Derlenen Rule bellekte tutulabilir.
+
+Cache;
+
+Rule Version bazlıdır.
+
+Rule A v3
+
+↓
+
+Compiled Binary Model
+
+Yeni sürüm yayımlandığında eski cache geçersiz olur.
+
+5.5 Incremental Loading
+
+Sistem yeniden başlatıldığında;
+
+tüm Rule'lar yüklenmez.
+
+Yalnızca gerekli Rule'lar yüklenir.
+
+Avantajları:
+
+- Daha hızlı açılış 
+
+- Daha düşük bellek tüketimi 
+
+- Daha kısa deployment süresi 
+
+5.6 Lazy Compilation
+
+Az kullanılan Rule'lar;
+
+ilk çağrıldığında derlenebilir.
+
+First Execution
+
+↓
+
+Compile
+
+↓
+
+Cache
+
+↓
+
+Execute
+
+5.7 Hot Reload
+
+Rule değiştiğinde;
+
+Evaluation Engine yeniden başlatılmaz.
+
+Rule Updated
+
+↓
+
+Compile
+
+↓
+
+Cache Refresh
+
+↓
+
+Continue
+
+Kesintisiz çalışma sağlanır.
+
+5.8 Rule Partitioning
+
+Rule'lar mantıksal bölümlere ayrılabilir.
+
+Örneğin:
+
+Finance Rules
+
+HR Rules
+
+Security Rules
+
+Facility Rules
+
+AI Rules
+
+Her bölüm bağımsız yönetilebilir.
+
+5.9 Tenant Isolation
+
+Multi-tenant mimaride;
+
+Tenant A'nın Rule'ları
+
+Tenant B tarafından görülemez.
+
+Partition;
+
+Tenant bazında ayrıştırılabilir.
+
+5.10 Distributed Rule Execution
+
+Evaluation Engine;
+
+birden fazla sunucu üzerinde çalışabilir.
+
+Node 1
+
+Node 2
+
+Node 3
+
+Node 4
+
+Rule değerlendirmesi;
+
+uygun düğüme yönlendirilir.
+
+5.11 Stateless Workers
+
+Rule Worker'lar;
+
+durum (state) tutmaz.
+
+Execution Context;
+
+istekle birlikte gelir.
+
+Bu sayede Worker'lar kolayca ölçeklenebilir.
+
+5.12 Parallel Evaluation
+
+Bağımsız Rule grupları;
+
+aynı anda değerlendirilebilir.
+
+Security
+
+||
+
+Finance
+
+||
+
+Maintenance
+
+||
+
+Compliance
+
+Sonuçlar tek Decision Model içinde birleştirilir.
+
+5.13 Rule Scheduling
+
+Bazı Rule'lar olay bazlı değil,
+
+zaman bazlı çalıştırılır.
+
+Örnek:
+
+- Her gece 
+
+- Her ay 
+
+- Her yıl 
+
+- Her saat 
+
+Scheduling, Rule Engine tarafından tanımlanır; tetikleme ve zamanlama Workflow/Scheduler altyapısı tarafından yürütülür.
+
+5.14 Event Driven Evaluation
+
+Rule yalnızca API çağrısıyla çalışmaz.
+
+Tetikleyiciler:
+
+- Domain Event 
+
+- Workflow Event 
+
+- Message Queue 
+
+- Integration Event 
+
+- User Action 
+
+5.15 Batch Evaluation
+
+Aynı Rule;
+
+binlerce kayıt üzerinde çalıştırılabilir.
+
+Örnek:
+
+10.000 Invoice
+
+↓
+
+Validation Rule
+
+Batch Execution desteklenmelidir.
+
+5.16 Streaming Evaluation
+
+Çok büyük veri kümeleri;
+
+parça parça işlenebilir.
+
+Chunk 1
+
+↓
+
+Chunk 2
+
+↓
+
+Chunk 3
+
+Bellek tüketimi azaltılır.
+
+5.17 Rule Telemetry
+
+Her Rule aşağıdaki metrikleri üretir.
+
+- Ortalama Süre 
+
+- Maksimum Süre 
+
+- Çalıştırılma Sayısı 
+
+- Başarı Oranı 
+
+- Hata Oranı 
+
+- Timeout Sayısı 
+
+- Cache Hit 
+
+5.18 Performance Monitoring
+
+Engine sürekli izlenmelidir.
+
+Örnek göstergeler:
+
+- Ortalama Response Time 
+
+- Worker Kullanımı 
+
+- Queue Uzunluğu 
+
+- CPU 
+
+- Memory 
+
+- Compile Süresi 
+
+5.19 Health Check
+
+Rule Engine aşağıdaki sağlık kontrollerini sağlamalıdır.
+
+- Repository erişimi 
+
+- Cache durumu 
+
+- Compiler durumu 
+
+- Worker durumu 
+
+- Queue durumu 
+
+- Telemetry servisi 
+
+- Event Bus bağlantısı 
+
+5.20 Failover
+
+Bir Worker durursa;
+
+işlem başka Worker'a aktarılabilir.
+
+Worker 2
+
+↓
+
+FAILED
+
+↓
+
+Worker 5
+
+İşlem güvenli şekilde yeniden planlanmalıdır.
+
+5.21 Circuit Breaker
+
+Harici bağımlılıklar nedeniyle oluşan zincirleme hataları önlemek için Circuit Breaker uygulanmalıdır.
+
+Rule Engine, harici servis çağrılarını doğrudan yapmamalıdır; bu mekanizma ilgili entegrasyon katmanında uygulanır.
+
+5.22 Rule Optimization Kuralları
+
+- Rule yalnızca bir kez derlenmelidir. 
+
+- Compiled Rule Cache sürüm bazlı olmalıdır. 
+
+- Hot Reload kesintisiz çalışmalıdır. 
+
+- Worker'lar Stateless olmalıdır. 
+
+- Parallel Execution deterministik olmalıdır. 
+
+- Batch Evaluation desteklenmelidir. 
+
+- Streaming büyük veri kümeleri için kullanılmalıdır. 
+
+- Telemetry zorunludur. 
+
+- Health Check sürekli çalışmalıdır. 
+
+- Performans optimizasyonu iş kurallarının doğruluğunu değiştirmemelidir. 
+
+5.23 Sprint 1.2 Açısından Sonuç
+
+Bu bölüm ile Business Rules Engine Performance & Optimization mimarisi tamamlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Business Rules Foundation 
+
+- ✅ Bölüm 2 — Rule Domain Model 
+
+- ✅ Bölüm 3 — Rule Evaluation Engine & Execution Pipeline 
+
+- ✅ Bölüm 4 — Rule Repository, Versioning & Governance 
+
+- ✅ Bölüm 5 — Rule Optimization, Performance & Distributed Execution 
+
+Enterprise CTO Notu
+
+Bu bölümle birlikte Business Rules Engine, yalnızca doğru karar veren bir bileşen olmaktan çıkıp kurumsal ölçekte çalışan bir karar altyapısı haline gelmiştir.
+
+Özellikle BNOS'un "LLM son çare" mimarisi düşünüldüğünde, Rule Engine'in yüksek performansı kritik öneme sahiptir. Her istek için önce Enterprise Memory, ardından Knowledge Graph ve Business Rules Engine devreye girer. Yalnızca bu katmanlar yeni bir muhakeme veya içerik üretimi gerektirdiğinde AI Orchestrator üzerinden LLM çağrılır. Böylece hem maliyet hem gecikme süreleri minimize edilir.
+
+Sonraki Cilt
+
+**Cilt V — Workflow Engine Architecture (WFE)**
+
+İlk bölümde şu başlıklar ele alınacaktır:
+
+- Workflow Foundation 
+
+- Workflow Domain Model 
+
+- Process Definition 
+
+- State Machine Architecture 
+
+- Task Model 
+
+- Human Tasks 
+
+- System Tasks 
+
+- Event-Driven Workflow 
+
+- Workflow Governance 
+
+- Workflow Runtime 
+
+Workflow Engine tamamlandığında BNOS'un dört temel çekirdek katmanı tamamlanmış olacaktır:
+
+- ✅ Enterprise Memory 
+
+- ✅ Knowledge Graph 
+
+- ✅ Business Rules Engine 
+
+- ▶ Workflow Engine (başlıyor) 
+
+Bu dört katman, AI Orchestrator ve LLM Gateway'in üzerinde yükseleceği deterministik işletim sistemi çekirdeğini oluşturacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt V — Workflow Engine Architecture (WFE)
+
+Bölüm 1 — Workflow Foundation
+
+Amaç: Bu bölüm, BNOS Workflow Engine'in temel mimarisini tanımlar. Workflow Engine; Business Rules Engine tarafından verilen deterministik kararları, kontrollü ve izlenebilir iş süreçlerine dönüştüren yürütme katmanıdır.
+
+1.1 Workflow Engine Nedir?
+
+Workflow Engine;
+
+iş süreçlerini
+
+- tanımlayan, 
+
+- planlayan, 
+
+- yürüten, 
+
+- izleyen, 
+
+- denetleyen 
+
+BNOS çekirdek modülüdür.
+
+1.2 BNOS İçindeki Konumu
+
+              Enterprise Memory
+
+                     │
+
+                     ▼
+
+             Knowledge Graph
+
+                     │
+
+                     ▼
+
+          Business Rules Engine
+
+                     │
+
+                     ▼
+
+              Workflow Engine
+
+                     │
+
+      ┌──────────────┼──────────────┐
+
+      ▼              ▼              ▼
+
+AI Orchestrator  Notification  Integration Layer
+
+                     │
+
+                     ▼
+
+                 LLM Gateway
+
+Workflow;
+
+Rule'un yerine karar vermez.
+
+Rule;
+
+Workflow'un yerine iş yürütmez.
+
+1.3 Temel Felsefe
+
+BNOS'ta;
+
+Karar ile Süreç birbirinden ayrıdır.
+
+Rule
+
+↓
+
+Decision
+
+↓
+
+Workflow
+
+↓
+
+Execution
+
+Bu ayrım bütün sistem boyunca korunur.
+
+1.4 Workflow Tanımı
+
+Workflow;
+
+bir hedefe ulaşmak için
+
+belirli sırayla
+
+çalıştırılan
+
+Task'lardan oluşan süreçtir.
+
+1.5 Workflow'un Sorumlulukları
+
+Workflow Engine;
+
+- Process başlatır 
+
+- Process durdurur 
+
+- Process devam ettirir 
+
+- Task oluşturur 
+
+- Task atar 
+
+- Event dinler 
+
+- Timeout yönetir 
+
+- Retry uygular 
+
+- Süreci sonlandırır 
+
+1.6 Workflow'un Sorumlu Olmadıkları
+
+Workflow;
+
+- Business Rule yazmaz. 
+
+- Memory yönetmez. 
+
+- Graph oluşturmaz. 
+
+- AI kararı vermez. 
+
+- LLM çağırmaz. 
+
+- SQL çalıştırmaz. 
+
+- UI üretmez. 
+
+1.7 Workflow Yapısı
+
+Bir Workflow aşağıdaki bileşenlerden oluşur.
+
+Workflow
+
+↓
+
+Stages
+
+↓
+
+Activities
+
+↓
+
+Tasks
+
+↓
+
+Actions
+
+1.8 Workflow ve Process
+
+Workflow;
+
+şablondur.
+
+Process;
+
+çalışan örnektir.
+
+Approval Workflow
+
+↓
+
+Process Instance 1458
+
+Bir Workflow'dan binlerce Process üretilebilir.
+
+1.9 Workflow Instance
+
+Her çalışan süreç;
+
+Workflow Instance olarak adlandırılır.
+
+Alanlar:
+
+- WorkflowId 
+
+- InstanceId 
+
+- State 
+
+- StartedAt 
+
+- StartedBy 
+
+- Current Stage 
+
+- Current Task 
+
+- Version 
+
+1.10 Workflow Definition
+
+Workflow;
+
+Definition olarak saklanır.
+
+Definition;
+
+çalıştırılmaz.
+
+Önce Instance oluşur.
+
+1.11 Workflow Scope
+
+Workflow kapsamları:
+
+- Global 
+
+- Tenant 
+
+- Organization 
+
+- Department 
+
+- Project 
+
+- Site 
+
+- Module 
+
+Yanlış Scope'ta Workflow başlatılamaz.
+
+1.12 Workflow Version
+
+Workflow overwrite edilmez.
+
+Workflow
+
+↓
+
+Version 1
+
+↓
+
+Version 2
+
+↓
+
+Version 3
+
+Eski Instance'lar başladıkları sürüm üzerinde devam eder.
+
+Yeni Instance'lar yeni sürümden başlar.
+
+1.13 Workflow State
+
+Her Workflow aşağıdaki durumlardan birinde bulunabilir.
+
+Draft
+
+↓
+
+Validated
+
+↓
+
+Published
+
+↓
+
+Active
+
+↓
+
+Deprecated
+
+↓
+
+Archived
+
+Draft Workflow çalıştırılamaz.
+
+1.14 Process State
+
+Çalışan Process ise farklı yaşam döngüsüne sahiptir.
+
+Created
+
+↓
+
+Running
+
+↓
+
+Waiting
+
+↓
+
+Suspended
+
+↓
+
+Completed
+
+↓
+
+Cancelled
+
+↓
+
+Failed
+
+Workflow ile Process yaşam döngüleri birbirinden bağımsızdır.
+
+1.15 Long Running Workflow
+
+BNOS;
+
+dakikalar,
+
+günler,
+
+haftalar,
+
+aylar
+
+süren süreçleri destekler.
+
+Örneğin:
+
+Site genel kurul onay süreci.
+
+1.16 Human Workflow
+
+İnsan müdahalesi gerektiren süreçler.
+
+Örneğin:
+
+Manager Approval
+
+Workflow bekleme durumuna geçebilir.
+
+1.17 System Workflow
+
+Tamamen otomatik çalışan süreçler.
+
+Örneğin:
+
+Nightly Backup
+
+İnsan beklemez.
+
+1.18 Hybrid Workflow
+
+Hem insan,
+
+hem sistem,
+
+hem AI
+
+birlikte çalışabilir.
+
+Örnek:
+
+Rule
+
+↓
+
+Manager Approval
+
+↓
+
+AI Analysis
+
+↓
+
+Archive
+
+AI analizi opsiyonel olabilir; deterministik kararlar yine Business Rules Engine tarafından yönetilir.
+
+1.19 Workflow Trigger
+
+Workflow aşağıdaki yollarla başlayabilir.
+
+- API 
+
+- Domain Event 
+
+- Rule Result 
+
+- User Action 
+
+- Scheduler 
+
+- Message Queue 
+
+- External Integration 
+
+1.20 Workflow Foundation Kuralları
+
+- Workflow süreçtir. 
+
+- Rule karar verir. 
+
+- Workflow karar üretmez. 
+
+- Workflow versiyonlanır. 
+
+- Process ile Workflow ayrıdır. 
+
+- Human Workflow desteklenir. 
+
+- Long Running Workflow desteklenir. 
+
+- Workflow Scope zorunludur. 
+
+- Workflow yaşam döngüsü Process'ten ayrıdır. 
+
+- Workflow deterministik olarak yürütülmelidir. 
+
+1.21 Sprint 1.3 Açısından Sonuç
+
+Bu bölüm ile Workflow Foundation tamamlanmıştır.
+
+Workflow Engine, Business Rules Engine'in üzerine konumlanan ve iş süreçlerini yöneten çekirdek katman olarak tanımlanmıştır.
+
+Tamamlanan Çekirdek Mimariler
+
+Cilt II
+
+- ✅ Enterprise Memory Architecture 
+
+Cilt III
+
+- ✅ Knowledge Graph Architecture 
+
+Cilt IV
+
+- ✅ Business Rules Engine 
+
+Cilt V
+
+- ✅ Bölüm 1 — Workflow Foundation 
+
+Enterprise CTO Notu
+
+Workflow Engine, BNOS'un en kritik orkestrasyon bileşenlerinden biridir. Ancak bu bileşen, AI Orchestrator ile karıştırılmamalıdır.
+
+Temel ayrım şudur:
+
+- Business Rules Engine → Ne yapılacağına karar verir. 
+
+- Workflow Engine → Kararlaştırılan işi hangi sırayla, hangi görevlerle ve hangi aktörler tarafından gerçekleştirileceğini yönetir. 
+
+- AI Orchestrator → Deterministik katmanların çözemediği görevlerde uygun AI ajanlarını ve gerekirse LLM'leri devreye alır. 
+
+Bu ayrım sayesinde BNOS, deterministik süreç yönetimini olasılıksal AI davranışlarından tamamen izole ederek kurumsal güvenilirliği korur.
+
+Sonraki Bölüm
+
+**Bölüm 2 — Workflow Domain Model**
+
+Bu bölümde ayrıntılı olarak tanımlanacaktır:
+
+- Workflow Aggregate Root 
+
+- Workflow Definition 
+
+- Process Instance 
+
+- Stage 
+
+- Activity 
+
+- Task 
+
+- Transition 
+
+- Gateway 
+
+- Workflow Repository 
+
+- Workflow Domain Events 
+
+- Workflow Value Objects 
+
+- Workflow Validation Model 
+
+Bu bölüm tamamlandığında Workflow Engine'in Domain Driven Design (DDD) temeli oluşturulmuş olacak ve süreçlerin tüm yapısal bileşenleri standartlaştırılacaktır.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt V — Workflow Engine Architecture (WFE)
+
+Bölüm 2 — Workflow Domain Model
+
+Amaç: Bu bölüm, Workflow Engine'in Domain Driven Design (DDD) mimarisini tanımlar. Workflow Engine'deki tüm süreçler, bu Domain modeli üzerine inşa edilir.
+
+2.1 Tasarım Felsefesi
+
+Workflow;
+
+kod değildir.
+
+Script değildir.
+
+BPMN dosyası değildir.
+
+JSON değildir.
+
+Workflow;
+
+kurumsal iş sürecinin Domain modelidir.
+
+Bu nedenle Workflow Domain;
+
+- Framework bağımsızdır. 
+
+- Database bağımsızdır. 
+
+- UI bağımsızdır. 
+
+- AI bağımsızdır. 
+
+- Provider bağımsızdır. 
+
+2.2 Aggregate Root
+
+Workflow Domain'in Aggregate Root'u:
+
+WorkflowDefinition
+
+WorkflowDefinition;
+
+Workflow'un tamamından sorumludur.
+
+2.3 WorkflowDefinition
+
+Temel alanlar:
+
+WorkflowId
+
+Name
+
+Description
+
+Category
+
+Scope
+
+Version
+
+Status
+
+Owner
+
+CreatedAt
+
+UpdatedAt
+
+EffectiveFrom
+
+EffectiveUntil
+
+Metadata
+
+WorkflowDefinition yalnızca sürecin tanımını içerir.
+
+Çalışan süreci içermez.
+
+2.4 Workflow Identity
+
+WorkflowId değişmez.
+
+WorkflowId
+
+↓
+
+Version 1
+
+↓
+
+Version 2
+
+↓
+
+Version 3
+
+Kimlik sabittir.
+
+Versiyon değişir.
+
+2.5 Process Instance
+
+Workflow çalıştırıldığında;
+
+yeni bir Process Instance oluşur.
+
+Alanlar:
+
+InstanceId
+
+WorkflowId
+
+CurrentState
+
+StartedAt
+
+StartedBy
+
+CompletedAt
+
+CurrentStage
+
+CurrentTask
+
+CorrelationId
+
+Her Process bağımsızdır.
+
+2.6 Stage
+
+Workflow;
+
+Stage'lerden oluşabilir.
+
+Örnek:
+
+Talep
+
+↓
+
+Onay
+
+↓
+
+Satın Alma
+
+↓
+
+Teslim
+
+↓
+
+Kapanış
+
+Stage;
+
+iş sürecinin mantıksal bölümüdür.
+
+2.7 Activity
+
+Stage içerisinde Activity bulunur.
+
+Örnek:
+
+Onay Stage
+
+↓
+
+Manager Approval
+
+↓
+
+Finance Approval
+
+Activity;
+
+Task grubudur.
+
+2.8 Task
+
+Task;
+
+Workflow'un en küçük yürütülebilir işidir.
+
+Task türleri:
+
+- Human Task 
+
+- System Task 
+
+- Integration Task 
+
+- AI Task 
+
+- Decision Task 
+
+- Timer Task 
+
+- Notification Task 
+
+- Script Task (opsiyonel ve güvenlik politikalarına tabi) 
+
+2.9 Transition
+
+Task'lar Transition ile bağlanır.
+
+Task A
+
+↓
+
+Transition
+
+↓
+
+Task B
+
+Transition;
+
+iş akışının yönünü belirler.
+
+2.10 Gateway
+
+Gateway;
+
+akışın dallanmasını sağlar.
+
+Gateway türleri:
+
+- Exclusive 
+
+- Parallel 
+
+- Inclusive 
+
+- Event Based 
+
+Gateway karar üretmez.
+
+Karar Business Rules Engine'den gelir.
+
+2.11 Start Event
+
+Her Workflow'un başlangıç noktası vardır.
+
+Başlatıcılar:
+
+- API 
+
+- Event 
+
+- Scheduler 
+
+- User 
+
+- Rule Result 
+
+Tek Workflow'da birden fazla başlangıç olayı desteklenebilir.
+
+2.12 End Event
+
+Workflow;
+
+End Event ile tamamlanır.
+
+Sonuç durumları:
+
+- Success 
+
+- Cancelled 
+
+- Failed 
+
+- Timeout 
+
+- Terminated 
+
+2.13 Timer
+
+Workflow zamanlayıcı kullanabilir.
+
+Örnek:
+
+48 Saat Bekle
+
+↓
+
+Reminder
+
+↓
+
+72 Saat
+
+↓
+
+Escalation
+
+Timer;
+
+Task değildir.
+
+Event'tir.
+
+2.14 Assignment
+
+Human Task;
+
+kişiye veya role atanabilir.
+
+Örnek:
+
+- Site Müdürü 
+
+- Muhasebe 
+
+- Teknik Müdür 
+
+- Yönetim Kurulu 
+
+- Güvenlik Amiri 
+
+Assignment çalışma anında çözümlenebilir.
+
+2.15 SLA
+
+Her Task SLA taşıyabilir.
+
+Örnek:
+
+Manager Approval
+
+↓
+
+24 Saat
+
+Süre dolduğunda;
+
+Workflow Event oluşur.
+
+2.16 Escalation
+
+Task zamanında tamamlanmazsa;
+
+Escalation oluşabilir.
+
+Örnek:
+
+Manager
+
+↓
+
+24 Saat
+
+↓
+
+Regional Manager
+
+Escalation politikası ayrı olarak tanımlanır.
+
+2.17 Compensation
+
+Başarısız süreçlerde;
+
+geri alma (Compensation) tanımlanabilir.
+
+Örnek:
+
+Invoice Created
+
+↓
+
+Payment Failed
+
+↓
+
+Cancel Invoice
+
+Compensation;
+
+Rollback değildir.
+
+İşlemsel telafi sürecidir.
+
+2.18 Workflow Repository
+
+Temel Repository sözleşmeleri:
+
+IWorkflowRepository
+
+IProcessRepository
+
+ITaskRepository
+
+IWorkflowQueryRepository
+
+Repository;
+
+Workflow yürütmez.
+
+2.19 Value Objects
+
+Workflow Domain Value Object'leri:
+
+WorkflowId
+
+WorkflowVersion
+
+ProcessId
+
+TaskId
+
+StageId
+
+ActivityId
+
+TransitionId
+
+WorkflowScope
+
+WorkflowStatus
+
+ProcessStatus
+
+TaskStatus
+
+Immutable olmalıdır.
+
+2.20 Domain Services
+
+Domain Service gerektiren işlemler:
+
+- Transition Validation 
+
+- Assignment Resolution 
+
+- SLA Calculation 
+
+- Escalation Planning 
+
+- Workflow Validation 
+
+- Gateway Resolution 
+
+2.21 Domain Events
+
+Workflow Engine aşağıdaki olayları üretir.
+
+WorkflowCreated
+
+WorkflowPublished
+
+WorkflowActivated
+
+WorkflowArchived
+
+ProcessStarted
+
+ProcessCompleted
+
+ProcessCancelled
+
+TaskCreated
+
+TaskAssigned
+
+TaskCompleted
+
+TaskExpired
+
+EscalationTriggered
+
+CompensationStarted
+
+Her olay Audit sistemine gönderilir.
+
+2.22 Workflow Domain Kuralları
+
+- Workflow ile Process farklı kavramlardır. 
+
+- Process Instance Workflow'dan üretilir. 
+
+- Task en küçük yürütme birimidir. 
+
+- Gateway karar üretmez. 
+
+- Kararlar yalnızca Business Rules Engine'den gelir. 
+
+- Transition doğrulanmalıdır. 
+
+- Assignment dinamik olabilir. 
+
+- SLA ve Escalation desteklenmelidir. 
+
+- Compensation Rollback değildir. 
+
+- Her Domain değişikliği Event üretmelidir. 
+
+2.23 Sprint 1.3 Açısından Sonuç
+
+Bu bölüm ile Workflow Domain Model tamamlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Workflow Foundation 
+
+- ✅ Bölüm 2 — Workflow Domain Model 
+
+Enterprise CTO Notu
+
+Workflow Engine'in en önemli tasarım kararı, iş sürecini (Workflow Definition) ile çalışan örneğini (Process Instance) kesin olarak ayırmasıdır.
+
+Bu ayrım sayesinde:
+
+- Aynı Workflow tanımından binlerce Process aynı anda çalışabilir. 
+
+- Workflow güncellendiğinde çalışan Process'ler etkilenmez. 
+
+- Her Process kendi bağlamı, sürümü ve yaşam döngüsü ile yönetilir. 
+
+- Uzun süreli süreçler (haftalar veya aylar süren onaylar gibi) güvenli şekilde sürdürülebilir. 
+
+Bu mimari, BNOS'un site yönetimi, hukuk, insan kaynakları, bakım yönetimi ve diğer tüm sektörlerde ortak süreç altyapısı olarak kullanılmasını sağlar.
+
+Sonraki Bölüm
+
+**Bölüm 3 — Workflow Runtime, State Machine ****&**** Execution Engine**
+
+Bu bölümde ayrıntılı olarak tanımlanacaktır:
+
+- Workflow Runtime Engine 
+
+- State Machine Architecture 
+
+- Process Scheduler 
+
+- Task Dispatcher 
+
+- Human Task Runtime 
+
+- System Task Runtime 
+
+- Event Processing 
+
+- Retry & Recovery 
+
+- Timeout Management 
+
+- Execution Context 
+
+- Workflow Telemetry 
+
+- Distributed Workflow Execution 
+
+Bu bölüm tamamlandığında Workflow Engine, yalnızca süreç tanımlayan değil; kurumsal ölçekte güvenilir, dağıtık ve deterministik süreçler yürüten bir çalışma zamanı altyapısına dönüşecektir.
+
+BNOS Enterprise Architecture Book (EAB)
+
+Cilt V — Workflow Engine Architecture (WFE)
+
+Bölüm 3 — Workflow Runtime, State Machine & Execution Engine
+
+Amaç: Bu bölüm, Workflow Engine'in çalışma zamanı (Runtime) mimarisini tanımlar. Workflow Runtime Engine, Workflow Definition'ları Process Instance'lara dönüştüren, Task'ları yöneten, Event'leri işleyen ve süreçlerin güvenilir şekilde tamamlanmasını sağlayan çekirdek bileşendir.
+
+3.1 Workflow Runtime Engine
+
+Workflow Runtime Engine;
+
+çalışan tüm Process Instance'ların yürütülmesinden sorumludur.
+
+Görevleri:
+
+- Process başlatmak 
+
+- State değiştirmek 
+
+- Task oluşturmak 
+
+- Task sonlandırmak 
+
+- Event işlemek 
+
+- Timeout yönetmek 
+
+- Retry uygulamak 
+
+- Compensation başlatmak 
+
+- Audit oluşturmak 
+
+3.2 Runtime Architecture
+
+              Workflow Definition
+
+                       │
+
+                       ▼
+
+             Workflow Runtime Engine
+
+                       │
+
+      ┌────────────────┼────────────────┐
+
+      ▼                ▼                ▼
+
+ State Machine   Task Dispatcher   Event Processor
+
+      │                │                │
+
+      └────────────────┼────────────────┘
+
+                       ▼
+
+              Process Instance
+
+Workflow Definition doğrudan çalıştırılmaz.
+
+Runtime Engine önce Process Instance oluşturur.
+
+3.3 Process Lifecycle
+
+Her Process aşağıdaki yaşam döngüsünü takip eder.
+
+Created
+
+↓
+
+Initialized
+
+↓
+
+Running
+
+↓
+
+Waiting
+
+↓
+
+Suspended
+
+↓
+
+Resumed
+
+↓
+
+Completed
+
+↓
+
+Archived
+
+Alternatif son durumlar:
+
+Cancelled
+
+Failed
+
+Timed Out
+
+Terminated
+
+3.4 State Machine
+
+Her Process;
+
+State Machine tarafından yönetilir.
+
+State Machine;
+
+- geçerli durumları, 
+
+- geçişleri, 
+
+- izin verilen hareketleri 
+
+kontrol eder.
+
+3.5 State Transition Validation
+
+Her geçiş doğrulanır.
+
+Örneğin;
+
+Completed
+
+↓
+
+Running
+
+geçersizdir.
+
+Ancak
+
+Running
+
+↓
+
+Waiting
+
+geçerlidir.
+
+3.6 Execution Context
+
+Her Process kendi Execution Context'i içerisinde çalışır.
+
+Context örnekleri:
+
+- Tenant 
+
+- Organization 
+
+- User 
+
+- Workflow Version 
+
+- Rule Version 
+
+- Locale 
+
+- Currency 
+
+- CorrelationId 
+
+- TransactionId 
+
+Context çalışma boyunca korunur.
+
+3.7 Task Dispatcher
+
+Task Dispatcher;
+
+çalıştırılması gereken Task'ları belirler.
+
+Görevleri:
+
+- Task oluşturmak 
+
+- Kuyruğa almak 
+
+- Atamak 
+
+- Başlatmak 
+
+- Tamamlamak 
+
+- Sonraki Task'ı oluşturmak 
+
+3.8 Human Task Runtime
+
+Human Task;
+
+insan tamamlayana kadar bekleyebilir.
+
+Created
+
+↓
+
+Assigned
+
+↓
+
+Opened
+
+↓
+
+Completed
+
+veya
+
+Created
+
+↓
+
+Assigned
+
+↓
+
+Expired
+
+3.9 System Task Runtime
+
+System Task;
+
+otomatik yürütülür.
+
+Örneğin:
+
+- PDF oluşturma 
+
+- Veri dönüştürme 
+
+- Bildirim oluşturma 
+
+- ERP entegrasyonu 
+
+Tamamlandığında Event üretir.
+
+3.10 AI Task Runtime
+
+AI Task;
+
+AI Orchestrator tarafından yürütülür.
+
+Workflow
+
+↓
+
+AI Task
+
+↓
+
+AI Orchestrator
+
+↓
+
+Agent
+
+↓
+
+Result
+
+AI Task;
+
+LLM çağırmak zorunda değildir.
+
+Önce:
+
+- Enterprise Memory 
+
+- Knowledge Graph 
+
+- Business Rules 
+
+kullanılır.
+
+Yalnızca gerekli ise LLM çağrılır.
+
+3.11 Event Processor
+
+Workflow Event Processor;
+
+şunları dinler:
+
+- Domain Event 
+
+- Rule Result 
+
+- Integration Event 
+
+- Timer Event 
+
+- User Action 
+
+Her Event ilgili Process'e yönlendirilir.
+
+3.12 Event Correlation
+
+Bir Event'in hangi Process'e ait olduğu belirlenmelidir.
+
+Örnek:
+
+PaymentCompleted
+
+↓
+
+CorrelationId
+
+↓
+
+Invoice Workflow
+
+Correlation olmadan Event işlenemez.
+
+3.13 Waiting State
+
+Process;
+
+olay bekliyorsa;
+
+Waiting
+
+durumuna geçer.
+
+Örneğin:
+
+- Yönetici Onayı 
+
+- Ödeme 
+
+- Sensör Verisi 
+
+- API Cevabı 
+
+3.14 Timeout Management
+
+Her bekleme sonsuz değildir.
+
+Örnek:
+
+48 Saat
+
+↓
+
+Timeout
+
+Timeout sonrasında;
+
+- Retry 
+
+- Escalation 
+
+- Cancellation 
+
+- Compensation 
+
+politikaları uygulanabilir.
+
+3.15 Retry Policy
+
+Başarısız Task tekrar çalıştırılabilir.
+
+Örnek:
+
+Retry
+
+↓
+
+1
+
+↓
+
+2
+
+↓
+
+3
+
+↓
+
+Failed
+
+Retry sayısı politika ile belirlenir.
+
+3.16 Idempotency
+
+Aynı Event iki kez gelse bile;
+
+Task iki kez çalıştırılamaz.
+
+Her Task;
+
+Idempotent olmalıdır.
+
+3.17 Compensation Engine
+
+İşlem geri alınamazsa;
+
+Compensation Workflow başlatılır.
+
+Reserve Budget
+
+↓
+
+Purchase Failed
+
+↓
+
+Release Budget
+
+Bu, Saga deseniyle uyumlu uzun süreli süreçlerin güvenilirliğini artırır.
+
+3.18 Process Recovery
+
+Sunucu kapanırsa;
+
+Process kaybolmaz.
+
+Runtime yeniden başladığında;
+
+aktif Process'ler devam eder.
+
+3.19 Distributed Runtime
+
+Workflow Engine;
+
+birden fazla Runtime Node üzerinde çalışabilir.
+
+Runtime 1
+
+Runtime 2
+
+Runtime 3
+
+Her Process yalnızca tek bir Runtime tarafından aktif olarak yürütülür.
+
+Lider seçimi veya dağıtık kilitleme mekanizması altyapı tarafından sağlanmalıdır.
+
+3.20 Runtime Telemetry
+
+Runtime aşağıdaki metrikleri üretir.
+
+- Active Process 
+
+- Waiting Process 
+
+- Ortalama Süre 
+
+- Ortalama Task Süresi 
+
+- Timeout Sayısı 
+
+- Retry Sayısı 
+
+- Başarı Oranı 
+
+- Hata Oranı 
+
+3.21 Workflow Runtime Kuralları
+
+- Workflow yalnızca Runtime Engine tarafından yürütülür. 
+
+- State Machine tüm geçişleri doğrular. 
+
+- Process kendi Execution Context'i ile çalışır. 
+
+- Human Task bekleyebilir. 
+
+- System Task otomatik yürütülür. 
+
+- AI Task yalnızca AI Orchestrator üzerinden çalışır. 
+
+- Event Correlation zorunludur. 
+
+- Timeout politikaları tanımlı olmalıdır. 
+
+- Task'lar idempotent olmalıdır. 
+
+- Runtime yeniden başlatıldığında Process'ler kurtarılabilmelidir. 
+
+3.22 Sprint 1.3 Açısından Sonuç
+
+Bu bölüm ile Workflow Runtime, State Machine ve Execution Engine mimarisi tamamlanmıştır.
+
+Tamamlanan bölümler:
+
+- ✅ Bölüm 1 — Workflow Foundation 
+
+- ✅ Bölüm 2 — Workflow Domain Model 
+
+- ✅ Bölüm 3 — Workflow Runtime, State Machine & Execution Engine 
+
+Enterprise CTO Notu
+
+Bu bölüm, BNOS'un klasik BPM sistemlerinden ayrıldığı temel noktalardan birini tanımlar.
+
+Çoğu Workflow sistemi yalnızca görevleri sıralar.
+
+BNOS Workflow Runtime ise:
+
+- Business Rules Engine tarafından üretilen kararları yürütür. 
+
+- Enterprise Memory üzerinden süreç bağlamını korur. 
+
+- Knowledge Graph ile süreç ilişkilerini analiz edebilir. 
+
+- AI Orchestrator ile yalnızca gerekli olduğunda AI görevleri başlatır. 
+
+- LLM Gateway'e doğrudan değil, AI Orchestrator üzerinden erişir. 
+
+Böylece Workflow Engine, deterministik süreç yönetimini korurken gerektiğinde yapay zekâ destekli görevleri güvenli ve kontrollü biçimde sürece dahil edebilir.
+
+Sonraki Bölüm
+
+**Bölüm 4 — Human Workflow, Task Management ****&**** Collaboration**
+
+Bu bölümde aşağıdaki konular ayrıntılı olarak tanımlanacaktır:
+
+- Human Task Architecture 
+
+- Dynamic Assignment Engine 
+
+- Work Queue Management 
+
+- Task Inbox 
+
+- Delegation 
+
+- Escalation Engine 
+
+- Approval Chains 
+
+- Collaboration & Comments 
+
+- Attachments 
+
+- SLA Monitoring 
+
+- Notification Integration 
+
+- Task Analytics 
+
+Bu bölüm tamamlandığında Workflow Engine, kurumsal ölçekte binlerce kullanıcının aynı anda görev alabildiği, iş birliği yapabildiği ve süreçleri güvenilir şekilde yönetebildiği tam kapsamlı bir görev yönetim altyapısına dönüşecektir.

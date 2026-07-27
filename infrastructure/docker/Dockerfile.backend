@@ -1,0 +1,39 @@
+# BNOS Apartman — Backend (NestJS)
+# Çok aşamalı derleme: üretim imajı derleme araçlarını taşımaz.
+
+FROM node:22-alpine AS temel
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+WORKDIR /uygulama
+
+FROM temel AS bagimliliklar
+COPY pnpm-workspace.yaml package.json ./
+COPY shared/*/package.json ./shared/
+COPY backend/package.json ./backend/
+COPY database/package.json ./database/
+RUN pnpm install --frozen-lockfile
+
+FROM bagimliliklar AS derleme
+COPY tsconfig.base.json tsconfig.json ./
+COPY shared ./shared
+COPY database ./database
+COPY backend ./backend
+RUN pnpm --filter @bnos/database generate \
+ && pnpm build:shared \
+ && pnpm --filter @bnos/backend build
+
+FROM temel AS uretim
+ENV NODE_ENV=production
+COPY --from=derleme /uygulama/node_modules ./node_modules
+COPY --from=derleme /uygulama/shared ./shared
+COPY --from=derleme /uygulama/database ./database
+COPY --from=derleme /uygulama/backend/dist ./backend/dist
+
+# Kök olmayan kullanıcı — konteyner güvenliği temel kuralı.
+RUN addgroup -S bnos && adduser -S bnos -G bnos
+USER bnos
+
+EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://localhost:3001/api/v1/saglik').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "backend/dist/main.js"]

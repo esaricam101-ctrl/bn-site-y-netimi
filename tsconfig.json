@@ -1,0 +1,12 @@
+{
+  "//": "Offline derleme zinciri: yalnizca shared/* — sifir calisma zamani bagimliligi.",
+  "files": [],
+  "references": [
+    { "path": "shared/kernel" },
+    { "path": "shared/core-domain" },
+    { "path": "shared/apartman-domain" },
+    { "path": "shared/bnos-client" },
+    { "path": "shared/module-sdk" },
+    { "path": "shared/ui-tokens" }
+  ]
+}

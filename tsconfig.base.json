@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2023"
+    ],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@bnos/kernel": [
+        "./shared/kernel/src/index.ts"
+      ],
+      "@bnos/core-domain": [
+        "./shared/core-domain/src/index.ts"
+      ],
+      "@bnos/apartman-domain": [
+        "./shared/apartman-domain/src/index.ts"
+      ],
+      "@bnos/bnos-client": [
+        "./shared/bnos-client/src/index.ts"
+      ],
+      "@bnos/module-sdk": [
+        "./shared/module-sdk/src/index.ts"
+      ],
+      "@bnos/ui-tokens": [
+        "./shared/ui-tokens/src/index.ts"
+      ]
+    }
+  }
+}

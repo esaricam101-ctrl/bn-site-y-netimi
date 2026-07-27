@@ -1,0 +1,23 @@
+{
+  "name": "@bnos/bnos-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BNOS kernel tuketicisi: Enterprise Memory, Knowledge Graph, Business Rules Engine, Workflow, Notification portlari ve yerel adaptorleri.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@bnos/kernel": "workspace:*"
+  }
+}

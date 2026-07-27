@@ -1,0 +1,24 @@
+{
+  "name": "@bnos/apartman-domain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Apartman dikeyi: KMK kurallari, arsa payi, bagimsiz bolum, malik/kiraci, genel kurul, yonetim plani.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@bnos/kernel": "workspace:*",
+    "@bnos/core-domain": "workspace:*"
+  }
+}

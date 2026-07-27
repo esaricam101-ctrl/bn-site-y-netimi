@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="tr">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BN Y&ouml;netim Roadmap &mdash; B&ouml;l&uuml;m 1: Temel</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+   :root{
+     --primary:#0E7490; --secondary:#2563EB; --dark:#0F172A; --darker:#060B14;
+     --text:#E2E8F0; --success:#10B981;
+     --glass-bg:rgba(15,23,42,0.6); --glass-br:rgba(255,255,255,0.06);
+     --muted:rgba(226,232,240,0.62); --muted-2:rgba(226,232,240,0.42);
+     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s6:24px; --s8:32px; --s12:48px; --s16:64px;
+   }
+   *{font-family:'DM Sans',sans-serif;margin:0;padding:0;box-sizing:border-box}
+   html{scroll-behavior:smooth}
+   body{background:var(--dark);color:var(--text);width:100%;overflow-x:hidden;line-height:1.65;-webkit-font-smoothing:antialiased}
+   .wrap{max-width:1280px;margin:0 auto;padding:0 var(--s6)}
+   .gradient-text{background:linear-gradient(135deg,#0E7490,#2563EB);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+   .glass{background:var(--glass-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--glass-br);border-radius:16px}
+   .glow{box-shadow:0 0 60px rgba(14,116,144,0.15)}
+   @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+   .fade-up{opacity:0;transform:translateY(30px);transition:all .6s ease}
+   .fade-up.visible{opacity:1;transform:translateY(0)}
+   .counter-num,.rm-table td,.rm-table th{font-variant-numeric:tabular-nums}
+   @media (prefers-reduced-motion:reduce){.fade-up{opacity:1;transform:none;transition:none}}
+   .topbar{background:var(--darker);border-bottom:1px solid var(--glass-br);font-size:12px}
+   .topbar .wrap{display:flex;flex-wrap:wrap;gap:var(--s4);align-items:center;justify-content:space-between;padding-top:10px;padding-bottom:10px}
+   .topbar span{display:inline-flex;align-items:center;gap:6px;opacity:.7}
+   .topbar .wa{color:var(--success);font-weight:600;opacity:1}
+   .topbar i{width:14px;height:14px}
+   .header{position:sticky;top:0;z-index:50;background:rgba(6,11,20,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--glass-br)}
+   .header .wrap{display:flex;align-items:center;gap:var(--s6);padding-top:14px;padding-bottom:14px}
+   .brand{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+   .brand-mark{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;background:linear-gradient(135deg,#0E7490,#2563EB);box-shadow:0 0 30px rgba(14,116,144,.35)}
+   .brand-txt b{display:block;font-size:14px;font-weight:700;letter-spacing:.2px}
+   .brand-txt small{display:block;font-size:11px;color:var(--muted-2)}
+   .nav-scroll{flex:1;overflow-x:auto;scrollbar-width:none}
+   .nav-scroll::-webkit-scrollbar{display:none}
+   .nav-chips{display:flex;gap:6px;min-width:max-content;justify-content:flex-end}
+   .nav-chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;color:var(--muted);border:1px solid var(--glass-br);background:rgba(255,255,255,.03);transition:all .2s;text-decoration:none;white-space:nowrap}
+   .nav-chip:hover{background:rgba(14,116,144,.15);color:#38BDF8;border-color:rgba(14,116,144,.4)}
+   .nav-chip.on{background:rgba(14,116,144,.15);color:#38BDF8;border-color:rgba(14,116,144,.4)}
+   .partband{padding:var(--s12) 0 var(--s8);position:relative;overflow:hidden}
+   .partband::after{content:"";position:absolute;inset:-30% 45% 40% -10%;background:radial-gradient(circle,rgba(14,116,144,.18),transparent 60%);pointer-events:none}
+   .kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#38BDF8;border:1px solid rgba(14,116,144,.4);background:rgba(14,116,144,.12);padding:7px 14px;border-radius:999px}
+   .partband h1{font-size:clamp(30px,5vw,52px);font-weight:800;line-height:1.1;margin:var(--s6) 0 var(--s4);letter-spacing:-.02em}
+   .partband p.sub{font-size:clamp(15px,2vw,18px);color:var(--muted);max-width:64ch}
+   .hero-rule{display:flex;flex-wrap:wrap;gap:var(--s3);margin-top:var(--s6)}
+   .pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;border:1px solid var(--glass-br);background:rgba(255,255,255,.03);color:var(--muted)}
+   .pill i{width:15px;height:15px;color:var(--success)}
+   .hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s4);margin-top:var(--s8)}
+   .hstat{padding:var(--s6)}
+   .hstat b{display:block;font-size:34px;font-weight:800;line-height:1}
+   .hstat span{display:block;margin-top:6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);font-weight:600}
+   .doc-section,.rel-section,.app-section{padding:var(--s12) 0}
+   .rel-section:nth-of-type(even){background:var(--darker)}
+   .sec-title{font-size:clamp(22px,3vw,32px);font-weight:800;letter-spacing:-.01em;margin-bottom:var(--s6)}
+   .doc-body{padding:var(--s8)}
+   .sub-h{font-size:15px;font-weight:700;color:#38BDF8;margin:var(--s6) 0 var(--s3)}
+   .doc-body .sub-h:first-child{margin-top:0}
+   p.p{color:var(--muted);margin-bottom:var(--s3);font-size:15px}
+   p.lead-em{color:#38BDF8;font-style:italic;font-size:15px;margin-bottom:var(--s4)}
+   .rm-list,.rm-olist{margin:0 0 var(--s4) 0;padding-left:0;list-style:none}
+   .rm-list li{position:relative;padding-left:22px;margin-bottom:9px;color:var(--muted);font-size:15px}
+   .rm-list li::before{content:"";position:absolute;left:4px;top:10px;width:6px;height:6px;border-radius:2px;background:linear-gradient(135deg,#0E7490,#2563EB)}
+   .rm-olist{counter-reset:ol}
+   .rm-olist li{counter-increment:ol;position:relative;padding-left:30px;margin-bottom:9px;color:var(--muted);font-size:15px}
+   .rm-olist li::before{content:counter(ol);position:absolute;left:0;top:1px;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#38BDF8;background:rgba(14,116,144,.15);border:1px solid rgba(14,116,144,.35)}
+   strong{color:var(--text);font-weight:700}
+   em{color:var(--muted)}
+   code.tok{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;padding:2px 6px;border-radius:6px;background:rgba(14,116,144,.15);border:1px solid rgba(14,116,144,.3);color:#38BDF8}
+   .tbl-wrap{overflow-x:auto;margin:0 0 var(--s4);border:1px solid var(--glass-br);border-radius:12px}
+   .rm-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
+   .rm-table th{text-align:left;padding:12px 14px;font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#38BDF8;background:rgba(14,116,144,.12);border-bottom:1px solid var(--glass-br);white-space:nowrap}
+   .rm-table td{padding:11px 14px;color:var(--muted);border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
+   .rm-table tr:last-child td{border-bottom:none}
+   .rm-table tbody tr{transition:background .2s}
+   .rm-table tbody tr:hover{background:rgba(255,255,255,.03)}
+   .rel-head{margin-bottom:var(--s8);max-width:80ch}
+   .rel-badge{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.16em;padding:7px 14px;border-radius:999px;color:#38BDF8;background:rgba(14,116,144,.15);border:1px solid rgba(14,116,144,.4)}
+   .rel-badge i{width:14px;height:14px}
+   .rel-title{font-size:clamp(26px,4vw,44px);font-weight:800;letter-spacing:-.02em;margin:var(--s4) 0 10px;line-height:1.1}
+   .rel-theme{color:#38BDF8;font-style:italic;font-size:15px}
+   .blk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:var(--s4)}
+   .blk{padding:var(--s6);transition:all .2s;border-radius:16px}
+   .blk:hover{border-color:rgba(14,116,144,.4);box-shadow:0 0 60px rgba(14,116,144,.15)}
+   .blk-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:var(--s4);padding-bottom:var(--s3);border-bottom:1px solid var(--glass-br)}
+   .blk-no{flex:0 0 auto;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#0E7490,#2563EB)}
+   .blk-title{font-size:15px;font-weight:700;padding-top:3px}
+   .blk-body p.p:last-child,.blk-body .rm-list:last-child{margin-bottom:0}
+   .rel-notes{margin-top:var(--s6);display:grid;gap:10px}
+   .note{font-size:13.5px;padding:12px 16px;border-radius:12px;border:1px solid var(--glass-br);color:var(--muted)}
+   .note-keep{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.28)}
+   .note-keep strong{color:var(--success)}
+   .note-no{background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.28)}
+   .note-no strong{color:#60A5FA}
+   .app-section{background:var(--darker)}
+   .app-block{margin-bottom:var(--s8)}
+   .app-title{font-size:19px;font-weight:700;margin-bottom:var(--s4)}
+   .footer{border-top:1px solid var(--glass-br);background:var(--darker);padding:var(--s12) 0 var(--s8)}
+   .footer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--s8)}
+   .footer h5{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#38BDF8;margin-bottom:var(--s4)}
+   .footer li{list-style:none;font-size:14px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+   .footer i{width:15px;height:15px}
+   .footer-base{margin-top:var(--s8);padding-top:var(--s6);border-top:1px solid var(--glass-br);display:flex;flex-wrap:wrap;gap:var(--s4);justify-content:space-between;font-size:12.5px;color:var(--muted-2)}
+   .partnav{border-top:1px solid var(--glass-br);background:var(--darker);padding:var(--s8) 0}
+   .partnav .wrap{display:flex;flex-wrap:wrap;gap:var(--s4);align-items:center;justify-content:space-between}
+   .partnav .lbl{font-size:13px;color:var(--muted-2)}
+   .partnav .nxt{font-size:14px;font-weight:700;color:#38BDF8;display:inline-flex;align-items:center;gap:8px}
+   @media (max-width:640px){
+     .blk-grid{grid-template-columns:1fr}
+     .doc-body{padding:var(--s6) var(--s4)}
+     .wrap{padding:0 var(--s4)}
+     .partband{padding:var(--s8) 0 var(--s6)}
+   }
+</style>
+ </head>
+ <body data-template-id="__page-root">
+
+  <div class="topbar canva-section" data-template-id="topbar-section">
+   <div class="wrap">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+     <span><i data-lucide="phone"></i> +90 (216) 900 19 75</span>
+     <span><i data-lucide="mail"></i> info@bnyonetim.com</span>
+     <span class="wa"><i data-lucide="message-square"></i> WhatsApp: 0501 153 80 44</span>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+     <span><i data-lucide="globe"></i> TR | EN</span>
+     <span><i data-lucide="git-commit-horizontal"></i> B&ouml;l&uuml;m 1 / 6</span>
+    </div>
+   </div>
+  </div>
+
+  <header class="header canva-section" data-template-id="header-section">
+   <div class="wrap">
+    <div class="brand" data-template-id="header-brand">
+     <div class="brand-mark">BN</div>
+     <div class="brand-txt"><b>BN Y&ouml;netim</b><small>Enterprise Release Roadmap</small></div>
+    </div>
+    <nav class="nav-scroll"><div class="nav-chips"><span class="nav-chip on">Temel</span><span class="nav-chip">V23-25</span><span class="nav-chip">V26-28</span><span class="nav-chip">V29-31</span><span class="nav-chip">V32-34</span><span class="nav-chip">Ekler</span></div></nav>
+   </div>
+  </header>
+
+  <section class="partband canva-section" data-template-id="partband-section">
+   <div class="wrap">
+    <span class="kicker fade-up"><i data-lucide="lock" style="width:14px;height:14px"></i> B&ouml;l&uuml;m 1 / 6</span>
+    <h1 class="fade-up gradient-text" data-template-id="part-title">Temel ve Y&ouml;neti&#351;im</h1>
+    <p class="sub fade-up" data-template-id="part-subtitle">Version 22 dondurulmu&#351; taban&#305;, evrim kurallar&#305; ve on iki s&uuml;r&uuml;ml&uuml;k yol haritas&#305;n&#305;n &ouml;zeti.</p>
+    <div class="hero-rule fade-up">
+     <span class="pill"><i data-lucide="lock"></i> V22 Design System dondurulmu&#351;</span>
+     <span class="pill"><i data-lucide="plus"></i> Sadece ekleme, asla de&#287;i&#351;tirme</span>
+     <span class="pill"><i data-lucide="check"></i> Hi&ccedil;bir &#351;ey kald&#305;r&#305;lmaz</span>
+    </div>
+    <div class="hero-stats">
+     <div class="hstat glass glow fade-up"><b class="counter-num gradient-text">12</b><span>S&uuml;r&uuml;m</span></div>
+     <div class="hstat glass glow fade-up"><b class="counter-num gradient-text">15</b><span>B&ouml;l&uuml;m / S&uuml;r&uuml;m</span></div>
+     <div class="hstat glass glow fade-up"><b class="counter-num gradient-text">180</b><span>Teslimat Blo&#287;u</span></div>
+     <div class="hstat glass glow fade-up"><b class="counter-num gradient-text">0</b><span>Yeniden Tasar&#305;m</span></div>
+    </div>
+   </div>
+  </section>
+
+  <section id="0-how-to-read-this-document" class="canva-section doc-section" data-template-id="0-how-to-read-this-document-section">
+   <div class="wrap">
+    <h3 class="sec-title fade-up" data-template-id="0-how-to-read-this-document-title">0. How to read this document</h3>
+    <div class="doc-body glass fade-up"><p class="p">This is not a design concept and not a redesign proposal. It is the release plan of an existing enterprise SaaS platform that is already in production, in the same way Microsoft plans Office release trains: <strong>every release is an additive layer on top of the frozen V22 foundation.</strong></p>
+<p class="p">Three reading rules apply to every page that follows:</p>
+<ol class="rm-olist"><li><strong>Nothing in V22 is touched.</strong> Where a release "improves the dashboard," it means new widgets, new states, new density options and new data inside the existing V22 grid, cards, glass surfaces and sidebar — never a new dashboard.</li><li><strong>Every new surface is built from the V22 Component Library.</strong> No release introduces a new visual language, a new typeface, a new palette, a new card style or a new homepage. New components are compositions of existing primitives, registered as new entries in the same design system.</li><li><strong>Feature names are given bilingually</strong> (English concept / Turkish product label), because the shipping product UI is Turkish. The English label is the internal roadmap name; the Turkish label is what the customer sees.</li></ol>
+<p class="p">---</p></div>
+   </div>
+  </section>
+  <section id="1-baseline-inventory-what-version-22-already-is" class="canva-section doc-section" data-template-id="1-baseline-inventory-what-version-22-already-is-section">
+   <div class="wrap">
+    <h3 class="sec-title fade-up" data-template-id="1-baseline-inventory-what-version-22-already-is-title">1. Baseline inventory — what Version 22 already is</h3>
+    <div class="doc-body glass fade-up"><p class="p">This inventory is the contract. Every item below is permanent, frozen and referenced by later releases. It is recorded here so that no future release team can accidentally "improve" something by replacing it.</p>
+<h4 class="sub-h">1.1 Brand and design foundation (frozen)</h4>
+<div class="tbl-wrap"><table class="rm-table"><thead><tr><th>Token</th><th>Value</th><th>Status</th></tr></thead><tbody><tr><td>Primary</td><td><code class="tok">#0E7490</code></td><td>Frozen — never changed</td></tr><tr><td>Secondary</td><td><code class="tok">#2563EB</code></td><td>Frozen</td></tr><tr><td>Surface / dark</td><td><code class="tok">#0F172A</code></td><td>Frozen</td></tr><tr><td>Deep surface / darker</td><td><code class="tok">#060B14</code></td><td>Frozen</td></tr><tr><td>Body text</td><td><code class="tok">#E2E8F0</code></td><td>Frozen</td></tr><tr><td>Success accent</td><td><code class="tok">#10B981</code></td><td>Frozen</td></tr><tr><td>Typeface</td><td>DM Sans 300 / 400 / 500 / 600 / 700 / 800</td><td>Frozen</td></tr><tr><td>Iconography</td><td>Lucide</td><td>Frozen</td></tr><tr><td>Glass surface</td><td><code class="tok">rgba(15,23,42,0.6)</code> + <code class="tok">blur(16px)</code> + <code class="tok">1px rgba(255,255,255,0.06)</code> border</td><td>Frozen</td></tr><tr><td>Glow</td><td><code class="tok">0 0 60px rgba(14,116,144,0.15)</code></td><td>Frozen</td></tr><tr><td>Gradient text</td><td><code class="tok">linear-gradient(135deg, #0E7490, #2563EB)</code></td><td>Frozen</td></tr><tr><td>Motion</td><td><code class="tok">fadeUp</code> 0.6s ease reveal; 0.2s nav transitions; 0.6s bar growth</td><td>Frozen</td></tr><tr><td>Numerics</td><td>Tabular numerals on all counters and financial figures</td><td>Frozen</td></tr><tr><td>Active nav state</td><td>3px right border <code class="tok">#0E7490</code> + <code class="tok">rgba(14,116,144,0.15)</code> fill</td><td>Frozen</td></tr><tr><td>Layout</td><td><code class="tok">max-w-7xl</code> centred content, 12-column responsive grid</td><td>Frozen</td></tr></tbody></table></div>
+<h4 class="sub-h">1.2 Public platform surface (frozen)</h4>
+<p class="p">Top bar (phone, e-mail, WhatsApp, TR|EN switch, search, Giriş Yap) · Header with Platform / Modüller / AI / Referanslar / Blog + "Demo Talep Et" CTA · Hero with dual CTA and product image · Trusted-by strip (six reference estates) · Platform section · Eight module cards · AI Center (three capability blocks) · "Why BN" six-reason grid · Four animated statistic counters · Three testimonials · Three blog cards · Closing CTA · Four-column footer (Platform / Şirket / İletişim).</p>
+<h4 class="sub-h">1.3 Application surface (frozen)</h4>
+<p class="p">Sidebar with ten views — <strong>Dashboard · BN AI Bölümü · Grafikler · AI Chat · Görevler · Takvim · Bildirimler · Site Haritası · Kartlar · Widgetlar</strong> — plus the mobile nav toggle and collapsible mobile menu.</p>
+<p class="p">Dashboard contents: four KPI stat cards (Toplam Site 150 · Aktif Görev 47 · Bildirimler 12 · Toplam Sakin 25.000+), recent activity feed, quick-filter chips (Tüm Siteler / per-estate), monthly dues-collection bar chart (Aylık Aidat Tahsilatı ₺), AI chat panel, prioritised task list (Acil / Orta / Düşük), month calendar, notification stack, site map with block/apartment counts (A–D Blok), info cards, and the widget set (İstanbul weather, energy consumption trend, collection rate %94, open work orders).</p>
+<h4 class="sub-h">1.4 Domain model implied by V22 (frozen, extended only additively)</h4>
+<p class="p">Estate (Site) &rarr; Block (Blok) &rarr; Unit (Daire) &rarr; Resident (Sakin) · Work Order (İş Emri) · Task (Görev) · Dues (Aidat) · Notification (Bildirim) · Calendar Event · AI Conversation.</p>
+<p class="lead-em"><strong>Every release below extends this graph. No release re-parents, renames or removes an entity.</strong></p>
+<p class="p">---</p></div>
+   </div>
+  </section>
+  <section id="2-evolution-governance-the-rules-that-make-twelve-releases-feel-like-one-product" class="canva-section doc-section" data-template-id="2-evolution-governance-the-rules-that-make-twelve-releases-feel-like-one-product-section">
+   <div class="wrap">
+    <h3 class="sec-title fade-up" data-template-id="2-evolution-governance-the-rules-that-make-twelve-releases-feel-like-one-product-title">2. Evolution governance — the rules that make twelve releases feel like one product</h3>
+    <div class="doc-body glass fade-up"><p class="p">A roadmap without governance becomes a redesign by accident. These rules are binding on every release from V23 to V34.</p>
+<h4 class="sub-h">2.1 The additive-only contract</h4>
+<ul class="rm-list"><li><strong>Add, never replace.</strong> A new component may sit beside an existing one; it may not delete it.</li><li><strong>Extend, never re-scope.</strong> New fields join existing records; existing fields keep their meaning.</li><li><strong>Compose, never invent.</strong> New screens are assembled from registered V22 primitives.</li><li><strong>Default to the old behaviour.</strong> Every new capability ships off or opt-in; the V22 experience remains the default path until a customer chooses otherwise.</li></ul>
+<h4 class="sub-h">2.2 Design token extension policy</h4>
+<p class="p">New tokens are permitted only as <strong>derivations</strong> of the frozen set:</p>
+<ul class="rm-list"><li>Semantic aliases (<code class="tok">--status-critical</code>, <code class="tok">--status-warning</code>) mapped onto existing hues, never new hues.</li><li>Tints and shades generated from <code class="tok">#0E7490</code> / <code class="tok">#2563EB</code> on a fixed ramp.</li><li>New spacing values only on the existing 4px scale.</li><li>New type sizes only from the existing DM Sans scale; no new families, no new weights.</li></ul>
+<p class="p">Each release appends to a <strong>Design Token Changelog</strong> (Appendix B). Nothing is ever removed from it.</p>
+<h4 class="sub-h">2.3 Component versioning</h4>
+<p class="p">Components follow semantic versioning inside the library: <code class="tok">Card v1 &rarr; Card v1.1</code> (a new density prop) rather than <code class="tok">Card v2</code> (a new card). A major bump requires Design Board approval and is expected <strong>zero times</strong> across V23–V34.</p>
+<h4 class="sub-h">2.4 Release cadence and shape</h4>
+<p class="p">Twelve releases across roughly a three-year horizon: quarterly feature trains, monthly patch trains. Each train is: 2 weeks discovery &rarr; 6 weeks build &rarr; 2 weeks hardening &rarr; 2 weeks staged rollout (internal &rarr; design partners &rarr; 10% &rarr; 50% &rarr; GA).</p>
+<h4 class="sub-h">2.5 Definition of Done — applied to every release</h4>
+<p class="p">A release ships only when all of the following are true: zero visual regressions against the V22 reference screenshots · WCAG 2.2 AA on all new surfaces · no performance budget exceeded · full Turkish and English localisation · KVKK data-processing record updated · admin controls and audit events exist for every new capability · migration is a no-op for existing customers · documentation and in-product release notes published.</p>
+<h4 class="sub-h">2.6 Deprecation policy</h4>
+<p class="p">There is none in the destructive sense. Superseded capabilities become <strong>legacy-supported</strong>: still present, still working, marked in the admin console as "classic," never removed from the UI without a customer-initiated setting.</p>
+<h4 class="sub-h">2.7 Performance budgets (enforced from V23, tightened through V34)</h4>
+<p class="p">LCP ≤ 2.0s · INP ≤ 200ms · CLS ≤ 0.05 · dashboard JS ≤ 250KB gzip · first meaningful KPI card ≤ 1.2s · every list virtualised beyond 100 rows.</p>
+<p class="p">---</p></div>
+   </div>
+  </section>
+  <section id="3-release-map-at-a-glance" class="canva-section doc-section" data-template-id="3-release-map-at-a-glance-section">
+   <div class="wrap">
+    <h3 class="sec-title fade-up" data-template-id="3-release-map-at-a-glance-title">3. Release map at a glance</h3>
+    <div class="doc-body glass fade-up"><div class="tbl-wrap"><table class="rm-table"><thead><tr><th>Release</th><th>Theme</th><th>Headline capability</th><th>Primary beneficiary</th></tr></thead><tbody><tr><td><strong>V23</strong></td><td>Enterprise polish</td><td>Widget framework, dashboard density, navigation depth</td><td>All users</td></tr><tr><td><strong>V24</strong></td><td>Orchestration</td><td>Workflow Center, Automation Builder, Approvals, Notification Center</td><td>Operations</td></tr><tr><td><strong>V25</strong></td><td>Assistance</td><td>AI Copilot, natural-language search, predictive suggestions, smart reports</td><td>All users</td></tr><tr><td><strong>V26</strong></td><td>Insight</td><td>Executive Dashboard, Power Analytics, KPI Center, Forecasting</td><td>Executives</td></tr><tr><td><strong>V27</strong></td><td>Physical operations</td><td>Asset Management, Maintenance Intelligence, Risk, Incident Center</td><td>Technical teams</td></tr><tr><td><strong>V28</strong></td><td>Financial depth</td><td>Financial Analytics, Budget Forecast, Cash Flow, Expense Intelligence</td><td>Finance</td></tr><tr><td><strong>V29</strong></td><td>Community</td><td>Communication Center, Resident Portal, Announcements, Surveys</td><td>Residents &amp; boards</td></tr><tr><td><strong>V30</strong></td><td>Field &amp; mobile</td><td>Enterprise mobile, offline mode, push, field operations</td><td>Field staff</td></tr><tr><td><strong>V31</strong></td><td>Extensibility</td><td>Marketplace, plugins, API Center, Developer Portal</td><td>Partners &amp; IT</td></tr><tr><td><strong>V32</strong></td><td>Autonomy</td><td>AI Automation Center, Workflow Designer, Rule Engine, recommendations</td><td>Operations &amp; IT</td></tr><tr><td><strong>V33</strong></td><td>Command</td><td>Enterprise Intelligence, Executive Cockpit, Digital Twin, Command Center</td><td>Leadership</td></tr><tr><td><strong>V34</strong></td><td>Maturity</td><td>Optimisation, micro-interactions, accessibility, final polish</td><td>Everyone</td></tr></tbody></table></div>
+<p class="p"><strong>Narrative arc:</strong> V23 perfects what exists &rarr; V24–V25 make the product <em>act</em> and <em>assist</em> &rarr; V26–V28 make it <em>understand</em> (operationally and financially) &rarr; V29–V30 extend it to <em>everyone who lives and works in the buildings</em> &rarr; V31–V32 make it a <em>platform</em> that others build on and that runs itself &rarr; V33 makes it a <em>command surface for leadership</em> &rarr; V34 makes the whole twelve-release accumulation feel like one coherent, fast, accessible product.</p>
+<p class="p">---</p></div>
+   </div>
+  </section>
+  <div class="partnav canva-section" data-template-id="partnav-section">
+   <div class="wrap">
+    <span class="lbl">BN Y&ouml;netim Enterprise Release Roadmap &middot; B&ouml;l&uuml;m 1 / 6</span>
+    <span class="nxt">Devam&#305;: B&ouml;l&uuml;m 2 &mdash; V23-25 <i data-lucide="arrow-right" style="width:16px;height:16px"></i></span>
+   </div>
+  </div>
+
+  <script>
+   if (window.lucide) lucide.createIcons();
+   (function(){
+     var els = document.querySelectorAll('.fade-up');
+     if (!('IntersectionObserver' in window)) { els.forEach(function(e){ e.classList.add('visible'); }); return; }
+     var io = new IntersectionObserver(function(en){ en.forEach(function(x){
+       if (x.isIntersecting) { x.target.classList.add('visible'); io.unobserve(x.target); } }); },
+       { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+     els.forEach(function(e){ io.observe(e); });
+   })();
+  </script>
+ </body>
+</html>

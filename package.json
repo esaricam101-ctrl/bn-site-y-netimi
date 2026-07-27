@@ -1,0 +1,46 @@
+{
+  "name": "bnos-apartman-modul",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BNOS Apartman Yönetimi Modülü — çok kiracılı, KMK uyumlu, AI destekli apartman yönetim platformu",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "verify:boundary": "node scripts/boundary.mjs",
+    "verify:cache": "node scripts/cache-key-scan.mjs",
+    "verify:config": "node scripts/config-check.mjs",
+    "build": "pnpm -r build",
+    "build:shared": "tsc -b",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . --max-warnings 0",
+    "lint:md": "markdownlint-cli2",
+    "test": "pnpm -r test",
+    "test:unit": "node --test tests/unit/*.mjs",
+    "test:contract": "pnpm --filter @bnos/backend test:contract",
+    "dev": "pnpm --parallel --filter @bnos/backend --filter @bnos/web dev",
+    "dev:backend": "pnpm --filter @bnos/backend dev",
+    "dev:web": "pnpm --filter @bnos/web dev",
+    "db:up": "docker compose up -d postgres redis minio",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @bnos/database migrate",
+    "db:seed": "pnpm --filter @bnos/database seed",
+    "db:reset": "pnpm --filter @bnos/database reset",
+    "setup": "bash scripts/setup.sh",
+    "test:negative": "bash scripts/negative-tests.sh",
+    "verify:all": "pnpm verify && pnpm test:negative && pnpm lint:md",
+    "build:test": "tsc -p tests/tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "dependency-cruiser": "^16.4.0",
+    "eslint": "^9.12.0",
+    "markdownlint-cli2": "^0.22.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0",
+    "vitest": "^2.1.0"
+  }
+}

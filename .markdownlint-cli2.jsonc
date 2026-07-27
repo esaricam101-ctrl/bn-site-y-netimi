@@ -1,0 +1,20 @@
+{
+  // BNOS Apartman — belge lint yapılandırması
+  // docs/reference/ altı devralınan referanstır ve lint edilmez.
+  "globs": ["docs/**/*.md", "README.md", "VALIDATION_REPORT.md", "DEVLOG.md", "frontend/mobile/README.md"],
+  "ignores": [
+    "docs/reference/**",
+    "docs/adr/BNOS-Apartman-Mimari-Karar-Kaydi-*.md",
+    "**/node_modules/**"
+  ],
+  "config": {
+    "default": true,
+    "MD013": false,   // satır uzunluğu — tablolar ve gerekçe metinleri için kapalı
+    "MD024": false,   // yinelenen başlık — karar kayıtlarında bölüm adları tekrarlanır
+    "MD033": false,   // gömülü HTML
+    "MD041": false,   // ilk satır başlık olmalı — alıntı bloğuyla başlayanlar var
+    "MD036": false,   // vurgu başlık yerine kullanılmış
+    "MD026": false,   // başlık sonu noktalama — karar cümleleri kasıtlı olarak başlık
+    "MD060": false    // tablo boru hizalaması — kozmetik, tutarlı compact stil
+  }
+}

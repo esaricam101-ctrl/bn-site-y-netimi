@@ -1,0 +1,46 @@
+{
+  "name": "@bnos/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BNOS Apartman Yönetimi — NestJS API",
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --dir test/integration",
+    "test:contract": "vitest run --dir test/contract"
+  },
+  "dependencies": {
+    "@bnos/apartman-domain": "workspace:*",
+    "@bnos/bnos-client": "workspace:*",
+    "@bnos/core-domain": "workspace:*",
+    "@bnos/database": "workspace:*",
+    "@bnos/kernel": "workspace:*",
+    "@bnos/module-sdk": "workspace:*",
+    "@nestjs/common": "^10.4.0",
+    "@nestjs/config": "^3.2.3",
+    "@nestjs/core": "^10.4.0",
+    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/platform-express": "^10.4.0",
+    "@nestjs/swagger": "^7.4.0",
+    "@prisma/client": "^5.20.0",
+    "bullmq": "^5.15.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.4.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.4.5",
+    "@nestjs/testing": "^10.4.0",
+    "@types/express": "^5.0.0",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

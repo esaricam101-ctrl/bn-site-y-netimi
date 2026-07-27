@@ -1,0 +1,85 @@
+# BNOS Apartman Yönetimi — yerel geliştirme ortamı
+#
+# Kullanım:
+#   docker compose up -d postgres redis minio   # yalnızca altyapı
+#   docker compose --profile uygulama up -d     # uygulama dahil
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: bnos-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bnos_apartman
+      TZ: UTC
+    # BFS v1 §4.1 — veritabanı UTC çalışır. Tenant saat dilimi uygulama ayarıdır.
+    command: postgres -c timezone=UTC -c log_timezone=UTC -c max_connections=200
+    ports: ['5432:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: bnos-redis
+    command: redis-server --appendonly yes
+    ports: ['6379:6379']
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    container_name: bnos-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports: ['9000:9000', '9001:9001']
+    volumes: [miniodata:/data]
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    profiles: ['uygulama']
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.backend
+    container_name: bnos-backend
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://bnos_app:bnos_app_dev@postgres:5432/bnos_apartman?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+    ports: ['3001:3001']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    profiles: ['uygulama']
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.web
+    container_name: bnos-web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    ports: ['3000:3000']
+    depends_on: [backend]
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

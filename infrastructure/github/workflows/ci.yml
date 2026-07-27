@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push: { branches: [main, develop] }
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 1) Bagimliliksiz dogrulama — ILK is.
+  #    Mimari kurallar, bagimlilik kurulumu basarisiz olsa bile dogrulanabilmelidir.
+  mimari:
+    name: Mimari kurallar (bagimliliksiz)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Paket siniri — ADR v1.1 §40
+        run: node scripts/boundary.mjs
+      - name: Onbellek anahtari — ADR-0005 · §37
+        run: node scripts/cache-key-scan.mjs
+      - name: Yapilandirma tutarliligi
+        run: node scripts/config-check.mjs
+      - name: Ihlal aciklamasi
+        if: failure()
+        run: |
+          echo "::error::Mimari kural ihlali — docs/bfs/BFS-v1.md ve docs/adr/log/ dosyalarina bakin"
+
+  # 2) Tam zincir
+  kalite:
+    name: Derleme · Tip · Lint · Test
+    runs-on: ubuntu-latest
+    needs: mimari
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: bnos_test }
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        ports: ['5432:5432']
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+      - name: Prisma istemcisi
+        run: pnpm --filter @bnos/database generate
+
+      - name: shared derleme
+        run: pnpm build:shared
+      - name: Tip denetimi
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Birim testleri
+        run: pnpm test:unit
+
+      - name: Veritabani semasi
+        run: pnpm --filter @bnos/database migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bnos_test
+
+      - name: Sozlesme testleri — BFS v1 §14.1
+        run: pnpm test:contract
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bnos_test
+          REDIS_URL: redis://localhost:6379
+
+      - name: Uygulama derlemesi
+        run: pnpm build
+
+  belge:
+    name: Belge lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint:md

@@ -1,0 +1,20 @@
+{
+  "name": "@bnos/ui-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tek kaynaktan web (CSS degiskenleri + Tailwind) ve mobil (RN tema nesnesi) tasarim token lari.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "clean": "rm -rf dist"
+  }
+}

@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="BN Yönetim AI Center — kurumsal yapay zeka merkezi: copilot, brifing, öneri, tahmin, belge, otomasyon ve yönetişim.">
+<title>BN Yönetim — AI Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   VERSION 22 DESIGN SYSTEM — FROZEN
+   Palette corrected in Sprint 02: the V22 dashboard carries an
+   18-colour palette, including a full accent set used by the
+   eight "BN AI Bölümü" cards. All of it is reproduced verbatim.
+   ============================================================ */
+:root{
+/* core (V22) */
+--primary:#0E7490;--secondary:#2563EB;--dark:#0F172A;--darker:#060B14;--deepest:#030712;
+--text:#E2E8F0;--success:#10B981;--muted-v22:#94A3B8;
+/* accent set (V22 ai-card 1..8, verbatim) */
+--a1:#0E7490;--a2:#10B981;--a3:#2563EB;--a4:#EC4899;
+--a5:#F59E0B;--a6:#8B5CF6;--a7:#06B6D4;--a8:#14B8A6;
+/* remaining V22 palette members */
+--a9:#A855F7;--a10:#F97316;--a11:#EAB308;--a12:#3B82F6;--crit:#EF4444;
+--warn:#F59E0B;--info:#38BDF8;
+--glass-bg:rgba(15,23,42,.6);--glass-br:rgba(255,255,255,.06);
+--grad:linear-gradient(135deg,#0E7490,#2563EB);--glow:0 0 60px rgba(14,116,144,.15);
+--muted:rgba(226,232,240,.68);--muted-2:#94A3B8;--line:rgba(255,255,255,.06);
+--r:14px;--rs:10px;
+--d1:4px;--d2:8px;--d3:12px;--d4:16px;--d6:24px;--d8:32px;--pad:20px;--cardpad:20px;--rowh:44px;--fz:14px;
+}
+body[data-density="compact"]{--pad:12px;--cardpad:14px;--rowh:34px;--d6:16px;--d8:22px;--fz:13px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif}
+html{scroll-behavior:smooth}
+body{background:var(--dark);color:var(--text);font-size:var(--fz);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-999px;top:8px;z-index:200;background:var(--grad);color:#fff;padding:10px 16px;border-radius:var(--rs);font-weight:700}
+.skip:focus{left:8px}
+.gt{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.num{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ===== SHELL (Sprint 01 component library, unchanged) ===== */
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.side{background:var(--darker);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow-y:auto;z-index:40}
+.brand{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid var(--line)}
+.bmark{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff;background:var(--grad);box-shadow:0 0 30px rgba(14,116,144,.35)}
+.btxt b{display:block;font-size:14px;font-weight:700}.btxt small{display:block;font-size:11px;color:var(--muted-2)}
+.snav{padding:12px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .2s;border-right:3px solid transparent;width:100%;background:none;border-top:0;border-left:0;border-bottom:0;text-align:left}
+.nav-item:hover:not(.active){background:rgba(255,255,255,.04);color:var(--text)}
+.nav-item.active{background:rgba(14,116,144,.15);color:#0E7490;border-right:3px solid #0E7490;font-weight:600}
+.nav-item svg{width:17px;height:17px;flex:0 0 auto}
+.side-foot{padding:14px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--muted-2)}
+.main{min-width:0;display:flex;flex-direction:column}
+.hdr{position:sticky;top:0;z-index:35;background:rgba(6,11,20,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:12px var(--pad);display:flex;align-items:center;gap:var(--d3);flex-wrap:wrap}
+.hdr h1{font-size:19px;font-weight:800;letter-spacing:-.01em}
+.hdr .date{font-size:12.5px;color:var(--muted-2)}
+.hspace{flex:1}
+.iconbtn{width:36px;height:36px;min-width:36px;border-radius:var(--rs);display:grid;place-items:center;background:rgba(255,255,255,.03);border:1px solid var(--glass-br);color:var(--muted);cursor:pointer;transition:all .2s;position:relative}
+.iconbtn:hover{color:var(--text);border-color:rgba(14,116,144,.4);background:rgba(14,116,144,.12)}
+.iconbtn svg{width:17px;height:17px}
+.badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--crit);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;border:2px solid var(--darker)}
+.searchbtn{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:var(--rs);background:rgba(255,255,255,.03);border:1px solid var(--glass-br);color:var(--muted-2);font-size:13px;cursor:pointer;transition:all .2s}
+.searchbtn:hover{border-color:rgba(14,116,144,.4);color:var(--text)}
+.searchbtn kbd{font-size:10.5px;font-weight:700;padding:2px 5px;border-radius:4px;background:rgba(255,255,255,.06);border:1px solid var(--glass-br)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;cursor:pointer}
+.content{padding:0 var(--pad) var(--d8);flex:1}
+.tabsbar{padding:var(--d4) var(--pad) 0;border-bottom:1px solid var(--line);margin-bottom:var(--d6)}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tab{font-size:13.5px;font-weight:600;padding:10px 14px;border:0;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--text)}
+.tab[aria-selected="true"]{color:#38BDF8;border-bottom-color:var(--primary)}
+.tab svg{width:15px;height:15px}
+.tab .cnt{font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.07);color:var(--muted)}
+.tab[aria-selected="true"] .cnt{background:rgba(14,116,144,.25);color:#7DD3FC}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--d4)}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+.sec{margin-bottom:var(--d6)}
+.sec-h{display:flex;align-items:center;gap:10px;margin-bottom:var(--d3)}
+.sec-h h2{font-size:15px;font-weight:700}
+.sec-h .hint{font-size:11.5px;color:var(--muted-2);font-weight:500}
+.sec-h .sp{flex:1}
+.card{background:var(--glass-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--glass-br);border-radius:var(--r);padding:var(--cardpad);position:relative}
+.card-h{display:flex;align-items:center;gap:8px;margin-bottom:var(--d3)}
+.card-h h3{font-size:13px;font-weight:700}.card-h .sp{flex:1}.card-h .ts{font-size:10.5px;color:var(--muted-2)}
+.kpi{background:var(--glass-bg);backdrop-filter:blur(16px);border:1px solid var(--glass-br);border-radius:var(--r);padding:var(--cardpad);cursor:pointer;transition:all .2s;text-align:left;width:100%;display:block;color:inherit}
+.kpi:hover{border-color:rgba(14,116,144,.45);box-shadow:var(--glow);transform:translateY(-1px)}
+.kpi .lbl{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)}
+.kpi .val{font-size:28px;font-weight:800;line-height:1.1;margin-top:6px;letter-spacing:-.02em}
+.kpi .unit{font-size:14px;font-weight:700;color:var(--muted)}
+.kpi .row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.delta{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px}
+.delta svg{width:12px;height:12px}
+.d-good{background:rgba(16,185,129,.14);color:#6EE7B7}.d-bad{background:rgba(239,68,68,.14);color:#FCA5A5}.d-flat{background:rgba(255,255,255,.06);color:var(--muted-2)}
+.tgt{font-size:11px;color:var(--muted-2)}
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);min-height:var(--rowh)}
+.li:last-child{border-bottom:0}
+.li .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--primary)}
+.li .tx{flex:1;min-width:0}
+.li .tx b{display:block;font-size:13.5px;font-weight:600}
+.li .tx small{display:block;font-size:11.5px;color:var(--muted-2)}
+.pri{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:6px;white-space:nowrap}
+.p-acil{background:rgba(239,68,68,.16);color:#FCA5A5}.p-orta{background:rgba(245,158,11,.16);color:#FCD34D}.p-dusuk{background:rgba(16,185,129,.14);color:#6EE7B7}
+.rowbtn{background:none;border:0;color:var(--muted-2);cursor:pointer;display:grid;place-items:center;padding:6px;border-radius:8px}
+.rowbtn:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.rowbtn svg{width:15px;height:15px}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-2);font-weight:700;padding:9px 10px;background:rgba(14,116,144,.1);border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:9px 10px;border-bottom:1px solid var(--line);color:var(--muted);vertical-align:middle}
+table.t tbody tr{transition:background .2s;cursor:pointer}
+table.t tbody tr:hover{background:rgba(255,255,255,.03)}
+table.t td.n,table.t th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto;border:1px solid var(--glass-br);border-radius:var(--rs)}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:var(--rs);cursor:pointer;transition:all .2s;border:1px solid transparent;min-height:36px}
+.btn svg{width:15px;height:15px}
+.btn-p{background:var(--grad);color:#fff;box-shadow:0 0 30px rgba(14,116,144,.25)}
+.btn-p:hover{filter:brightness(1.1)}
+.btn-s{background:rgba(255,255,255,.03);border-color:var(--glass-br);color:var(--muted)}
+.btn-s:hover{color:var(--text);border-color:rgba(14,116,144,.45);background:rgba(14,116,144,.12)}
+.btn-g{background:none;color:var(--muted-2);padding:6px 8px}.btn-g:hover{color:var(--text)}
+.btn-d{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#FCA5A5}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-sm{font-size:11.5px;padding:5px 10px;min-height:30px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--glass-br);background:rgba(255,255,255,.03);color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.chip:hover{color:var(--text);border-color:rgba(14,116,144,.4)}
+.chip.on{background:rgba(14,116,144,.15);color:#38BDF8;border-color:rgba(14,116,144,.45)}
+.seg{display:inline-flex;border:1px solid var(--glass-br);border-radius:999px;background:rgba(255,255,255,.03);padding:2px}
+.seg button{font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;border:0;background:none;color:var(--muted);cursor:pointer;transition:all .2s}
+.seg button.on{background:rgba(14,116,144,.2);color:#38BDF8}
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.09),rgba(255,255,255,.04));background-size:200% 100%;animation:sh 1.4s infinite;border-radius:6px}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px 16px;gap:8px;color:var(--muted-2)}
+.state svg{width:26px;height:26px;opacity:.6}
+.state b{font-size:13.5px;color:var(--muted)}.state small{font-size:12px;max-width:38ch}
+.partial{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:var(--rs);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.28);color:#FCD34D;font-size:12.5px;margin-bottom:var(--d4)}
+.partial svg{width:16px;height:16px;flex:0 0 auto;margin-top:1px}
+.ov{position:fixed;inset:0;background:rgba(6,11,20,.72);backdrop-filter:blur(8px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:6vh 16px 16px;overflow-y:auto}
+.ov.open{display:flex}
+.dlg{width:100%;max-width:640px;background:#0B1220;border:1px solid var(--glass-br);border-radius:var(--r);box-shadow:0 24px 80px rgba(0,0,0,.6);animation:pop .18s ease}
+.dlg.wide{max-width:920px}.dlg.narrow{max-width:460px}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dlg-h h2{font-size:15.5px;font-weight:700;flex:1}
+.dlg-b{padding:20px;max-height:64vh;overflow-y:auto}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line);flex-wrap:wrap}
+label.fl{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+label.fl .req{color:#FCA5A5}
+.inp,select.inp,textarea.inp{width:100%;padding:10px 12px;border-radius:var(--rs);background:rgba(255,255,255,.03);border:1px solid var(--glass-br);color:var(--text);font-size:13.5px;transition:border-color .2s}
+.inp:focus{border-color:rgba(14,116,144,.6);outline:none}
+.inp[aria-invalid="true"]{border-color:rgba(239,68,68,.6)}
+textarea.inp{resize:vertical;min-height:78px}
+.fg{margin-bottom:14px}
+.err{font-size:11.5px;color:#FCA5A5;margin-top:5px;display:flex;align-items:center;gap:5px}.err svg{width:13px;height:13px}
+.hintx{font-size:11.5px;color:var(--muted-2);margin-top:5px;display:flex;align-items:flex-start;gap:6px}
+.hintx svg{width:13px;height:13px;flex:0 0 auto;margin-top:2px}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:150;display:flex;flex-direction:column;gap:8px;max-width:400px}
+.toast{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--rs);background:#0B1220;border:1px solid var(--glass-br);box-shadow:0 12px 40px rgba(0,0,0,.5);animation:pop .2s ease}
+.toast.ok{border-left:3px solid var(--success)}.toast.err{border-left:3px solid var(--crit)}.toast.inf{border-left:3px solid var(--primary)}
+.toast .tx{flex:1;font-size:13px}.toast .tx b{display:block;font-weight:700;margin-bottom:2px}.toast .tx small{color:var(--muted-2);font-size:11.5px}
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#0B1220;border:1px solid var(--glass-br);padding:6px 10px;border-radius:8px;font-size:11.5px;font-weight:500;color:var(--text);white-space:nowrap;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.sw{width:38px;height:21px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid var(--glass-br);position:relative;cursor:pointer;flex:0 0 auto;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:all .2s}
+.sw.on{background:rgba(14,116,144,.45)}.sw.on::after{left:19px;background:#38BDF8}
+.sw:disabled{opacity:.45;cursor:not-allowed}
+.scoped{max-width:600px;margin:60px auto;text-align:center;padding:32px}
+.scoped h2{font-size:19px;font-weight:800;margin:14px 0 8px}
+.scoped p{font-size:13.5px;color:var(--muted);margin-bottom:18px}
+
+/* ============================================================
+   AI CENTER — new compositions (built from the above primitives)
+   ============================================================ */
+/* governance bar — always visible, states scope + human review + kill switch */
+.gov{display:flex;align-items:center;gap:var(--d3);flex-wrap:wrap;padding:10px var(--pad);background:rgba(14,116,144,.08);border-bottom:1px solid rgba(14,116,144,.2);font-size:12.5px}
+.gov .g-i{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.gov .g-i svg{width:14px;height:14px;color:#38BDF8}
+.gov .g-i b{color:var(--text);font-weight:600}
+.gov .sp{flex:1}
+body[data-ai="off"] .gov{background:rgba(239,68,68,.1);border-bottom-color:rgba(239,68,68,.3)}
+
+/* V22 ai-card composition, reproduced verbatim: p-4 rounded-xl bg-white/5
+   border border-white/10 hover:border-[accent]/50 · icon chip bg-[accent]/20 */
+.aicard{padding:16px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);transition:all .3s;cursor:pointer;text-align:left;width:100%;color:inherit;display:block;position:relative}
+.aicard:hover{transform:translateY(-2px)}
+.aicard .ico{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;margin-bottom:12px}
+.aicard .ico svg{width:16px;height:16px}
+.aicard h3{font-size:13.5px;font-weight:600}
+.aicard p{font-size:12px;color:#94A3B8;margin-top:4px;line-height:1.5}
+.aicard .v22{position:absolute;top:12px;right:12px;font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,.15);color:#6EE7B7}
+.aigrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+
+/* hologram panel — V22 geometry preserved */
+.holo{position:relative;width:100%;max-width:384px;aspect-ratio:1;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 25px 50px -12px rgba(14,116,144,.1);margin:0 auto;background:radial-gradient(circle at 50% 40%,rgba(14,116,144,.35),rgba(37,99,235,.15) 45%,var(--deepest) 78%)}
+.holo::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,var(--deepest),transparent 55%)}
+.holo .core{position:absolute;inset:0;display:grid;place-items:center}
+.holo .ring{position:absolute;border:1px solid rgba(14,116,144,.35);border-radius:50%;animation:pulse 4s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.06);opacity:.35}}
+.holo-cap{text-align:center;font-size:12px;color:#94A3B8;margin-top:14px}
+
+/* conversation — V22 .chat-bubble preserved exactly */
+.chat-bubble{max-width:80%}
+.conv{display:flex;flex-direction:column;gap:16px;min-height:280px;max-height:52vh;overflow-y:auto;padding-right:4px}
+.msg{display:flex;gap:10px;align-items:flex-start}
+.msg.me{flex-direction:row-reverse}
+.msg .av{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;font-size:10px;font-weight:800;color:#fff}
+.msg.ai .av{background:var(--grad)}
+.msg.me .av{background:rgba(255,255,255,.08);color:var(--muted)}
+.bub{border-radius:12px;padding:12px;font-size:14px}
+.msg.ai .bub{background:rgba(14,116,144,.2);border-top-left-radius:0}
+.msg.me .bub{background:rgba(255,255,255,.05);border:1px solid var(--glass-br);border-top-right-radius:0}
+.caret{display:inline-block;width:7px;height:14px;background:#38BDF8;vertical-align:-2px;margin-left:2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.prov{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:10.5px;color:#94A3B8}
+.prov .pi{display:inline-flex;align-items:center;gap:4px}
+.prov .pi svg{width:11px;height:11px}
+.human-flag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:5px;background:rgba(245,158,11,.15);color:#FCD34D}
+.human-flag svg{width:11px;height:11px}
+.fb{display:flex;gap:2px;margin-left:auto}
+.fb button{background:none;border:0;color:#94A3B8;cursor:pointer;padding:4px;border-radius:6px;display:grid;place-items:center}
+.fb button:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.fb button.on{color:var(--success)}.fb button.on.dn{color:#FCA5A5}
+.fb svg{width:13px;height:13px}
+.followups{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.fu{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px dashed rgba(14,116,144,.4);background:rgba(14,116,144,.08);color:#7DD3FC;cursor:pointer;transition:all .2s}
+.fu:hover{background:rgba(14,116,144,.18);border-style:solid}
+
+/* composer */
+.composer{border:1px solid var(--glass-br);border-radius:var(--r);background:rgba(255,255,255,.03);padding:10px;margin-top:14px}
+.composer:focus-within{border-color:rgba(14,116,144,.5)}
+.composer textarea{width:100%;background:none;border:0;color:var(--text);font-size:14px;resize:none;min-height:44px;max-height:150px}
+.composer textarea:focus{outline:none}
+.comp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.comp-row .sp{flex:1}
+.modeseg{display:inline-flex;gap:2px;border:1px solid var(--glass-br);border-radius:999px;padding:2px;background:rgba(255,255,255,.02)}
+.modeseg button{font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;border:0;background:none;color:var(--muted-2);cursor:pointer}
+.modeseg button.on{background:rgba(14,116,144,.22);color:#38BDF8}
+
+/* evidence + confidence */
+.ev{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.05);border:1px solid var(--glass-br);color:#94A3B8;cursor:pointer}
+.ev:hover{color:var(--text);border-color:rgba(14,116,144,.4)}
+.ev svg{width:11px;height:11px}
+.conf{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700}
+.conf .bar{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.conf .bar i{display:block;height:100%;border-radius:3px}
+.conf.hi{color:#6EE7B7}.conf.hi .bar i{background:var(--success)}
+.conf.md{color:#FCD34D}.conf.md .bar i{background:var(--warn)}
+.conf.lo{color:#FCA5A5}.conf.lo .bar i{background:var(--crit)}
+.lowconf{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:var(--rs);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.28);color:#FCA5A5;font-size:12px;margin-top:10px}
+.lowconf svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px}
+
+/* factor decomposition */
+.fac{margin-top:10px}
+.fac-r{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:12px}
+.fac-r .n{min-width:132px;color:var(--muted)}
+.fac-r .b{flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.fac-r .b i{display:block;height:100%;border-radius:4px;background:var(--grad);transition:width .6s ease}
+.fac-r .w{min-width:38px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted-2)}
+
+/* risk heatmap */
+.heat{display:grid;grid-template-columns:132px repeat(4,1fr);gap:6px;font-size:11.5px}
+.heat .hh{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2);padding:4px 2px;text-align:center}
+.heat .rl{display:flex;align-items:center;font-weight:600;color:var(--muted)}
+.heat .cell{border-radius:8px;padding:9px 4px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;cursor:pointer;border:1px solid transparent;transition:all .2s}
+.heat .cell:hover{border-color:rgba(255,255,255,.3)}
+.h-ok{background:rgba(16,185,129,.16);color:#6EE7B7}
+.h-md{background:rgba(245,158,11,.18);color:#FCD34D}
+.h-hi{background:rgba(249,115,22,.2);color:#FDBA74}
+.h-cr{background:rgba(239,68,68,.22);color:#FCA5A5}
+
+/* timeline */
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.tl-i{position:relative;padding-bottom:16px}
+.tl-i:last-child{padding-bottom:0}
+.tl-i::before{content:"";position:absolute;left:-21px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--primary);border:2px solid var(--darker)}
+.tl-i.ok::before{background:var(--success)}.tl-i.warn::before{background:var(--warn)}.tl-i.crit::before{background:var(--crit)}
+.tl-i b{font-size:13px;font-weight:600;display:block}
+.tl-i small{font-size:11.5px;color:var(--muted-2);display:block;margin-top:2px}
+
+/* agents */
+.agent{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:var(--rs);border:1px solid var(--glass-br);background:rgba(255,255,255,.02);margin-bottom:10px}
+.agent .ai-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto}
+.agent .ai-ic svg{width:16px;height:16px}
+.agent .tx{flex:1;min-width:0}
+.agent .tx b{font-size:13.5px;font-weight:700;display:block}
+.agent .tx small{font-size:11.5px;color:var(--muted-2);display:block;margin-top:2px}
+.auth{font-size:10px;font-weight:800;letter-spacing:.05em;padding:3px 8px;border-radius:5px;white-space:nowrap}
+.auth1{background:rgba(56,189,248,.15);color:#7DD3FC}
+.auth2{background:rgba(139,92,246,.18);color:#C4B5FD}
+.auth3,.auth4{background:rgba(255,255,255,.06);color:#94A3B8}
+.killbar{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--rs);background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);margin-bottom:14px;font-size:12.5px;color:#FCA5A5}
+.killbar .sp{flex:1}
+
+/* knowledge base citation */
+.cite{border-left:3px solid var(--a7);padding:10px 12px;background:rgba(6,182,212,.06);border-radius:0 var(--rs) var(--rs) 0;margin-top:10px;font-size:12.5px}
+.cite b{display:block;font-size:12px;color:#67E8F9;margin-bottom:4px}
+.cite p{color:var(--muted)}
+
+/* extracted document fields */
+.xf{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.xf:last-child{border-bottom:0}
+.xf .k{color:var(--muted-2);font-size:12px}
+.xf .v{font-weight:600}
+.xf input{background:rgba(255,255,255,.03);border:1px solid var(--glass-br);border-radius:8px;padding:6px 9px;color:var(--text);font-size:13px;width:100%}
+
+@media(max-width:1023px){
+ .app{grid-template-columns:1fr}
+ .side{position:fixed;left:0;top:0;width:250px;transform:translateX(-100%);transition:transform .25s ease}
+ .side.open{transform:none}
+ .mobnav{display:grid}
+ .c3,.c4,.c5{grid-column:span 6}.c6,.c7,.c8{grid-column:span 12}
+ .heat{grid-template-columns:96px repeat(4,1fr);font-size:10.5px}
+}
+.mobnav{display:none}
+@media(max-width:640px){
+ .c3,.c4,.c5,.c6,.c7,.c8{grid-column:span 12}
+ body{--pad:12px}
+ .hdr h1{font-size:16px}
+ .toasts{left:12px;right:12px;max-width:none}
+ .aigrid{grid-template-columns:1fr}
+ .chat-bubble{max-width:92%}
+ .xf{grid-template-columns:1fr;gap:4px}
+ .fac-r .n{min-width:90px}
+}
+</style>
+</head>
+<body data-density="comfortable" data-ai="on">
+<a class="skip" href="#main">İçeriğe geç</a>
+<div class="sr" aria-live="polite" id="live"></div>
+<div class="sr" aria-live="assertive" id="liveA"></div>
+
+<svg style="display:none" aria-hidden="true"><defs>
+<g id="i-dash"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></g>
+<g id="i-spark"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></g>
+<g id="i-chart"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="4" width="3" height="14"/></g>
+<g id="i-msg"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></g>
+<g id="i-task"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 13l2 2 4-4"/></g>
+<g id="i-cal"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></g>
+<g id="i-bell"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></g>
+<g id="i-map"><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></g>
+<g id="i-card"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></g>
+<g id="i-grid"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></g>
+<g id="i-alert"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></g>
+<g id="i-check"><path d="M20 6 9 17l-5-5"/></g>
+<g id="i-checkc"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></g>
+<g id="i-x"><path d="M18 6 6 18M6 6l12 12"/></g>
+<g id="i-search"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g>
+<g id="i-ref"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></g>
+<g id="i-dl"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></g>
+<g id="i-up"><path d="m6 15 6-6 6 6"/></g>
+<g id="i-right"><path d="m9 18 6-6-6-6"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-user"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></g>
+<g id="i-usercheck"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3.2-6 7-6"/><path d="m16 15 2 2 4-4"/></g>
+<g id="i-users"><circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/><path d="M17 8.5a3.5 3.5 0 0 0 0-1M18 21c0-2.5-.8-4-2-5"/></g>
+<g id="i-wrench"><path d="M14.7 6.3a4 4 0 0 0 5 5l-8.4 8.4a2.8 2.8 0 0 1-4-4l8.4-8.4-1-1z"/></g>
+<g id="i-shield"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></g>
+<g id="i-wallet"><path d="M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M16 12h3"/></g>
+<g id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></g>
+<g id="i-tri-u"><path d="m5 15 7-7 7 7"/></g>
+<g id="i-tri-d"><path d="m5 9 7 7 7-7"/></g>
+<g id="i-info"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></g>
+<g id="i-inbox"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M4.5 6h15l2 6v6a2 2 0 0 1-2 2H4.5a2 2 0 0 1-2-2v-6z"/></g>
+<g id="i-mega"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></g>
+<g id="i-zap"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></g>
+<g id="i-more"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></g>
+<g id="i-menu"><path d="M3 6h18M3 12h18M3 18h18"/></g>
+<g id="i-lock"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></g>
+<g id="i-eye"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></g>
+<g id="i-table"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></g>
+<g id="i-cpu"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></g>
+<g id="i-bot"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 14h.01M15 14h.01M2 13h2M20 13h2"/></g>
+<g id="i-send"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></g>
+<g id="i-stop"><rect x="6" y="6" width="12" height="12" rx="2"/></g>
+<g id="i-pause"><rect x="7" y="5" width="4" height="14" rx="1"/><rect x="13" y="5" width="4" height="14" rx="1"/></g>
+<g id="i-thumbup"><path d="M7 21V10l5-8a2.5 2.5 0 0 1 2.4 3.2L13.5 9H19a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 17.4 20H7z"/><rect x="2" y="10" width="5" height="11" rx="1"/></g>
+<g id="i-thumbdn"><path d="M17 3v11l-5 8a2.5 2.5 0 0 1-2.4-3.2L10.5 15H5a2 2 0 0 1-2-2.4l1.6-7A2 2 0 0 1 6.6 4H17z"/><rect x="17" y="3" width="5" height="11" rx="1"/></g>
+<g id="i-file"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></g>
+<g id="i-sheet"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 9v12"/></g>
+<g id="i-book"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M8 7h8M8 11h6"/></g>
+<g id="i-branch"><circle cx="6" cy="5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 7.5v9M8.5 19h4a3 3 0 0 0 3-3v-1.5M8.5 5h4a3 3 0 0 1 3 3v1.5"/></g>
+<g id="i-set"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></g>
+<g id="i-gauge"><path d="M12 21a9 9 0 1 1 9-9"/><path d="m12 12 5-3"/></g>
+<g id="i-db"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></g>
+<g id="i-key"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8 2 2-2 2 2 2-2 2-2-2-2 2"/></g>
+<g id="i-list"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></g>
+<g id="i-upload"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 8l5-5 5 5M12 3v13"/></g>
+<g id="i-flask"><path d="M9 3v6L4 19a2 2 0 0 0 1.8 3h12.4A2 2 0 0 0 20 19l-5-10V3"/><path d="M8 3h8M6.5 14h11"/></g>
+</defs></svg>
+
+<div class="app">
+ <nav class="side" id="side" aria-label="Ana menü">
+  <div class="brand"><div class="bmark">BN</div><div class="btxt"><b>BN Yönetim</b><small>Site &amp; Proje Yönetimi</small></div></div>
+  <div class="snav" id="snav"></div>
+  <div class="side-foot">Sprint 02 · AI Center modülü<br>Baseline: Version 22 (frozen)</div>
+ </nav>
+ <div class="main">
+  <header class="hdr">
+   <button class="iconbtn mobnav" id="mobtoggle" aria-label="Menüyü aç" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-menu"/></svg></button>
+   <div><h1 id="pageTitle">BN AI Bölümü</h1><div class="date">25 Temmuz 2026 · Cumartesi</div></div>
+   <div class="hspace"></div>
+   <button class="searchbtn" id="openPal" aria-label="Ara ve komut paleti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:15px;height:15px"><use href="#i-search"/></svg><span>Ara…</span><kbd>Ctrl K</kbd></button>
+   <button class="iconbtn" id="btnRefresh" data-tip="Yenile" aria-label="Yenile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-ref"/></svg></button>
+   <button class="iconbtn" id="btnBell" data-tip="Bildirimler" aria-label="Bildirimler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-bell"/></svg><span class="badge">12</span></button>
+   <div class="avatar" data-tip="Site Yöneticisi" tabindex="0" role="button" aria-label="Tercihler">SY</div>
+  </header>
+  <main id="main" tabindex="-1">
+   <div id="scopedOut" hidden></div>
+   <div id="aiRoot">
+    <div class="gov" id="govBar" role="region" aria-label="AI yönetişim durumu"></div>
+    <div class="tabsbar"><div class="tabs" id="tabs" role="tablist" aria-label="AI Center bölümleri"></div></div>
+    <div class="content" id="panel" role="tabpanel" tabindex="0"></div>
+   </div>
+  </main>
+ </div>
+</div>
+<div class="ov" id="ov" role="presentation"><div id="ovInner"></div></div>
+<div class="toasts" id="toasts"></div>
+<script>
+"use strict";
+/* ============================================================
+   BN Yönetim — AI Center (Sprint 02)
+   Baseline: Version 22 frozen · Sprint 01 component library reused verbatim.
+   Governing rule: the AI proposes, a human decides. Nothing here auto-executes.
+   No browser storage is used; all state is in memory.
+   ============================================================ */
+
+/* ---------- 1. DATA ---------- */
+var NAV=[{k:"dashboard",n:"Dashboard",ic:"i-dash"},{k:"ai",n:"BN AI Bölümü",ic:"i-spark",live:true},
+{k:"grafik",n:"Grafikler",ic:"i-chart"},{k:"chat",n:"AI Chat",ic:"i-msg",live:true},
+{k:"gorev",n:"Görevler",ic:"i-task"},{k:"takvim",n:"Takvim",ic:"i-cal"},
+{k:"bildirim",n:"Bildirimler",ic:"i-bell"},{k:"harita",n:"Site Haritası",ic:"i-map"},
+{k:"kart",n:"Kartlar",ic:"i-card"},{k:"widget",n:"Widgetlar",ic:"i-grid"}];
+
+var TABS=[{k:"panel",n:"AI Panosu",ic:"i-spark"},{k:"copilot",n:"Copilot",ic:"i-bot"},
+{k:"sohbet",n:"AI Sohbet",ic:"i-msg"},{k:"brifing",n:"Günlük Brifing",ic:"i-file"},
+{k:"oneri",n:"Öneriler",ic:"i-checkc",cnt:function(){return RECS.filter(function(r){return r.st==="new"}).length}},
+{k:"tahmin",n:"Tahmin & Risk",ic:"i-shield"},{k:"belge",n:"Belge & Rapor",ic:"i-sheet"},
+{k:"otomasyon",n:"Otomasyon",ic:"i-branch"},{k:"analitik",n:"AI Analitik",ic:"i-chart"},
+{k:"ayarlar",n:"Ayarlar & Denetim",ic:"i-set"}];
+
+var SITES=[{id:"all",n:"Tüm Siteler"},{id:"yildiz",n:"Yıldız Sitesi"},{id:"deniz",n:"Deniz Sitesi"},
+{id:"park",n:"Park Sitesi"},{id:"gunes",n:"Güneş Sitesi"},{id:"tepe",n:"Tepe Sitesi"},{id:"nehir",n:"Nehir Sitesi"}];
+
+/* 24 submodules. The first eight occupy the frozen Version 22 "BN AI Bölümü"
+   card slots and reproduce their exact Lucide icon and accent colour. */
+var SUB=[
+{k:"finans",n:"Finansal Danışman",d:"Tahsilat tahmini, maliyet sapması ve bütçe taslağı.",ic:"i-wallet",c:"#0E7490",v22:1,tab:"tahmin"},
+{k:"bakim",n:"Kestirimci Bakım",d:"Varlık bazlı arıza olasılığı ve müdahale zamanlaması.",ic:"i-wrench",c:"#10B981",v22:2,tab:"tahmin"},
+{k:"risk",n:"Risk Tespiti",d:"Finansal, operasyonel, uyum ve memnuniyet riski taraması.",ic:"i-shield",c:"#2563EB",v22:3,tab:"tahmin"},
+{k:"oneri",n:"AI Önerileri",d:"Etkisi ölçülmüş, kanıta bağlı aksiyon önerileri.",ic:"i-spark",c:"#EC4899",v22:4,tab:"oneri"},
+{k:"gorevas",n:"Görev Asistanı",d:"Serbest metinden doğru biçimli iş emri taslağı.",ic:"i-usercheck",c:"#F59E0B",v22:5,tab:"copilot"},
+{k:"analitik",n:"AI Analitik",d:"Yapay zekanın kendi kalitesi, benimsenmesi ve maliyeti.",ic:"i-chart",c:"#8B5CF6",v22:6,tab:"analitik"},
+{k:"rapor",n:"Rapor Üretici",d:"Doğal dilden gerçek, kaydedilebilir rapor tanımı.",ic:"i-sheet",c:"#06B6D4",v22:7,tab:"belge"},
+{k:"sohbet",n:"AI Sohbet",d:"Version 22 sohbet paneli, geçmiş ve kanıt desteğiyle.",ic:"i-msg",c:"#14B8A6",v22:8,tab:"sohbet"},
+{k:"panosu",n:"AI Panosu",d:"Modülün giriş yüzeyi ve sağlık göstergeleri.",ic:"i-gauge",c:"#A855F7",tab:"panel"},
+{k:"copilot",n:"BN Copilot",d:"Doğal dille soru; canlı, süzülebilir sonuç kümesi.",ic:"i-bot",c:"#3B82F6",tab:"copilot"},
+{k:"brifing",n:"Günlük Brifing",d:"06:00'da üretilen, role uyarlanmış durum anlatısı.",ic:"i-file",c:"#F97316",tab:"brifing"},
+{k:"icgoru",n:"AI İçgörüleri",d:"Sormadığınız soruların cevapları: anomali ve örüntü.",ic:"i-flask",c:"#EAB308",tab:"oneri"},
+{k:"belge",n:"Belge Asistanı",d:"Fatura, sözleşme ve tutanaktan alan çıkarımı.",ic:"i-file",c:"#06B6D4",tab:"belge"},
+{k:"bilgi",n:"Bilgi Bankası",d:"Yönetim planı ve mevzuata dayalı, atıflı yanıt.",ic:"i-book",c:"#14B8A6",tab:"belge"},
+{k:"akis",n:"İş Akışı Asistanı",d:"Türkçe tarifden kural taslağı ve 12 aylık simülasyon.",ic:"i-branch",c:"#8B5CF6",tab:"otomasyon"},
+{k:"bildirimz",n:"Bildirim Zekası",d:"Bildirimleri öğrenilen ilgiye göre sırala ve topla.",ic:"i-bell",c:"#F59E0B",tab:"otomasyon"},
+{k:"otomerkez",n:"Otomasyon Merkezi",d:"Ajan konsolu: yetki seviyesi, kapsam, durdurma.",ic:"i-cpu",c:"#EC4899",tab:"otomasyon"},
+{k:"ayar",n:"AI Ayarları",d:"Etkinleştirme, veri sınırları, kota, ton ve saklama.",ic:"i-set",c:"#94A3B8",tab:"ayarlar"},
+{k:"denetim",n:"AI Denetim Kaydı",d:"Kim sordu, ne okundu, ne üretildi, kim karar verdi.",ic:"i-lock",c:"#EF4444",tab:"ayarlar"},
+{k:"kalite",n:"Kalite ve Geri Bildirim",d:"Kabul, düzeltme ve reddetme gerekçeleri.",ic:"i-thumbup",c:"#10B981",tab:"analitik"},
+{k:"komut",n:"Komut Kütüphanesi",d:"Kurumsal, sürümlenmiş, yetkilendirilmiş hazır komutlar.",ic:"i-list",c:"#3B82F6",tab:"ayarlar"},
+{k:"maliyet",n:"Maliyet ve Kullanım",d:"Etkileşim başına maliyet, kota ve ay sonu projeksiyonu.",ic:"i-db",c:"#A855F7",tab:"analitik"},
+{k:"toplanti",n:"Toplantı Asistanı",d:"Genel kurul gündemi, tutanak ve karar çıkarımı.",ic:"i-users",c:"#F97316",tab:"brifing"},
+{k:"kokneden",n:"Kök Neden Analizi",d:"Metrik neden hareket etti: katkı ayrıştırması.",ic:"i-flask",c:"#0E7490",tab:"tahmin"}];
+
+var AIKPI=[
+{l:"Bugünkü Sorgu",v:"1.284",d:"+18,2%",g:true,t:"Dün 1.086"},
+{l:"Kabul Oranı",v:"%71",d:"+4,0 puan",g:true,t:"Hedef %70"},
+{l:"Kazanılan Saat",v:"38",d:"+6,1%",g:true,t:"Bu hafta"},
+{l:"Doğruluk",v:"%92",d:"-1,0 puan",g:false,t:"Hedef %90"},
+{l:"Aylık Maliyet",v:"₺1.240",d:"+11,4%",g:false,t:"Kota %62"},
+{l:"İnsan Onayı",v:"%100",d:"sabit",g:true,t:"Zorunlu"}];
+
+var RECS=[
+{id:"r1",c:"Finansal",cf:88,st:"new",tgt:"İş Akışı",
+ p:"Deniz ve Tepe sitelerinde aidat hatırlatma kademesi 14 Nisan'dan beri pasif. Temmuz tahsilatı geçen yılın aynı dönemine göre 3,1 puan geride ve farkın %78'i bu iki siteden geliyor.",
+ imp:"Tahmini etki: ₺412.000 gecikmiş tahsilat",act:"Hatırlatma kademesini yeniden etkinleştir",
+ ev:[["Hatırlatma kuralı #12 (pasif)","İş Akışı","14.04.2026"],["Deniz Sitesi tahsilat özeti","Finans","24.07.2026"],["Tepe Sitesi tahsilat özeti","Finans","24.07.2026"]]},
+{id:"r2",c:"Bakım",cf:91,st:"new",tgt:"İş Emirleri",
+ p:"Yıldız Sitesi 2 nolu asansörün arıza sıklığı son 90 günde 3 katına çıktı. Benzer profildeki 11 asansörün geçmişine göre 60 gün içinde arıza olasılığı %71.",
+ imp:"Önleyici bakım ₺8.400 · Acil müdahale ₺31.000",act:"Önleyici bakım iş emri oluştur",
+ ev:[["Asansör #A-2 servis geçmişi","Demirbaş","2019–2026"],["Arıza kaydı #3187","Bakım","02.07.2026"],["Portföy asansör kohortu","Analitik","—"]]},
+{id:"r3",c:"Maliyet",cf:64,st:"new",tgt:"Tedarikçi",
+ p:"Park Sitesi peyzaj gideri metrekare başına portföy medyanının %34 üzerinde. Sözleşme 3 yıldır fiyat revizyonu görmedi.",
+ imp:"Yıllık tasarruf potansiyeli ₺186.000",act:"Tedarikçi görüşmesi planla",
+ ev:[["Mega Peyzaj sözleşmesi","Belge","01.2023"],["Peyzaj gider kalemi","Finans","2026"]]},
+{id:"r4",c:"İş Yükü",cf:83,st:"new",tgt:"Görevler",
+ p:"Teknik ekipte iş dağılımı dengesiz: 3 personelde 41 açık iş emri, 2 personelde 6. Yüklü personelin ortalama kapanış süresi 2,4 kat uzun.",
+ imp:"SLA uyumunda tahmini +4 puan",act:"İş emirlerini yeniden dağıt",
+ ev:[["Açık iş emri dağılımı","İş Emirleri","25.07.2026"],["Kapanış süresi analizi","Analitik","Q2 2026"]]},
+{id:"r5",c:"Memnuniyet",cf:47,st:"new",tgt:"Temizlik",
+ p:"Güneş Sitesi memnuniyet puanı 4,4'ten 3,9'a düştü. Serbest metin şikayetlerinin %62'si otopark temizliği temasında kümeleniyor.",
+ imp:"Sözleşme yenileme riski · 320 daire",act:"Temizlik programını gözden geçir",
+ ev:[["Talep metinleri kümesi (n=42)","Sakin Talepleri","06–07.2026"]]}];
+
+var INSIGHTS=[
+{c:"Korelasyon",p:"SLA uyumundaki 4 puanlık düşüş, teknik ekipteki iş dağılımı dengesizliğiyle zamansal olarak örtüşüyor (r=0,78, n=26 hafta).",h:true},
+{c:"Mevsimsellik",p:"Temmuz–Ağustos döneminde su tesisatı arıza bildirimi portföy genelinde ortalama %41 artıyor; bu yıl artış şu ana kadar %38.",h:false},
+{c:"Anomali",p:"Nehir Sitesi elektrik tüketimi son 3 haftadır kendi 13 aylık bandının üzerinde seyrediyor. Ortak alan aydınlatma otomasyonu 2 Temmuz'dan beri manuel modda.",h:false}];
+
+var PREDS=[
+{s:"Asansör A-2 · Yıldız Sitesi",p:71,h:60,pv:8400,rv:31000,
+ f:[["Arıza sıklığı (90 gün)",34],["Yaş / kullanım",26],["Son servis aralığı",21],["Kohort karşılaştırması",19]]},
+{s:"Jeneratör · Park Sitesi",p:44,h:60,pv:5200,rv:18500,
+ f:[["Yağ değişim gecikmesi",41],["Yük testi geçmişi",28],["Çalışma saati",31]]},
+{s:"Hidrofor · Deniz Sitesi",p:29,h:90,pv:3100,rv:9800,
+ f:[["Basınç dalgalanması",38],["Yaş",34],["Bakım düzenliliği",28]]},
+{s:"Isıtma kazanı · Tepe Sitesi",p:22,h:90,pv:6400,rv:22000,
+ f:[["Sezon öncesi bakım",45],["Yaş",30],["Arıza geçmişi",25]]}];
+
+var RISK=[
+{s:"Deniz Sitesi",v:[78,62,41,71]},{s:"Tepe Sitesi",v:[66,48,35,58]},
+{s:"Güneş Sitesi",v:[41,52,28,74]},{s:"Park Sitesi",v:[32,58,44,39]},
+{s:"Yıldız Sitesi",v:[18,24,61,22]},{s:"Nehir Sitesi",v:[25,36,19,31]}];
+var RISKDIM=["Finansal","Operasyonel","Uyum","Memnuniyet"];
+
+var AGENTS=[
+{k:"brief",n:"Brifing Ajanı",d:"Günlük anlatıyı derler",ic:"i-file",c:"#F97316",lvl:1,on:true,run:"Bugün 06:00",acc:94,cap:"—"},
+{k:"insight",n:"İçgörü Ajanı",d:"Anomali tespit eder, bulguları sıralar",ic:"i-flask",c:"#EAB308",lvl:1,on:true,run:"1 sa önce",acc:78,cap:"—"},
+{k:"maint",n:"Bakım Ajanı",d:"Arıza riski puanlar, iş emri taslağı hazırlar",ic:"i-wrench",c:"#10B981",lvl:2,on:true,run:"Bugün 05:30",acc:88,cap:"₺0 (taslak)"},
+{k:"collect",n:"Tahsilat Ajanı",d:"Ödeyici segmentler, hatırlatma metni yazar",ic:"i-wallet",c:"#0E7490",lvl:2,on:true,run:"Dün 22:00",acc:91,cap:"₺0 (taslak)"},
+{k:"doc",n:"Belge Ajanı",d:"Alan çıkarır, kayıtla eşleştirir",ic:"i-file",c:"#06B6D4",lvl:2,on:true,run:"14 dk önce",acc:86,cap:"₺0 (taslak)"},
+{k:"triage",n:"Triyaj Ajanı",d:"Gelen talebi sınıflar ve yönlendirir",ic:"i-branch",c:"#8B5CF6",lvl:2,on:true,run:"3 dk önce",acc:93,cap:"₺0 (taslak)"},
+{k:"report",n:"Rapor Ajanı",d:"Rapor tanımı oluşturur",ic:"i-sheet",c:"#3B82F6",lvl:2,on:false,run:"—",acc:82,cap:"₺0 (taslak)"},
+{k:"rule",n:"Kural Ajanı",d:"Otomasyon kuralı taslağı ve simülasyon",ic:"i-cpu",c:"#EC4899",lvl:2,on:false,run:"—",acc:74,cap:"₺0 (taslak)"}];
+
+var AUDIT=[
+{t:"14:38",a:"S. Yılmaz",s:"Copilot",act:"Soru",d:"Yıldız Sitesi · iş emri sorgusu",r:"42 kayıt",m:"orta",dec:"—",cid:"BN-A7F3",k:""},
+{t:"14:31",a:"Sistem",s:"Bakım Ajanı",act:"Öneri üretimi",d:"Asansör A-2 arıza tahmini",r:"318 kayıt",m:"tahmin",dec:"Beklemede",cid:"BN-A7E9",k:"warn"},
+{t:"14:12",a:"M. Demir",s:"Öneriler",act:"Kabul",d:"Önleyici bakım iş emri #4831 oluşturuldu",r:"12 kayıt",m:"orta",dec:"Kabul",cid:"BN-A7C1",k:"ok"},
+{t:"13:55",a:"A. Kaya",s:"Belge Asistanı",act:"Çıkarım",d:"Tedarikçi faturası · 6 alan",r:"1 belge",m:"küçük",dec:"Düzeltilerek kabul",cid:"BN-A7B4",k:"ok"},
+{t:"13:40",a:"S. Yılmaz",s:"Öneriler",act:"Reddetme",d:"Peyzaj tedarikçi önerisi · gerekçe: sözleşme yenilendi",r:"8 kayıt",m:"—",dec:"Red",cid:"BN-A79F",k:""},
+{t:"06:00",a:"Sistem",s:"Brifing Ajanı",act:"Üretim",d:"Günlük brifing · 6 site",r:"1.284 kayıt",m:"güçlü",dec:"—",cid:"BN-A701",k:""}];
+
+var PROMPTS=[
+{c:"Finans",n:"Aidat gecikme hatırlatma metni",u:184},{c:"Finans",n:"Aylık tahsilat özeti anlatısı",u:97},
+{c:"Teknik",n:"Tedarikçi iş brifingi",u:141},{c:"Teknik",n:"Arıza bildirimi özeti",u:206},
+{c:"Yönetim",n:"Genel kurul gündem taslağı",u:38},{c:"Yönetim",n:"Kat malikleri duyuru metni",u:312},
+{c:"Sakin",n:"Şikayet yanıt taslağı",u:229},{c:"Sakin",n:"Bakım kesintisi duyurusu",u:167}];
+
+var KB=[
+{q:"aidat",a:"Aidat borcunu ödemeyen kat maliki için gecikme tazminatı, Kat Mülkiyeti Kanunu m.20/c uyarınca aylık %5 oranında uygulanır. Yönetim planınızda daha yüksek bir oran öngörülmemiştir.",
+ cite:["Yıldız Sitesi Yönetim Planı · Madde 14","KMK m.20/c"],cf:91},
+{q:"asansör",a:"Asansör periyodik kontrolü yılda bir kez, TÜRKAK akrediteli A tipi muayene kuruluşu tarafından yapılır. Yeşil etiket dışındaki sonuçlarda tespit edilen eksiklikler için verilen süre içinde giderim zorunludur.",
+ cite:["Asansör İşletme ve Bakım Yönetmeliği","Site Bakım SOP · Bölüm 3"],cf:88},
+{q:"genel kurul",a:"Kat malikleri kurulu olağan toplantısı yılda en az bir kez yapılır. Toplantı yeter sayısı kat maliklerinin sayı ve arsa payı bakımından yarısından fazlasıdır; ilk toplantıda sağlanamazsa ikinci toplantı en geç on beş gün sonra yapılır.",
+ cite:["KMK m.29 ve m.30","Yönetim Planı · Madde 8"],cf:94}];
+
+var DOCFIELDS=[["Tedarikçi","Asansör Teknik A.Ş.",96],["Fatura No","AST-2026-1184",99],["Tarih","22.07.2026",97],
+["Tutar (KDV hariç)","₺34.750",94],["KDV","₺6.950",94],["Toplam","₺41.700",92],
+["Dönem","Temmuz 2026",81],["Eşleşen iş emri","#4821 · Yıldız Sitesi",73]];
+
+/* ---------- 2. STATE ---------- */
+var S={tab:"panel",scope:"all",aiOn:true,mode:"soru",streaming:false,stopFlag:false,
+ conv:[],docState:"idle",lastRefresh:new Date(2026,6,25,14,32),
+ chat:[{role:"ai",text:"Merhaba! Ben BN AI asistanınız. Size nasıl yardımcı olabilirim?",plain:true}]};
+
+/* ---------- 3. HELPERS (Sprint 01 contract) ---------- */
+function $(s,r){return (r||document).querySelector(s)}
+function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function ic(n,st){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'+(st?' style="'+st+'"':'')+' aria-hidden="true"><use href="#'+n+'"/></svg>'}
+function timeStr(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function say(m,a){$(a?"#liveA":"#live").textContent=m}
+function scopeName(){var s=SITES.filter(function(x){return x.id===S.scope})[0];return s?s.n:"Tüm Siteler"}
+
+function toast(kind,title,msg,undo,persist){
+ var el=document.createElement("div");el.className="toast "+kind;
+ el.innerHTML=ic(kind==="ok"?"i-checkc":kind==="err"?"i-alert":"i-info")+
+  '<div class="tx"><b>'+esc(title)+'</b>'+(msg?'<small>'+esc(msg)+'</small>':'')+'</div>'+
+  (undo?'<button class="btn btn-g btn-sm undo">Geri al</button>':'')+
+  '<button class="btn btn-g btn-sm cls" aria-label="Kapat">'+ic("i-x")+'</button>';
+ $("#toasts").appendChild(el);
+ say((kind==="err"?"Hata: ":"")+title+". "+(msg||""),kind==="err");
+ var kill=function(){el.remove()};
+ el.querySelector(".cls").onclick=kill;
+ if(undo)el.querySelector(".undo").onclick=function(){undo();kill()};
+ if(kind!=="err"&&!persist)setTimeout(kill,undo?7000:4200);
+}
+
+var lastFocus=null;
+function openDlg(html,onMount){
+ lastFocus=document.activeElement;
+ $("#ovInner").innerHTML=html;$("#ov").classList.add("open");
+ var d=$("#ovInner .dlg");if(!d)return;
+ d.setAttribute("role","dialog");d.setAttribute("aria-modal","true");
+ if(onMount)onMount(d);
+ var f=d.querySelector("input,select,textarea,button");if(f)f.focus();
+ d.addEventListener("keydown",function(e){
+  if(e.key!=="Tab")return;
+  var q=$$('a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])',d);
+  if(!q.length)return;var a=q[0],z=q[q.length-1];
+  if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+  else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+ });
+}
+function closeDlg(){$("#ov").classList.remove("open");$("#ovInner").innerHTML="";
+ if(lastFocus&&document.contains(lastFocus))lastFocus.focus();else $("#main").focus()}
+function dlgShell(t,b,f,cls){
+ return '<div class="dlg '+(cls||"")+'" aria-labelledby="dlgT"><div class="dlg-h">'+ic("i-info")+
+ '<h2 id="dlgT">'+esc(t)+'</h2><button class="iconbtn" data-close aria-label="Kapat">'+ic("i-x")+'</button></div>'+
+ '<div class="dlg-b">'+b+'</div>'+(f?'<div class="dlg-f">'+f+'</div>':'')+'</div>';
+}
+$("#ov").addEventListener("mousedown",function(e){if(e.target.id==="ov")closeDlg()});
+document.addEventListener("keydown",function(e){
+ if(e.key==="Escape"){
+  if($("#ov").classList.contains("open"))closeDlg();
+  else if($("#side").classList.contains("open")){$("#side").classList.remove("open");$("#mobtoggle").setAttribute("aria-expanded","false");$("#mobtoggle").focus()}
+ }
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palette()}
+});
+
+/* ---------- 4. SHARED BLOCKS ---------- */
+function secH(t,h,x){return '<div class="sec-h"><h2>'+esc(t)+'</h2>'+(h?'<span class="hint">'+esc(h)+'</span>':'')+'<span class="sp"></span>'+(x||"")+'</div>'}
+function confChip(v){
+ var c=v>=75?"hi":v>=55?"md":"lo",l=v>=75?"Yüksek":v>=55?"Orta":"Düşük";
+ return '<span class="conf '+c+'" title="Güven '+v+'%">'+ic("i-gauge","width:12px;height:12px")+
+  '<span class="bar"><i style="width:'+v+'%"></i></span>'+l+' · %'+v+'</span>';
+}
+function humanFlag(){return '<span class="human-flag">'+ic("i-lock")+'İnsan onayı gerekir</span>'}
+function factors(f){
+ return '<div class="fac">'+f.map(function(x){
+  return '<div class="fac-r"><span class="n">'+esc(x[0])+'</span><span class="b"><i style="width:'+x[1]+'%"></i></span><span class="w num">%'+x[1]+'</span></div>'}).join("")+'</div>';
+}
+function aiOffNotice(){
+ return '<div class="partial">'+ic("i-alert")+'<div><b>AI bu oturumda devre dışı.</b> Üretken yüzeyler kapalı; tahminler, kayıtlı raporlar, KPI değerleri ve denetim kaydı çalışmaya devam ediyor. Platformun geri kalanı etkilenmez.</div></div>';
+}
+
+/* ---------- 5. PANELS ---------- */
+var P={};
+
+P.panel=function(){
+ return '<div class="sec"><div class="grid">'+AIKPI.map(function(k){
+   return '<div class="c4"><div class="card"><div class="lbl" style="font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)">'+esc(k.l)+'</div>'+
+   '<div class="val num" style="font-size:28px;font-weight:800;margin-top:6px">'+esc(k.v)+'</div>'+
+   '<div class="row" style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">'+
+   '<span class="delta '+(k.g?"d-good":"d-bad")+'">'+ic(k.g?"i-tri-u":"i-tri-d")+esc(k.d)+'</span>'+
+   '<span class="tgt">'+esc(k.t)+'</span></div></div></div>'}).join("")+'</div></div>'+
+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c8">'+secH("Yapay Zeka Destekli Yönetim","Version 22 kart yerleşimi korunmuş, 24 alt modüle genişletilmiştir")+
+   '<div class="aigrid">'+SUB.map(function(s){
+    return '<button class="aicard" data-sub="'+s.k+'" style="border-color:rgba(255,255,255,.1)" data-accent="'+s.c+'">'+
+     (s.v22?'<span class="v22">V22 · '+s.v22+'</span>':'')+
+     '<span class="ico" style="background:'+s.c+'33;color:'+s.c+'">'+ic(s.ic)+'</span>'+
+     '<h3>'+esc(s.n)+'</h3><p>'+esc(s.d)+'</p></button>'}).join("")+'</div></div>'+
+  '<div class="c4">'+secH("BN AI")+
+   '<div class="holo"><div class="core">'+
+    '<div class="ring" style="width:74%;height:74%"></div><div class="ring" style="width:52%;height:52%;animation-delay:.6s"></div>'+
+    '<div class="ring" style="width:30%;height:30%;animation-delay:1.2s"></div>'+
+    '<div style="position:relative;z-index:2;text-align:center">'+ic("i-bot","width:44px;height:44px;color:#7DD3FC")+
+    '<div style="font-size:12px;font-weight:700;color:#E2E8F0;margin-top:8px">BN AI</div></div>'+
+   '</div></div><div class="holo-cap">Yapay zeka destekli site yönetimi</div>'+
+   '<div class="card" style="margin-top:16px">'+secH("Son AI Etkinliği")+
+    '<div class="tl">'+AUDIT.slice(0,5).map(function(a){
+     return '<div class="tl-i '+(a.k||"")+'"><b>'+esc(a.s+" · "+a.act)+'</b><small>'+esc(a.d)+' · '+esc(a.t)+'</small></div>'}).join("")+'</div>'+
+   '</div>'+
+  '</div></div></div>';
+};
+
+P.copilot=function(){
+ if(!S.aiOn)return aiOffNotice()+deterministicStill();
+ var sugg=["Yıldız Sitesi'nde bu ay kaç acil iş emri açıldı ve kaçı SLA'yı aştı?",
+           "Tahsilatı hedefin altında olan siteleri listele",
+           "B Blok asansör bakımı için yarınki kesinti duyurusunu yaz"];
+ return '<div class="grid"><div class="c8">'+
+  secH("BN Copilot","Doğal dil sorusu, canlı sonuç kümesi",
+   '<button class="btn btn-g btn-sm" id="clearConv">'+ic("i-x")+'Sohbeti temizle</button>')+
+  '<div class="card">'+
+   '<div class="conv" id="conv" role="log" aria-live="polite" aria-label="Copilot konuşması" aria-busy="'+S.streaming+'">'+
+    (S.conv.length?S.conv.map(msgHtml).join(""):
+     '<div class="state">'+ic("i-bot")+'<b>Bir soru sorun</b><small>Copilot yalnızca yetkiniz dahilindeki kayıtları tarar ve her yanıtın kaynağını gösterir.</small></div>')+
+   '</div>'+
+   '<div class="composer">'+
+    '<label class="sr" for="ask">Copilot sorusu</label>'+
+    '<textarea id="ask" placeholder="Örn: Deniz Sitesi\'nde 90 günden uzun süredir ödenmemiş daireler…" rows="2"></textarea>'+
+    '<div class="comp-row">'+
+     '<div class="modeseg" role="group" aria-label="Yanıt modu">'+
+      [["soru","Soru"],["taslak","Taslak"],["analiz","Analiz"],["rapor","Rapor"]].map(function(m){
+       return '<button data-mode="'+m[0]+'" class="'+(S.mode===m[0]?"on":"")+'" aria-pressed="'+(S.mode===m[0])+'">'+m[1]+'</button>'}).join("")+
+     '</div>'+
+     '<span class="hintx" style="margin:0">'+ic("i-map")+'Kapsam: '+esc(scopeName())+'</span>'+
+     '<span class="sp"></span>'+
+     (S.streaming?'<button class="btn btn-d btn-sm" id="stopGen">'+ic("i-stop")+'Durdur</button>':
+      '<button class="btn btn-p btn-sm" id="sendAsk">'+ic("i-send")+'Gönder <kbd aria-hidden="true" style="opacity:.7;font-size:10px">Ctrl↵</kbd></button>')+
+    '</div></div>'+
+   '<div class="followups" style="margin-top:12px">'+sugg.map(function(q,i){
+     return '<button class="fu" data-sugg="'+i+'">'+esc(q)+'</button>'}).join("")+'</div>'+
+  '</div></div>'+
+  '<div class="c4">'+secH("Görev Asistanı","Serbest metinden iş emri taslağı")+
+   '<div class="card">'+
+    '<label class="fl" for="taskIn">Ne oldu?</label>'+
+    '<textarea class="inp" id="taskIn" rows="3" placeholder="B Blok bodrumda su birikintisi var, hidrofor odasının önü…"></textarea>'+
+    '<button class="btn btn-p btn-sm" id="draftTask" style="margin-top:10px">'+ic("i-task")+'Taslak oluştur</button>'+
+    '<div id="taskOut"></div>'+
+    '<div class="hintx" style="margin-top:12px">'+ic("i-lock")+'Taslak, İş Emirleri modülünün API\'si üzerinden ve sizin yetkinizle kaydedilir.</div>'+
+   '</div>'+
+   '<div class="card" style="margin-top:16px">'+secH("Komut Kütüphanesi","En çok kullanılanlar")+
+    '<div class="list">'+PROMPTS.slice(0,4).map(function(p){
+     return '<div class="li"><span class="dot"></span><div class="tx"><b>'+esc(p.n)+'</b><small>'+esc(p.c)+' · '+p.u+' kullanım</small></div>'+
+     '<button class="rowbtn" data-usep="'+esc(p.n)+'" aria-label="'+esc(p.n)+' kullan">'+ic("i-right")+'</button></div>'}).join("")+'</div>'+
+   '</div>'+
+  '</div></div>';
+};
+function deterministicStill(){
+ return '<div class="card">'+secH("Çalışmaya devam eden yüzeyler")+
+ '<div class="list">'+[["Kestirimci bakım tahminleri","İstatistiksel model · üretken model kullanılmaz"],
+  ["Kayıtlı ve zamanlanmış raporlar","Rapor modülü"],["KPI değerleri ve panolar","Dashboard"],
+  ["AI denetim kaydı","Değişmez kayıt"]].map(function(r){
+  return '<div class="li"><span class="dot" style="background:var(--success)"></span><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div></div>'}).join("")+'</div></div>';
+}
+function msgHtml(m,i){
+ if(m.role==="user")
+  return '<div class="msg me"><span class="av">SY</span><div class="chat-bubble bub">'+esc(m.text)+'</div></div>';
+ var body=esc(m.text).replace(/\n/g,"<br>")+(m.streaming?'<span class="caret"></span>':"");
+ var ex="";
+ if(!m.streaming&&m.table)ex='<div class="tw" style="margin-top:12px"><table class="t"><thead><tr>'+
+   m.table.h.map(function(h,j){return '<th'+(j?' class="n"':'')+'>'+esc(h)+'</th>'}).join("")+'</tr></thead><tbody>'+
+   m.table.r.map(function(r){return '<tr>'+r.map(function(c,j){return '<td'+(j?' class="n"':'')+'>'+esc(c)+'</td>'}).join("")+'</tr>'}).join("")+
+   '</tbody></table></div>';
+ var prov="";
+ if(!m.streaming)prov='<div class="prov">'+
+   '<span class="pi">'+ic("i-db")+esc(m.src)+'</span>'+
+   '<span class="pi">'+ic("i-cpu")+esc(m.model)+'</span>'+
+   '<span class="pi">'+ic("i-clock")+esc(m.lat)+'</span>'+
+   confChip(m.cf)+humanFlag()+
+   '<button class="ev" data-ev="'+i+'">'+ic("i-eye")+'Kanıt ('+m.ev.length+')</button>'+
+   '<span class="fb"><button data-fb="up-'+i+'" class="'+(m.fb==="up"?"on":"")+'" aria-label="Faydalı">'+ic("i-thumbup")+'</button>'+
+   '<button data-fb="dn-'+i+'" class="dn '+(m.fb==="dn"?"on":"")+'" aria-label="Faydasız">'+ic("i-thumbdn")+'</button></span></div>';
+ var low=(!m.streaming&&m.cf<55)?'<div class="lowconf">'+ic("i-alert")+'<div><b>Düşük güven.</b> Bu yanıtı kaynak kayıtlardan doğrulayın; karar almadan önce kanıt listesini açın.</div></div>':"";
+ var fu=(!m.streaming&&m.fu)?'<div class="followups">'+m.fu.map(function(q){return '<button class="fu" data-ask="'+esc(q)+'">'+esc(q)+'</button>'}).join("")+'</div>':"";
+ return '<div class="msg ai"><span class="av">AI</span><div style="flex:1;min-width:0"><div class="chat-bubble bub" style="max-width:100%">'+body+ex+low+prov+'</div>'+fu+'</div></div>';
+}
+
+P.sohbet=function(){
+ if(!S.aiOn)return aiOffNotice();
+ return '<div class="grid"><div class="c8">'+
+  secH("AI Sohbet","Version 22 sohbet paneli korunmuş, kanıt ve geçmiş eklenmiştir")+
+  '<div class="card"><div class="conv" role="log" aria-live="polite" aria-label="AI sohbet">'+
+   S.chat.map(function(m){
+    if(m.role==="user")return '<div class="msg me"><span class="av">SY</span><div class="chat-bubble bub">'+esc(m.text)+'</div></div>';
+    return '<div class="msg ai"><span class="av">AI</span><div class="chat-bubble bub">'+esc(m.text)+
+     (m.plain?"":'<div class="prov">'+humanFlag()+'</div>')+'</div></div>'}).join("")+
+  '</div>'+
+  '<div class="composer"><label class="sr" for="chatIn">Mesaj</label>'+
+   '<textarea id="chatIn" rows="2" placeholder="Mesajınızı yazın…"></textarea>'+
+   '<div class="comp-row"><span class="sp"></span><button class="btn btn-p btn-sm" id="chatSend">'+ic("i-send")+'Gönder</button></div>'+
+  '</div></div></div>'+
+  '<div class="c4">'+secH("Kayıtlı Konuşmalar")+
+   '<div class="card"><div class="list">'+
+    [["Temmuz tahsilat analizi","2 gün önce"],["Asansör bakım planı","5 gün önce"],["Genel kurul gündemi","1 hafta önce"]]
+    .map(function(r){return '<div class="li"><span class="dot"></span><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div></div>'}).join("")+
+   '</div><div class="hintx" style="margin-top:12px">'+ic("i-info")+'Oturum belleği oturum sonunda silinir. Kaydedilen konuşmalar görünür ve tek tıkla kaldırılabilir.</div></div>'+
+  '</div></div>';
+};
+
+P.brifing=function(){
+ if(!S.aiOn)return aiOffNotice()+deterministicStill();
+ return '<div class="grid"><div class="c8">'+
+  secH("Günlük Brifing","25 Temmuz 2026 · 06:00 · Site Yöneticisi için uyarlandı",
+   '<span style="display:flex;gap:8px"><button class="btn btn-s btn-sm" id="regen">'+ic("i-ref")+'Yeniden üret</button>'+
+   '<button class="btn btn-s btn-sm" data-export="brifing">'+ic("i-dl")+'PDF</button></span>')+
+  '<div class="card">'+
+   '<h3 style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#38BDF8;margin-bottom:8px">Dün akşamdan bu yana</h3>'+
+   '<p style="font-size:13.5px;color:var(--muted);margin-bottom:16px">Portföyde üç kritik olay kaydedildi; ikisi kapatıldı. Güneş Sitesi B Blok su kaçağı halen açık ve iş emri atanmış durumda. Altı sitede toplam 14 iş emri açıldı, 11\'i kapatıldı. Tahsilatta 42 ödeme mutabakatı otomatik eşleşti.</p>'+
+   '<h3 style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#38BDF8;margin-bottom:8px">Bugün dikkat gerektirenler</h3>'+
+   '<p style="font-size:13.5px;color:var(--muted);margin-bottom:16px">Yıldız Sitesi asansör periyodik kontrol süresi 6 gün içinde doluyor — yasal zorunluluk. Park Sitesi jeneratör iş emri SLA sınırına 2 saat uzaklıkta. Temizlik ekibinde iki personel eksiği var ve otopark programı %78 seviyesinde.</p>'+
+   '<h3 style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#38BDF8;margin-bottom:8px">Eğilim</h3>'+
+   '<p style="font-size:13.5px;color:var(--muted)">SLA uyumu son altı haftada 95\'ten 91\'e geriledi. Düşüş, teknik ekipteki iş dağılımı dengesizliğiyle zamansal olarak örtüşüyor; bu bir korelasyondur, nedensellik kanıtı değildir.</p>'+
+   '<div class="prov"><span class="pi">'+ic("i-db")+'1.284 kayıt · 6 site</span><span class="pi">'+ic("i-cpu")+'Güçlü model</span>'+
+    confChip(86)+humanFlag()+'<button class="ev" data-evb="1">'+ic("i-eye")+'Kanıt</button></div>'+
+  '</div></div>'+
+  '<div class="c4">'+secH("Toplantı Asistanı")+
+   '<div class="card">'+
+    '<div class="list">'+[["Genel kurul gündem taslağı","Hazır · 9 madde","p-dusuk"],
+     ["Yönetim kurulu tutanağı","Taslak · onay bekliyor","p-orta"],
+     ["Karar takibi","4 karar · 3 tamamlandı","p-dusuk"]].map(function(r){
+     return '<div class="li"><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div><span class="pri '+r[2]+'">'+(r[2]==="p-orta"?"Bekliyor":"Hazır")+'</span></div>'}).join("")+'</div>'+
+    '<button class="btn btn-s btn-sm" style="margin-top:12px" data-meet="1">'+ic("i-users")+'Tutanaktan karar çıkar</button>'+
+   '</div></div></div>';
+};
+
+P.oneri=function(){
+ var open=RECS.filter(function(r){return r.st==="new"});
+ return (S.aiOn?"":aiOffNotice())+
+  '<div class="sec">'+secH("AI Önerileri","Etki × güven skoruna göre sıralı · Her öneri insan kararıyla sonuçlanır")+
+  (open.length?'<div class="grid">'+open.map(function(r){
+   return '<div class="c6"><div class="card ins" style="position:relative;padding-left:24px">'+
+    '<span style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;background:var(--grad)"></span>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center">'+
+     '<span class="pri p-orta">'+esc(r.c)+'</span>'+confChip(r.cf)+humanFlag()+'</div>'+
+    '<p style="font-size:13.5px;margin-bottom:8px">'+esc(r.p)+'</p>'+
+    '<div style="font-size:12.5px;color:var(--muted);margin-bottom:12px"><b style="color:var(--success)">'+esc(r.imp)+'</b></div>'+
+    (r.cf<55?'<div class="lowconf">'+ic("i-alert")+'<div>Düşük güven — kabul etmeden önce kanıt kayıtlarını inceleyin.</div></div>':'')+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+
+     '<button class="btn btn-p btn-sm" data-acc="'+r.id+'">'+ic("i-check")+esc(r.act)+'</button>'+
+     '<button class="btn btn-s btn-sm" data-dis="'+r.id+'">Reddet</button>'+
+     '<button class="btn btn-g btn-sm" data-evr="'+r.id+'">'+ic("i-eye")+'Kanıt ('+r.ev.length+')</button>'+
+    '</div></div></div>'}).join("")+'</div>'
+  :'<div class="card"><div class="state">'+ic("i-checkc")+'<b>Şu an öneri yok</b><small>Portföy normal seyrediyor. Yeni bir sapma tespit edildiğinde burada görünecek.</small></div></div>')+
+  '</div>'+
+  '<div class="sec">'+secH("AI İçgörüleri","Sormadığınız soruların cevapları")+
+   '<div class="grid">'+INSIGHTS.map(function(x){
+    return '<div class="c4"><div class="card"><span class="pri p-dusuk">'+esc(x.c)+'</span>'+
+    '<p style="font-size:13px;color:var(--muted);margin-top:10px">'+esc(x.p)+'</p>'+
+    (x.h?'<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Bu bir hipotezdir, nedensellik kanıtı değildir.</div>':'')+
+    '</div></div>'}).join("")+'</div></div>';
+};
+
+P.tahmin=function(){
+ return '<div class="sec">'+secH("Risk Isı Haritası","Site × boyut · 0–100 · Yüksek değer yüksek risk")+
+  '<div class="card"><div class="heat">'+
+   '<span></span>'+RISKDIM.map(function(d){return '<span class="hh">'+d+'</span>'}).join("")+
+   RISK.map(function(r){return '<span class="rl">'+esc(r.s)+'</span>'+r.v.map(function(v,i){
+    var c=v>=70?"h-cr":v>=50?"h-hi":v>=35?"h-md":"h-ok";
+    return '<button class="cell '+c+'" data-risk="'+esc(r.s)+'|'+i+'" aria-label="'+esc(r.s)+' '+RISKDIM[i]+' risk '+v+'">'+v+'</button>'}).join("")}).join("")+
+  '</div>'+
+  '<div class="hintx" style="margin-top:12px">'+ic("i-info")+'Skorlar istatistiksel modelden gelir; üretken model bir sayıyı açıklayabilir ama üretemez. Hücreye tıklayarak katkı ayrıştırmasını görün.</div>'+
+  '</div></div>'+
+
+  '<div class="sec">'+secH("Kestirimci Bakım","Arıza olasılığı ve önle/onar maliyet karşılaştırması")+
+   '<div class="grid">'+PREDS.map(function(p,i){
+    var c=p.p>=60?"p-acil":p.p>=35?"p-orta":"p-dusuk";
+    return '<div class="c6"><div class="card">'+
+     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">'+
+      '<b style="font-size:13.5px;flex:1">'+esc(p.s)+'</b><span class="pri '+c+'">%'+p.p+' · '+p.h+' gün</span></div>'+
+     factors(p.f)+
+     '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--muted)">'+
+      '<span>Önleyici: <b class="num" style="color:var(--success)">₺'+p.pv.toLocaleString("tr-TR")+'</b></span>'+
+      '<span>Acil müdahale: <b class="num" style="color:#FCA5A5">₺'+p.rv.toLocaleString("tr-TR")+'</b></span></div>'+
+     '<div style="display:flex;gap:8px;margin-top:12px">'+
+      '<button class="btn btn-p btn-sm" data-pred="'+i+'">'+ic("i-task")+'Bakım iş emri taslağı</button></div>'+
+    '</div></div>'}).join("")+'</div></div>'+
+
+  '<div class="sec"><div class="grid">'+
+   '<div class="c6">'+secH("Finansal Danışman","Tahsilat projeksiyonu")+
+    '<div class="card"><div class="list">'+
+     [["Ay sonu tahsilat projeksiyonu","%94,8","±1,4 puan"],["Hedef","%96","-1,2 puan"],
+      ["Riskli daire sayısı","218","%3,1 artış"],["Gecikmiş alacak (90+ gün)","₺313.000","yasal takip"]]
+     .map(function(r){return '<div class="li"><div class="tx"><b>'+r[0]+'</b><small>'+r[2]+'</small></div><span class="num" style="font-weight:700">'+r[1]+'</span></div>'}).join("")+
+    '</div>'+
+    '<div class="hintx" style="margin-top:10px">'+ic("i-lock")+'Daire bazlı borçlu kimliği için <b>finance.debtor.view</b> yetkisi gerekir.</div>'+
+    '<div class="hintx">'+ic("i-alert")+'Bu dönem henüz tamamlanmadı; kısmi dönem tam dönemle karşılaştırılmamalıdır.</div></div></div>'+
+   '<div class="c6">'+secH("Kök Neden Analizi","SLA uyumu neden düştü?")+
+    '<div class="card">'+
+     factors([["Teknik ekip iş dağılımı",44],["Sezonsal talep artışı",23],["Tedarikçi yanıt süresi",19],["Açıklanamayan",14]])+
+     '<div class="hintx" style="margin-top:12px">'+ic("i-alert")+'Katkı ayrıştırması korelasyona dayanır. Nedensellik iddiası hipotezdir ve insan yargısı gerektirir.</div>'+
+     '<button class="btn btn-s btn-sm" style="margin-top:10px" data-rca="1">'+ic("i-flask")+'Benzer geçmiş dönemleri göster</button>'+
+    '</div></div>'+
+  '</div></div>';
+};
+
+P.belge=function(){
+ return '<div class="grid">'+
+  '<div class="c6">'+secH("Belge Asistanı","Alan çıkarımı · her alan düzenlenebilir")+
+   '<div class="card" id="docCard">'+docBody()+'</div></div>'+
+  '<div class="c6">'+secH("Rapor Üretici","Doğal dilden rapor tanımı")+
+   '<div class="card">'+
+    '<label class="fl" for="repIn">Ne raporlansın?</label>'+
+    '<textarea class="inp" id="repIn" rows="3" placeholder="Son 6 ayda site bazında tahsilat oranı ve açık iş emri sayısı, grafikle"></textarea>'+
+    '<button class="btn btn-p btn-sm" id="genRep" style="margin-top:10px"'+(S.aiOn?"":" disabled")+'>'+ic("i-sheet")+'Rapor tanımı oluştur</button>'+
+    '<div id="repOut"></div>'+
+   '</div>'+
+   '<div style="margin-top:16px">'+secH("Bilgi Bankası","Belgeye dayalı, atıflı yanıt")+
+    '<div class="card">'+
+     '<label class="fl" for="kbIn">Soru</label>'+
+     '<div style="display:flex;gap:8px"><input class="inp" id="kbIn" placeholder="Örn: gecikme tazminatı oranı nedir?"><button class="btn btn-p btn-sm" id="kbGo">'+ic("i-search")+'Ara</button></div>'+
+     '<div id="kbOut"></div>'+
+     '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Belgelerle desteklenmeyen soruya yanıt üretilmez; sistem açıkça "yanıtlayamıyorum" der.</div>'+
+    '</div></div>'+
+  '</div></div>';
+};
+function docBody(){
+ if(S.docState==="idle")
+  return '<div class="state">'+ic("i-upload")+'<b>Belge yükleyin</b><small>Fatura, sözleşme, tutanak veya muayene raporu. PDF veya görüntü.</small>'+
+   '<button class="btn btn-p btn-sm" id="upDoc"'+(S.aiOn?"":" disabled")+'>'+ic("i-upload")+'Örnek fatura işle</button></div>';
+ if(S.docState==="processing")
+  return '<div class="state">'+ic("i-cpu")+'<b>İşleniyor…</b><small>Belge okunuyor → alanlar çıkarılıyor → kayıtla eşleştiriliyor</small>'+
+   '<div class="sk" style="height:8px;width:70%;margin-top:8px"></div></div>';
+ return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'+
+   '<b style="font-size:13.5px;flex:1">AST-2026-1184.pdf</b>'+confChip(89)+humanFlag()+'</div>'+
+  DOCFIELDS.map(function(f,i){
+   var c=f[2]>=90?"hi":f[2]>=75?"md":"lo";
+   return '<div class="xf"><span class="k">'+esc(f[0])+'</span>'+
+    '<span class="v"><label class="sr" for="xf'+i+'">'+esc(f[0])+'</label><input id="xf'+i+'" value="'+esc(f[1])+'"></span>'+
+    '<span class="conf '+c+'" title="Çıkarım güveni">%'+f[2]+'</span></div>'}).join("")+
+  '<div class="partial" style="margin-top:14px">'+ic("i-alert")+'<div>Tutar, iş emri #4821 için onaylanan ₺38.000 tavanının %9,7 üzerinde. Kabul, onay akışına yönlendirilecektir.</div></div>'+
+  '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+   '<button class="btn btn-p btn-sm" id="docAccept">'+ic("i-check")+'Düzeltmelerle kabul et</button>'+
+   '<button class="btn btn-s btn-sm" id="docReset">Vazgeç</button></div>';
+}
+
+P.otomasyon=function(){
+ return '<div class="sec">'+secH("İş Akışı Asistanı","Türkçe tarifden kural taslağı · 12 aylık simülasyon")+
+  '<div class="card">'+
+   '<label class="fl" for="ruleIn">Ne olmasını istiyorsunuz?</label>'+
+   '<textarea class="inp" id="ruleIn" rows="2" placeholder="Asansör kategorisindeki bir iş emri 48 saat açık kalırsa teknik şefe yükselt ve site yöneticisini bilgilendir"></textarea>'+
+   '<button class="btn btn-p btn-sm" id="draftRule" style="margin-top:10px"'+(S.aiOn?"":" disabled")+'>'+ic("i-branch")+'Kural taslağı oluştur</button>'+
+   '<div id="ruleOut"></div>'+
+  '</div></div>'+
+
+  '<div class="sec">'+secH("Otomasyon Merkezi","Ajan yetki seviyeleri ve durdurma kontrolleri")+
+   '<div class="killbar">'+ic("i-alert")+'<div class="sp"><b>Acil durdurma.</b> Tüm ajanları anında durdurur; çalışan işler iptal edilir ve denetim kaydına yazılır.</div>'+
+    '<button class="btn btn-d btn-sm" id="killAll">'+ic("i-stop")+'Tümünü durdur</button></div>'+
+   AGENTS.map(function(a){
+    return '<div class="agent">'+
+     '<span class="ai-ic" style="background:'+a.c+'33;color:'+a.c+'">'+ic(a.ic)+'</span>'+
+     '<div class="tx"><b>'+esc(a.n)+'</b><small>'+esc(a.d)+' · Son çalışma: '+esc(a.run)+' · Kabul oranı %'+a.acc+' · Harcama tavanı: '+esc(a.cap)+'</small></div>'+
+     '<span class="auth auth'+a.lvl+'">Yetki '+a.lvl+' · '+(a.lvl===1?"Yalnızca öner":"Taslak hazırla")+'</span>'+
+     '<button class="sw'+(a.on?" on":"")+'" data-agent="'+a.k+'" role="switch" aria-checked="'+a.on+'" aria-label="'+esc(a.n)+' etkin"></button>'+
+    '</div>'}).join("")+
+   '<div class="hintx">'+ic("i-lock")+'Yetki 3 (uygula ve bildir) ve Yetki 4 (sessizce uygula) veri modelinde tanımlıdır ancak Sprint 02\'de hiçbir yapılandırma yoluyla etkinleştirilemez. Bunlar Version 32 yönetişim kapsamındadır.</div>'+
+  '</div>'+
+
+  '<div class="sec">'+secH("Bildirim Zekası","Öğrenilen ilgiye göre sıralama")+
+   '<div class="card"><div class="list">'+
+    [["Kritik uyarılar","Muaf · her zaman anında","p-acil"],["Yasal son tarihler","Muaf · her zaman anında","p-acil"],
+     ["Finansal eşik aşımları","Muaf · her zaman anında","p-acil"],["Rutin iş emri güncellemeleri","Günlük özet","p-dusuk"],
+     ["Sistem bilgilendirmeleri","Haftalık özet","p-dusuk"]].map(function(r){
+     return '<div class="li"><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div><span class="pri '+r[2]+'">'+(r[2]==="p-acil"?"Muaf":"Öğrenilen")+'</span></div>'}).join("")+
+   '</div><div class="hintx" style="margin-top:10px">'+ic("i-shield")+'Muafiyetler kodda zorunlu kılınmıştır; öğrenme tabanlı sıralama bunları hiçbir koşulda bastıramaz.</div></div>'+
+  '</div>';
+};
+
+P.analitik=function(){
+ return '<div class="sec">'+secH("Operasyonel Sağlık Skoru","Ağırlıklar şeffaf · tek tıkla ayrıştırılır")+
+  '<div class="grid">'+RISK.slice(0,3).map(function(r){
+   var sc=Math.round(100-(r.v[0]*.35+r.v[1]*.3+r.v[2]*.2+r.v[3]*.15));
+   var c=sc>=75?"p-dusuk":sc>=55?"p-orta":"p-acil";
+   return '<div class="c4"><div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+    '<b style="flex:1;font-size:13.5px">'+esc(r.s)+'</b><span class="pri '+c+'">'+sc+' / 100</span></div>'+
+    factors([["Finansal (×0,35)",r.v[0]],["Operasyonel (×0,30)",r.v[1]],["Uyum (×0,20)",r.v[2]],["Memnuniyet (×0,15)",r.v[3]]])+
+   '</div></div>'}).join("")+'</div></div>'+
+
+  '<div class="sec"><div class="grid">'+
+   '<div class="c6">'+secH("Kalite ve Geri Bildirim","Son 30 gün")+
+    '<div class="card"><div class="tw"><table class="t"><thead><tr><th>Özellik</th><th class="n">Kabul</th><th class="n">Düzeltme</th><th class="n">Red</th><th class="n">Örneklem</th></tr></thead><tbody>'+
+    [["Copilot yanıtları","%74","%14","%12","842"],["Bakım tahminleri","%88","%6","%6","64"],
+     ["Belge çıkarımı","%81","%16","%3","118"],["Öneriler","%62","%9","%29","91"],
+     ["Rapor tanımları","%77","%18","%5","44"]].map(function(r){
+     return '<tr>'+r.map(function(c,i){return '<td'+(i?' class="n"':'')+'>'+c+'</td>'}).join("")+'</tr>'}).join("")+
+    '</tbody></table></div>'+
+    '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Öneriler en düşük kabul oranına sahip. En sık reddetme gerekçesi: "bilgi eksik / bağlam hatalı" (%41).</div></div></div>'+
+   '<div class="c6">'+secH("Maliyet ve Kullanım","Temmuz 2026")+
+    '<div class="card"><div class="list">'+
+     [["Toplam maliyet","₺1.240","Kota %62"],["Etkileşim başına","₺0,29","-%8 geçen aya göre"],
+      ["Hızlı model payı","%71","Sınıflama, çıkarım"],["Güçlü model payı","%12","Çok adımlı analiz"],
+      ["Önbellekten sunulan","%17","Maliyetsiz"],["Ay sonu projeksiyonu","₺1.780","Tavan ₺2.500"]]
+     .map(function(r){return '<div class="li"><div class="tx"><b>'+r[0]+'</b><small>'+r[2]+'</small></div><span class="num" style="font-weight:700">'+r[1]+'</span></div>'}).join("")+
+    '</div></div></div>'+
+  '</div></div>';
+};
+
+P.ayarlar=function(){
+ var pol=[["Copilot","ai.copilot.use",true],["Günlük Brifing","ai.briefing.view",true],
+ ["Öneriler","ai.recommendation.view",true],["Kestirimci Bakım","ai.maintenance.view",true],
+ ["Belge Asistanı","ai.document.use",true],["Rapor Üretici","ai.report.generate",true],
+ ["Bilgi Bankası","ai.kb.use",true],["İş Akışı Asistanı","ai.workflow.assist",false]];
+ return '<div class="sec"><div class="grid">'+
+  '<div class="c6">'+secH("AI Ayarları","Kiracı düzeyi yönetişim")+
+   '<div class="card"><div class="list">'+pol.map(function(p,i){
+    return '<div class="li"><div class="tx"><b>'+p[0]+'</b><small>'+p[1]+'</small></div>'+
+     '<button class="sw'+(p[2]?" on":"")+'" data-pol="'+i+'" role="switch" aria-checked="'+p[2]+'" aria-label="'+esc(p[0])+' etkin"></button></div>'}).join("")+'</div>'+
+   '</div>'+
+   '<div class="card" style="margin-top:16px">'+secH("Veri Sınırları","Erişilemeyen kaynaklar kodla kısıtlıdır")+
+    '<div class="list">'+[["Personel özel nitelikli verisi","Hiçbir yetki düzeyinde erişilemez"],
+     ["Kamera ve geçiş hareket verisi","AI erişimine kapalı"],["Kapsam dışı sakin verisi","Erişilemez"],
+     ["Diğer kiracıların verisi","Mimari olarak izole"]].map(function(r){
+     return '<div class="li"><span class="dot" style="background:var(--crit)"></span><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div>'+ic("i-lock","width:15px;height:15px;color:#FCA5A5")+'</div>'}).join("")+'</div>'+
+    '<div class="hintx" style="margin-top:10px">'+ic("i-shield")+'Sınırlar getirim katmanında uygulanır. Bir komut isteği değil, bir getirim filtresi kontroldür.</div></div>'+
+   '<div class="card" style="margin-top:16px">'+secH("Kota, Saklama ve Eğitim")+
+    '<div class="list">'+[["Aylık kota","%62 kullanıldı · tavan ₺2.500"],["Konuşma saklama","90 gün"],
+     ["Denetim kaydı saklama","10 yıl · değiştirilemez"],["Model eğitiminde kullanım","Kapalı · sözleşmeyle garanti"]]
+     .map(function(r){return '<div class="li"><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div></div>'}).join("")+'</div></div>'+
+  '</div>'+
+  '<div class="c6">'+secH("AI Denetim Kaydı","Değiştirilemez · dışa aktarılabilir",
+    '<button class="btn btn-s btn-sm" data-export="denetim">'+ic("i-dl")+'Dışa aktar</button>')+
+   '<div class="card"><div class="tw"><table class="t"><thead><tr><th>Saat</th><th>Aktör</th><th>Yüzey</th><th>İşlem</th><th>Karar</th></tr></thead><tbody>'+
+    AUDIT.map(function(a,i){return '<tr tabindex="0" data-aud="'+i+'"><td class="num">'+a.t+'</td><td>'+esc(a.a)+'</td><td>'+esc(a.s)+'</td><td>'+esc(a.act)+'</td><td>'+esc(a.dec)+'</td></tr>'}).join("")+
+   '</tbody></table></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-lock")+'Kayıtlar düzeltilemez; düzeltme yeni kayıt olarak eklenir. Komut metinleri kişisel veri maskelenerek saklanır.</div></div>'+
+   '<div style="margin-top:16px">'+secH("Komut Kütüphanesi","Sürümlenmiş ve yetkilendirilmiş")+
+    '<div class="card"><div class="list">'+PROMPTS.map(function(p){
+     return '<div class="li"><div class="tx"><b>'+esc(p.n)+'</b><small>'+esc(p.c)+'</small></div><span class="num" style="font-weight:700">'+p.u+'</span></div>'}).join("")+'</div></div>'+
+   '</div>'+
+  '</div></div></div>';
+};
+
+/* ---------- 6. RENDER ---------- */
+function renderNav(){
+ $("#snav").innerHTML=NAV.map(function(n){
+  return '<button class="nav-item'+(n.k==="ai"?" active":"")+'" data-nav="'+n.k+'"'+(n.k==="ai"?' aria-current="page"':'')+'>'+ic(n.ic)+'<span>'+esc(n.n)+'</span></button>'}).join("");
+}
+function renderGov(){
+ $("#govBar").innerHTML=
+  '<button class="chip" id="scopeBtn" aria-label="Kapsam seç, mevcut: '+esc(scopeName())+'">'+ic("i-map","width:13px;height:13px;vertical-align:-2px")+' Kapsam: '+esc(scopeName())+'</button>'+
+  '<span class="g-i">'+ic("i-lock")+'Tüm çıktılar <b>insan onayı</b> gerektirir</span>'+
+  '<span class="g-i">'+ic("i-db")+'Yalnızca <b>yetkiniz dahilindeki</b> kayıtlar taranır</span>'+
+  '<span class="g-i">'+ic("i-cpu")+'Ajan yetkisi: <b>en fazla 2 (taslak)</b></span>'+
+  '<span class="sp"></span>'+
+  '<button class="btn '+(S.aiOn?"btn-s":"btn-d")+' btn-sm" id="aiToggle">'+
+   ic(S.aiOn?"i-stop":"i-ref")+(S.aiOn?"AI'yı bu oturumda kapat":"AI'yı yeniden aç")+'</button>';
+}
+function renderTabs(){
+ $("#tabs").innerHTML=TABS.map(function(t){
+  var on=S.tab===t.k;
+  return '<button class="tab" role="tab" id="tab-'+t.k+'" data-tab="'+t.k+'" aria-selected="'+on+'" aria-controls="panel" tabindex="'+(on?0:-1)+'">'+
+   ic(t.ic)+esc(t.n)+(t.cnt?'<span class="cnt num">'+t.cnt()+'</span>':'')+'</button>'}).join("");
+}
+function renderPanel(){
+ var p=$("#panel");p.setAttribute("aria-labelledby","tab-"+S.tab);
+ p.innerHTML=(P[S.tab]||function(){return ""})();
+ var c=$("#conv");if(c)c.scrollTop=c.scrollHeight;
+}
+function renderAll(){renderGov();renderTabs();renderPanel()}
+
+/* ---------- 7. COPILOT STREAMING ---------- */
+var ANSWERS={
+ sla:{text:"Yıldız Sitesi'nde 1–25 Temmuz arasında 9 acil iş emri açıldı. Bunlardan 2'si SLA hedefini aştı; her ikisi de asansör kategorisinde ve aynı tedarikçiye atanmış durumda.\nOrtalama kapanış süresi 18 saat, hedef 24 saat.",
+  src:"42 kayıt · 1 site",model:"Orta model",lat:"1,8 sn",cf:88,
+  table:{h:["İş Emri","Kategori","Süre","SLA"],r:[["#4802","Asansör","61 sa","Aşıldı"],["#4771","Asansör","54 sa","Aşıldı"],["#4819","Tesisat","14 sa","Uygun"],["#4823","Elektrik","9 sa","Uygun"]]},
+  ev:[["İş emri #4802","İş Emirleri","08.07.2026"],["İş emri #4771","İş Emirleri","03.07.2026"],["SLA tanımı · Asansör","KPI Merkezi","—"]],
+  fu:["Bu iki iş emrini kime yeniden atayabilirim?","Tedarikçi performansını göster"]},
+ tahsilat:{text:"Hedefin altında kalan üç site var: Deniz (%86), Tepe (%89) ve Güneş (%92). Portföy hedefi %96.\nDeniz ve Tepe'de hatırlatma kademesi 14 Nisan'dan beri pasif durumda; bu iki site toplam sapmanın %78'ini oluşturuyor.",
+  src:"1.284 kayıt · 6 site",model:"Güçlü model",lat:"3,1 sn",cf:84,
+  table:{h:["Site","Tahsilat","Hedef","Fark"],r:[["Deniz Sitesi","%86","%96","-10"],["Tepe Sitesi","%89","%96","-7"],["Güneş Sitesi","%92","%96","-4"]]},
+  ev:[["Temmuz tahakkuk dönemi","Finans","01.07.2026"],["Hatırlatma kuralı #12","İş Akışı","14.04.2026"]],
+  fu:["Hatırlatma kademesini yeniden etkinleştir","Deniz Sitesi için detay"]},
+ duyuru:{text:"Sayın Kat Malikleri ve Sakinlerimiz,\n\nB Blok asansöründe yapılacak periyodik bakım nedeniyle 26 Temmuz 2026 Pazar günü 09.00–12.00 saatleri arasında asansör hizmeti verilemeyecektir.\n\nSöz konusu çalışma, Asansör İşletme ve Bakım Yönetmeliği kapsamındaki zorunlu periyodik kontrolün bir parçasıdır. Anlayışınız için teşekkür eder, oluşabilecek rahatsızlıktan dolayı özür dileriz.\n\nSite Yönetimi",
+  src:"3 kayıt · şablon: bakım kesintisi",model:"Orta model",lat:"2,2 sn",cf:79,
+  ev:[["Bakım programı · B Blok","Takvim","26.07.2026"],["Duyuru şablonu #7","Komut Kütüphanesi","v3"]],
+  fu:["Metni daha kısa yaz","WhatsApp için uyarla"]},
+ fallback:{text:"Bu soruyu mevcut kayıtlarla yeterli güvenle yanıtlayamıyorum. Taradığım kaynaklar: iş emirleri, tahsilat kayıtları, bakım geçmişi ve yönetim planı belgeleri.\nSoruyu daraltmayı deneyin: hangi site, hangi dönem?",
+  src:"0 uygun kayıt",model:"Hızlı model",lat:"0,9 sn",cf:32,
+  ev:[["Arama kapsamı raporu","AI Denetim","25.07.2026"]],
+  fu:["Yıldız Sitesi için dene","Son 30 günü kapsa"]}
+};
+function pickAnswer(q){
+ var s=q.toLocaleLowerCase("tr");
+ if(/sla|acil|iş emri|isemri/.test(s))return ANSWERS.sla;
+ if(/tahsilat|aidat|ödeme|borç|hedef/.test(s))return ANSWERS.tahsilat;
+ if(/duyur|kesinti|bakım.*yaz|metin|taslak/.test(s))return ANSWERS.duyuru;
+ return ANSWERS.fallback;
+}
+function ask(q){
+ if(!S.aiOn){toast("err","AI kapalı","Bu oturumda AI devre dışı bırakıldı. Yönetişim çubuğundan yeniden açabilirsiniz.");return}
+ if(S.streaming)return;
+ q=(q||"").trim();
+ if(q.length<3){toast("err","Soru çok kısa","En az 3 karakter girin; belirsiz sorular yanıt kalitesini düşürür.");return}
+ if(q.length>4000){toast("err","Soru çok uzun","En fazla 4.000 karakter. Soruyu daraltın.");return}
+ S.conv.push({role:"user",text:q});
+ var a=pickAnswer(q);
+ var m={role:"ai",text:"",streaming:true,src:a.src,model:a.model,lat:a.lat,cf:a.cf,ev:a.ev,table:a.table,fu:a.fu};
+ S.conv.push(m);S.streaming=true;S.stopFlag=false;renderPanel();
+ say("Yanıt oluşturuluyor");
+ var i=0,full=a.text;
+ var timer=setInterval(function(){
+  if(S.stopFlag){clearInterval(timer);m.streaming=false;m.text+=" […durduruldu]";S.streaming=false;renderPanel();
+   toast("inf","Üretim durduruldu","Kısmi yanıt korundu.");return}
+  i+=Math.max(2,Math.round(full.length/60));
+  m.text=full.slice(0,i);
+  if(i>=full.length){clearInterval(timer);m.streaming=false;S.streaming=false;
+   renderPanel();say("Yanıt tamamlandı. Güven "+a.cf+" yüzde.");
+   if(a.cf<55)say("Düşük güven uyarısı: yanıtı kaynak kayıtlardan doğrulayın.",true);
+   return}
+  var c=$("#conv");if(c){c.innerHTML=S.conv.map(msgHtml).join("");c.scrollTop=c.scrollHeight}
+ },55);
+}
+
+function heatTableHtml(){
+ return '<div class="tw" style="margin-top:12px"><table class="t"><caption class="sr">Site bazında risk skorları, 0 ile 100 arası</caption>'+
+  '<thead><tr><th>Site</th>'+RISKDIM.map(function(d){return '<th class="n">'+d+'</th>'}).join("")+'</tr></thead><tbody>'+
+  RISK.map(function(r){return '<tr><td>'+esc(r.s)+'</td>'+r.v.map(function(v){
+   return '<td class="n">'+v+' · '+(v>=70?"Kritik":v>=50?"Yüksek":v>=35?"Orta":"Normal")+'</td>'}).join("")+'</tr>'}).join("")+
+  '</tbody></table></div>';
+}
+
+/* ---------- 8. DIALOGS ---------- */
+function evidenceDlg(rows,title){
+ openDlg(dlgShell(title||"Kanıt kayıtları",
+  '<div class="tw"><table class="t"><thead><tr><th>Kayıt</th><th>Modül</th><th>Tarih</th></tr></thead><tbody>'+
+  rows.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td></tr>'}).join("")+
+  '</tbody></table></div>'+
+  '<div class="hintx" style="margin-top:12px">'+ic("i-lock")+'Yalnızca yetkiniz dahilindeki kayıtlar listelenir. Bu görüntüleme denetim kaydına yazılmıştır.</div>',
+  '<button class="btn btn-s" data-close>Kapat</button>'));
+}
+function acceptDlg(r){
+ openDlg(dlgShell("Öneriyi kabul et",
+  '<div class="partial">'+ic("i-info")+'<div>Bu işlem <b>'+esc(r.tgt)+'</b> modülünün API\'si üzerinden, <b>sizin yetkinizle</b> yürütülecek ve o modülün doğrulama ile denetim kurallarına tabi olacaktır.</div></div>'+
+  '<div class="fg"><label class="fl">Öneri</label><div style="font-size:13px;color:var(--muted)">'+esc(r.p)+'</div></div>'+
+  '<div class="fg"><label class="fl">Yapılacak işlem</label><div style="font-size:13px;color:var(--muted)"><b>'+esc(r.act)+'</b></div></div>'+
+  '<div class="fg"><label class="fl">Sorumlu</label><div style="font-size:13px;color:var(--muted)">S. Yılmaz (Site Yöneticisi) · Karar kaydı sizin adınıza yazılır</div></div>'+
+  '<div class="fg"><label class="fl" for="accNote">Not (isteğe bağlı)</label><textarea class="inp" id="accNote" rows="2"></textarea></div>',
+  '<button class="btn btn-s" data-close>Vazgeç</button><button class="btn btn-p" id="accOk">'+ic("i-check")+'Onayla ve oluştur</button>'),
+ function(d){
+  var b=d.querySelector("#accOk");
+  b.onclick=function(){
+   b.disabled=true;b.textContent="Oluşturuluyor…";
+   setTimeout(function(){
+    r.st="accepted";closeDlg();renderAll();
+    toast("ok","Kayıt oluşturuldu",r.tgt+" · #"+(4830+Math.floor(Math.random()*40))+" · sorumlu: S. Yılmaz",
+     function(){r.st="new";renderAll();toast("inf","Geri alındı","Oluşturulan kayıt iptal edildi.")},true);
+   },420);
+  };
+ });
+}
+function dismissDlg(r){
+ var reasons=["Bilgi eksik / bağlam hatalı","Zaten ele alındı","Öncelik değil","Öneri yanlış","Yetki dışı"];
+ openDlg(dlgShell("Öneriyi reddet",
+  '<div class="fg"><label class="fl">Öneri</label><div style="font-size:13px;color:var(--muted)">'+esc(r.p)+'</div></div>'+
+  '<div class="fg"><label class="fl" for="disR">Gerekçe <span class="req">*</span></label>'+
+  '<select class="inp" id="disR"><option value="">Seçiniz…</option>'+reasons.map(function(x){return '<option>'+x+'</option>'}).join("")+'</select>'+
+  '<div class="hintx">'+ic("i-info")+'Gerekçe zorunludur ve modelin kalitesini ölçmek için kullanılır.</div>'+
+  '<div class="err" id="disE" hidden>'+ic("i-alert")+'<span></span></div></div>'+
+  '<div class="fg"><label class="fl" for="disC">Açıklama (isteğe bağlı)</label><textarea class="inp" id="disC" rows="2"></textarea></div>',
+  '<button class="btn btn-s" data-close>Vazgeç</button><button class="btn btn-d" id="disOk">Reddet</button>','narrow'),
+ function(d){
+  d.querySelector("#disOk").onclick=function(){
+   var sel=d.querySelector("#disR"),e=d.querySelector("#disE");
+   if(!sel.value){sel.setAttribute("aria-invalid","true");e.hidden=false;e.querySelector("span").textContent="Reddetme gerekçesi zorunludur.";sel.focus();return}
+   r.st="dismissed";closeDlg();renderAll();
+   toast("inf","Öneri reddedildi","Gerekçe kalite ölçümüne kaydedildi.",function(){r.st="new";renderAll()});
+  };
+ });
+}
+function riskDlg(key){
+ var p=key.split("|"),site=p[0],dim=+p[1];
+ var row=RISK.filter(function(r){return r.s===site})[0];
+ openDlg(dlgShell(site+" · "+RISKDIM[dim]+" riski",
+  '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="num" style="font-size:34px;font-weight:800">'+row.v[dim]+'</div>'+
+  '<div style="font-size:12.5px;color:var(--muted)">100 üzerinden risk skoru<br>Portföy medyanı: 41</div></div>'+
+  factors([["Geçmiş eğilim",Math.round(row.v[dim]*.4)],["Portföy karşılaştırması",Math.round(row.v[dim]*.3)],
+           ["Mevcut açık kalemler",Math.round(row.v[dim]*.2)],["Mevsimsellik",Math.round(row.v[dim]*.1)]])+
+  '<div class="hintx" style="margin-top:14px">'+ic("i-info")+'Skor istatistiksel modelden gelir. Ağırlıklar KPI Merkezi\'nde tanımlıdır ve değiştirilebilir.</div>',
+  '<button class="btn btn-s" data-close>Kapat</button><button class="btn btn-p" data-close>'+ic("i-right")+'Kaynak kayıtlara git</button>'));
+}
+function auditDlg(i){
+ var a=AUDIT[i];
+ openDlg(dlgShell("Denetim kaydı · "+a.cid,
+  '<div class="list">'+[["Saat",a.t],["Aktör",a.a],["Yüzey",a.s],["İşlem",a.act],["Ayrıntı",a.d],
+   ["Okunan kayıt",a.r],["Model katmanı",a.m],["İnsan kararı",a.dec],["Korelasyon kimliği",a.cid]]
+   .map(function(r){return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span style="color:var(--muted)">'+esc(r[1])+'</span></div>'}).join("")+'</div>'+
+  '<div class="hintx" style="margin-top:12px">'+ic("i-lock")+'Bu kayıt değiştirilemez. Komut metni kişisel veri maskelenerek saklanır.</div>',
+  '<button class="btn btn-s" data-close>Kapat</button>'));
+}
+function scopeDlg(){
+ openDlg(dlgShell("Kapsam seçimi",
+  '<div class="list">'+SITES.map(function(s){
+   return '<div class="li" data-sc="'+s.id+'" tabindex="0" role="button"><div class="tx"><b>'+esc(s.n)+'</b>'+
+    '<small>'+(s.id==="all"?"6 site · yetkiniz dahilindeki tüm portföy":"Tek site")+'</small></div>'+
+    (S.scope===s.id?'<span class="pri p-dusuk">Seçili</span>':'')+'</div>'}).join("")+'</div>'+
+  '<div class="hintx" style="margin-top:12px">'+ic("i-lock")+'Kapsam tüm AI yüzeylerine uygulanır. Yetkiniz dışındaki bir kapsam sunucu tarafından reddedilir, sessizce daraltılmaz.</div>',
+  '<button class="btn btn-s" data-close>Kapat</button>','narrow'),
+ function(d){
+  d.querySelector(".list").onclick=function(e){
+   var li=e.target.closest("[data-sc]");if(!li)return;
+   S.scope=li.getAttribute("data-sc");closeDlg();renderAll();
+   toast("inf","Kapsam değişti",scopeName()+" · açık konuşma bağlamı yeni kapsamla devam eder");
+  };
+  d.querySelector(".list").onkeydown=function(e){
+   if(e.key!=="Enter")return;var li=e.target.closest("[data-sc]");if(!li)return;e.preventDefault();li.click();
+  };
+ });
+}
+function palette(){
+ var items=[{g:"Bölümler",l:TABS.map(function(t){return {n:t.n,ic:t.ic,a:function(){go(t.k)}}})},
+ {g:"AI işlemleri",l:[{n:"Günlük brifingi yeniden üret",ic:"i-ref",a:function(){go("brifing")}},
+  {n:"Yeni Copilot sorusu",ic:"i-bot",a:function(){go("copilot")}},
+  {n:"Belge işle",ic:"i-upload",a:function(){go("belge")}},
+  {n:"AI'yı bu oturumda kapat",ic:"i-stop",a:toggleAI}]},
+ {g:"Alt modüller",l:SUB.map(function(s){return {n:s.n,ic:s.ic,a:function(){go(s.tab)}}})}];
+ openDlg('<div class="dlg" aria-labelledby="palT"><h2 id="palT" class="sr">Komut paleti</h2>'+
+  '<input class="inp" id="palIn" placeholder="Bölüm, alt modül veya komut ara…" aria-label="Ara" autocomplete="off" style="border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 16px;font-size:15px">'+
+  '<div class="dlg-b" style="padding:0" id="palOut"></div></div>',
+ function(d){
+  var inp=d.querySelector("#palIn"),out=d.querySelector("#palOut"),flat=[];
+  function draw(q){
+   flat=[];var h="";
+   items.forEach(function(g){
+    var l=g.l.filter(function(i){return !q||i.n.toLocaleLowerCase("tr").indexOf(q.toLocaleLowerCase("tr"))>-1});
+    if(!l.length)return;
+    h+='<div style="padding:8px 0"><h4 style="font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);padding:6px 20px">'+g.g+'</h4>'+
+     l.map(function(i){var idx=flat.length;flat.push(i);
+      return '<button class="pal-i" data-pi="'+idx+'" style="display:flex;align-items:center;gap:10px;padding:9px 20px;width:100%;text-align:left;border:0;background:none;color:var(--muted);font-size:13.5px;cursor:pointer">'+
+      ic(i.ic,"width:15px;height:15px;color:#38BDF8")+esc(i.n)+'</button>'}).join("")+'</div>';
+   });
+   out.innerHTML=h||'<div class="state">'+ic("i-search")+'<b>Sonuç yok</b><small>Farklı bir terim deneyin.</small></div>';
+   var f=out.querySelector(".pal-i");if(f)f.style.background="rgba(14,116,144,.15)";
+  }
+  draw("");
+  inp.oninput=function(){draw(inp.value)};
+  inp.onkeydown=function(e){
+   var all=$$(".pal-i",out);
+   var cur=all.filter(function(x){return x.style.background})[0],i=all.indexOf(cur);
+   function set(n){if(cur)cur.style.background="";n.style.background="rgba(14,116,144,.15)";n.scrollIntoView({block:"nearest"})}
+   if(e.key==="ArrowDown"&&all.length){e.preventDefault();set(all[i+1]||all[0])}
+   if(e.key==="ArrowUp"&&all.length){e.preventDefault();set(all[i-1]||all[all.length-1])}
+   if(e.key==="Enter"&&cur){e.preventDefault();var k=+cur.getAttribute("data-pi");closeDlg();flat[k].a()}
+  };
+  out.onclick=function(e){var b=e.target.closest("[data-pi]");if(!b)return;var k=+b.getAttribute("data-pi");closeDlg();flat[k].a()};
+ });
+}
+
+/* ---------- 9. ACTIONS ---------- */
+function go(t){S.tab=t;renderTabs();renderPanel();var el=$("#tab-"+t);if(el)el.focus();
+ say(TABS.filter(function(x){return x.k===t})[0].n+" bölümü açıldı")}
+function toggleAI(){
+ S.aiOn=!S.aiOn;document.body.setAttribute("data-ai",S.aiOn?"on":"off");
+ renderAll();
+ toast(S.aiOn?"ok":"inf",S.aiOn?"AI yeniden açıldı":"AI bu oturumda kapatıldı",
+  S.aiOn?"Üretken yüzeyler yeniden etkin.":"Üretken yüzeyler kapalı. Tahminler, raporlar ve denetim kaydı çalışmaya devam ediyor.");
+ say(S.aiOn?"Yapay zeka açıldı":"Yapay zeka bu oturumda kapatıldı",true);
+}
+
+/* ---------- 10. EVENTS ---------- */
+document.addEventListener("click",function(e){
+ var t=e.target,b;
+ if((b=t.closest("[data-close]"))){closeDlg();return}
+ if((b=t.closest("[data-nav]"))){
+  var k=b.getAttribute("data-nav"),item=NAV.filter(function(n){return n.k===k})[0];
+  var navBtn=document.querySelector('.nav-item[data-nav="'+k+'"]');
+  $$(".nav-item").forEach(function(n){n.classList.toggle("active",n===navBtn);n.removeAttribute("aria-current")});
+  if(navBtn)navBtn.setAttribute("aria-current","page");
+  $("#pageTitle").textContent=item.n;
+  if(k==="chat"){$("#aiRoot").hidden=false;$("#scopedOut").hidden=true;go("sohbet")}
+  else if(item.live){$("#aiRoot").hidden=false;$("#scopedOut").hidden=true;go("panel")}
+  else{
+   $("#aiRoot").hidden=true;$("#scopedOut").hidden=false;
+   $("#scopedOut").innerHTML='<div class="scoped card">'+ic("i-lock","width:26px;height:26px;color:#94A3B8")+
+    '<h2>Bu modül Sprint 02 kapsamında değil</h2><p><b>'+esc(item.n)+'</b> modülü mevcut hâliyle korunmaktadır. Artımlı geliştirme protokolü gereği bu sprintte yalnızca AI Center geliştirilmiştir.</p>'+
+    '<button class="btn btn-p" data-nav="ai">'+ic("i-spark")+'AI Center\'a dön</button></div>';
+  }
+  if($("#side").classList.contains("open"))$("#side").classList.remove("open");
+  return;
+ }
+ if((b=t.closest("[data-tab]"))){go(b.getAttribute("data-tab"));return}
+ if((b=t.closest("[data-sub]"))){
+  var s=SUB.filter(function(x){return x.k===b.getAttribute("data-sub")})[0];
+  go(s.tab);toast("inf",s.n,s.d);return}
+ if((b=t.closest("#aiToggle"))){toggleAI();return}
+ if((b=t.closest("[data-mode]"))){S.mode=b.getAttribute("data-mode");renderPanel();return}
+ if((b=t.closest("#sendAsk"))){ask($("#ask").value);return}
+ if((b=t.closest("#chatSend"))){sendChat();return}
+ if((b=t.closest("#heatTable"))){
+  var o=$("#heatOut"),open=o.hidden;o.hidden=!open;
+  if(open)o.innerHTML=heatTableHtml();
+  b.setAttribute("aria-expanded",String(open));
+  b.innerHTML=ic("i-table")+(open?"Tabloyu gizle":"Tabloyu göster");return}
+ if((b=t.closest("#scopeBtn"))){scopeDlg();return}
+ if((b=t.closest("#stopGen"))){S.stopFlag=true;return}
+ if((b=t.closest("#clearConv"))){S.conv=[];renderPanel();toast("inf","Sohbet temizlendi","Oturum belleği sıfırlandı.");return}
+ if((b=t.closest("[data-sugg]"))){var q=b.textContent;ask(q);return}
+ if((b=t.closest("[data-ask]"))){ask(b.getAttribute("data-ask"));return}
+ if((b=t.closest("[data-ev]"))){var m=S.conv[+b.getAttribute("data-ev")];evidenceDlg(m.ev);return}
+ if((b=t.closest("[data-evb]"))){evidenceDlg([["Günlük olay akışı","Dashboard","25.07.2026"],["Tahsilat dönemi 2026-07","Finans","01.07.2026"],["SLA serisi (26 hafta)","KPI Merkezi","—"]],"Brifing kanıtları");return}
+ if((b=t.closest("[data-evr]"))){var r=RECS.filter(function(x){return x.id===b.getAttribute("data-evr")})[0];evidenceDlg(r.ev);return}
+ if((b=t.closest("[data-fb]"))){
+  var pr=b.getAttribute("data-fb").split("-"),msg=S.conv[+pr[1]];
+  msg.fb=msg.fb===pr[0]?null:pr[0];renderPanel();
+  toast("inf","Geri bildirim kaydedildi",pr[0]==="up"?"Faydalı olarak işaretlendi.":"Faydasız olarak işaretlendi; gerekçe kalite ölçümüne eklenecek.");return}
+ if((b=t.closest("[data-acc]"))){acceptDlg(RECS.filter(function(x){return x.id===b.getAttribute("data-acc")})[0]);return}
+ if((b=t.closest("[data-dis]"))){dismissDlg(RECS.filter(function(x){return x.id===b.getAttribute("data-dis")})[0]);return}
+ if((b=t.closest("[data-risk]"))){riskDlg(b.getAttribute("data-risk"));return}
+ if((b=t.closest("[data-aud]"))){auditDlg(+b.getAttribute("data-aud"));return}
+ if((b=t.closest("[data-pred]"))){
+  var p=PREDS[+b.getAttribute("data-pred")];
+  toast("ok","Bakım iş emri taslağı hazır",p.s+" · taslak İş Emirleri modülünde onayınızı bekliyor.",null,true);return}
+ if((b=t.closest("#draftTask"))){
+  var v=($("#taskIn").value||"").trim();
+  if(v.length<10){toast("err","Metin çok kısa","Ne olduğunu en az 10 karakterle anlatın.");return}
+  $("#taskOut").innerHTML='<div class="card" style="margin-top:12px;background:rgba(14,116,144,.08)">'+
+   '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+confChip(82)+humanFlag()+'</div>'+
+   '<div class="xf"><span class="k">Site</span><span class="v">Güneş Sitesi</span><span></span></div>'+
+   '<div class="xf"><span class="k">Konum</span><span class="v">B Blok · Bodrum · Hidrofor odası</span><span></span></div>'+
+   '<div class="xf"><span class="k">Kategori</span><span class="v">Tesisat</span><span></span></div>'+
+   '<div class="xf"><span class="k">Öncelik</span><span class="v">Acil</span><span></span></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Aynı blokta son 24 saatte açılmış benzer bir kayıt var (#4821). Birleştirme önerilir — otomatik birleştirilmez.</div>'+
+   '<button class="btn btn-p btn-sm" style="margin-top:10px" data-tasksave="1">'+ic("i-check")+'İş emri oluştur</button></div>';
+  return}
+ if((b=t.closest("[data-tasksave]"))){toast("ok","İş emri oluşturuldu","#4834 · Güneş Sitesi · İş Emirleri modülü üzerinden",null,true);$("#taskOut").innerHTML="";$("#taskIn").value="";return}
+ if((b=t.closest("#upDoc"))){S.docState="processing";renderPanel();
+  setTimeout(function(){S.docState="done";renderPanel();say("Belge işlendi, 8 alan çıkarıldı")},900);return}
+ if((b=t.closest("#docReset"))){S.docState="idle";renderPanel();return}
+ if((b=t.closest("#docAccept"))){S.docState="idle";renderPanel();
+  toast("ok","Belge kabul edildi","Onay eşiği aşıldığı için onay akışına yönlendirildi.",null,true);return}
+ if((b=t.closest("#genRep"))){
+  var d=($("#repIn").value||"").trim();
+  if(d.length<10){toast("err","Tarif çok kısa","Raporda ne olmasını istediğinizi biraz daha açın.");return}
+  $("#repOut").innerHTML='<div class="card" style="margin-top:12px;background:rgba(6,182,212,.06)">'+
+   '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+confChip(86)+humanFlag()+'</div>'+
+   '<div class="xf"><span class="k">Metrikler</span><span class="v">Tahsilat oranı · Açık iş emri</span><span></span></div>'+
+   '<div class="xf"><span class="k">Boyut</span><span class="v">Site × Ay</span><span></span></div>'+
+   '<div class="xf"><span class="k">Dönem</span><span class="v">Şub–Tem 2026</span><span></span></div>'+
+   '<div class="xf"><span class="k">Grafik</span><span class="v">Çubuk (dönem karşılaştırma)</span><span></span></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Tanım Rapor modülü kataloğuna kaydedilir ve orada düzenlenebilir.</div>'+
+   '<button class="btn btn-p btn-sm" style="margin-top:10px" data-repsave="1">'+ic("i-check")+'Kataloğa kaydet</button></div>';
+  return}
+ if((b=t.closest("[data-repsave]"))){toast("ok","Rapor kaydedildi","Rapor modülü kataloğuna eklendi.",null,true);$("#repOut").innerHTML="";return}
+ if((b=t.closest("#kbGo"))){
+  var q2=($("#kbIn").value||"").toLocaleLowerCase("tr").trim();
+  if(q2.length<3){toast("err","Soru çok kısa","Bilgi bankasında arama için en az 3 karakter girin.");return}
+  var hit=KB.filter(function(x){return q2.indexOf(x.q)>-1})[0];
+  $("#kbOut").innerHTML=hit?
+   ('<div style="margin-top:12px"><p style="font-size:13.5px;color:var(--muted)">'+esc(hit.a)+'</p>'+
+    hit.cite.map(function(c){return '<div class="cite"><b>'+esc(c)+'</b><p>Kaynak belgeye git</p></div>'}).join("")+
+    '<div class="prov">'+confChip(hit.cf)+humanFlag()+'</div></div>')
+   :('<div class="lowconf" style="margin-top:12px">'+ic("i-alert")+'<div><b>Bu soruyu mevcut belgelerle yanıtlayamıyorum.</b> Tarananlar: yönetim planı, bakım SOP\'ları, mevzuat referansları. Soruyu daraltın veya ilgili belgeyi yükleyin.</div></div>');
+  return}
+ if((b=t.closest("#draftRule"))){
+  var rv=($("#ruleIn").value||"").trim();
+  if(rv.length<15){toast("err","Tarif çok kısa","Kuralı en az 15 karakterle anlatın.");return}
+  $("#ruleOut").innerHTML='<div class="card" style="margin-top:12px;background:rgba(139,92,246,.07)">'+
+   '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+confChip(74)+humanFlag()+'</div>'+
+   '<div class="xf"><span class="k">Tetikleyici</span><span class="v">İş emri durumu = açık</span><span></span></div>'+
+   '<div class="xf"><span class="k">Koşul</span><span class="v">Kategori = Asansör VE yaş > 48 saat</span><span></span></div>'+
+   '<div class="xf"><span class="k">Eylem</span><span class="v">Teknik şefe yükselt + site yöneticisini bilgilendir</span><span></span></div>'+
+   '<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.03);font-size:12.5px;color:var(--muted)">'+
+    '<b style="display:block;margin-bottom:4px;color:#C4B5FD">Düz metin doğrulaması</b>'+
+    '"Asansör kategorisindeki bir iş emri 48 saatten uzun süre açık kalırsa, teknik şefe yükselt ve site yöneticisine bildirim gönder."</div>'+
+   '<div class="partial" style="margin-top:12px">'+ic("i-flask")+'<div><b>12 aylık simülasyon:</b> Bu kural geçmiş veriye uygulansaydı 34 kez tetiklenirdi. 29\'u gerçek gecikme, 5\'i yanlış pozitif (planlı bakım penceresi). Yanlış pozitifleri elemek için "planlı bakım hariç" koşulu önerilir.</div></div>'+
+   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
+    '<button class="btn btn-p btn-sm" data-rulesave="1">'+ic("i-check")+'İnceleme için gönder</button>'+
+    '<button class="btn btn-s btn-sm" data-close2="1">Vazgeç</button></div></div>';
+  return}
+ if((b=t.closest("[data-rulesave]"))){toast("ok","Kural incelemeye gönderildi","Etkinleştirme automation.rule.activate yetkisi gerektirir.",null,true);$("#ruleOut").innerHTML="";return}
+ if((b=t.closest("[data-close2]"))){$("#ruleOut").innerHTML="";return}
+ if((b=t.closest("[data-agent]"))){
+  var ag=AGENTS.filter(function(x){return x.k===b.getAttribute("data-agent")})[0];
+  ag.on=!ag.on;renderPanel();
+  toast("ok",ag.on?"Ajan etkinleştirildi":"Ajan durduruldu",ag.n+" · Yetki "+ag.lvl,function(){ag.on=!ag.on;renderPanel()});return}
+ if((b=t.closest("#killAll"))){
+  openDlg(dlgShell("Tüm ajanları durdur",
+   '<div class="partial">'+ic("i-alert")+'<div>Bu işlem tüm AI ajanlarını anında durdurur, çalışan işleri iptal eder ve denetim kaydına yazılır. Kullanıcı yüzeyleri (Copilot, Sohbet) etkilenmez.</div></div>'+
+   '<div class="fg"><label class="fl" for="killR">Gerekçe <span class="req">*</span></label><textarea class="inp" id="killR" rows="2"></textarea>'+
+   '<div class="hintx">'+ic("i-info")+'En az 10 karakter.</div><div class="err" id="killE" hidden>'+ic("i-alert")+'<span></span></div></div>',
+   '<button class="btn btn-s" data-close>Vazgeç</button><button class="btn btn-d" id="killOk">'+ic("i-stop")+'Tümünü durdur</button>','narrow'),
+  function(d){d.querySelector("#killOk").onclick=function(){
+   var r=d.querySelector("#killR"),e=d.querySelector("#killE");
+   if(r.value.trim().length<10){r.setAttribute("aria-invalid","true");e.hidden=false;e.querySelector("span").textContent="Gerekçe en az 10 karakter olmalıdır.";r.focus();return}
+   AGENTS.forEach(function(a){a.on=false});closeDlg();renderPanel();
+   toast("err","Tüm ajanlar durduruldu","Gerekçe ve zaman damgası denetim kaydına yazıldı.",null,true);
+   say("Tüm yapay zeka ajanları durduruldu",true);
+  }});
+  return}
+ if((b=t.closest("[data-pol]"))){b.classList.toggle("on");
+  var on=b.classList.contains("on");b.setAttribute("aria-checked",String(on));
+  toast("ok",on?"Özellik etkinleştirildi":"Özellik kapatıldı","Değişiklik denetim kaydına yazıldı.");return}
+ if((b=t.closest("[data-usep]"))){go("copilot");toast("inf","Komut yüklendi",b.getAttribute("data-usep"));return}
+ if((b=t.closest("[data-export]"))){toast("ok","Dışa aktarılıyor","Dosya alıcı kimliğiyle filigranlanır ve işlem denetim kaydına yazılır.");return}
+ if((b=t.closest("#regen"))){toast("ok","Brifing yeniden üretildi","1.284 kayıt tarandı · 3,4 sn");return}
+ if((b=t.closest("[data-meet]"))){toast("inf","Karar çıkarımı","4 karar tespit edildi, 3'ü görev olarak izlenebilir. İnsan onayı bekliyor.");return}
+ if((b=t.closest("[data-rca]"))){toast("inf","Benzer dönemler","2025 Temmuz ve 2024 Ağustos benzer profil gösteriyor.");return}
+});
+$("#openPal").onclick=palette;
+$("#btnRefresh").onclick=function(){S.lastRefresh=new Date();renderPanel();toast("ok","Yenilendi","Veriler "+timeStr(S.lastRefresh)+" itibarıyla.")};
+$("#btnBell").onclick=function(){toast("inf","Bildirimler","Bildirim çekmecesi Sprint 01 Dashboard modülünde uygulanmıştır.")};
+$("#mobtoggle").onclick=function(){var o=$("#side").classList.toggle("open");this.setAttribute("aria-expanded",String(o))};
+$(".avatar").onclick=function(){toast("inf","Site Yöneticisi","6 site yetkisi · AI yüzeyleri yetkinize göre filtrelenir.")};
+$(".avatar").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();this.click()}};
+
+document.addEventListener("keydown",function(e){
+ if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){
+  var a=document.activeElement;
+  if(a&&a.id==="ask"){e.preventDefault();ask(a.value)}
+  if(a&&a.id==="chatIn"){e.preventDefault();sendChat()}
+ }
+});
+function sendChat(){
+ var el=$("#chatIn");if(!el)return;
+ var v=(el.value||"").trim();if(v.length<1)return;
+ S.chat.push({role:"user",text:v});
+ S.chat.push({role:"ai",text:"Bu soruyu Copilot bölümünde kanıtlı ve süzülebilir bir sonuç kümesiyle yanıtlayabilirim. Sohbet paneli kısa etkileşimler içindir."});
+ renderPanel();
+}
+
+$("#tabs").addEventListener("keydown",function(e){
+ var ts=$$(".tab"),i=ts.indexOf(document.activeElement);if(i<0)return;
+ var n=null;
+ if(e.key==="ArrowRight")n=ts[(i+1)%ts.length];
+ if(e.key==="ArrowLeft")n=ts[(i-1+ts.length)%ts.length];
+ if(e.key==="Home")n=ts[0];
+ if(e.key==="End")n=ts[ts.length-1];
+ if(n){e.preventDefault();go(n.getAttribute("data-tab"))}
+});
+document.addEventListener("keydown",function(e){
+ if(e.key!=="Enter")return;
+ var r=document.activeElement;
+ if(r&&r.hasAttribute("data-aud")&&r.tagName!=="BUTTON"){e.preventDefault();r.click()}
+});
+
+/* accent hover for V22 cards — matches hover:border-[accent]/50 */
+document.addEventListener("mouseover",function(e){
+ var c=e.target.closest(".aicard");if(!c)return;
+ c.style.borderColor=c.getAttribute("data-accent")+"80";
+});
+document.addEventListener("mouseout",function(e){
+ var c=e.target.closest(".aicard");if(!c)return;
+ c.style.borderColor="rgba(255,255,255,.1)";
+});
+
+/* ---------- 11. INIT ---------- */
+renderNav();renderAll();
+say("AI Center yüklendi. Tüm çıktılar insan onayı gerektirir.",true);
+</script>
+
+</body>
+</html>

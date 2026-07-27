@@ -1,0 +1,36 @@
+name: Paket Sınırı
+
+# ADR v1.1 §40 · BFS v1 §1.2
+# core-domain hiçbir koşulda apartman-domain'e bağımlı olamaz.
+# Bu iş akışı başarısız olursa PR birleştirilemez.
+
+on:
+  push: { branches: [main, develop] }
+  pull_request:
+
+jobs:
+  sinir:
+    name: core-domain ↛ apartman-domain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Bağımlılık yönü (bağımlılıksız denetleyici)
+        run: node scripts/boundary.mjs
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - run: pnpm install --frozen-lockfile
+      - name: Bağımlılık yönü (dependency-cruiser — AST tabanlı)
+        run: pnpm dlx depcruise shared backend --config .dependency-cruiser.cjs
+
+      - name: İhlal açıklaması
+        if: failure()
+        run: |
+          echo "::error::Paket sınırı ihlali — ADR v1.1 §40"
+          echo "core-domain dikeyden bağımsızdır ve apartman-domain'e bağımlı olamaz."
+          echo "  1) Kavram core-domain'e ait değilse apartman-domain'e taşıyın, veya"
+          echo "  2) Bir port arkasına alın; uygulamayı apartman-domain sağlasın."
+          echo "Ayrıntı: docs/bfs/BFS-v1.md §1.2"

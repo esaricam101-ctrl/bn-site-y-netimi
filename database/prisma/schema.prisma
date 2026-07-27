@@ -1,0 +1,457 @@
+// ---------------------------------------------------------------------------
+// BNOS Apartman Yönetimi — Prisma şeması
+//
+// Kaynaklar:
+//   ADR-0002  tenant = apartman · PostgreSQL RLS
+//   ADR-0003  çift taraflı muhasebe
+//   ADR-0007  para = ölçeklenmiş bigint (numeric(18,4))
+//   BFS v1 §4 zaman: DATE vs timestamptz
+//   BFS v1 §5 silme: FINANSAL / ANA_VERI / BELGE
+//
+// KRİTİK: RLS politikaları ve kısmi unique index'ler migration SQL'indedir.
+// Prisma bunları şemadan üretemez — migration/0001_init/migration.sql'e bakın.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// TENANT — RLS taşımaz (katalog tablosu). Erişim uygulama katmanında denetlenir.
+// ===========================================================================
+
+enum TenantTipi {
+  APARTMAN
+  SITE
+  YONETIM_SIRKETI
+}
+
+enum TenantDurumu {
+  KURULUM
+  AKTIF
+  ASKIDA
+  ARSIV
+}
+
+model Tenant {
+  id          String       @id @db.Uuid
+  kod         String       @unique @db.VarChar(32)
+  ad          String       @db.VarChar(120)
+  tip         TenantTipi   @default(APARTMAN)
+  durum       TenantDurumu @default(KURULUM)
+  /// BFS v1 §4.2 — Türkiye sabit UTC+3'tür ancak koda gömülmez, tenant ayarıdır.
+  saatDilimi  String       @default("Europe/Istanbul") @map("saat_dilimi") @db.VarChar(64)
+  paraBirimi  String       @default("TRY") @map("para_birimi") @db.Char(3)
+  lisansKodu  String       @map("lisans_kodu") @db.VarChar(32)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  kisiler          Kisi[]
+  kullanicilar     Kullanici[]
+  bloklar          Blok[]
+  bagimsizBolumler BagimsizBolum[]
+  hesaplar         Hesap[]
+  yevmiyeler       YevmiyeFisi[]
+  borclar          Borc[]
+  auditKayitlari   AuditKaydi[]
+  outboxKayitlari  OutboxKayit[]
+  numaraSayaclari  NumaraSayaci[]
+  isCalistirmalari IsCalistirma[]
+
+  @@map("tenant")
+}
+
+// ===========================================================================
+// KİŞİ ve KULLANICI — ANA_VERI sınıfı → soft delete (BFS v1 §5)
+// ===========================================================================
+
+model Kisi {
+  id       String  @id @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  ad       String  @db.VarChar(60)
+  soyad    String  @db.VarChar(60)
+  eposta   String? @db.VarChar(180)
+  telefon  String? @db.VarChar(32)
+  /// KVKK: anonimleştirmede geri döndürülemez şekilde temizlenir (Sprint 9).
+  tcKimlikNo String? @map("tc_kimlik_no") @db.VarChar(11)
+  anonimMi   Boolean @default(false) @map("anonim_mi")
+
+  // --- Soft delete standardı (BFS v1 §5.2) ---
+  silindiMi       Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi   DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici  String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi  String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  kullanici       Kullanici?
+  bolumIliskileri BolumIliskisi[]
+  borcSorumluluk  BorcSorumlusu[]
+
+  @@index([tenantId, soyad, ad])
+  @@map("kisi")
+}
+
+model Kullanici {
+  id        String  @id @db.Uuid
+  tenantId  String  @map("tenant_id") @db.Uuid
+  kisiId    String  @unique @map("kisi_id") @db.Uuid
+  eposta    String  @db.VarChar(180)
+  sifreHash String  @map("sifre_hash") @db.VarChar(255)
+  aktif     Boolean @default(true)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  sonGirisAni       DateTime? @map("son_giris_ani") @db.Timestamptz(6)
+  olusturulmaTarihi DateTime  @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime  @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant             @relation(fields: [tenantId], references: [id])
+  kisi   Kisi               @relation(fields: [kisiId], references: [id])
+  roller KullaniciRolu[]
+
+  @@map("kullanici")
+}
+
+model KullaniciRolu {
+  id          String @id @db.Uuid
+  tenantId    String @map("tenant_id") @db.Uuid
+  kullaniciId String @map("kullanici_id") @db.Uuid
+  /// core-domain ROLLER kataloğundaki kod.
+  rolKodu     String @map("rol_kodu") @db.VarChar(40)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  kullanici Kullanici @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+
+  @@unique([kullaniciId, rolKodu])
+  @@map("kullanici_rolu")
+}
+
+// ===========================================================================
+// YAPI — Blok ve Bağımsız Bölüm (KMK)
+// ===========================================================================
+
+enum BolumNiteligi {
+  MESKEN
+  ISYERI
+  DEPO
+  OTOPARK
+  ORTAK_ALAN
+}
+
+model Blok {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  ad       String @db.VarChar(40)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id])
+  bolumler BagimsizBolum[]
+
+  @@map("blok")
+}
+
+model BagimsizBolum {
+  id       String        @id @db.Uuid
+  tenantId String        @map("tenant_id") @db.Uuid
+  blokId   String?       @map("blok_id") @db.Uuid
+  kapiNo   String        @map("kapi_no") @db.VarChar(16)
+  kat      Int
+  nitelik  BolumNiteligi @default(MESKEN)
+  brutM2   Decimal       @map("brut_m2") @db.Decimal(10, 2)
+  netM2    Decimal       @map("net_m2") @db.Decimal(10, 2)
+  /// Arsa payı pay/payda olarak tutulur — ondalık yuvarlama hatası olmasın (KMK md. 3).
+  arsaPayiPay    BigInt  @map("arsa_payi_pay")
+  arsaPayiPayda  BigInt  @map("arsa_payi_payda")
+  aidatMuafiyeti Boolean @default(false) @map("aidat_muafiyeti")
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  blok      Blok?           @relation(fields: [blokId], references: [id])
+  iliskiler BolumIliskisi[]
+  borclar   Borc[]
+
+  @@index([tenantId, blokId])
+  @@map("bagimsiz_bolum")
+}
+
+enum IliskiRolu {
+  MALIK
+  KIRACI
+}
+
+model BolumIliskisi {
+  id       String     @id @db.Uuid
+  tenantId String     @map("tenant_id") @db.Uuid
+  bolumId  String     @map("bolum_id") @db.Uuid
+  kisiId   String     @map("kisi_id") @db.Uuid
+  rol      IliskiRolu
+  /// BFS v1 §4.1 — takvim tarihi, saat dilimsiz DATE.
+  baslangic DateTime  @db.Date
+  bitis     DateTime? @db.Date
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  bolum BagimsizBolum @relation(fields: [bolumId], references: [id])
+  kisi  Kisi          @relation(fields: [kisiId], references: [id])
+
+  @@index([tenantId, bolumId, rol])
+  @@map("bolum_iliskisi")
+}
+
+// ===========================================================================
+// MUHASEBE — çift taraflı defter (ADR-0003)
+// FINANSAL sınıf: ASLA silinmez. Düzeltme ters kayıtla (storno).
+// Para: numeric(18,4) — ADR-0007 ölçeklenmiş bigint ile birebir örtüşür.
+// ===========================================================================
+
+enum HesapTipi {
+  VARLIK
+  BORC
+  OZKAYNAK
+  GELIR
+  GIDER
+}
+
+enum FisDurumu {
+  TASLAK
+  ISLENDI
+  TERS_KAYITLI
+}
+
+model Hesap {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  kod       String    @db.VarChar(20)
+  ad        String    @db.VarChar(120)
+  tip       HesapTipi
+  ustHesapId String?  @map("ust_hesap_id") @db.Uuid
+  fisKesilebilirMi Boolean @default(true) @map("fis_kesilebilir_mi")
+  aktif     Boolean   @default(true)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  ustHesap  Hesap?         @relation("HesapAgaci", fields: [ustHesapId], references: [id])
+  altHesaplar Hesap[]      @relation("HesapAgaci")
+  satirlar  YevmiyeSatiri[]
+
+  @@index([tenantId, kod])
+  @@map("hesap")
+}
+
+model YevmiyeFisi {
+  id       String    @id @db.Uuid
+  tenantId String    @map("tenant_id") @db.Uuid
+  fisNo    String    @map("fis_no") @db.VarChar(32)
+  /// BFS v1 §4.1 — muhasebe tarihi takvim tarihidir.
+  tarih    DateTime  @db.Date
+  aciklama String
+  kaynakTipi String  @map("kaynak_tipi") @db.VarChar(40)
+  kaynakId   String? @map("kaynak_id") @db.Uuid
+  durum    FisDurumu @default(TASLAK)
+  /// Ters kayıt (storno) referansı — silme YOKTUR (BFS v1 §5.1).
+  tersKaydiOlanId String? @map("ters_kaydi_olan_id") @db.Uuid
+
+  islenmeAni   DateTime? @map("islenme_ani") @db.Timestamptz(6)
+  isleyenKisi  String?   @map("isleyen_kisi") @db.Uuid
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  satirlar YevmiyeSatiri[]
+
+  @@index([tenantId, tarih])
+  @@map("yevmiye_fisi")
+}
+
+model YevmiyeSatiri {
+  id       String  @id @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  fisId    String  @map("fis_id") @db.Uuid
+  hesapId  String  @map("hesap_id") @db.Uuid
+  /// ADR-0007 — numeric(18,4), asla float. Bir satırda borç VEYA alacak dolu olur.
+  borc     Decimal @default(0) @db.Decimal(18, 4)
+  alacak   Decimal @default(0) @db.Decimal(18, 4)
+  aciklama String?
+  bolumId  String? @map("bolum_id") @db.Uuid
+
+  fis   YevmiyeFisi @relation(fields: [fisId], references: [id], onDelete: Cascade)
+  hesap Hesap       @relation(fields: [hesapId], references: [id])
+
+  @@index([tenantId, hesapId])
+  @@map("yevmiye_satiri")
+}
+
+// ===========================================================================
+// BORÇ — bağımsız bölüme bağlanır, kişiye değil (ADR v1.1 §5)
+// Sorumlular SNAPSHOT olarak yazılır; sorgu anında hesaplanmaz.
+// ===========================================================================
+
+enum SorumlulukSirasi {
+  ASIL
+  IKINCIL
+}
+
+model Borc {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  bolumId  String @map("bolum_id") @db.Uuid
+  giderTuruKodu String @map("gider_turu_kodu") @db.VarChar(40)
+  tahakkukNo    String @map("tahakkuk_no") @db.VarChar(32)
+
+  tutar    Decimal @db.Decimal(18, 4)
+  odenen   Decimal @default(0) @db.Decimal(18, 4)
+  /// BFS v1 §4.1 — VADE TARİHİ DATE'tir. timestamptz olsaydı saat dilimi
+  /// sınırında bir gün kayar ve her borçlunun faizi yanlış hesaplanırdı.
+  vadeTarihi     DateTime @map("vade_tarihi") @db.Date
+  tahakkukDonemi DateTime @map("tahakkuk_donemi") @db.Date
+
+  kapandiMi Boolean @default(false) @map("kapandi_mi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  bolum     BagimsizBolum   @relation(fields: [bolumId], references: [id])
+  sorumlular BorcSorumlusu[]
+
+  @@index([tenantId, bolumId, kapandiMi])
+  @@index([tenantId, vadeTarihi])
+  @@map("borc")
+}
+
+model BorcSorumlusu {
+  id       String           @id @db.Uuid
+  tenantId String           @map("tenant_id") @db.Uuid
+  borcId   String           @map("borc_id") @db.Uuid
+  kisiId   String           @map("kisi_id") @db.Uuid
+  sira     SorumlulukSirasi
+  rol      IliskiRolu
+  /// SNAPSHOT kanıtı — sorumluluk bu tarihte çözüldü ve DEĞİŞMEZ.
+  cozumlemeTarihi DateTime @map("cozumleme_tarihi") @db.Date
+
+  borc Borc @relation(fields: [borcId], references: [id])
+  kisi Kisi @relation(fields: [kisiId], references: [id])
+
+  @@unique([borcId, kisiId, sira])
+  @@index([tenantId, kisiId])
+  @@map("borc_sorumlusu")
+}
+
+// ===========================================================================
+// ALTYAPI — Audit · Outbox · Numaralandırma · Zamanlayıcı
+// Bunlar soft delete TAŞIMAZ; değiştirilemez veya operasyonel tablolardır.
+// ===========================================================================
+
+model AuditKaydi {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  principalId   String   @map("principal_id") @db.Uuid
+  principalTipi String   @map("principal_tipi") @db.VarChar(16)
+  eylem         String   @db.VarChar(24)
+  varlik        String   @db.VarChar(60)
+  varlikId      String   @map("varlik_id") @db.Uuid
+  oncekiDeger   Json?    @map("onceki_deger")
+  sonrakiDeger  Json?    @map("sonraki_deger")
+  gerekce       String?
+  correlationId String   @map("correlation_id") @db.Uuid
+  ip            String?  @db.VarChar(45)
+  kullaniciAjani String? @map("kullanici_ajani")
+  olusmaAni     DateTime @map("olusma_ani") @db.Timestamptz(6)
+  /// Hash zinciri — kaydın sonradan değiştirilmediğini kanıtlar.
+  oncekiHash    String?  @map("onceki_hash") @db.VarChar(64)
+  hash          String   @db.VarChar(64)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, olusmaAni])
+  @@index([tenantId, varlik, varlikId])
+  @@map("audit_kaydi")
+}
+
+model OutboxKayit {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  eventType     String    @map("event_type") @db.VarChar(120)
+  eventVersion  Int       @map("event_version")
+  zarf          Json
+  olusturulmaTarihi DateTime @map("olusturulma_tarihi") @db.Timestamptz(6)
+  yayinlanmaTarihi  DateTime? @map("yayinlanma_tarihi") @db.Timestamptz(6)
+  denemeSayisi  Int       @default(0) @map("deneme_sayisi")
+  sonHata       String?   @map("son_hata")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([yayinlanmaTarihi])
+  @@map("outbox_kayit")
+}
+
+model NumaraSayaci {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  /// core-domain SERI_KATALOGU kodu.
+  seriKodu String @map("seri_kodu") @db.VarChar(40)
+  /// Kapsam anahtarı: tenant / tenant+yıl / tenant+tip.
+  kapsamAnahtari String @map("kapsam_anahtari") @db.VarChar(120)
+  mevcutDeger    BigInt @default(0) @map("mevcut_deger")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, seriKodu, kapsamAnahtari])
+  @@map("numara_sayaci")
+}
+
+enum IsDurumu {
+  BEKLIYOR
+  CALISIYOR
+  BASARILI
+  BASARISIZ
+}
+
+model IsCalistirma {
+  id       String   @id @db.Uuid
+  tenantId String   @map("tenant_id") @db.Uuid
+  isKodu   String   @map("is_kodu") @db.VarChar(60)
+  /// ADR v1.1 §36 kural 1 — dönem başına EN FAZLA BİR KEZ.
+  donemAnahtari String @map("donem_anahtari") @db.VarChar(40)
+  durum    IsDurumu @default(BEKLIYOR)
+  baslangic DateTime? @db.Timestamptz(6)
+  bitis     DateTime? @db.Timestamptz(6)
+  sonuc     Json?
+  hata      String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  /// Zamanlayıcı iki kez tetiklense veya pod yeniden başlasa da bir kez çalışır.
+  @@unique([isKodu, tenantId, donemAnahtari])
+  @@map("is_calistirma")
+}

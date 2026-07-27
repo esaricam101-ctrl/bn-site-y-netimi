@@ -1,0 +1,31 @@
+# BNOS Apartman — Web (Next.js)
+
+FROM node:22-alpine AS temel
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+WORKDIR /uygulama
+
+FROM temel AS bagimliliklar
+COPY pnpm-workspace.yaml package.json ./
+COPY shared/*/package.json ./shared/
+COPY frontend/web/package.json ./frontend/web/
+RUN pnpm install --frozen-lockfile
+
+FROM bagimliliklar AS derleme
+COPY tsconfig.base.json tsconfig.json ./
+COPY shared ./shared
+COPY frontend/web ./frontend/web
+RUN pnpm build:shared && pnpm --filter @bnos/web build
+
+FROM temel AS uretim
+ENV NODE_ENV=production
+COPY --from=derleme /uygulama/frontend/web/.next ./frontend/web/.next
+COPY --from=derleme /uygulama/frontend/web/public ./frontend/web/public
+COPY --from=derleme /uygulama/frontend/web/package.json ./frontend/web/
+COPY --from=derleme /uygulama/node_modules ./node_modules
+
+RUN addgroup -S bnos && adduser -S bnos -G bnos
+USER bnos
+
+EXPOSE 3000
+WORKDIR /uygulama/frontend/web
+CMD ["node_modules/.bin/next", "start", "-p", "3000"]

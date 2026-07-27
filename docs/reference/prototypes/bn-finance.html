@@ -1,0 +1,1452 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="BN Yönetim Finans ve Muhasebe modülü — tahakkuk, tahsilat, bütçe, nakit, mutabakat, onay ve denetim.">
+<title>BN Yönetim — Finans &amp; Muhasebe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   VERSION 22 DESIGN SYSTEM — FROZEN
+   Palette corrected in Sprint 02: the V22 dashboard carries an
+   18-colour palette, including a full accent set used by the
+   eight "BN AI Bölümü" cards. All of it is reproduced verbatim.
+   ============================================================ */
+:root{
+/* core (V22) */
+--primary:#0E7490;--secondary:#2563EB;--dark:#0F172A;--darker:#060B14;--deepest:#030712;
+--text:#E2E8F0;--success:#10B981;--muted-v22:#94A3B8;
+/* accent set (V22 ai-card 1..8, verbatim) */
+--a1:#0E7490;--a2:#10B981;--a3:#2563EB;--a4:#EC4899;
+--a5:#F59E0B;--a6:#8B5CF6;--a7:#06B6D4;--a8:#14B8A6;
+/* remaining V22 palette members */
+--a9:#A855F7;--a10:#F97316;--a11:#EAB308;--a12:#3B82F6;--crit:#EF4444;
+--warn:#F59E0B;--info:#38BDF8;
+--glass-bg:rgba(15,23,42,.6);--glass-br:rgba(255,255,255,.06);
+--grad:linear-gradient(135deg,#0E7490,#2563EB);--glow:0 0 60px rgba(14,116,144,.15);
+--muted:rgba(226,232,240,.68);--muted-2:#94A3B8;--line:rgba(255,255,255,.06);
+--r:14px;--rs:10px;
+--d1:4px;--d2:8px;--d3:12px;--d4:16px;--d6:24px;--d8:32px;--pad:20px;--cardpad:20px;--rowh:44px;--fz:14px;
+}
+body[data-density="compact"]{--pad:12px;--cardpad:14px;--rowh:34px;--d6:16px;--d8:22px;--fz:13px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif}
+html{scroll-behavior:smooth}
+body{background:var(--dark);color:var(--text);font-size:var(--fz);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-999px;top:8px;z-index:200;background:var(--grad);color:#fff;padding:10px 16px;border-radius:var(--rs);font-weight:700}
+.skip:focus{left:8px}
+.gt{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.num{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ===== SHELL (Sprint 01 component library, unchanged) ===== */
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.side{background:var(--darker);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow-y:auto;z-index:40}
+.brand{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid var(--line)}
+.bmark{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff;background:var(--grad);box-shadow:0 0 30px rgba(14,116,144,.35)}
+.btxt b{display:block;font-size:14px;font-weight:700}.btxt small{display:block;font-size:11px;color:var(--muted-2)}
+.snav{padding:12px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .2s;border-right:3px solid transparent;width:100%;background:none;border-top:0;border-left:0;border-bottom:0;text-align:left}
+.nav-item:hover:not(.active){background:rgba(255,255,255,.04);color:var(--text)}
+.nav-item.active{background:rgba(14,116,144,.15);color:#0E7490;border-right:3px solid #0E7490;font-weight:600}
+.nav-item svg{width:17px;height:17px;flex:0 0 auto}
+.side-foot{padding:14px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--muted-2)}
+.main{min-width:0;display:flex;flex-direction:column}
+.hdr{position:sticky;top:0;z-index:35;background:rgba(6,11,20,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:12px var(--pad);display:flex;align-items:center;gap:var(--d3);flex-wrap:wrap}
+.hdr h1{font-size:19px;font-weight:800;letter-spacing:-.01em}
+.hdr .date{font-size:12.5px;color:var(--muted-2)}
+.hspace{flex:1}
+.iconbtn{width:36px;height:36px;min-width:36px;border-radius:var(--rs);display:grid;place-items:center;background:rgba(255,255,255,.03);border:1px solid var(--glass-br);color:var(--muted);cursor:pointer;transition:all .2s;position:relative}
+.iconbtn:hover{color:var(--text);border-color:rgba(14,116,144,.4);background:rgba(14,116,144,.12)}
+.iconbtn svg{width:17px;height:17px}
+.badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--crit);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;border:2px solid var(--darker)}
+.searchbtn{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:var(--rs);background:rgba(255,255,255,.03);border:1px solid var(--glass-br);color:var(--muted-2);font-size:13px;cursor:pointer;transition:all .2s}
+.searchbtn:hover{border-color:rgba(14,116,144,.4);color:var(--text)}
+.searchbtn kbd{font-size:10.5px;font-weight:700;padding:2px 5px;border-radius:4px;background:rgba(255,255,255,.06);border:1px solid var(--glass-br)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;cursor:pointer}
+.content{padding:0 var(--pad) var(--d8);flex:1}
+.tabsbar{padding:var(--d4) var(--pad) 0;border-bottom:1px solid var(--line);margin-bottom:var(--d6)}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tab{font-size:13.5px;font-weight:600;padding:10px 14px;border:0;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--text)}
+.tab[aria-selected="true"]{color:#38BDF8;border-bottom-color:var(--primary)}
+.tab svg{width:15px;height:15px}
+.tab .cnt{font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.07);color:var(--muted)}
+.tab[aria-selected="true"] .cnt{background:rgba(14,116,144,.25);color:#7DD3FC}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--d4)}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+.sec{margin-bottom:var(--d6)}
+.sec-h{display:flex;align-items:center;gap:10px;margin-bottom:var(--d3)}
+.sec-h h2{font-size:15px;font-weight:700}
+.sec-h .hint{font-size:11.5px;color:var(--muted-2);font-weight:500}
+.sec-h .sp{flex:1}
+.card{background:var(--glass-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--glass-br);border-radius:var(--r);padding:var(--cardpad);position:relative}
+.card-h{display:flex;align-items:center;gap:8px;margin-bottom:var(--d3)}
+.card-h h3{font-size:13px;font-weight:700}.card-h .sp{flex:1}.card-h .ts{font-size:10.5px;color:var(--muted-2)}
+.kpi{background:var(--glass-bg);backdrop-filter:blur(16px);border:1px solid var(--glass-br);border-radius:var(--r);padding:var(--cardpad);cursor:pointer;transition:all .2s;text-align:left;width:100%;display:block;color:inherit}
+.kpi:hover{border-color:rgba(14,116,144,.45);box-shadow:var(--glow);transform:translateY(-1px)}
+.kpi .lbl{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)}
+.kpi .val{font-size:28px;font-weight:800;line-height:1.1;margin-top:6px;letter-spacing:-.02em}
+.kpi .unit{font-size:14px;font-weight:700;color:var(--muted)}
+.kpi .row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.delta{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px}
+.delta svg{width:12px;height:12px}
+.d-good{background:rgba(16,185,129,.14);color:#6EE7B7}.d-bad{background:rgba(239,68,68,.14);color:#FCA5A5}.d-flat{background:rgba(255,255,255,.06);color:var(--muted-2)}
+.tgt{font-size:11px;color:var(--muted-2)}
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);min-height:var(--rowh)}
+.li:last-child{border-bottom:0}
+.li .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--primary)}
+.li .tx{flex:1;min-width:0}
+.li .tx b{display:block;font-size:13.5px;font-weight:600}
+.li .tx small{display:block;font-size:11.5px;color:var(--muted-2)}
+.pri{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:6px;white-space:nowrap}
+.p-acil{background:rgba(239,68,68,.16);color:#FCA5A5}.p-orta{background:rgba(245,158,11,.16);color:#FCD34D}.p-dusuk{background:rgba(16,185,129,.14);color:#6EE7B7}
+.rowbtn{background:none;border:0;color:var(--muted-2);cursor:pointer;display:grid;place-items:center;padding:6px;border-radius:8px}
+.rowbtn:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.rowbtn svg{width:15px;height:15px}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-2);font-weight:700;padding:9px 10px;background:rgba(14,116,144,.1);border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:9px 10px;border-bottom:1px solid var(--line);color:var(--muted);vertical-align:middle}
+table.t tbody tr{transition:background .2s;cursor:pointer}
+table.t tbody tr:hover{background:rgba(255,255,255,.03)}
+table.t td.n,table.t th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto;border:1px solid var(--glass-br);border-radius:var(--rs)}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:var(--rs);cursor:pointer;transition:all .2s;border:1px solid transparent;min-height:36px}
+.btn svg{width:15px;height:15px}
+.btn-p{background:var(--grad);color:#fff;box-shadow:0 0 30px rgba(14,116,144,.25)}
+.btn-p:hover{filter:brightness(1.1)}
+.btn-s{background:rgba(255,255,255,.03);border-color:var(--glass-br);color:var(--muted)}
+.btn-s:hover{color:var(--text);border-color:rgba(14,116,144,.45);background:rgba(14,116,144,.12)}
+.btn-g{background:none;color:var(--muted-2);padding:6px 8px}.btn-g:hover{color:var(--text)}
+.btn-d{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#FCA5A5}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-sm{font-size:11.5px;padding:5px 10px;min-height:30px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--glass-br);background:rgba(255,255,255,.03);color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.chip:hover{color:var(--text);border-color:rgba(14,116,144,.4)}
+.chip.on{background:rgba(14,116,144,.15);color:#38BDF8;border-color:rgba(14,116,144,.45)}
+.seg{display:inline-flex;border:1px solid var(--glass-br);border-radius:999px;background:rgba(255,255,255,.03);padding:2px}
+.seg button{font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;border:0;background:none;color:var(--muted);cursor:pointer;transition:all .2s}
+.seg button.on{background:rgba(14,116,144,.2);color:#38BDF8}
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.09),rgba(255,255,255,.04));background-size:200% 100%;animation:sh 1.4s infinite;border-radius:6px}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px 16px;gap:8px;color:var(--muted-2)}
+.state svg{width:26px;height:26px;opacity:.6}
+.state b{font-size:13.5px;color:var(--muted)}.state small{font-size:12px;max-width:38ch}
+.partial{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:var(--rs);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.28);color:#FCD34D;font-size:12.5px;margin-bottom:var(--d4)}
+.partial svg{width:16px;height:16px;flex:0 0 auto;margin-top:1px}
+.ov{position:fixed;inset:0;background:rgba(6,11,20,.72);backdrop-filter:blur(8px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:6vh 16px 16px;overflow-y:auto}
+.ov.open{display:flex}
+.dlg{width:100%;max-width:640px;background:#0B1220;border:1px solid var(--glass-br);border-radius:var(--r);box-shadow:0 24px 80px rgba(0,0,0,.6);animation:pop .18s ease}
+.dlg.wide{max-width:920px}.dlg.narrow{max-width:460px}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dlg-h h2{font-size:15.5px;font-weight:700;flex:1}
+.dlg-b{padding:20px;max-height:64vh;overflow-y:auto}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line);flex-wrap:wrap}
+label.fl{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+label.fl .req{color:#FCA5A5}
+.inp,select.inp,textarea.inp{width:100%;padding:10px 12px;border-radius:var(--rs);background:rgba(255,255,255,.03);border:1px solid var(--glass-br);color:var(--text);font-size:13.5px;transition:border-color .2s}
+.inp:focus{border-color:rgba(14,116,144,.6);outline:none}
+.inp[aria-invalid="true"]{border-color:rgba(239,68,68,.6)}
+textarea.inp{resize:vertical;min-height:78px}
+.fg{margin-bottom:14px}
+.err{font-size:11.5px;color:#FCA5A5;margin-top:5px;display:flex;align-items:center;gap:5px}.err svg{width:13px;height:13px}
+.hintx{font-size:11.5px;color:var(--muted-2);margin-top:5px;display:flex;align-items:flex-start;gap:6px}
+.hintx svg{width:13px;height:13px;flex:0 0 auto;margin-top:2px}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:150;display:flex;flex-direction:column;gap:8px;max-width:400px}
+.toast{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--rs);background:#0B1220;border:1px solid var(--glass-br);box-shadow:0 12px 40px rgba(0,0,0,.5);animation:pop .2s ease}
+.toast.ok{border-left:3px solid var(--success)}.toast.err{border-left:3px solid var(--crit)}.toast.inf{border-left:3px solid var(--primary)}
+.toast .tx{flex:1;font-size:13px}.toast .tx b{display:block;font-weight:700;margin-bottom:2px}.toast .tx small{color:var(--muted-2);font-size:11.5px}
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#0B1220;border:1px solid var(--glass-br);padding:6px 10px;border-radius:8px;font-size:11.5px;font-weight:500;color:var(--text);white-space:nowrap;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.sw{width:38px;height:21px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid var(--glass-br);position:relative;cursor:pointer;flex:0 0 auto;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:all .2s}
+.sw.on{background:rgba(14,116,144,.45)}.sw.on::after{left:19px;background:#38BDF8}
+.sw:disabled{opacity:.45;cursor:not-allowed}
+.scoped{max-width:600px;margin:60px auto;text-align:center;padding:32px}
+.scoped h2{font-size:19px;font-weight:800;margin:14px 0 8px}
+.scoped p{font-size:13.5px;color:var(--muted);margin-bottom:18px}
+
+/* ============================================================
+   AI CENTER — new compositions (built from the above primitives)
+   ============================================================ */
+/* governance bar — always visible, states scope + human review + kill switch */
+.gov{display:flex;align-items:center;gap:var(--d3);flex-wrap:wrap;padding:10px var(--pad);background:rgba(14,116,144,.08);border-bottom:1px solid rgba(14,116,144,.2);font-size:12.5px}
+.gov .g-i{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.gov .g-i svg{width:14px;height:14px;color:#38BDF8}
+.gov .g-i b{color:var(--text);font-weight:600}
+.gov .sp{flex:1}
+body[data-ai="off"] .gov{background:rgba(239,68,68,.1);border-bottom-color:rgba(239,68,68,.3)}
+
+/* V22 ai-card composition, reproduced verbatim: p-4 rounded-xl bg-white/5
+   border border-white/10 hover:border-[accent]/50 · icon chip bg-[accent]/20 */
+.aicard{padding:16px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);transition:all .3s;cursor:pointer;text-align:left;width:100%;color:inherit;display:block;position:relative}
+.aicard:hover{transform:translateY(-2px)}
+.aicard .ico{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;margin-bottom:12px}
+.aicard .ico svg{width:16px;height:16px}
+.aicard h3{font-size:13.5px;font-weight:600}
+.aicard p{font-size:12px;color:#94A3B8;margin-top:4px;line-height:1.5}
+.aicard .v22{position:absolute;top:12px;right:12px;font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,.15);color:#6EE7B7}
+.aigrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+
+/* hologram panel — V22 geometry preserved */
+.holo{position:relative;width:100%;max-width:384px;aspect-ratio:1;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 25px 50px -12px rgba(14,116,144,.1);margin:0 auto;background:radial-gradient(circle at 50% 40%,rgba(14,116,144,.35),rgba(37,99,235,.15) 45%,var(--deepest) 78%)}
+.holo::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,var(--deepest),transparent 55%)}
+.holo .core{position:absolute;inset:0;display:grid;place-items:center}
+.holo .ring{position:absolute;border:1px solid rgba(14,116,144,.35);border-radius:50%;animation:pulse 4s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.06);opacity:.35}}
+.holo-cap{text-align:center;font-size:12px;color:#94A3B8;margin-top:14px}
+
+/* conversation — V22 .chat-bubble preserved exactly */
+.chat-bubble{max-width:80%}
+.conv{display:flex;flex-direction:column;gap:16px;min-height:280px;max-height:52vh;overflow-y:auto;padding-right:4px}
+.msg{display:flex;gap:10px;align-items:flex-start}
+.msg.me{flex-direction:row-reverse}
+.msg .av{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;font-size:10px;font-weight:800;color:#fff}
+.msg.ai .av{background:var(--grad)}
+.msg.me .av{background:rgba(255,255,255,.08);color:var(--muted)}
+.bub{border-radius:12px;padding:12px;font-size:14px}
+.msg.ai .bub{background:rgba(14,116,144,.2);border-top-left-radius:0}
+.msg.me .bub{background:rgba(255,255,255,.05);border:1px solid var(--glass-br);border-top-right-radius:0}
+.caret{display:inline-block;width:7px;height:14px;background:#38BDF8;vertical-align:-2px;margin-left:2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.prov{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:10.5px;color:#94A3B8}
+.prov .pi{display:inline-flex;align-items:center;gap:4px}
+.prov .pi svg{width:11px;height:11px}
+.human-flag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:5px;background:rgba(245,158,11,.15);color:#FCD34D}
+.human-flag svg{width:11px;height:11px}
+.fb{display:flex;gap:2px;margin-left:auto}
+.fb button{background:none;border:0;color:#94A3B8;cursor:pointer;padding:4px;border-radius:6px;display:grid;place-items:center}
+.fb button:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.fb button.on{color:var(--success)}.fb button.on.dn{color:#FCA5A5}
+.fb svg{width:13px;height:13px}
+.followups{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.fu{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px dashed rgba(14,116,144,.4);background:rgba(14,116,144,.08);color:#7DD3FC;cursor:pointer;transition:all .2s}
+.fu:hover{background:rgba(14,116,144,.18);border-style:solid}
+
+/* composer */
+.composer{border:1px solid var(--glass-br);border-radius:var(--r);background:rgba(255,255,255,.03);padding:10px;margin-top:14px}
+.composer:focus-within{border-color:rgba(14,116,144,.5)}
+.composer textarea{width:100%;background:none;border:0;color:var(--text);font-size:14px;resize:none;min-height:44px;max-height:150px}
+.composer textarea:focus{outline:none}
+.comp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.comp-row .sp{flex:1}
+.modeseg{display:inline-flex;gap:2px;border:1px solid var(--glass-br);border-radius:999px;padding:2px;background:rgba(255,255,255,.02)}
+.modeseg button{font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;border:0;background:none;color:var(--muted-2);cursor:pointer}
+.modeseg button.on{background:rgba(14,116,144,.22);color:#38BDF8}
+
+/* evidence + confidence */
+.ev{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.05);border:1px solid var(--glass-br);color:#94A3B8;cursor:pointer}
+.ev:hover{color:var(--text);border-color:rgba(14,116,144,.4)}
+.ev svg{width:11px;height:11px}
+.conf{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700}
+.conf .bar{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.conf .bar i{display:block;height:100%;border-radius:3px}
+.conf.hi{color:#6EE7B7}.conf.hi .bar i{background:var(--success)}
+.conf.md{color:#FCD34D}.conf.md .bar i{background:var(--warn)}
+.conf.lo{color:#FCA5A5}.conf.lo .bar i{background:var(--crit)}
+.lowconf{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:var(--rs);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.28);color:#FCA5A5;font-size:12px;margin-top:10px}
+.lowconf svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px}
+
+/* factor decomposition */
+.fac{margin-top:10px}
+.fac-r{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:12px}
+.fac-r .n{min-width:132px;color:var(--muted)}
+.fac-r .b{flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.fac-r .b i{display:block;height:100%;border-radius:4px;background:var(--grad);transition:width .6s ease}
+.fac-r .w{min-width:38px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted-2)}
+
+/* risk heatmap */
+.heat{display:grid;grid-template-columns:132px repeat(4,1fr);gap:6px;font-size:11.5px}
+.heat .hh{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2);padding:4px 2px;text-align:center}
+.heat .rl{display:flex;align-items:center;font-weight:600;color:var(--muted)}
+.heat .cell{border-radius:8px;padding:9px 4px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;cursor:pointer;border:1px solid transparent;transition:all .2s}
+.heat .cell:hover{border-color:rgba(255,255,255,.3)}
+.h-ok{background:rgba(16,185,129,.16);color:#6EE7B7}
+.h-md{background:rgba(245,158,11,.18);color:#FCD34D}
+.h-hi{background:rgba(249,115,22,.2);color:#FDBA74}
+.h-cr{background:rgba(239,68,68,.22);color:#FCA5A5}
+
+/* timeline */
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.tl-i{position:relative;padding-bottom:16px}
+.tl-i:last-child{padding-bottom:0}
+.tl-i::before{content:"";position:absolute;left:-21px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--primary);border:2px solid var(--darker)}
+.tl-i.ok::before{background:var(--success)}.tl-i.warn::before{background:var(--warn)}.tl-i.crit::before{background:var(--crit)}
+.tl-i b{font-size:13px;font-weight:600;display:block}
+.tl-i small{font-size:11.5px;color:var(--muted-2);display:block;margin-top:2px}
+
+/* agents */
+.agent{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:var(--rs);border:1px solid var(--glass-br);background:rgba(255,255,255,.02);margin-bottom:10px}
+.agent .ai-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto}
+.agent .ai-ic svg{width:16px;height:16px}
+.agent .tx{flex:1;min-width:0}
+.agent .tx b{font-size:13.5px;font-weight:700;display:block}
+.agent .tx small{font-size:11.5px;color:var(--muted-2);display:block;margin-top:2px}
+.auth{font-size:10px;font-weight:800;letter-spacing:.05em;padding:3px 8px;border-radius:5px;white-space:nowrap}
+.auth1{background:rgba(56,189,248,.15);color:#7DD3FC}
+.auth2{background:rgba(139,92,246,.18);color:#C4B5FD}
+.auth3,.auth4{background:rgba(255,255,255,.06);color:#94A3B8}
+.killbar{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:var(--rs);background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);margin-bottom:14px;font-size:12.5px;color:#FCA5A5}
+.killbar .sp{flex:1}
+
+/* knowledge base citation */
+.cite{border-left:3px solid var(--a7);padding:10px 12px;background:rgba(6,182,212,.06);border-radius:0 var(--rs) var(--rs) 0;margin-top:10px;font-size:12.5px}
+.cite b{display:block;font-size:12px;color:#67E8F9;margin-bottom:4px}
+.cite p{color:var(--muted)}
+
+/* extracted document fields */
+.xf{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.xf:last-child{border-bottom:0}
+.xf .k{color:var(--muted-2);font-size:12px}
+.xf .v{font-weight:600}
+.xf input{background:rgba(255,255,255,.03);border:1px solid var(--glass-br);border-radius:8px;padding:6px 9px;color:var(--text);font-size:13px;width:100%}
+
+@media(max-width:1023px){
+ .app{grid-template-columns:1fr}
+ .side{position:fixed;left:0;top:0;width:250px;transform:translateX(-100%);transition:transform .25s ease}
+ .side.open{transform:none}
+ .mobnav{display:grid}
+ .c3,.c4,.c5{grid-column:span 6}.c6,.c7,.c8{grid-column:span 12}
+ .heat{grid-template-columns:96px repeat(4,1fr);font-size:10.5px}
+}
+.mobnav{display:none}
+@media(max-width:640px){
+ .c3,.c4,.c5,.c6,.c7,.c8{grid-column:span 12}
+ body{--pad:12px}
+ .hdr h1{font-size:16px}
+ .toasts{left:12px;right:12px;max-width:none}
+ .aigrid{grid-template-columns:1fr}
+ .chat-bubble{max-width:92%}
+ .xf{grid-template-columns:1fr;gap:4px}
+ .fac-r .n{min-width:90px}
+}
+
+/* ============================================================
+   FINANCE & ACCOUNTING — new compositions only.
+   Every primitive above is the locked Sprint 01/02 component
+   library, reused verbatim. Nothing above this line is edited.
+   ============================================================ */
+
+/* finance context bar — scope · period · lock · currency · basis */
+.fctx{display:flex;align-items:center;gap:var(--d3);flex-wrap:wrap;padding:10px var(--pad);
+ background:rgba(14,116,144,.08);border-bottom:1px solid rgba(14,116,144,.2);font-size:12.5px}
+.fctx .f-i{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.fctx .f-i svg{width:14px;height:14px;color:#38BDF8}
+.fctx .f-i b{color:var(--text);font-weight:600}
+.fctx .sp{flex:1}
+body[data-period="locked"] .fctx{background:rgba(239,68,68,.09);border-bottom-color:rgba(239,68,68,.28)}
+.lockchip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;
+ letter-spacing:.05em;padding:3px 8px;border-radius:5px}
+.lock-open{background:rgba(16,185,129,.15);color:#6EE7B7}
+.lock-shut{background:rgba(239,68,68,.18);color:#FCA5A5}
+.lockchip svg{width:11px;height:11px}
+
+/* money */
+.mny{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.mny.neg{color:#FCA5A5}
+.mny.big{font-size:26px;font-weight:800;letter-spacing:-.02em}
+td.mny,th.mny{text-align:right}
+tfoot td{border-top:1px solid rgba(255,255,255,.14);font-weight:800;color:var(--text);
+ background:rgba(14,116,144,.07)}
+
+/* ledger: separate debit and credit columns, running balance */
+.ledger td.d{color:#7DD3FC}
+.ledger td.c{color:#FCD34D}
+.ledger td.bal{color:var(--text);font-weight:700}
+
+/* live balance indicator on journal forms */
+.balbar{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--rs);
+ font-size:13px;font-weight:700;margin-top:12px;border:1px solid transparent}
+.bal-ok{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:#6EE7B7}
+.bal-no{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.32);color:#FCA5A5}
+.balbar .sp{flex:1}
+.balbar svg{width:16px;height:16px}
+
+/* ageing stacked bar */
+.age{display:flex;height:30px;border-radius:8px;overflow:hidden;border:1px solid var(--glass-br)}
+.age i{display:block;height:100%;transition:width .6s ease}
+.age-1{background:#10B981}.age-2{background:#EAB308}.age-3{background:#F97316}.age-4{background:#EF4444}
+.age-lg{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--muted-2)}
+.age-lg span{display:inline-flex;align-items:center;gap:6px}
+.age-lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* budget variance: diverging bars from a centre line */
+.varrow{display:grid;grid-template-columns:150px 1fr 84px;gap:10px;align-items:center;
+ padding:7px 0;font-size:12.5px}
+.varbar{position:relative;height:20px;background:rgba(255,255,255,.04);border-radius:5px}
+.varbar::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.18)}
+.varbar i{position:absolute;top:3px;bottom:3px;border-radius:3px}
+.var-under{background:#10B981}.var-over{background:#EF4444}.var-warn{background:#F59E0B}
+.varrow .lbl{color:var(--muted)}
+.varrow .val{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* cash-flow projection */
+.cf{position:relative;height:190px;display:flex;align-items:flex-end;gap:5px;padding:14px 0 22px}
+.cfb{flex:1;position:relative;height:100%}
+.cfb .band{position:absolute;left:2px;right:2px;background:rgba(37,99,235,.18);border-radius:3px}
+.cfb .pt{position:absolute;left:50%;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;
+ background:#38BDF8;border:2px solid var(--dark)}
+.cfb .wl{position:absolute;bottom:-19px;left:0;right:0;text-align:center;font-size:10px;color:var(--muted-2)}
+.cfmin{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(239,68,68,.6);pointer-events:none}
+.cfmin span{position:absolute;right:0;top:-16px;font-size:10px;font-weight:700;color:#FCA5A5;
+ background:var(--dark);padding:0 5px;border-radius:4px}
+
+/* reconciliation matcher */
+.rec{display:grid;grid-template-columns:1fr 40px 1fr;gap:10px;align-items:start}
+.rec-col{border:1px solid var(--glass-br);border-radius:var(--rs);overflow:hidden}
+.rec-h{padding:9px 12px;background:rgba(14,116,144,.1);font-size:10.5px;font-weight:800;
+ letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2)}
+.rec-i{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);
+ cursor:pointer;transition:background .2s;font-size:12.5px}
+.rec-i:last-child{border-bottom:0}
+.rec-i:hover{background:rgba(255,255,255,.03)}
+.rec-i.sel{background:rgba(14,116,144,.18);box-shadow:inset 3px 0 0 var(--primary)}
+.rec-i .tx{flex:1;min-width:0}
+.rec-i .tx b{display:block;font-size:12.5px;font-weight:600}
+.rec-i .tx small{display:block;font-size:11px;color:var(--muted-2)}
+.rec-mid{display:flex;align-items:center;justify-content:center;padding-top:44px}
+.recdiff{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--rs);
+ font-size:13px;font-weight:700;margin-bottom:14px;border:1px solid transparent}
+.recdiff .sp{flex:1}
+
+/* approval chain stepper */
+.chain{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:12px 0}
+.chain-s{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;
+ padding:5px 11px;border-radius:999px;border:1px solid var(--glass-br);background:rgba(255,255,255,.03);color:var(--muted-2)}
+.chain-s.done{background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.3);color:#6EE7B7}
+.chain-s.now{background:rgba(14,116,144,.18);border-color:rgba(14,116,144,.45);color:#38BDF8}
+.chain-s.block{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.35);color:#FCA5A5}
+.chain-s svg{width:12px;height:12px}
+.chain-a{width:18px;height:1px;background:var(--line)}
+
+/* close checklist */
+.chk{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+.chk:last-child{border-bottom:0}
+.chk .m{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:0 0 auto}
+.chk .m svg{width:13px}
+.chk-pass .m{background:rgba(16,185,129,.16);color:#6EE7B7}
+.chk-fail .m{background:rgba(239,68,68,.16);color:#FCA5A5}
+.chk .tx{flex:1;min-width:0}
+.chk .tx b{display:block;font-size:13px;font-weight:600}
+.chk .tx small{display:block;font-size:11.5px;color:var(--muted-2);margin-top:2px}
+
+/* statement */
+.stmt th{position:sticky;top:0}
+.stmt tbody tr:hover{background:rgba(255,255,255,.03)}
+
+/* three-way match */
+.match{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.match-i{padding:11px;border-radius:var(--rs);border:1px solid var(--glass-br);background:rgba(255,255,255,.02);font-size:12px}
+.match-i b{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+ color:var(--muted-2);margin-bottom:5px}
+.match-i.ok{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.06)}
+.match-i.bad{border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.07)}
+
+@media(max-width:1023px){
+ .rec{grid-template-columns:1fr}
+ .rec-mid{padding:0;justify-content:flex-start}
+ .match{grid-template-columns:1fr}
+ .varrow{grid-template-columns:110px 1fr 74px}
+}
+@media(max-width:640px){
+ .varrow{grid-template-columns:1fr;gap:4px}
+ .varrow .val{text-align:left}
+}
+</style>
+</head>
+<body data-density="comfortable" data-period="open">
+<a class="skip" href="#main">İçeriğe geç</a>
+<div class="sr" aria-live="polite" id="live"></div>
+<div class="sr" aria-live="assertive" id="liveA"></div>
+<svg style="display:none" aria-hidden="true"><defs>
+<g id="i-dash"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></g>
+<g id="i-spark"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></g>
+<g id="i-chart"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="4" width="3" height="14"/></g>
+<g id="i-msg"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></g>
+<g id="i-task"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 13l2 2 4-4"/></g>
+<g id="i-cal"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></g>
+<g id="i-bell"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></g>
+<g id="i-map"><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></g>
+<g id="i-card"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></g>
+<g id="i-grid"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></g>
+<g id="i-alert"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></g>
+<g id="i-check"><path d="M20 6 9 17l-5-5"/></g>
+<g id="i-checkc"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></g>
+<g id="i-x"><path d="M18 6 6 18M6 6l12 12"/></g>
+<g id="i-search"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g>
+<g id="i-ref"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></g>
+<g id="i-dl"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></g>
+<g id="i-up"><path d="m6 15 6-6 6 6"/></g>
+<g id="i-right"><path d="m9 18 6-6-6-6"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-user"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></g>
+<g id="i-usercheck"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3.2-6 7-6"/><path d="m16 15 2 2 4-4"/></g>
+<g id="i-users"><circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/><path d="M17 8.5a3.5 3.5 0 0 0 0-1M18 21c0-2.5-.8-4-2-5"/></g>
+<g id="i-wrench"><path d="M14.7 6.3a4 4 0 0 0 5 5l-8.4 8.4a2.8 2.8 0 0 1-4-4l8.4-8.4-1-1z"/></g>
+<g id="i-shield"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></g>
+<g id="i-wallet"><path d="M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M16 12h3"/></g>
+<g id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></g>
+<g id="i-tri-u"><path d="m5 15 7-7 7 7"/></g>
+<g id="i-tri-d"><path d="m5 9 7 7 7-7"/></g>
+<g id="i-info"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></g>
+<g id="i-inbox"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M4.5 6h15l2 6v6a2 2 0 0 1-2 2H4.5a2 2 0 0 1-2-2v-6z"/></g>
+<g id="i-mega"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></g>
+<g id="i-zap"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></g>
+<g id="i-more"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></g>
+<g id="i-menu"><path d="M3 6h18M3 12h18M3 18h18"/></g>
+<g id="i-lock"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></g>
+<g id="i-eye"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></g>
+<g id="i-table"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></g>
+<g id="i-cpu"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></g>
+<g id="i-bot"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 14h.01M15 14h.01M2 13h2M20 13h2"/></g>
+<g id="i-send"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></g>
+<g id="i-stop"><rect x="6" y="6" width="12" height="12" rx="2"/></g>
+<g id="i-pause"><rect x="7" y="5" width="4" height="14" rx="1"/><rect x="13" y="5" width="4" height="14" rx="1"/></g>
+<g id="i-thumbup"><path d="M7 21V10l5-8a2.5 2.5 0 0 1 2.4 3.2L13.5 9H19a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 17.4 20H7z"/><rect x="2" y="10" width="5" height="11" rx="1"/></g>
+<g id="i-thumbdn"><path d="M17 3v11l-5 8a2.5 2.5 0 0 1-2.4-3.2L10.5 15H5a2 2 0 0 1-2-2.4l1.6-7A2 2 0 0 1 6.6 4H17z"/><rect x="17" y="3" width="5" height="11" rx="1"/></g>
+<g id="i-file"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></g>
+<g id="i-sheet"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 9v12"/></g>
+<g id="i-book"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M8 7h8M8 11h6"/></g>
+<g id="i-branch"><circle cx="6" cy="5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 7.5v9M8.5 19h4a3 3 0 0 0 3-3v-1.5M8.5 5h4a3 3 0 0 1 3 3v1.5"/></g>
+<g id="i-set"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></g>
+<g id="i-gauge"><path d="M12 21a9 9 0 1 1 9-9"/><path d="m12 12 5-3"/></g>
+<g id="i-db"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></g>
+<g id="i-key"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8 2 2-2 2 2 2-2 2-2-2-2 2"/></g>
+<g id="i-list"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></g>
+<g id="i-upload"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 8l5-5 5 5M12 3v13"/></g>
+<g id="i-flask"><path d="M9 3v6L4 19a2 2 0 0 0 1.8 3h12.4A2 2 0 0 0 20 19l-5-10V3"/><path d="M8 3h8M6.5 14h11"/></g>
+
+<g id="i-bank"><path d="M3 21h18M4 21V10M20 21V10M12 3 2 9h20L12 3zM8 21V13M12 21V13M16 21V13"/></g>
+<g id="i-receipt"><path d="M4 3h16v18l-3-2-2 2-3-2-3 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/></g>
+<g id="i-percent"><path d="M19 5 5 19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></g>
+<g id="i-lock-open"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/></g>
+</defs></svg>
+<div class="app">
+ <nav class="side" id="side" aria-label="Ana menü">
+  <div class="brand"><div class="bmark">BN</div><div class="btxt"><b>BN Yönetim</b><small>Site &amp; Proje Yönetimi</small></div></div>
+  <div class="snav" id="snav"></div>
+  <div class="side-foot">Sprint 03 · Finans &amp; Muhasebe<br>Baseline: Version 22 (frozen)</div>
+ </nav>
+ <div class="main">
+  <header class="hdr">
+   <button class="iconbtn mobnav" id="mobtoggle" aria-label="Menüyü aç" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-menu"/></svg></button>
+   <div><h1 id="pageTitle">Finans &amp; Muhasebe</h1><div class="date">25 Temmuz 2026 · Cumartesi</div></div>
+   <div class="hspace"></div>
+   <button class="searchbtn" id="openPal" aria-label="Ara ve komut paleti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:15px;height:15px"><use href="#i-search"/></svg><span>Ara…</span><kbd>Ctrl K</kbd></button>
+   <button class="iconbtn" id="btnRefresh" data-tip="Yenile" aria-label="Yenile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-ref"/></svg></button>
+   <button class="iconbtn" id="btnBell" data-tip="Bildirimler" aria-label="Finansal bildirimler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-bell"/></svg><span class="badge">5</span></button>
+   <div class="avatar" data-tip="Finans Müdürü" tabindex="0" role="button" aria-label="Kullanıcı">SY</div>
+  </header>
+  <main id="main" tabindex="-1">
+   <div id="scopedOut" hidden></div>
+   <div id="finRoot">
+    <div class="fctx" id="fctx" role="region" aria-label="Finansal bağlam"></div>
+    <div class="tabsbar"><div class="tabs" id="tabs" role="tablist" aria-label="Finans bölümleri"></div></div>
+    <div class="content" id="panel" role="tabpanel" tabindex="0"></div>
+   </div>
+  </main>
+ </div>
+</div>
+<div class="ov" id="ov" role="presentation"><div id="ovInner"></div></div>
+<div class="toasts" id="toasts"></div>
+<script>
+"use strict";
+/* ============================================================
+   BN Yönetim — Finance & Accounting (Sprint 03)
+   Locked: V22 design system · Sprint 01 Dashboard · Sprint 02 AI Center.
+   Financial invariants enforced in this file:
+     · double entry must balance before submission
+     · locked periods reject every posting
+     · nothing is deleted — corrections are compensating entries
+     · the requester can never approve their own request
+     · AI proposes, a named human posts
+   Money is handled in integer kuruş; no floating-point arithmetic.
+   No browser storage is used.
+   ============================================================ */
+
+/* ---------- 1. MONEY (integer kuruş, never float) ---------- */
+function kurus(tl){return Math.round(tl*100)}
+function fmt(k,sign){
+ var neg=k<0,a=Math.abs(k);
+ var s=(a/100).toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2});
+ return (neg?"-":(sign&&k>0?"+":""))+"₺"+s;
+}
+function pct(n,d){return d?((n-d)/Math.abs(d)*100):0}
+function fpct(v,dec){return (v>0?"+":"")+v.toFixed(dec==null?1:dec).replace(".",",")+"%"}
+
+/* ---------- 2. DATA ---------- */
+var NAV=[{k:"dashboard",n:"Dashboard",ic:"i-dash"},{k:"ai",n:"BN AI Bölümü",ic:"i-spark"},
+{k:"grafik",n:"Grafikler",ic:"i-chart"},{k:"chat",n:"AI Chat",ic:"i-msg"},
+{k:"gorev",n:"Görevler",ic:"i-task"},{k:"takvim",n:"Takvim",ic:"i-cal"},
+{k:"bildirim",n:"Bildirimler",ic:"i-bell"},{k:"harita",n:"Site Haritası",ic:"i-map"},
+{k:"kart",n:"Kartlar",ic:"i-card",live:true},{k:"widget",n:"Widgetlar",ic:"i-grid"}];
+
+var TABS=[
+{k:"pano",n:"Finans Panosu",ic:"i-gauge"},
+{k:"tahakkuk",n:"Tahakkuk & Tahsilat",ic:"i-wallet"},
+{k:"alacak",n:"Alacaklar",ic:"i-db",cnt:function(){return 7}},
+{k:"gider",n:"Giderler & Onay",ic:"i-file",cnt:function(){return APPR.filter(function(a){return a.st==="pending"}).length}},
+{k:"butce",n:"Bütçe",ic:"i-chart"},
+{k:"nakit",n:"Nakit & Banka",ic:"i-bank"},
+{k:"fatura",n:"Fatura & Makbuz",ic:"i-receipt"},
+{k:"tedarikci",n:"Tedarikçi & Sözleşme",ic:"i-users"},
+{k:"rapor",n:"Raporlar & Kapanış",ic:"i-sheet"},
+{k:"vergi",n:"Vergi & Uyum",ic:"i-percent"},
+{k:"ayar",n:"Ayarlar & Denetim",ic:"i-set"}];
+
+var SITES=[{id:"all",n:"Tüm Siteler",u:25000},{id:"yildiz",n:"Yıldız Sitesi",u:168},
+{id:"deniz",n:"Deniz Sitesi",u:212},{id:"park",n:"Park Sitesi",u:184},
+{id:"gunes",n:"Güneş Sitesi",u:320},{id:"tepe",n:"Tepe Sitesi",u:96},{id:"nehir",n:"Nehir Sitesi",u:140}];
+
+var FKPI=[
+{k:"tahsilat",l:"Tahsilat Oranı",v:"%94",t:"Hedef %96",d:2.0,good:true,dir:"up"},
+{k:"gecikme",l:"Gecikmiş Alacak",v:fmt(kurus(1284500)),t:"1.284 daire",d:7.2,good:false,dir:"down"},
+{k:"nakit",l:"Nakit Pozisyon",v:fmt(kurus(4860000)),t:"Yenileme fonu hariç",d:5.4,good:true,dir:"up"},
+{k:"sapma",l:"Bütçe Sapması",v:"+%0,3",t:"Net · kalem bazında değişken",d:0.3,good:true,dir:"down"},
+{k:"fon",l:"Yenileme Fonu",v:fmt(kurus(2140000)),t:"Hedefin %64'ü",d:3.1,good:true,dir:"up"},
+{k:"dso",l:"Ort. Tahsil Süresi",v:"34 gün",t:"Hedef 30 gün",d:-4.0,good:true,dir:"down"}];
+
+/* Version 22 collection chart series, preserved and extended (Sprint 01 contract) */
+var CHART={lbl:["Oca","Şub","Mar","Nis","May","Haz","Tem"],
+ cur:[1420,1480,1510,1560,1540,1620,1655],prev:[1310,1360,1400,1420,1450,1500,1520],
+ budget:1600,unit:"bin ₺"};
+
+var AGEING=[["0–30 gün",412000,"age-1","İzlemede"],["31–60 gün",318500,"age-2","Hatırlatma"],
+["61–90 gün",241000,"age-3","Resmî ihtar"],["90+ gün",313000,"age-4","Yasal takip"]];
+
+var BUDGET=[
+["Personel",1840000,1812000],["Güvenlik",1240000,1226000],["Enerji",620000,548000],
+["Bakım-Onarım",410000,498000],["Yönetim Gideri",340000,340000],["Temizlik",295000,301000],
+["Peyzaj",180000,214000],["Sigorta",96000,96000]];
+
+var LEDGER=[
+{d:"22.07.2026",no:"YEV-2026-0418",a:"740 Bakım-Onarım Gideri",dsc:"Asansör periyodik bakım · AST-2026-1184",db:3475000,cr:0},
+{d:"22.07.2026",no:"YEV-2026-0418",a:"191 İndirilecek KDV",dsc:"KDV %20",db:695000,cr:0},
+{d:"22.07.2026",no:"YEV-2026-0418",a:"320 Satıcılar",dsc:"Asansör Teknik A.Ş.",db:0,cr:4170000},
+{d:"23.07.2026",no:"YEV-2026-0419",a:"102 Bankalar",dsc:"Aidat tahsilatı · 38 hareket",db:9840000,cr:0},
+{d:"23.07.2026",no:"YEV-2026-0419",a:"120 Alıcılar (Daire Cari)",dsc:"Tahsilat mahsubu",db:0,cr:9840000},
+{d:"24.07.2026",no:"YEV-2026-0420",a:"770 Genel Yönetim Gideri",dsc:"Temmuz yönetim gideri",db:2833333,cr:0},
+{d:"24.07.2026",no:"YEV-2026-0420",a:"102 Bankalar",dsc:"Ödeme",db:0,cr:2833333}];
+
+var APPR=[
+{id:"ap1",t:"Peyzaj bakım sözleşmesi ek iş",v:4200000,site:"Park Sitesi",cat:"Peyzaj",
+ req:"S. Yılmaz",st:"pending",tier:2,just:"Sulama hattı arızası nedeniyle acil yenileme gerekti.",
+ self:true,chain:["Talep","Finans Müdürü","Ödeme"]},
+{id:"ap2",t:"Asansör yedek parça alımı",v:1850000,site:"Yıldız Sitesi",cat:"Bakım-Onarım",
+ req:"M. Demir",st:"pending",tier:2,just:"A-2 asansörü kumanda kartı arızalı, önleyici değişim.",
+ self:false,chain:["Talep","Finans Müdürü","Ödeme"]},
+{id:"ap3",t:"Otopark zemin kaplaması yenileme",v:8600000,site:"Deniz Sitesi",cat:"Bakım-Onarım",
+ req:"A. Kaya",st:"pending",tier:3,just:"Zemin güvenlik riski oluşturuyor, kurul kararı gerekli.",
+ self:false,chain:["Talep","Finans Müdürü","Yönetim Kurulu","Ödeme"]},
+{id:"ap4",t:"Jeneratör yıllık bakım",v:960000,site:"Güneş Sitesi",cat:"Bakım-Onarım",
+ req:"M. Demir",st:"approved",tier:1,just:"Yıllık periyodik bakım.",self:false,chain:["Talep","Site Yöneticisi","Ödeme"]}];
+
+var BANKTX=[
+{id:"b1",d:"23.07.2026",v:284000,dsc:"HAVALE · A BLOK D:12 AIDAT",ref:"YLD-A12-072026",m:false},
+{id:"b2",d:"23.07.2026",v:512000,dsc:"HAVALE · ISIM YOK",ref:"—",m:false},
+{id:"b3",d:"24.07.2026",v:-4170000,dsc:"EFT · ASANSOR TEKNIK AS",ref:"AST-2026-1184",m:false},
+{id:"b4",d:"24.07.2026",v:196000,dsc:"POS · KART TAHSILAT",ref:"POS-88214",m:false}];
+var LEDGERTX=[
+{id:"l1",d:"23.07.2026",v:284000,dsc:"Yıldız A-12 · Temmuz aidat tahsilatı",ref:"YLD-A12-072026",m:false},
+{id:"l2",d:"23.07.2026",v:512000,dsc:"Deniz B-04 · Temmuz + Haziran aidat",ref:"DNZ-B04-072026",m:false},
+{id:"l3",d:"24.07.2026",v:-4170000,dsc:"Asansör Teknik A.Ş. · fatura ödemesi",ref:"AST-2026-1184",m:false},
+{id:"l4",d:"24.07.2026",v:196000,dsc:"POS tahsilatı · 3 daire",ref:"POS-88214",m:false}];
+
+var CLOSE=[
+{k:"rec",t:"Banka mutabakatı farkı sıfır",p:false,d:"4 banka hareketi eşleşmedi · açıklanamayan kalem var"},
+{k:"susp",t:"Muallak hesap bakiyesi sıfır",p:true,d:"197 Sayım Noksanları: ₺0,00"},
+{k:"inv",t:"Onaylı ancak muhasebeleştirilmemiş fatura yok",p:false,d:"2 fatura bekliyor"},
+{k:"sub",t:"Yardımcı defter – kontrol hesabı uyumu",p:true,d:"120 Alıcılar: fark yok"},
+{k:"assess",t:"Taslak tahakkuk yok",p:true,d:"Temmuz 2026 tahakkuku işlenmiş"},
+{k:"dep",t:"Amortisman kaydı yapıldı",p:true,d:"YEV-2026-0402"},
+{k:"accr",t:"Tahakkuk esaslı kesim kayıtları",p:true,d:"3 kayıt · YEV-2026-0415..0417"}];
+
+var STMT=[
+{d:"01.07.2026",dsc:"Temmuz 2026 aidat tahakkuku",db:255000,cr:0},
+{d:"03.07.2026",dsc:"Haziran gecikme tazminatı (%5)",db:12750,cr:0},
+{d:"11.07.2026",dsc:"Havale tahsilatı · YLD-A12",db:0,cr:200000},
+{d:"18.07.2026",dsc:"Ortak alan kullanım bedeli",db:35000,cr:0},
+{d:"23.07.2026",dsc:"Havale tahsilatı · YLD-A12",db:0,cr:84000}];
+
+var VENDORS=[
+{n:"Asansör Teknik A.Ş.",v:"1234567890",c:"Asansör",s:9100000,p:91,ins:"12.2026",blk:false},
+{n:"Mega Peyzaj Ltd.",v:"2345678901",c:"Peyzaj",s:2140000,p:75,ins:"08.2026",blk:false},
+{n:"Enerji Bakım Ltd.",v:"3456789012",c:"Jeneratör",s:1480000,p:89,ins:"03.2026",blk:true},
+{n:"Su Sistemleri A.Ş.",v:"4567890123",c:"Tesisat",s:2620000,p:84,ins:"11.2026",blk:false}];
+
+var CONTRACTS=[
+{n:"Asansör bakım sözleşmesi",v:"Asansör Teknik A.Ş.",val:10200000,used:9100000,end:"31.12.2026",not:"01.11.2026",auto:true},
+{n:"Peyzaj bakım sözleşmesi",v:"Mega Peyzaj Ltd.",val:2160000,used:2140000,end:"28.02.2027",not:"31.12.2026",auto:true},
+{n:"Güvenlik hizmet sözleşmesi",v:"Şafak Güvenlik A.Ş.",val:14880000,used:12260000,end:"30.06.2027",not:"31.03.2027",auto:false}];
+
+var TAXES=[
+{t:"KDV Beyannamesi",p:"Temmuz 2026",d:"26.08.2026",v:1284000,s:"Bekliyor"},
+{t:"Muhtasar (Stopaj)",p:"Temmuz 2026",d:"26.08.2026",v:412000,s:"Bekliyor"},
+{t:"Damga Vergisi · sözleşme",p:"Temmuz 2026",d:"26.08.2026",v:78400,s:"Bekliyor"},
+{t:"SGK Bildirgesi",p:"Temmuz 2026",d:"23.08.2026",v:3860000,s:"Hazır"}];
+
+var FAUDIT=[
+{t:"14:42",a:"A. Kaya",e:"Fatura",act:"Muhasebeleştirme engellendi",d:"AST-2026-1184 · onay tavanı %9,7 aşıldı",cid:"FN-8801",k:"warn"},
+{t:"14:20",a:"S. Yılmaz",e:"Onay",act:"Engellendi",d:"Görevler ayrılığı · talep sahibi onaylayamaz",cid:"FN-8799",k:"crit"},
+{t:"13:58",a:"M. Demir",e:"Yevmiye",act:"Kayıt",d:"YEV-2026-0420 · ₺28.333,33 D/A dengeli",cid:"FN-8794",k:"ok"},
+{t:"13:31",a:"A. Kaya",e:"Tahakkuk",act:"Önizleme",d:"Yıldız Sitesi · Temmuz · 168 daire",cid:"FN-8790",k:""},
+{t:"11:05",a:"Sistem",e:"Tedarikçi",act:"IBAN değişikliği beklemede",d:"Mega Peyzaj · bekleme süresi 2 gün",cid:"FN-8781",k:"warn"},
+{t:"09:12",a:"A. Kaya",e:"Mutabakat",act:"Eşleştirme",d:"38 hareket otomatik eşleşti",cid:"FN-8766",k:"ok"}];
+
+/* ---------- 3. STATE ---------- */
+var S={tab:"pano",scope:"yildiz",periodLocked:false,period:"Temmuz 2026",
+ sel:{bank:null,ledger:null},close:CLOSE.map(function(c){return {k:c.k,p:c.p}}),
+ je:[{a:"740 Bakım-Onarım Gideri",db:3475000,cr:0},{a:"191 İndirilecek KDV",db:695000,cr:0},{a:"320 Satıcılar",db:0,cr:4170000}],
+ preview:null,user:"S. Yılmaz"};
+
+/* ---------- 4. HELPERS (locked contract) ---------- */
+function $(s,r){return (r||document).querySelector(s)}
+function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function ic(n,st){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'+(st?' style="'+st+'"':'')+' aria-hidden="true"><use href="#'+n+'"/></svg>'}
+function say(m,a){$(a?"#liveA":"#live").textContent=m}
+function siteName(){var s=SITES.filter(function(x){return x.id===S.scope})[0];return s?s.n:"Tüm Siteler"}
+function siteUnits(){var s=SITES.filter(function(x){return x.id===S.scope})[0];return s?s.u:0}
+
+function toast(kind,title,msg,undo,persist){
+ var el=document.createElement("div");el.className="toast "+kind;
+ el.innerHTML=ic(kind==="ok"?"i-checkc":kind==="err"?"i-alert":"i-info")+
+  '<div class="tx"><b>'+esc(title)+'</b>'+(msg?'<small>'+esc(msg)+'</small>':'')+'</div>'+
+  (undo?'<button class="btn btn-g btn-sm undo">Geri al</button>':'')+
+  '<button class="btn btn-g btn-sm cls" aria-label="Kapat">'+ic("i-x")+'</button>';
+ $("#toasts").appendChild(el);
+ say((kind==="err"?"Hata: ":"")+title+". "+(msg||""),kind==="err");
+ var kill=function(){el.remove()};
+ el.querySelector(".cls").onclick=kill;
+ if(undo)el.querySelector(".undo").onclick=function(){undo();kill()};
+ if(kind!=="err"&&!persist)setTimeout(kill,undo?7000:4400);
+}
+var lastFocus=null;
+function openDlg(html,onMount){
+ lastFocus=document.activeElement;
+ $("#ovInner").innerHTML=html;$("#ov").classList.add("open");
+ var d=$("#ovInner .dlg");if(!d)return;
+ d.setAttribute("role","dialog");d.setAttribute("aria-modal","true");
+ if(onMount)onMount(d);
+ var f=d.querySelector("input,select,textarea,button");if(f)f.focus();
+ d.addEventListener("keydown",function(e){
+  if(e.key!=="Tab")return;
+  var q=$$('a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])',d);
+  if(!q.length)return;var a=q[0],z=q[q.length-1];
+  if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+  else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+ });
+}
+function closeDlg(){$("#ov").classList.remove("open");$("#ovInner").innerHTML="";
+ if(lastFocus&&document.contains(lastFocus))lastFocus.focus();else $("#main").focus()}
+function dlgShell(t,b,f,cls){
+ return '<div class="dlg '+(cls||"")+'" aria-labelledby="dlgT"><div class="dlg-h">'+ic("i-info")+
+ '<h2 id="dlgT">'+esc(t)+'</h2><button class="iconbtn" data-close aria-label="Kapat">'+ic("i-x")+'</button></div>'+
+ '<div class="dlg-b">'+b+'</div>'+(f?'<div class="dlg-f">'+f+'</div>':'')+'</div>';
+}
+$("#ov").addEventListener("mousedown",function(e){if(e.target.id==="ov")closeDlg()});
+document.addEventListener("keydown",function(e){
+ if(e.key==="Escape"){
+  if($("#ov").classList.contains("open"))closeDlg();
+  else if($("#side").classList.contains("open")){$("#side").classList.remove("open");$("#mobtoggle").setAttribute("aria-expanded","false");$("#mobtoggle").focus()}
+ }
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palette()}
+});
+function secH(t,h,x){return '<div class="sec-h"><h2>'+esc(t)+'</h2>'+(h?'<span class="hint">'+esc(h)+'</span>':'')+'<span class="sp"></span>'+(x||"")+'</div>'}
+function lockedNotice(){
+ return '<div class="partial">'+ic("i-lock")+'<div><b>'+esc(S.period)+' dönemi kilitli.</b> Bu dönemde hiçbir kayıt işlenemez, değiştirilemez veya silinemez. Düzeltme yalnızca açık bir dönemde karşı kayıtla yapılır. Dönemi yeniden açmak <b>finance.period.reopen</b> yetkisi gerektirir ve denetim kaydına yazılır.</div></div>';
+}
+function asOf(){return '<div class="hintx">'+ic("i-clock")+'Değerler '+esc(S.period)+' · 25.07.2026 14:32 itibarıyla · Kapsam: '+esc(siteName())+' · Esas: Tahakkuk · Para birimi: TRY</div>'}
+
+/* ---------- 5. PANELS ---------- */
+var P={};
+
+P.pano=function(){
+ var tb=BUDGET.reduce(function(a,b){return a+b[1]},0),ta=BUDGET.reduce(function(a,b){return a+b[2]},0);
+ var totAge=AGEING.reduce(function(a,b){return a+b[1]},0);
+ return '<div class="sec"><div class="grid">'+FKPI.map(function(k){
+   var cls=k.good?"d-good":"d-bad";
+   return '<div class="c4"><button class="kpi" data-fkpi="'+k.k+'" aria-label="'+esc(k.l+" "+k.v)+', detay">'+
+    '<div class="lbl">'+esc(k.l)+'</div><div class="val num">'+esc(k.v)+'</div>'+
+    '<div class="row"><span class="delta '+cls+'">'+ic(k.d>=0?"i-tri-u":"i-tri-d")+fpct(k.d)+'</span>'+
+    '<span class="tgt">'+esc(k.t)+'</span></div></button></div>'}).join("")+'</div></div>'+
+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c8"><div class="card">'+secH("Aylık Aidat Tahsilatı ("+CHART.unit+")","2026 · 2025 · bütçe karşılaştırmalı")+chart()+'</div></div>'+
+  '<div class="c4"><div class="card">'+secH("Alacak Yaşlandırma",fmt(kurus(totAge))+" toplam")+
+   '<div class="age" role="img" aria-label="Yaşlandırma dağılımı: '+AGEING.map(function(a){return a[0]+" "+Math.round(a[1]/totAge*100)+" yüzde"}).join(", ")+'">'+
+    AGEING.map(function(a){return '<i class="'+a[2]+'" style="width:'+(a[1]/totAge*100).toFixed(1)+'%"></i>'}).join("")+'</div>'+
+   '<div class="list" style="margin-top:10px">'+AGEING.map(function(a){
+    return '<div class="li"><span class="dot" style="background:'+({"age-1":"#10B981","age-2":"#EAB308","age-3":"#F97316","age-4":"#EF4444"}[a[2]])+'"></span>'+
+    '<div class="tx"><b>'+a[0]+'</b><small>'+a[3]+'</small></div><span class="mny">'+fmt(kurus(a[1]))+'</span></div>'}).join("")+'</div>'+
+   '<div class="hintx" style="margin-top:8px">'+ic("i-lock")+'Daire bazlı borçlu listesi <b>finance.debtor.view</b> yetkisi gerektirir.</div>'+
+  '</div></div></div></div>'+
+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c6"><div class="card">'+secH("Bütçe Sapması","Net "+fpct(pct(ta,tb))+" · kalem bazında değişken")+
+   BUDGET.map(function(b){
+    var v=pct(b[2],b[1]),over=v>0,w=Math.min(Math.abs(v)*2,50);
+    var cls=v>15?"var-over":v>0?"var-warn":"var-under";
+    return '<div class="varrow"><span class="lbl">'+esc(b[0])+'</span>'+
+     '<span class="varbar"><i class="'+cls+'" style="'+(over?"left:50%":"right:50%")+';width:'+w+'%"></i></span>'+
+     '<span class="val" style="color:'+(v>15?"#FCA5A5":v>0?"#FCD34D":"#6EE7B7")+'">'+fpct(v)+'</span></div>'}).join("")+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Net sapma küçük, kalem sapması büyük: Bakım-Onarım '+fpct(pct(498000,410000))+', Peyzaj '+fpct(pct(214000,180000))+'. Net rakama bakmak bu iki aşımı gizler.</div>'+
+  '</div></div>'+
+  '<div class="c6"><div class="card">'+secH("Karar Bekleyenler","Onay ve engel durumları")+
+   '<div class="list">'+APPR.filter(function(a){return a.st==="pending"}).map(function(a){
+    return '<div class="li"><span class="dot" style="background:'+(a.tier===3?"#EF4444":"#F59E0B")+'"></span>'+
+    '<div class="tx"><b>'+esc(a.t)+'</b><small>'+esc(a.site)+' · Talep: '+esc(a.req)+(a.self?' · <span style="color:#FCA5A5">görevler ayrılığı</span>':'')+'</small></div>'+
+    '<span class="mny">'+fmt(a.v)+'</span></div>'}).join("")+
+   '<div class="li"><span class="dot" style="background:#F97316"></span><div class="tx"><b>Fatura muhasebeleştirme engeli</b><small>AST-2026-1184 · onay tavanı %9,7 aşıldı</small></div><span class="mny">'+fmt(kurus(41700))+'</span></div>'+
+   '<div class="li"><span class="dot" style="background:#EF4444"></span><div class="tx"><b>Tedarikçi IBAN değişikliği</b><small>Mega Peyzaj · ikinci onay ve bekleme süresi</small></div><span class="pri p-acil">2 gün</span></div>'+
+   '</div></div></div>'+
+ '</div></div>'+asOf();
+};
+
+function chart(){
+ var mx=Math.max.apply(null,CHART.cur.concat(CHART.prev,[CHART.budget]))*1.08;
+ var bars=CHART.lbl.map(function(l,i){
+  return '<div class="bwrap"><div class="bars">'+
+   '<div class="bar prev" style="height:'+(CHART.prev[i]/mx*100).toFixed(1)+'%" data-tip="2025 · '+CHART.prev[i].toLocaleString("tr-TR")+'"></div>'+
+   '<button class="bar" style="height:'+(CHART.cur[i]/mx*100).toFixed(1)+'%" data-bar="'+i+'" data-tip="2026 · '+CHART.cur[i].toLocaleString("tr-TR")+'" aria-label="'+l+' 2026 '+CHART.cur[i]+' bin lira"></button>'+
+   '</div><span class="bl">'+l+'</span></div>'}).join("");
+ return '<div class="chart">'+bars+'<div class="budget" style="bottom:'+(22+CHART.budget/mx*174).toFixed(1)+'px"><span>Bütçe '+CHART.budget.toLocaleString("tr-TR")+'</span></div></div>'+
+  '<div class="legend"><span><i style="background:linear-gradient(135deg,#0E7490,#2563EB)"></i>2026</span>'+
+  '<span><i style="border:1.5px solid rgba(226,232,240,.3);background:none"></i>2025</span>'+
+  '<button class="btn btn-g btn-sm" id="ctbl" aria-expanded="false">'+ic("i-table")+'Tabloyu göster</button></div><div id="ctblOut" hidden></div>';
+}
+
+P.tahakkuk=function(){
+ var s=SITES.filter(function(x){return x.id===S.scope})[0];
+ var per=255000;
+ return (S.periodLocked?lockedNotice():"")+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c7"><div class="card">'+secH("Tahakkuk Üretimi","İki aşamalı: önizleme → açık onay")+
+   '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">'+
+    '<div class="fg"><label class="fl" for="taSite">Site</label><select class="inp" id="taSite">'+
+     SITES.slice(1).map(function(x){return '<option value="'+x.id+'"'+(x.id===S.scope?" selected":"")+'>'+esc(x.n)+' ('+x.u+' daire)</option>'}).join("")+'</select></div>'+
+    '<div class="fg"><label class="fl" for="taRule">Paylaşım kuralı</label><select class="inp" id="taRule">'+
+     '<option>Arsa payı</option><option>Eşit paylaşım</option><option>m² esaslı</option><option>Karma (yönetim planı)</option></select></div>'+
+   '</div>'+
+   '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">'+
+    '<div class="fg"><label class="fl" for="taPer">Dönem</label><select class="inp" id="taPer"><option>Temmuz 2026</option><option>Ağustos 2026</option></select></div>'+
+    '<div class="fg"><label class="fl" for="taBase">Daire başı ortalama</label><input class="inp" id="taBase" value="'+(per/100).toLocaleString("tr-TR",{minimumFractionDigits:2})+'" inputmode="decimal"></div>'+
+   '</div>'+
+   '<div class="hintx">'+ic("i-info")+'Aidat bütçeden türetilir, bütçe aidattan değil. Onaylı işletme projesi olmadan tahakkuk üretilemez.</div>'+
+   '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+    '<button class="btn btn-s btn-sm" id="taPreview"'+(S.periodLocked?" disabled":"")+'>'+ic("i-eye")+'Önizleme oluştur</button>'+
+    '<button class="btn btn-p btn-sm" id="taCommit"'+(S.preview&&!S.periodLocked?"":" disabled")+'>'+ic("i-check")+'Tahakkuku işle</button>'+
+   '</div>'+
+   (S.preview?('<div class="card" style="margin-top:14px;background:rgba(14,116,144,.08)">'+
+    '<div class="sec-h"><h2>Önizleme · henüz işlenmedi</h2><span class="sp"></span><span class="pri p-orta">Taslak</span></div>'+
+    '<div class="list">'+
+     '<div class="li"><div class="tx"><b>Site</b></div><span>'+esc(S.preview.site)+'</span></div>'+
+     '<div class="li"><div class="tx"><b>Daire sayısı</b></div><span class="num">'+S.preview.units+'</span></div>'+
+     '<div class="li"><div class="tx"><b>Paylaşım kuralı</b></div><span>'+esc(S.preview.rule)+'</span></div>'+
+     '<div class="li"><div class="tx"><b>Toplam tahakkuk</b></div><span class="mny">'+fmt(S.preview.total)+'</span></div>'+
+     '<div class="li"><div class="tx"><b>Yuvarlama farkı</b><small>En büyük arsa payına atanır</small></div><span class="mny">'+fmt(S.preview.round)+'</span></div>'+
+    '</div>'+
+    '<div class="hintx" style="margin-top:8px">'+ic("i-alert")+'İşleme geri alınamaz; yalnızca tüm çalışma karşı kayıtla iptal edilebilir. Satır bazlı iptal, paylaşım bütünlüğünü bozacağı için yoktur.</div></div>'):"")+
+  '</div></div>'+
+  '<div class="c5"><div class="card">'+secH("Tahsilat Kanalları","Temmuz 2026")+
+   '<div class="list">'+[["Banka havalesi",6840000,"%68"],["Otomatik ödeme (DBS)",1920000,"%19"],
+    ["Sanal POS",980000,"%10"],["Kasa (nakit)",280000,"%3"]].map(function(r){
+    return '<div class="li"><div class="tx"><b>'+r[0]+'</b><small>'+r[2]+'</small></div><span class="mny">'+fmt(r[1])+'</span></div>'}).join("")+
+   '</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Mahsup sırası: en eski borç önce, tazminat anaparadan önce. Manuel mahsup gerekçe ister ve denetlenir.</div>'+
+   '</div>'+
+   '<div class="card" style="margin-top:16px">'+secH("Gecikme Tazminatı","KMK m.20/c · aylık %5")+
+    '<div class="list">'+[["Temmuz tahakkuk eden",64225],["Tahsil edilen",41180],["Bakiye",23045]].map(function(r){
+     return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span class="mny">'+fmt(kurus(r[1]))+'</span></div>'}).join("")+'</div>'+
+    '<div class="hintx" style="margin-top:8px">'+ic("i-info")+'Oran politikadan gelir, elle girilmez. Geçmiş tahakkuklar geriye dönük yeniden hesaplanmaz.</div></div>'+
+  '</div></div></div>'+asOf();
+};
+
+P.alacak=function(){
+ var bal=0;
+ return '<div class="sec"><div class="grid">'+
+  '<div class="c7"><div class="card">'+secH("Daire Hesap Ekstresi","Yıldız Sitesi · A Blok D:12",
+   '<button class="btn btn-s btn-sm" data-exp="ekstre">'+ic("i-dl")+'PDF</button>')+
+   '<div class="tw"><table class="t stmt"><caption class="sr">Daire hesap ekstresi, borç alacak ve yürüyen bakiye</caption>'+
+   '<thead><tr><th>Tarih</th><th>Açıklama</th><th class="mny">Borç</th><th class="mny">Alacak</th><th class="mny">Bakiye</th></tr></thead><tbody>'+
+   STMT.map(function(r){bal+=r.db-r.cr;
+    return '<tr><td class="num">'+r.d+'</td><td>'+esc(r.dsc)+'</td>'+
+    '<td class="mny">'+(r.db?fmt(r.db):"—")+'</td><td class="mny">'+(r.cr?fmt(r.cr):"—")+'</td>'+
+    '<td class="mny bal">'+fmt(bal)+'</td></tr>'}).join("")+
+   '</tbody><tfoot><tr><td colspan="2">Dönem sonu bakiye</td>'+
+   '<td class="mny">'+fmt(STMT.reduce(function(a,r){return a+r.db},0))+'</td>'+
+   '<td class="mny">'+fmt(STMT.reduce(function(a,r){return a+r.cr},0))+'</td>'+
+   '<td class="mny">'+fmt(bal)+'</td></tr></tfoot></table></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-lock")+'Borç daireye bağlıdır (KMK m.22). Kiracı değişikliği bakiyeyi sona erdirmez; sorumlu taraf tarihsel olarak kaydedilir.</div>'+
+  '</div></div>'+
+  '<div class="c5"><div class="card">'+secH("Yasal Takip","Kurul kararı ve delil paketi zorunlu")+
+   '<div class="list">'+[["Takibe hazır (90+ gün)","7 daire",fmt(kurus(313000)),"p-acil"],
+    ["Kurul kararı bekleyen","3 daire",fmt(kurus(128000)),"p-orta"],
+    ["İcra takibinde","4 daire",fmt(kurus(186000)),"p-orta"],
+    ["Ödeme planına bağlanan","11 daire",fmt(kurus(94500)),"p-dusuk"]].map(function(r){
+    return '<div class="li"><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div><span class="mny">'+r[2]+'</span><span class="pri '+r[3]+'">'+(r[3]==="p-acil"?"Kritik":r[3]==="p-orta"?"Takip":"Plan")+'</span></div>'}).join("")+'</div>'+
+   '<button class="btn btn-s btn-sm" style="margin-top:12px" id="evPack">'+ic("i-file")+'Delil paketi oluştur</button>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Davalar çoğunlukla esastan değil, tebligat delili eksikliğinden kaybedilir. Paket ihtarname tebliğ kayıtlarını içerir.</div>'+
+  '</div></div></div></div>'+asOf();
+};
+
+P.gider=function(){
+ return (S.periodLocked?lockedNotice():"")+
+ '<div class="sec">'+secH("Onay Bekleyen Harcamalar","Eşik bazlı yönlendirme · görevler ayrılığı zorunlu")+
+  APPR.filter(function(a){return a.st==="pending"}).map(function(a){
+   return '<div class="card" style="margin-bottom:12px">'+
+    '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">'+
+     '<div style="flex:1;min-width:200px"><b style="font-size:14px">'+esc(a.t)+'</b>'+
+      '<div style="font-size:12px;color:var(--muted-2);margin-top:3px">'+esc(a.site)+' · '+esc(a.cat)+' · Talep eden: '+esc(a.req)+'</div></div>'+
+     '<span class="mny big">'+fmt(a.v)+'</span></div>'+
+    '<p style="font-size:12.5px;color:var(--muted);margin-top:8px">'+esc(a.just)+'</p>'+
+    '<div class="chain">'+a.chain.map(function(c,i){
+      var cls=i===0?"done":(i===1?(a.self?"block":"now"):"");
+      return (i?'<span class="chain-a"></span>':'')+'<span class="chain-s '+cls+'">'+
+       (cls==="done"?ic("i-check"):cls==="block"?ic("i-lock"):"")+esc(c)+'</span>'}).join("")+'</div>'+
+    (a.self?'<div class="partial">'+ic("i-lock")+'<div><b>Görevler ayrılığı ihlali.</b> Bu talebi siz oluşturdunuz ('+esc(a.req)+'); talep sahibi kendi talebini onaylayamaz. Onay başka bir tier-'+a.tier+' yetkilisine yönlendirilmelidir. Bu kural yetki devriyle de aşılamaz.</div></div>':'')+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+
+     '<button class="btn btn-p btn-sm" data-appr="'+a.id+'"'+(a.self?" disabled":"")+'>'+ic("i-check")+'Onayla'+(a.v>5000000?" (kimlik doğrulama)":"")+'</button>'+
+     '<button class="btn btn-d btn-sm" data-rej="'+a.id+'">Reddet</button>'+
+     '<button class="btn btn-g btn-sm" data-bl="'+a.id+'">'+ic("i-eye")+'Bütçe kalemi</button></div>'+
+   '</div>'}).join("")+
+ '</div>'+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c6"><div class="card">'+secH("Borçlar (Vade)","Ödeme planı")+
+   '<div class="tw"><table class="t"><thead><tr><th>Tedarikçi</th><th>Belge</th><th>Vade</th><th class="mny">Tutar</th></tr></thead><tbody>'+
+   [["Asansör Teknik A.Ş.","AST-2026-1184","31.07.2026",4170000],["Şafak Güvenlik A.Ş.","SFK-2026-0712","05.08.2026",10216667],
+    ["Su Sistemleri A.Ş.","SUS-2026-0388","12.08.2026",862000],["Mega Peyzaj Ltd.","MPZ-2026-0219","20.08.2026",178333]]
+   .map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td class="num">'+r[2]+'</td><td class="mny">'+fmt(r[3])+'</td></tr>'}).join("")+
+   '</tbody><tfoot><tr><td colspan="3">Toplam</td><td class="mny">'+fmt(4170000+10216667+862000+178333)+'</td></tr></tfoot></table></div></div></div>'+
+  '<div class="c6"><div class="card">'+secH("Yevmiye Kaydı","Çift taraflı · denge zorunlu")+jeForm()+'</div></div>'+
+ '</div></div>'+asOf();
+};
+function jeForm(){
+ var d=S.je.reduce(function(a,r){return a+r.db},0),c=S.je.reduce(function(a,r){return a+r.cr},0);
+ var ok=d===c&&d>0;
+ return '<div class="tw"><table class="t ledger"><thead><tr><th>Hesap</th><th class="mny">Borç</th><th class="mny">Alacak</th></tr></thead><tbody>'+
+  S.je.map(function(r,i){return '<tr><td>'+esc(r.a)+'</td>'+
+   '<td class="mny d">'+(r.db?fmt(r.db):"—")+'</td><td class="mny c">'+(r.cr?fmt(r.cr):"—")+'</td></tr>'}).join("")+
+  '</tbody><tfoot><tr><td>Toplam</td><td class="mny">'+fmt(d)+'</td><td class="mny">'+fmt(c)+'</td></tr></tfoot></table></div>'+
+  '<div class="balbar '+(ok?"bal-ok":"bal-no")+'" role="status" aria-live="polite">'+ic(ok?"i-checkc":"i-alert")+
+   '<span class="sp">'+(ok?"Kayıt dengeli · borç = alacak":"Kayıt dengesiz · fark "+fmt(Math.abs(d-c)))+'</span>'+
+   '<span class="mny">'+fmt(d-c,true)+'</span></div>'+
+  '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'+
+   '<button class="btn btn-p btn-sm" id="jePost"'+(ok&&!S.periodLocked?"":" disabled")+'>'+ic("i-check")+'Kaydı işle</button>'+
+   '<button class="btn btn-s btn-sm" id="jeBreak">Dengeyi boz (kontrolü dene)</button>'+
+   '<button class="btn btn-g btn-sm" id="jeFix">Sıfırla</button></div>'+
+  '<div class="hintx" style="margin-top:8px">'+ic("i-info")+'Dengesiz kayıt gönderilemez: arayüz engeller, API reddeder. Kayıt silinmez; düzeltme karşı kayıtla yapılır.</div>';
+}
+
+P.butce=function(){
+ var tb=BUDGET.reduce(function(a,b){return a+b[1]},0),ta=BUDGET.reduce(function(a,b){return a+b[2]},0);
+ return '<div class="sec"><div class="grid">'+
+  '<div class="c8"><div class="card">'+secH("İşletme Projesi 2026","KMK m.37 · kurul onaylı · sürüm 2",
+    '<span class="pri p-dusuk">Onaylı · 14.12.2025 · Karar 2025/8</span>')+
+   '<div class="tw"><table class="t"><thead><tr><th>Gider Kalemi</th><th class="mny">Bütçe</th><th class="mny">Gerçekleşen</th><th class="mny">Fark</th><th class="mny">Kullanım</th><th>Durum</th></tr></thead><tbody>'+
+   BUDGET.map(function(b){
+    var v=pct(b[2],b[1]),use=b[2]/b[1]*100;
+    var st=use>=100?["p-acil","Aşım"]:use>=90?["p-orta","Uyarı"]:["p-dusuk","Normal"];
+    return '<tr tabindex="0" data-bcat="'+esc(b[0])+'"><td>'+esc(b[0])+'</td>'+
+     '<td class="mny">'+fmt(kurus(b[1]))+'</td><td class="mny">'+fmt(kurus(b[2]))+'</td>'+
+     '<td class="mny" style="color:'+(v>0?"#FCA5A5":"#6EE7B7")+'">'+fmt(kurus(b[2]-b[1]),true)+'</td>'+
+     '<td class="mny">'+use.toFixed(1).replace(".",",")+'%</td>'+
+     '<td><span class="pri '+st[0]+'">'+st[1]+'</span></td></tr>'}).join("")+
+   '</tbody><tfoot><tr><td>Toplam</td><td class="mny">'+fmt(kurus(tb))+'</td><td class="mny">'+fmt(kurus(ta))+'</td>'+
+   '<td class="mny">'+fmt(kurus(ta-tb),true)+'</td><td class="mny">'+(ta/tb*100).toFixed(1).replace(".",",")+'%</td><td></td></tr></tfoot></table></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Kalem %90\'a ulaştığında uyarı verilir, %100\'de yeni taahhüt engellenir. Aşım yalnızca yetkili onayı ve gerekçeyle geçilebilir.</div>'+
+  '</div></div>'+
+  '<div class="c4"><div class="card">'+secH("Yenileme Fonu","İşletme likiditesinden ayrı")+
+   '<div class="mny big">'+fmt(kurus(2140000))+'</div>'+
+   '<div class="hintx" style="margin-top:6px">'+ic("i-info")+'Hedef '+fmt(kurus(3350000))+' · %64</div>'+
+   '<div class="age" style="margin-top:12px"><i class="age-1" style="width:64%"></i><i style="background:rgba(255,255,255,.06);width:36%"></i></div>'+
+   '<div class="list" style="margin-top:12px">'+[["Aylık katkı",64000],["Planlı kullanım (2027)",-1180000],["Asansör yenileme rezervi",-720000]].map(function(r){
+    return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span class="mny'+(r[1]<0?" neg":"")+'">'+fmt(kurus(r[1]),true)+'</span></div>'}).join("")+'</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-lock")+'Fon kullanımı kurul kararı referansı gerektirir ve hiçbir nakit/likidite göstergesine dahil edilmez.</div>'+
+  '</div></div></div></div>'+asOf();
+};
+
+P.nakit=function(){
+ var w=[4860,4720,4980,5240,5110,4890,4650,4430,4680,4920,5180,5010,4870];
+ var mn=Math.min.apply(null,w),mx=Math.max.apply(null,w),floor=4000;
+ return '<div class="sec"><div class="grid">'+
+  '<div class="c8"><div class="card">'+secH("13 Haftalık Nakit Projeksiyonu","Güven bandıyla · bin ₺")+
+   '<div class="cf">'+w.map(function(v,i){
+    var h=(v-floor)/(mx-floor+400)*100,band=8;
+    return '<div class="cfb"><div class="band" style="bottom:'+(h-band/2).toFixed(1)+'%;height:'+band+'%"></div>'+
+     '<div class="pt" style="bottom:'+h.toFixed(1)+'%"></div><span class="wl">H'+(i+1)+'</span></div>'}).join("")+
+    '<div class="cfmin" style="bottom:22px"><span>Asgari eşik '+floor.toLocaleString("tr-TR")+'</span></div></div>'+
+   '<div class="hintx">'+ic("i-info")+'Projeksiyon nokta tahmin değil bant olarak sunulur. Yenileme fonu dahil değildir.</div>'+
+  '</div></div>'+
+  '<div class="c4"><div class="card">'+secH("Banka Hesapları","Site bazında ayrık")+
+   '<div class="list">'+[["Ziraat · TR33 0001 ...4521","İşletme",3120000,false],
+    ["Garanti · TR64 0006 ...8890","İşletme",1740000,false],
+    ["Ziraat · TR33 0001 ...7712","Yenileme Fonu",2140000,true],
+    ["Kasa","Nakit",42000,false]].map(function(r){
+    return '<div class="li"><span class="dot" style="background:'+(r[3]?"#8B5CF6":"#0E7490")+'"></span>'+
+    '<div class="tx"><b>'+esc(r[0])+'</b><small>'+r[1]+(r[3]?" · kısıtlı":"")+'</small></div><span class="mny">'+fmt(kurus(r[2]))+'</span></div>'}).join("")+'</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-lock")+'Siteler arası fon karışması mimari olarak engellidir; aktarım her iki tarafta yetkilendirme ister.</div>'+
+  '</div></div></div></div>'+
+ '<div class="sec">'+secH("Banka Mutabakatı","42 hareketin 38'i otomatik eşleşti · 4 istisna")+recon()+'</div>'+asOf();
+};
+function recon(){
+ var um=BANKTX.filter(function(t){return !t.m}),ul=LEDGERTX.filter(function(t){return !t.m});
+ var unmatchedValue=um.reduce(function(a,t){return a+Math.abs(t.v)},0);
+ var bal=um.length===0&&ul.length===0;
+ return '<div class="recdiff '+(bal?"bal-ok":"bal-no")+'" role="status" aria-live="polite">'+
+  ic(bal?"i-checkc":"i-alert")+'<span class="sp">'+(bal?"Mutabakat sağlandı · eşleşmeyen hareket yok":
+   "Eşleşmeyen: "+um.length+" banka, "+ul.length+" defter kaydı")+'</span>'+
+  '<span class="mny">Eşleşmeyen tutar '+fmt(unmatchedValue)+'</span></div>'+
+ '<div class="card"><div class="rec">'+
+  '<div class="rec-col"><div class="rec-h">Banka Hareketi ('+um.length+')</div>'+
+   (um.length?um.map(function(t){
+    return '<button class="rec-i'+(S.sel.bank===t.id?" sel":"")+'" data-bk="'+t.id+'" aria-pressed="'+(S.sel.bank===t.id)+'">'+
+     '<div class="tx"><b>'+esc(t.dsc)+'</b><small>'+t.d+' · Ref: '+esc(t.ref)+'</small></div>'+
+     '<span class="mny'+(t.v<0?" neg":"")+'">'+fmt(t.v)+'</span></button>'}).join("")
+    :'<div class="state">'+ic("i-checkc")+'<b>Tümü eşleşti</b></div>')+'</div>'+
+  '<div class="rec-mid"><button class="btn btn-p btn-sm" id="doMatch"'+(S.sel.bank&&S.sel.ledger?"":" disabled")+' aria-label="Seçilenleri eşleştir">'+ic("i-check")+'</button></div>'+
+  '<div class="rec-col"><div class="rec-h">Defter Kaydı ('+ul.length+')</div>'+
+   (ul.length?ul.map(function(t){
+    return '<button class="rec-i'+(S.sel.ledger===t.id?" sel":"")+'" data-lg="'+t.id+'" aria-pressed="'+(S.sel.ledger===t.id)+'">'+
+     '<div class="tx"><b>'+esc(t.dsc)+'</b><small>'+t.d+' · Ref: '+esc(t.ref)+'</small></div>'+
+     '<span class="mny'+(t.v<0?" neg":"")+'">'+fmt(t.v)+'</span></button>'}).join("")
+    :'<div class="state">'+ic("i-checkc")+'<b>Tümü eşleşti</b></div>')+'</div>'+
+ '</div>'+
+ '<div class="hintx" style="margin-top:12px">'+ic("i-alert")+'Dönem, açıklanamayan mutabakat farkı sıfırlanmadan kapatılamaz. Manuel eşleştirme gerekçe ister ve denetlenir.</div></div>';
+}
+
+P.fatura=function(){
+ var inv=4170000,ceil=3800000,over=pct(inv,ceil);
+ return (S.periodLocked?lockedNotice():"")+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c7"><div class="card">'+secH("Üç Yönlü Eşleştirme","AST-2026-1184 · Asansör Teknik A.Ş.")+
+   '<div class="match">'+
+    '<div class="match-i ok"><b>Satın alma onayı</b>Onay #A-2214<br>Tavan '+fmt(ceil)+'</div>'+
+    '<div class="match-i ok"><b>İş emri / teslim</b>İş emri #4821<br>Tamamlandı 22.07</div>'+
+    '<div class="match-i bad"><b>Fatura</b>AST-2026-1184<br>'+fmt(inv)+' · '+fpct(over)+'</div>'+
+   '</div>'+
+   '<div class="partial">'+ic("i-alert")+'<div><b>Muhasebeleştirme engellendi.</b> Fatura tutarı onaylanan tavanı '+fpct(over)+' aşıyor ('+fmt(inv-ceil,true)+'). Kayıt işlenemez; fark gerekçesiyle birlikte onay akışına yönlendirilmelidir.</div></div>'+
+   '<div class="tw"><table class="t"><thead><tr><th>Kalem</th><th class="mny">Matrah</th><th class="mny">KDV</th><th class="mny">Tevkifat</th><th class="mny">Toplam</th></tr></thead><tbody>'+
+    '<tr><td>Asansör periyodik bakım</td><td class="mny">'+fmt(3475000)+'</td><td class="mny">'+fmt(695000)+'</td><td class="mny">—</td><td class="mny">'+fmt(4170000)+'</td></tr>'+
+   '</tbody></table></div>'+
+   '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+    '<button class="btn btn-p btn-sm" id="invAppr">'+ic("i-right")+'Onaya yönlendir</button>'+
+    '<button class="btn btn-s btn-sm" id="invPost" disabled data-tip="Tavan aşımı nedeniyle engelli">'+ic("i-lock")+'Muhasebeleştir</button>'+
+    '<button class="btn btn-g btn-sm" id="invDup">'+ic("i-search")+'Mükerrer kontrolü</button></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Alanlar AI Center Belge Ajanı tarafından çıkarıldı (güven %89) ve bir insan tarafından doğrulandı. AI hiçbir tutarı deftere yazamaz.</div>'+
+  '</div></div>'+
+  '<div class="c5"><div class="card">'+secH("Makbuz Serisi","Boşluksuz numaralandırma · site/yıl bazında")+
+   '<div class="list">'+[["Son verilen","YLD-2026-01847"],["Bu ay verilen","312"],["İptal edilen","2 · numara yeniden kullanılmaz"],["Boşluk kontrolü","Geçti · boşluk yok"]].map(function(r){
+    return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span style="color:var(--muted)">'+esc(r[1])+'</span></div>'}).join("")+'</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-shield")+'Boşluksuz numaralandırma birincil denetim testidir; başarısız olması tüm defteri şüpheye düşürür.</div></div>'+
+   '<div class="card" style="margin-top:16px">'+secH("e-Belge Durumu","GİB entegrasyonu")+
+    '<div class="list">'+[["e-Fatura · gelen","18","p-dusuk"],["e-Arşiv · giden","4","p-dusuk"],["e-Makbuz","312","p-dusuk"],["Hatalı / beklemede","1","p-orta"]].map(function(r){
+     return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span class="num" style="font-weight:700">'+r[1]+'</span><span class="pri '+r[2]+'">'+(r[2]==="p-orta"?"İncele":"Tamam")+'</span></div>'}).join("")+'</div></div>'+
+  '</div></div></div>'+asOf();
+};
+
+P.tedarikci=function(){
+ return '<div class="sec">'+secH("Tedarikçi Kayıtları","VKN tekil · zorunlu sigorta süresi kontrollü")+
+  '<div class="card"><div class="tw"><table class="t"><thead><tr><th>Tedarikçi</th><th>VKN</th><th>Kategori</th><th class="mny">Yıllık Harcama</th><th class="mny">Performans</th><th>Sigorta</th><th>Durum</th></tr></thead><tbody>'+
+  VENDORS.map(function(v){
+   return '<tr tabindex="0" data-vnd="'+esc(v.n)+'"><td>'+esc(v.n)+'</td><td class="num">'+v.v+'</td><td>'+esc(v.c)+'</td>'+
+   '<td class="mny">'+fmt(v.s)+'</td><td class="mny">%'+v.p+'</td><td class="num">'+v.ins+'</td>'+
+   '<td><span class="pri '+(v.blk?"p-acil":"p-dusuk")+'">'+(v.blk?"Bloke":"Aktif")+'</span></td></tr>'}).join("")+
+  '</tbody></table></div>'+
+  '<div class="partial" style="margin-top:12px">'+ic("i-lock")+'<div><b>Enerji Bakım Ltd. bloke.</b> Zorunlu mesleki sorumluluk sigortası 03.2026\'da doldu; yeni taahhüt oluşturulamaz. Mevcut borçların ödenmesi engellenmez.</div></div>'+
+  '</div></div>'+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c6"><div class="card">'+secH("IBAN Değişikliği · Çift Onay","En yüksek değerli tekil dolandırıcılık vektörü")+
+   '<div class="list">'+
+    '<div class="li"><span class="dot" style="background:#F59E0B"></span><div class="tx"><b>Mega Peyzaj Ltd.</b>'+
+     '<small>TR64 ...8890 → TR12 ...4417 · Talep: A. Kaya · 23.07.2026</small></div></div>'+
+    '<div class="li"><div class="tx"><b>İkinci doğrulayıcı</b><small>Bekliyor · talep edenden farklı kişi olmalı</small></div><span class="pri p-orta">Eksik</span></div>'+
+    '<div class="li"><div class="tx"><b>Bant dışı doğrulama</b><small>Kayıtlı telefondan teyit</small></div><span class="pri p-orta">Yapılmadı</span></div>'+
+    '<div class="li"><div class="tx"><b>Bekleme süresi</b><small>72 saat · 25.07 14:00\'da dolar</small></div><span class="pri p-orta">2 gün</span></div>'+
+   '</div>'+
+   '<button class="btn btn-p btn-sm" style="margin-top:12px" id="ibanVerify">'+ic("i-shield")+'İkinci doğrulayıcı olarak onayla</button>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Üç kontrol de tamamlanmadan değişiklik yürürlüğe girmez. Bekleme süresi boyunca ödemeler eski IBAN\'a yapılır.</div>'+
+  '</div></div>'+
+  '<div class="c6"><div class="card">'+secH("Sözleşmeler","Taahhüt · fesih ihbar takvimi")+
+   '<div class="tw"><table class="t"><thead><tr><th>Sözleşme</th><th class="mny">Değer</th><th class="mny">Kullanılan</th><th>İhbar</th></tr></thead><tbody>'+
+   CONTRACTS.map(function(c){
+    var u=c.used/c.val*100;
+    return '<tr><td>'+esc(c.n)+'<br><small style="color:var(--muted-2)">'+esc(c.v)+(c.auto?" · otomatik yenileme":"")+'</small></td>'+
+    '<td class="mny">'+fmt(c.val)+'</td><td class="mny"'+(u>90?' style="color:#FCD34D"':'')+'>'+fmt(c.used)+'</td>'+
+    '<td class="num">'+c.not+'</td></tr>'}).join("")+
+   '</tbody></table></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Peyzaj sözleşmesi değerinin %99\'u kullanıldı ve otomatik yenilemeli. İhbar tarihi geçerse sapmış fiyatla bir yıl daha bağlanır.</div>'+
+  '</div></div></div></div>'+asOf();
+};
+
+P.rapor=function(){
+ var fails=S.close.filter(function(c){return !c.p}).length;
+ return '<div class="sec"><div class="grid">'+
+  '<div class="c6"><div class="card">'+secH("Dönem Kapanış Kontrol Listesi",S.period+" · "+(fails?fails+" kontrol başarısız":"tüm kontroller geçti"))+
+   CLOSE.map(function(c){
+    var st=S.close.filter(function(x){return x.k===c.k})[0];
+    return '<div class="chk '+(st.p?"chk-pass":"chk-fail")+'"><span class="m">'+ic(st.p?"i-check":"i-x")+'</span>'+
+     '<div class="tx"><b>'+esc(c.t)+'</b><small>'+(st.p?"Geçti":esc(c.d))+'</small></div>'+
+     (st.p?'':'<button class="btn btn-s btn-sm" data-fix="'+c.k+'">Gider</button>')+'</div>'}).join("")+
+   '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'+
+    '<button class="btn btn-p btn-sm" id="doClose"'+(fails||S.periodLocked?" disabled":"")+'>'+ic("i-lock")+'Dönemi kapat</button>'+
+    (S.periodLocked?'<button class="btn btn-d btn-sm" id="doReopen">'+ic("i-lock-open")+'Dönemi yeniden aç</button>':'')+'</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-shield")+'Başarısız kontrolü atlama yolu yoktur. Kapanış olmadan geçmiş rakamlar sessizce değişir ve önceki tüm raporlar güvenilmez hâle gelir.</div>'+
+  '</div></div>'+
+  '<div class="c6"><div class="card">'+secH("Yasal ve Yönetim Raporları","Dağıtılan rapor birebir arşivlenir")+
+   '<div class="list">'+[["Gelir-Gider Tablosu","Kurul ve denetçi için zorunlu"],
+    ["İşletme Projesi Karşılaştırması","Bütçe vs gerçekleşme"],["Borç-Alacak Listesi","Daire bazlı · yetki gerektirir"],
+    ["Kasa ve Banka Raporu","Mutabakat ekli"],["Mizan","Kontrol hesabı uyumu"],
+    ["Yaşlandırma Raporu","Provizyon analizi"],["Tedarikçi Harcama Raporu","Sözleşme karşılaştırmalı"],
+    ["Denetçi Eki","Değişmez denetim izi özeti"]].map(function(r){
+    return '<div class="li"><span class="dot"></span><div class="tx"><b>'+r[0]+'</b><small>'+r[1]+'</small></div>'+
+    '<button class="rowbtn" data-exp="'+esc(r[0])+'" aria-label="'+esc(r[0])+' dışa aktar">'+ic("i-dl")+'</button></div>'}).join("")+'</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Her rapor kapsam, dönem, esas (nakit/tahakkuk) ve üretim zamanını taşır. Kurulda tartışılan bir rakam yeniden üretilebilir olmalıdır.</div>'+
+  '</div></div></div></div>'+asOf();
+};
+
+P.vergi=function(){
+ return '<div class="sec">'+secH("Yükümlülük Takvimi","Oranlar yapılandırmadır, kod değil")+
+  '<div class="card"><div class="tw"><table class="t"><thead><tr><th>Yükümlülük</th><th>Dönem</th><th>Son Tarih</th><th class="mny">Tutar</th><th>Durum</th></tr></thead><tbody>'+
+  TAXES.map(function(t){
+   return '<tr><td>'+esc(t.t)+'</td><td>'+esc(t.p)+'</td><td class="num">'+t.d+'</td><td class="mny">'+fmt(t.v)+'</td>'+
+   '<td><span class="pri '+(t.s==="Hazır"?"p-dusuk":"p-orta")+'">'+t.s+'</span></td></tr>'}).join("")+
+  '</tbody><tfoot><tr><td colspan="3">Toplam</td><td class="mny">'+fmt(TAXES.reduce(function(a,t){return a+t.v},0))+'</td><td></td></tr></tfoot></table></div>'+
+  '<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Kaçırılan son tarihler otomatik yükseltilir. 150 site genelinde tekil olarak küçük olan cezalar toplamda önemli tutar oluşturur.</div></div></div>'+
+ '<div class="sec"><div class="grid">'+
+  '<div class="c6"><div class="card">'+secH("KDV Pozisyonu","Temmuz 2026")+
+   '<div class="list">'+[["Hesaplanan KDV",428000],["İndirilecek KDV",-1712000],["Devreden KDV",-1284000]].map(function(r){
+    return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span class="mny'+(r[1]<0?" neg":"")+'">'+fmt(r[1])+'</span></div>'}).join("")+'</div></div></div>'+
+  '<div class="c6"><div class="card">'+secH("Stopaj ve Tevkifat")+
+   '<div class="list">'+[["Kira stopajı (%20)",412000],["Tevkifatlı hizmet alımı",0],["Damga vergisi · sözleşme",78400]].map(function(r){
+    return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span class="mny">'+fmt(r[1])+'</span></div>'}).join("")+'</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-info")+'Kurumun kendi kurumlar vergisi ve beyannameleri harici muhasebe paketine aittir; bu modül site işletme defterini tutar.</div></div></div>'+
+ '</div></div>'+asOf();
+};
+
+P.ayar=function(){
+ return '<div class="sec"><div class="grid">'+
+  '<div class="c6"><div class="card">'+secH("Finansal Politika","Sürümlü · yürürlük tarihli · geriye dönük değil")+
+   '<div class="list">'+[["Paylaşım kuralı","Arsa payı (yönetim planı m.12)"],
+    ["Gecikme tazminatı","Aylık %5 · KMK m.20/c"],["Mahsup sırası","En eski borç · tazminat anaparadan önce"],
+    ["Onay eşikleri","≤₺5.000 yönetici · ≤₺50.000 finans · üzeri kurul"],
+    ["Yuvarlama","Kuruş · fark en büyük arsa payına"],["Mali takvim","01.01 – 31.12"],
+    ["Fonksiyonel para birimi","TRY · çoklu para mimarisi hazır"]].map(function(r){
+    return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span style="color:var(--muted);text-align:right">'+esc(r[1])+'</span></div>'}).join("")+'</div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-alert")+'Dönem ortasında paylaşım kuralı değiştirmek açık onay ister ve denetlenir. Her site farklıdır; tek bir sitenin kuralını sabitlemek diğer 149\'unu yanlış yapar.</div>'+
+  '</div></div>'+
+  '<div class="c6"><div class="card">'+secH("Finansal Denetim Kaydı","Ekleme yalnızca · değiştirilemez",
+    '<button class="btn btn-s btn-sm" data-exp="denetim">'+ic("i-dl")+'Dışa aktar</button>')+
+   '<div class="tw"><table class="t"><thead><tr><th>Saat</th><th>Aktör</th><th>Varlık</th><th>İşlem</th></tr></thead><tbody>'+
+   FAUDIT.map(function(a,i){
+    return '<tr tabindex="0" data-fa="'+i+'"><td class="num">'+a.t+'</td><td>'+esc(a.a)+'</td><td>'+esc(a.e)+'</td>'+
+    '<td>'+esc(a.act)+(a.k==="crit"?' <span class="pri p-acil">Engel</span>':a.k==="warn"?' <span class="pri p-orta">Uyarı</span>':'')+'</td></tr>'}).join("")+
+   '</tbody></table></div>'+
+   '<div class="hintx" style="margin-top:10px">'+ic("i-lock")+'Kayıtlar öncesi/sonrası değerleri, onay zincirini, IP ve cihazı taşır. 10 yıl saklanır ve düzeltme yeni kayıt olarak eklenir.</div>'+
+  '</div></div></div></div>'+asOf();
+};
+
+/* ---------- 6. RENDER ---------- */
+function renderNav(){
+ $("#snav").innerHTML=NAV.map(function(n){
+  return '<button class="nav-item'+(n.live?" active":"")+'" data-nav="'+n.k+'"'+(n.live?' aria-current="page"':'')+'>'+ic(n.ic)+'<span>'+esc(n.n)+'</span></button>'}).join("");
+}
+function renderCtx(){
+ $("#fctx").innerHTML=
+  '<button class="chip" id="scopeBtn" aria-label="Site seç, mevcut: '+esc(siteName())+'">'+ic("i-map","width:13px;height:13px;vertical-align:-2px")+' '+esc(siteName())+'</button>'+
+  '<span class="f-i">'+ic("i-cal")+'Dönem: <b>'+esc(S.period)+'</b></span>'+
+  '<span class="lockchip '+(S.periodLocked?"lock-shut":"lock-open")+'">'+ic(S.periodLocked?"i-lock":"i-lock-open")+(S.periodLocked?"Kilitli":"Açık")+'</span>'+
+  '<span class="f-i">'+ic("i-percent")+'Esas: <b>Tahakkuk</b></span>'+
+  '<span class="f-i">'+ic("i-wallet")+'Para birimi: <b>TRY</b></span>'+
+  '<span class="sp"></span>'+
+  '<span class="f-i">'+ic("i-lock")+'Yetki: <b>'+esc(S.user)+' · Finans Müdürü</b></span>';
+}
+function renderTabs(){
+ $("#tabs").innerHTML=TABS.map(function(t){
+  var on=S.tab===t.k;
+  return '<button class="tab" role="tab" id="tab-'+t.k+'" data-tab="'+t.k+'" aria-selected="'+on+'" aria-controls="panel" tabindex="'+(on?0:-1)+'">'+
+   ic(t.ic)+esc(t.n)+(t.cnt&&t.cnt()?'<span class="cnt num">'+t.cnt()+'</span>':'')+'</button>'}).join("");
+}
+function renderPanel(){
+ var p=$("#panel");p.setAttribute("aria-labelledby","tab-"+S.tab);
+ p.innerHTML=(P[S.tab]||function(){return ""})();
+}
+function renderAll(){renderCtx();renderTabs();renderPanel()}
+
+/* ---------- 7. DIALOGS ---------- */
+function scopeDlg(){
+ openDlg(dlgShell("Site seçimi",
+  '<div class="list">'+SITES.map(function(s){
+   return '<div class="li" data-sc="'+s.id+'" tabindex="0" role="button"><div class="tx"><b>'+esc(s.n)+'</b>'+
+   '<small>'+(s.id==="all"?"Konsolide · 25.000 daire":s.u+" daire")+'</small></div>'+
+   (S.scope===s.id?'<span class="pri p-dusuk">Seçili</span>':'')+'</div>'}).join("")+'</div>'+
+  '<div class="hintx" style="margin-top:12px">'+ic("i-lock")+'Site fonları ayrıktır. Konsolide görünüm yalnızca raporlamadır; hiçbir işlem siteler arası karışma yaratamaz.</div>',
+  '<button class="btn btn-s" data-close>Kapat</button>','narrow'),
+ function(d){
+  var l=d.querySelector(".list");
+  l.onclick=function(e){var li=e.target.closest("[data-sc]");if(!li)return;
+   S.scope=li.getAttribute("data-sc");S.preview=null;closeDlg();renderAll();
+   toast("inf","Kapsam değişti",siteName())};
+  l.onkeydown=function(e){if(e.key!=="Enter")return;var li=e.target.closest("[data-sc]");if(!li)return;e.preventDefault();li.click()};
+ });
+}
+function apprDlg(a){
+ var big=a.v>5000000;
+ openDlg(dlgShell("Harcamayı onayla",
+  '<div class="fg"><label class="fl">Talep</label><div style="font-size:13px;color:var(--muted)">'+esc(a.t)+' · '+esc(a.site)+'</div></div>'+
+  '<div class="fg"><label class="fl">Tutar</label><div class="mny big">'+fmt(a.v)+'</div></div>'+
+  (function(){
+    var row=BUDGET.filter(function(x){return x[0]===a.cat})[0];
+    if(!row)return '<div class="partial">'+ic("i-alert")+'<div><b>Bütçe kalemi yok.</b> Onaylı bütçe kalemi olmayan harcama talebi onaylanamaz.</div></div>';
+    var rem=kurus(row[1]-row[2]),use=row[2]/row[1]*100;
+    return '<div class="fg"><label class="fl">Bütçe kalemi</label><div style="font-size:13px;color:var(--muted)">'+
+     esc(a.cat)+' · kullanım %'+use.toFixed(1).replace(".",",")+' · kalan <span class="mny'+(rem<0?" neg":"")+'">'+fmt(rem)+'</span></div>'+
+     (rem<a.v?'<div class="partial" style="margin-top:8px">'+ic("i-alert")+'<div>Bu talep kalemin kalan bakiyesini aşıyor. Onay, aşım gerekçesiyle birlikte kayda geçer.</div></div>':'')+'</div>';
+   })()+
+  (big?'<div class="partial">'+ic("i-shield")+'<div><b>Ek kimlik doğrulama gerekli.</b> Bu tutar adım-yükseltme eşiğinin üzerinde; onay için yeniden kimlik doğrulaması istenir.</div></div>':'')+
+  '<div class="fg"><label class="fl" for="apJ">Onay gerekçesi <span class="req">*</span></label><textarea class="inp" id="apJ" rows="2"></textarea>'+
+  '<div class="hintx">'+ic("i-info")+'En az 20 karakter. Karar; kimlik, zaman, IP ve cihazla birlikte kalıcı olarak kaydedilir.</div>'+
+  '<div class="err" id="apE" hidden>'+ic("i-alert")+'<span></span></div></div>',
+  '<button class="btn btn-s" data-close>Vazgeç</button><button class="btn btn-p" id="apOk">'+ic("i-check")+(big?"Doğrula ve onayla":"Onayla")+'</button>'),
+ function(d){
+  d.querySelector("#apOk").onclick=function(){
+   var t=d.querySelector("#apJ"),e=d.querySelector("#apE"),v=t.value.trim();
+   if(v.length<20){t.setAttribute("aria-invalid","true");e.hidden=false;
+    e.querySelector("span").textContent="Gerekçe en az 20 karakter olmalıdır (şu an "+v.length+").";t.focus();return}
+   a.st="approved";closeDlg();renderAll();
+   toast("ok","Harcama onaylandı",a.t+" · "+fmt(a.v)+" · onaylayan "+S.user,
+    function(){a.st="pending";renderAll();toast("inf","Geri alındı","Onay kaydı karşı kayıtla iptal edildi.")},true);
+  };
+ });
+}
+function commitDlg(){
+ var p=S.preview;
+ openDlg(dlgShell("Tahakkuku işle",
+  '<div class="partial">'+ic("i-alert")+'<div>Bu işlem <b>'+p.units+' daire</b> için <b>'+fmt(p.total)+'</b> tutarında alacak kaydı oluşturur. İşlem geri alınamaz; yalnızca tüm çalışma karşı kayıtla iptal edilebilir.</div></div>'+
+  '<div class="list">'+[["Site",p.site],["Dönem",S.period],["Paylaşım",p.rule],["Daire sayısı",String(p.units)],["Toplam",fmt(p.total)],["Sorumlu",S.user]]
+   .map(function(r){return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span style="color:var(--muted)">'+esc(r[1])+'</span></div>'}).join("")+'</div>'+
+  '<div class="fg" style="margin-top:14px"><label class="fl" for="cmT">Onaylamak için <b>TAHAKKUK</b> yazın <span class="req">*</span></label>'+
+  '<input class="inp" id="cmT" autocomplete="off"><div class="err" id="cmE" hidden>'+ic("i-alert")+'<span></span></div></div>',
+  '<button class="btn btn-s" data-close>Vazgeç</button><button class="btn btn-p" id="cmOk">'+ic("i-check")+'İşle</button>'),
+ function(d){
+  d.querySelector("#cmOk").onclick=function(){
+   var t=d.querySelector("#cmT"),e=d.querySelector("#cmE");
+   if(t.value.trim().toLocaleUpperCase("tr")!=="TAHAKKUK"){t.setAttribute("aria-invalid","true");e.hidden=false;
+    e.querySelector("span").textContent="Onay için TAHAKKUK yazmanız gerekir.";t.focus();return}
+   S.preview=null;closeDlg();renderAll();
+   toast("ok","Tahakkuk işlendi",p.units+" daire · "+fmt(p.total)+" · TAH-2026-07-"+Math.floor(Math.random()*90+10),null,true);
+   say("Tahakkuk işlendi",true);
+  };
+ });
+}
+function faDlg(i){
+ var a=FAUDIT[i];
+ openDlg(dlgShell("Denetim kaydı · "+a.cid,
+  '<div class="list">'+[["Saat",a.t],["Aktör",a.a],["Varlık",a.e],["İşlem",a.act],["Ayrıntı",a.d],["Korelasyon",a.cid]]
+   .map(function(r){return '<div class="li"><div class="tx"><b>'+r[0]+'</b></div><span style="color:var(--muted)">'+esc(r[1])+'</span></div>'}).join("")+'</div>'+
+  '<div class="hintx" style="margin-top:12px">'+ic("i-lock")+'Bu kayıt değiştirilemez. Öncesi/sonrası değerler, onay zinciri, IP ve cihaz bilgisi tam kayıtta saklanır.</div>',
+  '<button class="btn btn-s" data-close>Kapat</button>'));
+}
+function palette(){
+ var items=[{g:"Bölümler",l:TABS.map(function(t){return {n:t.n,ic:t.ic,a:function(){go(t.k)}}})},
+ {g:"Finansal işlemler",l:[{n:"Tahakkuk önizleme",ic:"i-wallet",a:function(){go("tahakkuk")}},
+  {n:"Banka mutabakatı",ic:"i-bank",a:function(){go("nakit")}},
+  {n:"Dönem kapanış kontrolü",ic:"i-lock",a:function(){go("rapor")}},
+  {n:"Onay bekleyenler",ic:"i-check",a:function(){go("gider")}},
+  {n:"Site seç",ic:"i-map",a:scopeDlg}]},
+ {g:"Siteler",l:SITES.map(function(s){return {n:s.n,ic:"i-map",a:function(){S.scope=s.id;renderAll()}}})}];
+ openDlg('<div class="dlg" aria-labelledby="palT"><h2 id="palT" class="sr">Komut paleti</h2>'+
+  '<input class="inp" id="palIn" placeholder="Bölüm, işlem veya site ara…" aria-label="Ara" autocomplete="off" style="border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 16px;font-size:15px">'+
+  '<div class="dlg-b" style="padding:0" id="palOut"></div></div>',
+ function(d){
+  var inp=d.querySelector("#palIn"),out=d.querySelector("#palOut"),flat=[];
+  function draw(q){
+   flat=[];var h="";
+   items.forEach(function(g){
+    var l=g.l.filter(function(i){return !q||i.n.toLocaleLowerCase("tr").indexOf(q.toLocaleLowerCase("tr"))>-1});
+    if(!l.length)return;
+    h+='<div style="padding:8px 0"><h4 style="font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);padding:6px 20px">'+g.g+'</h4>'+
+     l.map(function(i){var idx=flat.length;flat.push(i);
+      return '<button class="pal-i" data-pi="'+idx+'" style="display:flex;align-items:center;gap:10px;padding:9px 20px;width:100%;text-align:left;border:0;background:none;color:var(--muted);font-size:13.5px;cursor:pointer">'+
+      ic(i.ic,"width:15px;height:15px;color:#38BDF8")+esc(i.n)+'</button>'}).join("")+'</div>';
+   });
+   out.innerHTML=h||'<div class="state">'+ic("i-search")+'<b>Sonuç yok</b></div>';
+   var f=out.querySelector(".pal-i");if(f)f.style.background="rgba(14,116,144,.15)";
+  }
+  draw("");
+  inp.oninput=function(){draw(inp.value)};
+  inp.onkeydown=function(e){
+   var all=$$(".pal-i",out),cur=all.filter(function(x){return x.style.background})[0],i=all.indexOf(cur);
+   function set(n){if(cur)cur.style.background="";n.style.background="rgba(14,116,144,.15)";n.scrollIntoView({block:"nearest"})}
+   if(e.key==="ArrowDown"&&all.length){e.preventDefault();set(all[i+1]||all[0])}
+   if(e.key==="ArrowUp"&&all.length){e.preventDefault();set(all[i-1]||all[all.length-1])}
+   if(e.key==="Enter"&&cur){e.preventDefault();var k=+cur.getAttribute("data-pi");closeDlg();flat[k].a()}
+  };
+  out.onclick=function(e){var b=e.target.closest("[data-pi]");if(!b)return;var k=+b.getAttribute("data-pi");closeDlg();flat[k].a()};
+ });
+}
+
+/* ---------- 8. ACTIONS ---------- */
+function go(t){S.tab=t;renderTabs();renderPanel();var el=$("#tab-"+t);if(el)el.focus();
+ say(TABS.filter(function(x){return x.k===t})[0].n+" bölümü açıldı")}
+
+/* ---------- 9. EVENTS ---------- */
+document.addEventListener("click",function(e){
+ var t=e.target,b;
+ if((b=t.closest("[data-close]"))){closeDlg();return}
+ if((b=t.closest("[data-nav]"))){
+  var k=b.getAttribute("data-nav"),item=NAV.filter(function(n){return n.k===k})[0];
+  var navBtn=document.querySelector('.nav-item[data-nav="'+k+'"]');
+  $$(".nav-item").forEach(function(n){n.classList.toggle("active",n===navBtn);n.removeAttribute("aria-current")});
+  if(navBtn)navBtn.setAttribute("aria-current","page");
+  $("#pageTitle").textContent=item.live?"Finans & Muhasebe":item.n;
+  if(item.live){$("#finRoot").hidden=false;$("#scopedOut").hidden=true}
+  else{$("#finRoot").hidden=true;$("#scopedOut").hidden=false;
+   $("#scopedOut").innerHTML='<div class="scoped card">'+ic("i-lock","width:26px;height:26px;color:#94A3B8")+
+    '<h2>Bu modül Sprint 03 kapsamında değil</h2><p><b>'+esc(item.n)+'</b> modülü mevcut hâliyle korunmaktadır. Artımlı geliştirme protokolü gereği bu sprintte yalnızca Finans & Muhasebe geliştirilmiştir.</p>'+
+    '<button class="btn btn-p" data-nav="kart">'+ic("i-wallet")+'Finans modülüne dön</button></div>'}
+  if($("#side").classList.contains("open"))$("#side").classList.remove("open");
+  return;
+ }
+ if((b=t.closest("[data-tab]"))){go(b.getAttribute("data-tab"));return}
+ if((b=t.closest("#scopeBtn"))){scopeDlg();return}
+ if((b=t.closest("[data-fkpi]"))){
+  var k=b.getAttribute("data-fkpi"),m={tahsilat:"tahakkuk",gecikme:"alacak",nakit:"nakit",sapma:"butce",fon:"butce",dso:"alacak"};
+  go(m[k]||"pano");return}
+ if((b=t.closest("#ctbl"))){
+  var o=$("#ctblOut"),open=o.hidden;o.hidden=!open;
+  if(open)o.innerHTML='<div class="tw" style="margin-top:12px"><table class="t"><caption class="sr">Aylık aidat tahsilatı, bin lira</caption>'+
+   '<thead><tr><th>Ay</th><th class="mny">2026</th><th class="mny">2025</th><th class="mny">Fark</th></tr></thead><tbody>'+
+   CHART.lbl.map(function(l,i){return '<tr><td>'+l+'</td><td class="mny">'+CHART.cur[i].toLocaleString("tr-TR")+'</td>'+
+   '<td class="mny">'+CHART.prev[i].toLocaleString("tr-TR")+'</td><td class="mny">+'+(CHART.cur[i]-CHART.prev[i]).toLocaleString("tr-TR")+'</td></tr>'}).join("")+'</tbody></table></div>';
+  b.setAttribute("aria-expanded",String(open));
+  b.innerHTML=ic("i-table")+(open?"Tabloyu gizle":"Tabloyu göster");return}
+ if((b=t.closest("[data-bar]"))){var i=+b.getAttribute("data-bar");
+  toast("inf",CHART.lbl[i]+" 2026",CHART.cur[i].toLocaleString("tr-TR")+" bin ₺ · geçen yıl "+CHART.prev[i].toLocaleString("tr-TR"));return}
+ /* tahakkuk two-phase */
+ if((b=t.closest("#taPreview"))){
+  if(S.periodLocked){toast("err","Dönem kilitli","Kilitli dönemde tahakkuk üretilemez.");return}
+  var site=$("#taSite"),rule=$("#taRule"),base=$("#taBase");
+  var raw=(base.value||"").replace(/\./g,"").replace(",",".");
+  var per=Math.round(parseFloat(raw)*100);
+  if(!per||per<=0){toast("err","Geçersiz tutar","Daire başı tutar sıfırdan büyük olmalıdır.");base.focus();return}
+  var u=SITES.filter(function(x){return x.id===site.value})[0].u;
+  S.preview={site:site.options[site.selectedIndex].text,units:u,rule:rule.value,total:per*u,round:Math.round(Math.random()*40)};
+  renderPanel();say("Tahakkuk önizlemesi oluşturuldu, "+u+" daire");
+  toast("inf","Önizleme hazır","Henüz hiçbir kayıt oluşturulmadı. İşlemek için açık onay gerekir.");return}
+ if((b=t.closest("#taCommit"))){
+  if(S.periodLocked){toast("err","Dönem kilitli","Kilitli dönemde tahakkuk işlenemez.");return}
+  if(S.preview)commitDlg();return}
+ /* journal balance control */
+ if((b=t.closest("#jeBreak"))){S.je[2].cr=4000000;renderPanel();
+  toast("err","Kayıt dengesiz","Borç ile alacak eşit değil; işleme düğmesi devre dışı bırakıldı.");return}
+ if((b=t.closest("#jeFix"))){S.je[2].cr=4170000;renderPanel();toast("ok","Denge sağlandı","Borç = alacak.");return}
+ if((b=t.closest("#jePost"))){
+  if(S.periodLocked){toast("err","Dönem kilitli","Kilitli dönemde kayıt işlenemez.");return}
+  var dd=S.je.reduce(function(a,r){return a+r.db},0),cc=S.je.reduce(function(a,r){return a+r.cr},0);
+  if(dd!==cc||dd===0){toast("err","Kayıt dengesiz","Borç ile alacak eşit olmadan kayıt işlenemez.");return}
+  toast("ok","Yevmiye kaydı işlendi","YEV-2026-0421 · "+fmt(S.je.reduce(function(a,r){return a+r.db},0))+" · silinemez, düzeltme karşı kayıtla yapılır",null,true);return}
+ /* approvals */
+ if((b=t.closest("[data-appr]"))){
+  var a=APPR.filter(function(x){return x.id===b.getAttribute("data-appr")})[0];
+  if(a.self){toast("err","Görevler ayrılığı","Talep sahibi kendi talebini onaylayamaz. Bu kural yetki devriyle de aşılamaz.");return}
+  apprDlg(a);return}
+ if((b=t.closest("[data-rej]"))){
+  var r=APPR.filter(function(x){return x.id===b.getAttribute("data-rej")})[0];
+  r.st="rejected";renderAll();toast("inf","Talep reddedildi",r.t,function(){r.st="pending";renderAll()});return}
+ if((b=t.closest("[data-bl]"))){
+  var bb=APPR.filter(function(x){return x.id===b.getAttribute("data-bl")})[0];
+  var row=BUDGET.filter(function(x){return x[0]===bb.cat})[0];
+  if(!row){toast("err","Bütçe kalemi yok","Onaylı bütçe kalemi olmayan harcama talebi oluşturulamaz.");return}
+  var use=row[2]/row[1]*100;
+  toast(use>=100?"err":"inf",bb.cat,"Bütçe "+fmt(kurus(row[1]))+" · gerçekleşen "+fmt(kurus(row[2]))+" · kullanım %"+use.toFixed(1).replace(".",",")+(use>=100?" — yeni taahhüt engelli":""));return}
+ /* reconciliation */
+ if((b=t.closest("[data-bk]"))){S.sel.bank=S.sel.bank===b.getAttribute("data-bk")?null:b.getAttribute("data-bk");renderPanel();return}
+ if((b=t.closest("[data-lg]"))){S.sel.ledger=S.sel.ledger===b.getAttribute("data-lg")?null:b.getAttribute("data-lg");renderPanel();return}
+ if((b=t.closest("#doMatch"))){
+  var bt=BANKTX.filter(function(x){return x.id===S.sel.bank})[0],lt=LEDGERTX.filter(function(x){return x.id===S.sel.ledger})[0];
+  if(!bt||!lt)return;
+  if(bt.v!==lt.v){toast("err","Tutarlar eşleşmiyor",fmt(bt.v)+" ile "+fmt(lt.v)+" eşleştirilemez. Kısmi eşleştirme gerekçe ve ayrı kayıt ister.");return}
+  bt.m=true;lt.m=true;S.sel={bank:null,ledger:null};
+  var left=BANKTX.filter(function(x){return !x.m}).length;
+  if(left===0){var rec=S.close.filter(function(c){return c.k==="rec"})[0];rec.p=true}
+  renderPanel();toast("ok","Eşleştirildi",fmt(bt.v)+" · kalan "+left+" hareket");
+  if(left===0)toast("ok","Mutabakat tamam","Dönem kapanış kontrolü 'banka mutabakatı' geçti.",null,true);
+  return}
+ /* period close */
+ if((b=t.closest("[data-fix]"))){
+  var key=b.getAttribute("data-fix");
+  if(key==="rec"){go("nakit");toast("inf","Mutabakata yönlendirildi","Eşleşmeyen hareketleri eşleştirin.");return}
+  var st=S.close.filter(function(c){return c.k===key})[0];st.p=true;renderPanel();
+  toast("ok","Kontrol giderildi",CLOSE.filter(function(c){return c.k===key})[0].t);return}
+ if((b=t.closest("#doClose"))){
+  if(S.close.filter(function(c){return !c.p}).length){toast("err","Kapanış engellendi","Başarısız kontrol var; atlama yolu yoktur.");return}
+  S.periodLocked=true;document.body.setAttribute("data-period","locked");renderAll();
+  toast("ok","Dönem kapatıldı",S.period+" kilitlendi · bu dönemde artık kayıt işlenemez",null,true);
+  say("Dönem kilitlendi",true);return}
+ if((b=t.closest("#doReopen"))){
+  openDlg(dlgShell("Dönemi yeniden aç",
+   '<div class="partial">'+ic("i-alert")+'<div>Kapalı bir dönemi yeniden açmak geçmiş raporların değişmesine yol açabilir. İşlem yükseltilmiş yetki gerektirir ve denetim kaydına yazılır.</div></div>'+
+   '<div class="fg"><label class="fl" for="roR">Gerekçe <span class="req">*</span></label><textarea class="inp" id="roR" rows="2"></textarea>'+
+   '<div class="hintx">'+ic("i-info")+'En az 20 karakter.</div><div class="err" id="roE" hidden>'+ic("i-alert")+'<span></span></div></div>',
+   '<button class="btn btn-s" data-close>Vazgeç</button><button class="btn btn-d" id="roOk">Yeniden aç</button>','narrow'),
+  function(d){d.querySelector("#roOk").onclick=function(){
+   var x=d.querySelector("#roR"),e=d.querySelector("#roE");
+   if(x.value.trim().length<20){x.setAttribute("aria-invalid","true");e.hidden=false;
+    e.querySelector("span").textContent="Gerekçe en az 20 karakter olmalıdır.";x.focus();return}
+   S.periodLocked=false;document.body.setAttribute("data-period","open");closeDlg();renderAll();
+   toast("err","Dönem yeniden açıldı","Gerekçe ve kimlik denetim kaydına yazıldı.",null,true)}});
+  return}
+ /* misc */
+ if((b=t.closest("#invAppr"))){toast("ok","Onaya yönlendirildi","AST-2026-1184 · fark gerekçesiyle tier-2 onayına gitti.",null,true);return}
+ if((b=t.closest("#invPost"))){toast("err","Engellendi","Onay tavanı aşıldığı için muhasebeleştirilemez.");return}
+ if((b=t.closest("#invDup"))){toast("ok","Mükerrer bulunamadı","Tedarikçi + fatura no + tarih + tutar kombinasyonu tekil.");return}
+ if((b=t.closest("#ibanVerify"))){
+  if(S.user==="A. Kaya"){toast("err","İkinci doğrulayıcı olamazsınız","Değişikliği talep eden kişi doğrulayamaz.");return}
+  toast("ok","İkinci onay verildi","Bant dışı doğrulama ve 72 saatlik bekleme süresi hâlâ gereklidir.",null,true);return}
+ if((b=t.closest("#evPack"))){toast("ok","Delil paketi oluşturuldu","Ekstre + ihtarname tebliğ kayıtları + tazminat hesabı + kurul kararı.",null,true);return}
+ if((b=t.closest("[data-exp]"))){toast("ok","Dışa aktarılıyor",b.getAttribute("data-exp")+" · alıcı kimliğiyle filigranlanır, işlem denetlenir.");return}
+ if((b=t.closest("[data-fa]"))){faDlg(+b.getAttribute("data-fa"));return}
+ if((b=t.closest("[data-bcat]"))){
+  var c=b.getAttribute("data-bcat"),row2=BUDGET.filter(function(x){return x[0]===c})[0];
+  toast("inf",c,"Bütçe "+fmt(kurus(row2[1]))+" · gerçekleşen "+fmt(kurus(row2[2]))+" · sapma "+fpct(pct(row2[2],row2[1])));return}
+ if((b=t.closest("[data-vnd]"))){
+  var v=VENDORS.filter(function(x){return x.n===b.getAttribute("data-vnd")})[0];
+  if(v)toast(v.blk?"err":"inf",v.n,v.blk?"Zorunlu sigorta süresi doldu · yeni taahhüt engelli":"Yıllık harcama "+fmt(v.s)+" · performans %"+v.p);return}
+});
+$("#openPal").onclick=palette;
+$("#btnRefresh").onclick=function(){renderPanel();toast("ok","Yenilendi","Değerler 14:32 itibarıyla.")};
+$("#btnBell").onclick=function(){toast("inf","Finansal bildirimler","Eşik aşımı, mutabakat farkı ve yasal son tarihler öğrenilen filtrelemeden muaftır.")};
+$("#mobtoggle").onclick=function(){var o=$("#side").classList.toggle("open");this.setAttribute("aria-expanded",String(o))};
+$(".avatar").onclick=function(){toast("inf",S.user,"Finans Müdürü · tier-2 onay yetkisi (≤ ₺50.000)")};
+$(".avatar").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();this.click()}};
+$("#tabs").addEventListener("keydown",function(e){
+ var ts=$$(".tab"),i=ts.indexOf(document.activeElement);if(i<0)return;
+ var n=null;
+ if(e.key==="ArrowRight")n=ts[(i+1)%ts.length];
+ if(e.key==="ArrowLeft")n=ts[(i-1+ts.length)%ts.length];
+ if(e.key==="Home")n=ts[0];
+ if(e.key==="End")n=ts[ts.length-1];
+ if(n){e.preventDefault();go(n.getAttribute("data-tab"))}
+});
+document.addEventListener("keydown",function(e){
+ if(e.key!=="Enter")return;
+ var r=document.activeElement;
+ if(r&&(r.hasAttribute("data-fa")||r.hasAttribute("data-bcat")||r.hasAttribute("data-vnd"))&&r.tagName!=="BUTTON"){e.preventDefault();r.click()}
+});
+
+/* ---------- 10. INIT ---------- */
+renderNav();renderAll();
+say("Finans modülü yüklendi. Dönem açık, çift taraflı kayıt denetimi etkin.",true);
+</script>
+
+</body>
+</html>

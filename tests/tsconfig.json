@@ -1,0 +1,24 @@
+{
+  "//": [
+    "Framework ba\u011f\u0131ms\u0131z backend mod\u00fcllerini \u00e7evrimd\u0131\u015f\u0131 test edebilmek i\u00e7in derler.",
+    "Yaln\u0131zca NestJS dekorat\u00f6r\u00fc TA\u015eIMAYAN saf mod\u00fcller buraya girer;",
+    "dekorat\u00f6rl\u00fc dosyalar @nestjs/* olmadan derlenemez (bkz. VALIDATION_REPORT \u00a75)."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2023"
+    ],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "outDir": ".derleme",
+    "rootDir": "../backend/src/common"
+  },
+  "files": [
+    "types/node-min.d.ts",
+    "../backend/src/common/security/sifre.ts"
+  ]
+}
