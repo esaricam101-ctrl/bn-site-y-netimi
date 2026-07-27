@@ -22,3 +22,5 @@ export const AktifPrincipal = createParamDecorator(
   (_veri: unknown, ctx: ExecutionContext): Principal =>
     ctx.switchToHttp().getRequest<{ principal: Principal }>().principal,
 );
+
+export { CurrentUser } from './current-user.decorator';
