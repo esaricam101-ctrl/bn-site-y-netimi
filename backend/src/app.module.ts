@@ -18,6 +18,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { KisiModule } from './modules/kisi/kisi.module';
 import { BolumModule } from './modules/bolum/bolum.module';
 import { IliskiModule } from './modules/iliski/iliski.module';
+import { BlokModule } from './modules/blok/blok.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { IliskiModule } from './modules/iliski/iliski.module';
     KisiModule,
     BolumModule,
     IliskiModule,
+    BlokModule,
   ],
   providers: [
     // ÜÇ KAPI — sıra değişmez (ADR-0006 · BFS v1 §3).

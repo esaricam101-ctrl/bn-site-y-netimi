@@ -51,6 +51,18 @@ export class BolumCommandService {
     const o = bolum.anlik();
 
     return this.prisma.tenantIslemi(async (tx) => {
+      // Blok bu tenant'a AIT OLMALIDIR. Yabanci anahtar kisiti bunu yakalamaz:
+      // PostgreSQL referans butunlugu tetikleyicileri tablo sahibi yetkisiyle
+      // calisir ve RLS'i BAYPAS EDER. Kontrol yapilmazsa baska bir tenant'in
+      // blok kimligi yazilabilir ve bolum, gormedigi bir bloga baglanir.
+      if (o.blokId !== null) {
+        const blok = await tx.blok.findFirst({
+          where: { id: o.blokId, tenantId: principal.tenantId },
+          select: { id: true },
+        });
+        if (!blok) throw new KayitBulunamadi(`Blok bulunamadı: ${o.blokId}`);
+      }
+
       // Ayni blokta ayni kapi no iki kez bulunamaz. NOT: bu kontrol ile yazma
       // arasinda dar bir yaris penceresi vardir; kalici cozum (tenant_id,
       // blok_id, kapi_no) uzerinde kismi unique index'tir ve migration gerektirir.

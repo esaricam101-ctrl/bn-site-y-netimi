@@ -7,6 +7,72 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-28 · Oturum 6 — Blok modülü ve tenant sızıntısı düzeltmesi
+
+**Kapsam:** `Blok` modülü · Oturum 4'te girilen bir kusurun kapatılması
+**Sonuç:** `blokId` artık kullanılabilir ve tenant doğrulamalı · 259 modül
+**Önceki durum:** Oturum 5 — bölüm, ilişki hazır; blok referansı boşta
+
+### 1. Yapılan işler
+
+#### 1.1 İki kusur birlikte
+
+Oturum 4'te `BolumOlusturDto` bir `blokId` alanı kabul ediyordu. Ancak:
+
+1. **Blok oluşturmanın hiçbir yolu yoktu.** `Blok` modeli şemada vardı,
+   `BagimsizBolum.blokId` ona işaret ediyordu, ama modül yazılmamıştı. Alan
+   pratikte doldurulamıyordu.
+2. **`blokId` doğrulanmıyordu.** Gelen değer olduğu gibi yazılıyordu.
+
+İkincisi bir **tenant izolasyon açığıdır.** Yabancı anahtar kısıtı bunu
+yakalamaz: PostgreSQL referans bütünlüğü tetikleyicileri tablo sahibi
+yetkisiyle çalışır ve **RLS'i baypas eder.** Başka bir tenant'ın blok kimliği
+gönderilseydi FK kontrolü geçer, kayıt yazılır ve bölüm, o tenant'ın hiç
+göremeyeceği bir bloğa bağlanırdı.
+
+RLS'in kapsamadığı bu yüzey uygulama katmanında kapatıldı: `blokId` verilmişse
+bloğun **aynı tenant'a ait olduğu** doğrulanır.
+
+#### 1.2 Blok modülü
+
+| Uç | İzin | İşlev |
+|---|---|---|
+| `POST /bloklar` | `bolum.manage` | Blok oluştur (ad tenant içinde tekil) |
+| `GET /bloklar` | `bolum.view` | Blokları bölüm sayısıyla listele |
+| `DELETE /bloklar/:id` | `bolum.manage` | Soft delete, gerekçe zorunlu |
+
+Bölümü olan blok silinemez: silinirse bölümler sahipsiz bir kimliğe işaret eder
+ve mükerrer kapı no kontrolü — blok bazlıdır — anlamını yitirir.
+
+Blok listesi **sayfalanmaz**. Bir apartmanda blok sayısı doğası gereği küçüktür
+(tipik olarak 1–10); cursor sayfalama burada gereksiz karmaşıklık olurdu.
+`kisi` ve `bolum` şablonundan bilinçli sapmadır.
+
+#### 1.3 Event kataloğu
+
+`apartman.blok.olusturuldu` ve `.silindi` eklendi (katalog 9 → 11). Birim testi
+artık `apartman.` dikeyinin **altı** event'ini ve üç sahip modülü birlikte
+doğrular; tek tek eklemek yerine dikeyin bütünü sabitlendi.
+
+### 2. Değiştirilen dosyalar
+
+| Dosya | Değişiklik | Sınıf |
+|---|---|---|
+| `backend/src/modules/blok/` | **YENİ** — 5 dosya | Özellik |
+| `backend/src/modules/bolum/bolum.command.service.ts` | `blokId` tenant doğrulaması | **Güvenlik** |
+| `shared/core-domain/src/outbox/domain-event.ts` | İki event kaydı | Sözleşme |
+| `backend/src/app.module.ts` | `BlokModule` kaydı | Bağlama |
+| `tests/unit/domain.smoke.mjs` | Apartman dikeyi event kapsamı genişletildi | Test |
+
+### 3. Bu oturumda çalıştırılmayanlar
+
+- Blok uçları ve `blokId` doğrulaması — PostgreSQL gerektirir (TODO-3).
+  **Çapraz tenant blokId denemesinin gerçekten reddedildiği çalışma zamanında
+  kanıtlanmadı**; bu, sözleşme testi yazılması gereken bir izolasyon
+  senaryosudur.
+
+---
+
 ## 2026-07-28 · Oturum 5 — Bölüm ilişkisi (malik / kiracı)
 
 **Kapsam:** `BolumIliskisi` modülü · zaman çakışması invaryantı · DATE dönüşümü
@@ -605,6 +671,7 @@ ettiği kanıtlanmadan Blok-1'in ilerisine geçilmemelidir."*
 | CT-13/CT-14 · numaralandırma, kullanıcı sayımı | `numaralandirma.spec.ts` · `oturum.spec.ts` | Yazılmış |
 | **Bölüm modülü uçtan uca** | **YAZILMADI** | Oturum 4'te eklenen 4 uç hiç çağrılmadı |
 | **İlişki modülü uçtan uca** | **YAZILMADI** | Oturum 5'te eklenen 3 uç hiç çağrılmadı |
+| **Çapraz tenant `blokId` reddi** | **YAZILMADI** | Oturum 6 · RLS'in kapsamadığı yüzey — aşağıya bakınız |
 
 Son satır bu oturumun bıraktığı borçtur: `BolumModule` derleme, lint, paket
 sınırı ve dairesel bağımlılık denetimlerinden geçti, ancak **gerçek bir
@@ -621,6 +688,19 @@ veritabanına karşı hiç çalıştırılmadı.** Özellikle doğrulanmamış o
   `EXCLUDE USING gist` ile örtüşme dışlayan bir constraint'tir ve migration
   gerektirir. Yarış kazanılırsa iki geçerli malik oluşur ve borç sessizce
   yanlış kişiye yazılır
+- **(Oturum 6) Çapraz tenant `blokId` reddi — RLS'in kapsamadığı yüzey.**
+  PostgreSQL referans bütünlüğü tetikleyicileri tablo sahibi yetkisiyle çalışır
+  ve **RLS'i baypas eder**; yabancı anahtar kısıtı çapraz tenant referansı
+  yakalamaz. Koruma yalnızca uygulama katmanındadır. Bu, CT-01'in kapsamadığı
+  bir izolasyon senaryosudur ve **kendi sözleşme testini hak eder**: tenant A'nın
+  bölümü, tenant B'nin blok kimliğiyle oluşturulmaya çalışıldığında reddedilmeli.
+
+  Bugün uygulama katmanında doğrulanan referanslar: `BagimsizBolum.blokId`
+  (Oturum 6), `BolumIliskisi.bolumId` ve `BolumIliskisi.kisiId` (Oturum 5).
+  **Kural genel olmalıdır:** tenant sınırını aşan her yabancı anahtar, yazılmadan
+  önce sahiplik açısından doğrulanmalıdır. Sonraki modüller (`Borc.bolumId`,
+  `BorcSorumlusu.kisiId`, `YevmiyeSatiri.hesapId`) aynı kontrolü taşımak
+  zorundadır; unutulursa hata sessizdir
 
 Oturum 2'nin dersi burada geçerlidir: **hiç koşmamış bir test yeşil sayılamaz** —
 CT-12 ilk koştuğunda 2/5 başarısızdı.
@@ -694,15 +774,24 @@ tüketiliyor. Faz 0 ile paralel başlatılmalıydı.
 
 **Başlangıç noktası:** Veritabanı gerektirmeyen her doğrulama yeşil. Build 9/9
 (`@bnos/mobile`'ın build script'i yoktur), ESLint 0, dependency-cruiser 0 ihlal
-(254 modül), **68 birim + 14 negatif** + 5 CT-12 testi geçiyor; belge lint ve
+(259 modül), **68 birim + 14 negatif** + 5 CT-12 testi geçiyor; belge lint ve
 bağlantı denetimi 0 hata. **Tek açık teknik engel TODO-3'tür (Docker).**
 
 Modüller: `health` · `oturum` · `tenant` · `kisi` · `bolum` (Oturum 4) ·
-**`iliski`** (Oturum 5).
+`iliski` (Oturum 5) · **`blok`** (Oturum 6).
 
-Zincirin bugünkü hâli: giriş → tenant → kişi → bölüm → malik/kiracı ilişkisi.
-Sıradaki halka **gider türü ve tahakkuk**tur; `paylastir.ts` ile
-`borcSorumlulariniCoz()` domain'de hazır ve artık besleyecek verisi de var.
+Zincirin bugünkü hâli: giriş → tenant → kişi → blok → bölüm → malik/kiracı
+ilişkisi.
+
+**Sıradaki halka şema değişikliği gerektiriyor.** `paylastir.ts` ve
+`borcSorumlulariniCoz()` domain'de hazır ve artık besleyecek verisi de var;
+ancak `GiderTuru` ve `Tahakkuk` için **Prisma modeli yoktur**. `Borc` yalnızca
+`giderTuruKodu` metnini taşır, karşılığında tablo bulunmaz — dolayısıyla
+yönetim planı / genel kurul kaynaklı override'lar saklanamaz.
+
+Bu, migration yazmayı gerektirir; migration ise PostgreSQL olmadan üretilemez ve
+doğrulanamaz (her migration RLS bloğu taşımak zorundadır). **Bu yüzden gider ve
+tahakkuk halkası TODO-3'e bağlıdır** ve Docker kurulmadan başlanmamalıdır.
 
 ### Ortamı geri kazanma
 

@@ -66,15 +66,24 @@ test('event: katalogdaki event standart zarf uretir', () => {
   assert.equal(zarf.occurredAt.toISOString(), '2026-07-26T09:00:00.000Z');
 });
 
-test('event: bagimsiz bolum eventleri katalogda kayitli', () => {
-  // Bolum modulu bu eventleri yayinlar; katalogdan dusurulurse outbox yazimi
-  // calisma zamaninda patlar, derlemede degil.
-  assert.ok(CD.katalogdaVarMi('apartman.bagimsiz_bolum.olusturuldu', 1));
-  assert.ok(CD.katalogdaVarMi('apartman.bagimsiz_bolum.silindi', 1));
-  // 'apartman' dikeyi core'dan ayridir — bolum core-domain'e ait degildir.
-  const bolumKayitlari = CD.EVENT_KATALOGU.filter((k) => k.sahipModul === 'bolum');
-  assert.equal(bolumKayitlari.length, 2);
-  assert.ok(bolumKayitlari.every((k) => k.eventType.startsWith('apartman.')));
+test('event: apartman dikeyi eventleri katalogda kayitli', () => {
+  // Bu moduller listelenen eventleri yayinlar; katalogdan dusurulurse outbox
+  // yazimi calisma zamaninda patlar, derlemede degil.
+  for (const t of [
+    'apartman.bagimsiz_bolum.olusturuldu', 'apartman.bagimsiz_bolum.silindi',
+    'apartman.bolum_iliskisi.kuruldu', 'apartman.bolum_iliskisi.sonlandirildi',
+    'apartman.blok.olusturuldu', 'apartman.blok.silindi',
+  ]) {
+    assert.ok(CD.katalogdaVarMi(t, 1), `${t} katalogda yok`);
+  }
+
+  // 'apartman' dikeyi core'dan ayridir — bu varliklar core-domain'e ait degil.
+  const apartmanKayitlari = CD.EVENT_KATALOGU.filter((k) => k.eventType.startsWith('apartman.'));
+  assert.equal(apartmanKayitlari.length, 6);
+  assert.deepEqual(
+    [...new Set(apartmanKayitlari.map((k) => k.sahipModul))].sort(),
+    ['blok', 'bolum', 'iliski'],
+  );
 });
 
 /* ---------------- Numaralandirma (§35) ---------------- */

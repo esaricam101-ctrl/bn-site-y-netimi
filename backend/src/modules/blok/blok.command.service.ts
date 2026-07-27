@@ -1,0 +1,121 @@
+/**
+ * Blok Command servisi.
+ *
+ * Blok, bağımsız bölümleri gruplayan yapıdır; tek bloklu apartmanlarda hiç
+ * kullanılmayabilir. `BagimsizBolum.blokId` bu kayda işaret eder.
+ *
+ * Soft delete standardı (BFS v1 §5): ANA_VERİ sınıfı, gerekçe zorunlu.
+ * Bölümü olan blok silinemez — silinirse bölümler sahipsiz bir kimliğe
+ * işaret eder ve mükerrer kapı no kontrolü (blok bazlıdır) anlamını yitirir.
+ */
+import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { silmeyiDogrula, type Principal } from '@bnos/kernel';
+import { IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { AuditServisi } from '../../common/audit/audit.service';
+import { OutboxServisi } from '../../common/outbox/outbox.service';
+import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
+import type { BlokOlusturDto } from './dto/blok.dto';
+import type { KomutSonucu } from '../tenant/tenant.command.service';
+
+@Injectable()
+export class BlokCommandService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditServisi,
+    private readonly outbox: OutboxServisi,
+  ) {}
+
+  async olustur(dto: BlokOlusturDto, principal: Principal): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('blok.olustur');
+    const id = randomUUID();
+    const ad = dto.ad.trim();
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const mevcut = await tx.blok.findFirst({
+        where: { tenantId: principal.tenantId, ad },
+        select: { id: true },
+      });
+      if (mevcut) {
+        throw new IsKuraliIhlali(
+          `'${ad}' adında bir blok bu apartmanda zaten var.`,
+          'Farklı bir blok adı kullanın.',
+        );
+      }
+
+      await tx.blok.create({ data: { id, tenantId: principal.tenantId, ad } });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
+        varlik: 'Blok', varlikId: id,
+        sonrakiDeger: { ad },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      await this.outbox.yayinla(tx, {
+        eventType: 'apartman.blok.olusturuldu', eventVersion: 1,
+        tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
+        aggregate: { tip: 'Blok', id, version: 1 },
+        payload: { ad },
+      });
+
+      return { id, durum: 'AKTIF' };
+    });
+  }
+
+  async softSil(id: string, gerekce: string, principal: Principal): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('blok.sil');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.blok.findFirst({
+        where: { id, tenantId: principal.tenantId },
+        select: { id: true, ad: true },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Blok bulunamadı: ${id}`);
+
+      silmeyiDogrula(
+        { varlik: 'Blok', sinif: 'ANA_VERI', engelleyenBagimliliklar: [] },
+        gerekce,
+      );
+
+      // Soft delete uzantisi silinmis bolumleri zaten disarida birakir;
+      // burada sayilanlar yalnizca YASAYAN bolumlerdir.
+      const bolumSayisi = await tx.bagimsizBolum.count({ where: { blokId: id } });
+      if (bolumSayisi > 0) {
+        throw new IsKuraliIhlali(
+          `'${kayit.ad}' bloğunda ${bolumSayisi} bağımsız bölüm var; blok silinemez.`,
+          'Önce bölümleri başka bir bloğa taşıyın veya silin.',
+        );
+      }
+
+      await tx.blok.update({
+        where: { id },
+        data: {
+          silindiMi: true,
+          silinmeTarihi: new Date(),
+          silenKullanici: principal.id,
+          silmeGerekcesi: gerekce,
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'SOFT_SIL',
+        varlik: 'Blok', varlikId: id,
+        oncekiDeger: { silindiMi: false }, sonrakiDeger: { silindiMi: true },
+        gerekce, correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      await this.outbox.yayinla(tx, {
+        eventType: 'apartman.blok.silindi', eventVersion: 1,
+        tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
+        aggregate: { tip: 'Blok', id, version: 2 },
+        payload: { gerekce, ad: kayit.ad },
+      });
+
+      return { id, durum: 'SILINDI' };
+    });
+  }
+}
