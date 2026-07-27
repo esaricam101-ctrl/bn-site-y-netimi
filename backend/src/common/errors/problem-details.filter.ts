@@ -12,6 +12,16 @@ import { DomainHatasi } from '@bnos/core-domain';
 import { TenantBaglamiHatasi, OnbellekPolitikaHatasi, ParaHatasi } from '@bnos/kernel';
 import { mevcutBaglam } from '../context/request-context';
 
+/**
+ * HttpException gövdesi serbest biçimlidir; alanlar `unknown`'dur. `String(...)`
+ * ile zorlamak, nesne gelen bir `mesaj` alanını kullanıcıya "[object Object]"
+ * olarak gösterir — BFS v1 §12'nin "tek net sonraki eylem" kuralını sessizce
+ * bozar. Yalnızca gerçek metin kabul edilir; gerisi geri düşüşe bırakılır.
+ */
+function metinVeyaYok(deger: unknown): string | undefined {
+  return typeof deger === 'string' && deger.length > 0 ? deger : undefined;
+}
+
 interface ProblemDetails {
   type: string;
   title: string;
@@ -82,13 +92,14 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     if (hata instanceof HttpException) {
       const yanit = hata.getResponse();
       const govde = typeof yanit === 'object' && yanit !== null ? (yanit as Record<string, unknown>) : {};
+      const sonrakiEylem = metinVeyaYok(govde['sonrakiEylem']);
       return {
         ...temel,
         type: 'https://bnos.local/hatalar/http',
         title: hata.name,
         status: hata.getStatus(),
-        detail: String(govde['mesaj'] ?? govde['message'] ?? hata.message),
-        ...(govde['sonrakiEylem'] ? { sonrakiEylem: String(govde['sonrakiEylem']) } : {}),
+        detail: metinVeyaYok(govde['mesaj']) ?? metinVeyaYok(govde['message']) ?? hata.message,
+        ...(sonrakiEylem ? { sonrakiEylem } : {}),
         ...(govde['gerekenIzinler'] ? { gerekenIzinler: govde['gerekenIzinler'] } : {}),
       };
     }

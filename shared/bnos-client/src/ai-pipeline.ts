@@ -43,9 +43,27 @@ const NIYET_DESENLERI: readonly { readonly niyet: Niyet; readonly desen: RegExp 
   { niyet: 'SORU', desen: /\b(ne kadar|kim|hangi|kac|nedir|ne zaman|\?)\b/i },
 ];
 
+/**
+ * Desenler ASCII yazilmistir, girdi ise Turkcedir. 'Tahakkuk olustur' deseni
+ * 'Tahakkuk oluştur' metnini eslestiremezse siniflandirma BILINMIYOR doner ve
+ * istek gereksiz yere LLM'e duser — ADR-0004'un deterministik katmani sessizce
+ * devre disi kalir. Bu yuzden karsilastirma ASCII'ye katlanarak yapilir.
+ *
+ * NFD'ye ayristirip birlesik isaretleri atmak hem onceden birlesik 'ş' (U+015F)
+ * hem de 's' + birlesik cedilla bicimini ayni sonuca goturur. 'ı' (U+0131)
+ * ayrisamaz; ayrica eslenir.
+ */
+function asciiKatla(metin: string): string {
+  return metin
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ı/g, 'i');
+}
+
 export function niyetiCoz(metin: string): { niyet: Niyet; kaynak: 'KURAL' | 'LLM' } {
+  const katlanmis = asciiKatla(metin);
   for (const { niyet, desen } of NIYET_DESENLERI) {
-    if (desen.test(metin)) return { niyet, kaynak: 'KURAL' };
+    if (desen.test(katlanmis)) return { niyet, kaynak: 'KURAL' };
   }
   return { niyet: 'BILINMIYOR', kaynak: 'LLM' };
 }
@@ -78,9 +96,14 @@ export class BnosAiPipeline {
     const dugumler = await this.kg.varlikCozumle(istek.tenantId, istek.metin);
 
     // --- Adim 3: Business Rules Engine (URETIMDEN ONCE) ---
+    // EYLEM_ONERISI yalnizca metin uretmek degildir; sonunda bir kayit yazilir.
+    // Istenen eylem 'oneri.uret' ile sinirli birakilirsa AI-001'in engelledigi
+    // yazma eylemleri HIC talep edilmez, kural hicbir zaman tetiklenemez ve
+    // "karar her zaman insana aittir" (ADR-0004) uygulanmamis olur. Yazma sinifi
+    // burada acikca beyan edilir ki BRE uretimden ONCE karar verebilsin.
     const kurallar = await this.bre.degerlendir({
       tenantId: istek.tenantId,
-      istenenEylemler: niyet === 'EYLEM_ONERISI' ? ['oneri.uret'] : ['okuma'],
+      istenenEylemler: niyet === 'EYLEM_ONERISI' ? ['oneri.uret', 'kayit.yaz'] : ['okuma'],
       olgular: {
         principalTipi: istek.principal.tip,
         izinSayisi: istek.principal.izinler.length,

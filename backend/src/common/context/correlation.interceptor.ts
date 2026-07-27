@@ -22,7 +22,7 @@ export class CorrelationInterceptor implements NestInterceptor {
       {
         correlationId,
         ip: istek.ip ?? null,
-        kullaniciAjani: (istek.headers['user-agent'] as string | undefined) ?? null,
+        kullaniciAjani: istek.headers['user-agent'] ?? null,
       },
       () => next.handle(),
     );

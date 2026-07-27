@@ -7,6 +7,7 @@
  * Bu test PostgreSQL gerektirir: `pnpm db:up && pnpm db:migrate`
  */
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 
@@ -15,7 +16,14 @@ const prisma = new PrismaClient();
 const TENANT_A = randomUUID();
 const TENANT_B = randomUUID();
 
-async function baglamda<T>(tenantId: string, fn: (tx: any) => Promise<T>): Promise<T> {
+/**
+ * İşlem içi Prisma istemcisi. `any` DEĞİL: aksi halde `tx.kisi` yazım hatası
+ * derlemeden geçer ve test hiçbir şey doğrulamadan yeşil yanar.
+ */
+async function baglamda<T>(
+  tenantId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe(`SELECT set_config('app.tenant_id', '${tenantId}', true)`);
     return fn(tx);
@@ -42,7 +50,7 @@ describe('CT-01 · Tenant izolasyonu', () => {
   });
 
   it('A tenant kendi kaydını görür', async () => {
-    const kayitlar = await baglamda<unknown[]>(TENANT_A, (tx) => tx.kisi.findMany());
+    const kayitlar = await baglamda(TENANT_A, (tx) => tx.kisi.findMany());
     expect(kayitlar.length).toBeGreaterThan(0);
   });
 

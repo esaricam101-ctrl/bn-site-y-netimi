@@ -6,8 +6,19 @@ import { getRequestConfig } from 'next-intl/server';
 export const DESTEKLENEN_DILLER = ['tr'] as const;
 export const VARSAYILAN_DIL = 'tr';
 
-export default getRequestConfig(async () => ({
-  locale: VARSAYILAN_DIL,
-  messages: (await import(`../messages/${VARSAYILAN_DIL}.json`)).default,
-  timeZone: 'Europe/Istanbul',
-}));
+/**
+ * Şablon literal ile dinamik import TypeScript'te `any` döner; sınır burada
+ * tiplenir. Ağaç, next-intl'in `AbstractIntlMessages` tipiyle yapısal olarak
+ * birebirdir — o tip paketten dışa aktarılmadığı için burada tanımlanır.
+ */
+type MesajAgaci = { [anahtar: string]: MesajAgaci | string };
+type MesajModulu = { default: MesajAgaci };
+
+export default getRequestConfig(async () => {
+  const modul = (await import(`../messages/${VARSAYILAN_DIL}.json`)) as MesajModulu;
+  return {
+    locale: VARSAYILAN_DIL,
+    messages: modul.default,
+    timeZone: 'Europe/Istanbul',
+  };
+});

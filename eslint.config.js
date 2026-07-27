@@ -9,6 +9,8 @@ export default tseslint.config(
     ignores: [
       '**/dist/**', '**/node_modules/**', '**/.next/**',
       'docs/reference/**', '**/*.mjs', 'scripts/**',
+      // Üretilmiş çıktı — kaynak değildir, lint edilmez.
+      'tests/.derleme/**',
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,
@@ -34,6 +36,26 @@ export default tseslint.config(
           message: 'Para değeri number olamaz. @bnos/kernel Money kullanın — BFS v1 §11.',
         },
       ],
+    },
+  },
+  // Yapılandırma ve ESLint eklenti dosyaları hiçbir tsconfig projesine ait değildir;
+  // tip-farkında ayrıştırma onlarda "project service" hatası verir. Bu dosyalar
+  // sözdizimi düzeyinde lint edilir. Flat config'in disableTypeChecked'i yalnızca
+  // kuralları kapatır — parser'ı ayrıca kapatmak gerekir.
+  //
+  // Bunlar araç yapılandırmasıdır, uygulama kodu değildir: CommonJS kullanmaları
+  // beklenir, dolayısıyla `no-require-imports` burada geçerli bir kural değildir.
+  {
+    files: [
+      'eslint.config.js', 'tools/eslint-rules/**/*.js',
+      '**/vitest.config.ts', '**/*.cjs',
+    ],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      parserOptions: { projectService: false, project: false, program: null },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 );

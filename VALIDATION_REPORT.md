@@ -5,6 +5,12 @@
 **Kapsam:** Faz 0 çıkış kriterleri + Blok-1 tamamlama
 **Sonuç:** ✅ Çalıştırılabilen tüm doğrulamalar yeşil · Faz 0 kapatıldı
 
+> **Güncelleme — 27 Temmuz 2026 (DEVLOG Oturum 2).** §5'te "External Dependency
+> Required" diye listelenen beş kalemden **dördü kapandı** (§5.1, §5.2, §5.3,
+> §5.5). Yalnızca **§5.4 (PostgreSQL) açıktır** ve Blok-1'in kapanmasını
+> engelleyen tek teknik kalemdir. Kapanan üç doğrulama ilk koşularında **dört
+> gerçek kusur** buldu; her biri ilgili alt bölümde kayıtlıdır.
+
 ---
 
 ## 1. Yönetici özeti
@@ -17,6 +23,15 @@
 | Düzeltilen hata | 9 |
 | Kalan hata | 0 |
 | Blok-1 için engel | Yok |
+
+**Oturum 2 sonrası (27 Temmuz 2026):**
+
+| | |
+|---|---|
+| Çalıştırılamayan doğrulama | **1 kalem** — yalnızca §5.4 (PostgreSQL) |
+| Kapanan doğrulamaların bulduğu kusur | 4 |
+| Düzeltilen | 4 |
+| Blok-1 için engel | **§5.4** — RLS'in çalışma zamanı kanıtı alınmadan Blok-1 kapatılmamalıdır |
 
 Faz 0 çıkış kriterleri karşılandı. Blok-1 implementasyonu başlatılabilir.
 
@@ -47,7 +62,7 @@ Komut: `pnpm verify` → `node scripts/verify.mjs`
 | # | Doğrulama | Araç | Sonuç |
 |---|---|---|---|
 | 1 | Workspace bağlantıları | `scripts/link-workspace.mjs` | ✅ 6 paket → `node_modules/@bnos/` |
-| 2 | TypeScript Project References | `tsc -b` · TypeScript 6.0.3 | ✅ 6 paket, 0 hata |
+| 2 | TypeScript Project References | `tsc -b` · TypeScript 5.9.3 | ✅ 6 paket, 0 hata |
 | 3 | Temiz derleme (`dist` silinip yeniden) | `tsc -b` | ✅ TS6305 yok |
 | 4 | Artımlı derleme (no-op) | `tsc -b` | ✅ TS6377 yok |
 | 5 | Paket sınırı | `scripts/boundary.mjs` | ✅ 83 dosya, 5 kural, 0 ihlal |
@@ -131,7 +146,7 @@ Komut: `pnpm test:negative` → `bash scripts/negative-tests.sh`
 
 `shared/kernel` bağımlılık grafiğinin en altındaki pakettir. `Money.tutar: Decimal` üçüncü taraf bir sınıfı **her tüketicinin genel API'sine** sızdırıyordu — bir borç, bir tahakkuk satırı, bir DTO, hepsi o kütüphanenin sürüm kararlarına bağlanıyordu. Kütüphaneyi değiştirmek sistem çapında kırıcı değişiklik olurdu.
 
-Para artık ölçeklenmiş `bigint`. Ölçek 4, `numeric(18,4)` ile birebir. `shared/kernel`'in çalışma zamanı bağımlılığı **sıfır**. Karar: [`docs/adr/log/0007-para-tipi-bigint.md`](adr/log/0007-para-tipi-bigint.md)
+Para artık ölçeklenmiş `bigint`. Ölçek 4, `numeric(18,4)` ile birebir. `shared/kernel`'in çalışma zamanı bağımlılığı **sıfır**. Karar: [`docs/adr/log/0007-para-tipi-bigint.md`](docs/adr/log/0007-para-tipi-bigint.md)
 
 Test kanıtı: `0.1 + 0.2 = 0.3000` ve `dagit()` 100 TL'yi üçe böldüğünde payların toplamı tam 100.
 
@@ -180,75 +195,79 @@ shared/ui-tokens/dist/.tsbuildinfo
 
 ## 5. External Dependency Required
 
-Aşağıdaki doğrulamalar bu ortamda **çalıştırılamadı**. Her biri için engel, telafi ve doğrulanacağı an açıkça belirtilmiştir.
+Aşağıdaki doğrulamalar Faz 0 ortamında **çalıştırılamadı**. Her biri için engel, telafi ve doğrulanacağı an açıkça belirtilmiştir.
 
-### 5.1 `pnpm install`
+**Durum (27 Temmuz 2026):** §5.1, §5.2, §5.3 ve §5.5 kapandı. §5.4 açıktır.
 
-| | |
-|---|---|
-| **Engel** | Paket kayıt sunucusuna erişim yok — `npm ping` → HTTP 403 |
-| **Etki** | Harici bağımlılıklar (`@nestjs/*`, `next`, `@prisma/client`, `vitest`, `eslint`) kurulamadı |
-| **Telafi** | `shared/*` paketlerinin çalışma zamanı bağımlılığı **sıfıra indirildi** (ADR-0007). `scripts/link-workspace.mjs` workspace bağlantılarını çevrimdışı kurar; derlenmiş kod gerçekten çalışır ve 49 test bunu kanıtlar. |
-| **Ne zaman doğrulanacak** | Ağ erişimli ortamda ilk iş |
-| **Beklenen sapma** | Düşük. Çalışma zamanı bağımlılığı yok; geliştirme bağımlılıkları standart sürümlerde. |
-
-### 5.1b `@types/node`
+### 5.1 `pnpm install` — ✅ **KAPANDI** (2026-07-27, DEVLOG Oturum 1)
 
 | | |
 |---|---|
-| **Engel** | Aynı — paket kayıt sunucusuna erişim yok |
-| **Etki** | Çevrimdışı test derlemesi (`tests/tsconfig.json`) gerçek Node tiplerini kullanamıyor |
-| **Telafi** | `tests/types/node-min.d.ts` — YALNIZCA test derlemesi için asgari ambient tanımlar. Kasıtlı olarak dardır; yalnızca test edilen modüllerin ihtiyacı kadarını tanımlar. **Üretim derlemesinde kullanılmaz**: `backend/tsconfig.json` gerçek `@types/node` paketini kullanır. |
-| **Sınır** | Dar imzalar gerçek tiplerin yerine geçmez; tam tip denetimi CI'da yapılır. |
-| **Ne zaman doğrulanacak** | `pnpm install` sonrası `pnpm typecheck` |
+| **Engel** | ~~Paket kayıt sunucusuna erişim yok — `npm ping` → HTTP 403~~ — bu ortamda registry erişimi çalışıyor |
+| **Sonuç** | 1398 paket kuruldu; 11 workspace projesinin tamamı. `pnpm-lock.yaml` ilk kez üretildi. |
+| **Sapma** | Beklendiği gibi düşük. Kurulum yalnızca `prisma generate`'in daha önce hiç koşamamış olması nedeniyle bir şema hatası ortaya çıkardı (8 enum tek satıra sıkışmıştı) — DEVLOG Oturum 1 §1.4. |
 
-### 5.2 ESLint
+### 5.1b `@types/node` — ✅ **KAPANDI** (2026-07-27, DEVLOG Oturum 1)
 
 | | |
 |---|---|
-| **Engel** | `eslint@^9` ve `typescript-eslint@^8` kurulamadı |
-| **Doğrulanamayan** | `tools/eslint-rules/require-tenant-cache-key.js` kuralının AST düzeyinde çalışması; `no-restricted-syntax` para-float yasağı |
-| **Telafi** | Aynı kuralın bağımlılıksız karşılığı yazıldı (`scripts/cache-key-scan.mjs`) ve **N-6 ile N-7 negatif testleriyle doğrulandı**. ESLint kural modülü ayrıca `config-check.mjs` tarafından yüklenip şekli denetlendi (`create()` fonksiyonu ve `meta.messages` varlığı). |
-| **Sınır** | Regex tabanlı tarama AST kadar kesin değildir; dolaylı çağrıları (değişkene atanmış anahtar) kaçırabilir. ESLint asıl kaynaktır. |
-| **Ne zaman doğrulanacak** | B1.1 |
+| **Engel** | ~~Aynı — paket kayıt sunucusuna erişim yok~~ — kuruldu |
+| **Sonuç** | `pnpm verify` zincirinin "Test derlemesi" adımı gerçek tiplerle 0 hata veriyor. |
+| **Kalan telafi** | `tests/types/node-min.d.ts` hâlâ mevcuttur ve `tests/tsconfig.json` tarafından kullanılır. Bağımlılıksız katmanın çevrimdışı çalışabilmesi için **kasıtlı olarak korunmuştur** (§6). Üretim derlemesinde kullanılmaz. |
 
-### 5.3 dependency-cruiser
+### 5.2 ESLint — ✅ **KAPANDI** (2026-07-27, DEVLOG Oturum 2)
 
 | | |
 |---|---|
-| **Engel** | `dependency-cruiser@^16` kurulamadı |
-| **Doğrulanamayan** | AST tabanlı bağımlılık grafiği; dairesel bağımlılık tespiti |
-| **Telafi** | `scripts/boundary.mjs` aynı beş kuralı uygular ve **N-2, N-3, N-4, N-5 negatif testleriyle doğrulandı**. `.dependency-cruiser.cjs` yapılandırması yazılmış ve CI'a bağlanmıştır. |
+| **Engel** | ~~`eslint@^9` ve `typescript-eslint@^8` kurulamadı~~ — kuruldu |
+| **Sonuç** | İlk koşuda **44 hata**; hepsi giderildi, şu an **0 hata**. |
+| **Doğrulandı** | `require-tenant-cache-key` kuralı AST düzeyinde çalışıyor; `no-restricted-syntax` para-float yasağı yükleniyor. |
+| **Bulduğu gerçek kusur** | `problem-details.filter.ts` içinde `String(unknown)` zorlaması — nesne taşıyan bir `HttpException` gövdesi, kullanıcıya dönen RFC 7807 `detail` alanına `"[object Object]"` olarak yazılabiliyordu (BFS v1 §12 ihlali). |
+| **Kural kapsamı notu** | Kural AST tabanlıdır ve markalı tipi göremez. `OnbellekServisi` imzaları **zaten** `OnbellekAnahtari` alır — ham string derlenmez. Üç çağrı gerekçeli `eslint-disable` ile işaretlendi; kural gevşetilmedi. Kuralın kapsamı ile tip sisteminin kapsamı farklıdır. |
+
+### 5.3 dependency-cruiser — ✅ **KAPANDI** (2026-07-27, DEVLOG Oturum 2)
+
+| | |
+|---|---|
+| **Engel** | ~~`dependency-cruiser@^16` kurulamadı~~ — kuruldu |
+| **Sonuç** | 244 modül, 422 bağımlılık, **0 ihlal**. |
+| **Bulduğu gerçek kusur** | Bir **dairesel bağımlılık**: `common/decorators/index.ts` → `current-user.decorator.ts` → `index.ts`. `CurrentUser`, `AktifPrincipal`'ın iki satırlık takma adıydı; tek kullanıcısı olan `tenant.controller.ts` kod tabanının kendi adına geçirildi ve shim silindi. |
+| **Kanıtlanan tasarım kararı** | §6'daki iki katmanlı doğrulamanın **ikinci katmanının gerçek getirisi budur**: dairesel bağımlılık tespiti `boundary.mjs`'de yoktur ve bu ihlali yalnızca dependency-cruiser görebilirdi. Aşağıdaki "Sınır" satırı bir varsayım değil, gerçekleşmiş bir olaydır. |
 | **Sınır** | Dairesel bağımlılık tespiti bağımlılıksız betikte **yoktur** — yalnızca dependency-cruiser sağlar. |
-| **Ne zaman doğrulanacak** | B1.1 |
 
-### 5.4 PostgreSQL gerektiren sözleşme testleri
+### 5.4 PostgreSQL gerektiren sözleşme testleri — ⛔ **AÇIK** (tek kalan kalem)
 
 | | |
 |---|---|
-| **Engel** | Docker konteynerleri başlatılamadı; PostgreSQL 16 örneği yok |
+| **Engel** | Docker kurulu **değil**; WSL çekirdeği var ancak kurulu dağıtım yok. `docker compose up -d postgres redis minio` çalışmaz. (27 Temmuz 2026 itibarıyla doğrulandı.) |
 | **Doğrulanamayan** | CT-01 (RLS tenant izolasyonu), CT-06 (kısmi unique index, audit değiştirilemezliği), CT-11 (`BYPASSRLS` yetkisi) |
-| **Yazılmış testler** | `backend/test/contract/rls-izolasyon.spec.ts` · `silme-standardi.spec.ts` |
+| **Yazılmış testler** | `backend/test/contract/rls-izolasyon.spec.ts` · `silme-standardi.spec.ts` · `oturum.spec.ts` · `numaralandirma.spec.ts` |
+| **Hazırlık durumu** | Testler **koşmaya hazırdır.** Oturum 2'de tip hataları temizlendi: `rls-izolasyon.spec.ts` içindeki `tx: any` gerçek `Prisma.TransactionClient` ile değiştirildi — `any` iken `tx.kisi` yazım hatası derlemeden geçer ve CT-01 hiçbir şey doğrulamadan yeşil yanardı. `vitest` kurulu ve Windows'ta alias çözümlemesi düzeltilmiş durumda. |
 | **Telafi** | RLS politikaları, kısmi unique index'ler ve CHECK kısıtları migration SQL'ine yazıldı ve gözden geçirildi. `config-check.mjs` rol tanımının `NOBYPASSRLS` taşıdığını **statik olarak** doğrular (N-8). Bu, çalışma zamanı izolasyon kanıtının yerine geçmez. |
-| **Ne zaman doğrulanacak** | Blok-1 adım B1.5 — izolasyon test paketi |
-| **Risk** | **Orta.** RLS'in gerçekten çalıştığı çalışma zamanında kanıtlanmadan Blok-1'in ilerisine geçilmemelidir. |
+| **Ne zaman doğrulanacak** | Docker Desktop + bir WSL dağıtımı kurulur kurulmaz: `pnpm db:up && pnpm db:migrate && pnpm db:seed`, ardından CT-01 ve CT-11 |
+| **Risk** | **Orta.** RLS'in gerçekten çalıştığı çalışma zamanında kanıtlanmadan Blok-1'in ilerisine geçilmemelidir. §5.5'in gösterdiği gibi, **hiç koşmamış bir test yeşil sayılamaz** — CT-12 ilk koştuğunda 2/5 başarısızdı. |
 
-### 5.5 Vitest
+### 5.5 Vitest — ✅ **KAPANDI** (2026-07-27, DEVLOG Oturum 2)
 
 | | |
 |---|---|
-| **Engel** | `vitest@^2.1` kurulamadı |
-| **Doğrulanamayan** | `backend/test/contract/ai-sirasi.spec.ts` (CT-12) — **veritabanı gerektirmez**, yalnızca vitest gerektirir |
-| **Telafi** | AI sırası davranışı `tests/unit/domain.smoke.mjs` içinde `node:test` ile kısmen kapsanmıştır; ancak `vi.fn()` casus doğrulaması (LLM'in **hiç çağrılmadığı**) yalnızca vitest ile koşar. |
-| **Ne zaman doğrulanacak** | B1.1 — vitest kurulur kurulmaz, veritabanı beklemeden |
+| **Engel** | ~~`vitest@^2.1` kurulamadı~~ — kuruldu |
+| **Sonuç** | CT-12 (`ai-sirasi.spec.ts`) koştu: **5/5 geçti** — ancak ilk koşuda **2/5 başarısızdı** ve iki gerçek kusur ortaya çıkardı. |
+| **Bulduğu gerçek kusur 1** | **`AI-001` kuralı hiçbir zaman tetiklenemiyordu.** ADR-0004'ün başlık kuralı `kayit.yaz`/`odeme.yurut`/`tahakkuk.isle` eylemlerini engelliyordu, ama boru hattının tek çağrı noktası yalnızca `oneri.uret` veya `okuma` talep ediyordu — kesişim boş. Kural ölü koddu; bir AGENT principal'ı için LLM gerçekten çağrılıyordu. `EYLEM_ONERISI` artık yazma sınıfını da beyan eder. |
+| **Bulduğu gerçek kusur 2** | **Deterministik niyet sınıflandırması Türkçe metinde çalışmıyordu.** Desenler ASCII (`olustur`), girdi Türkçe (`oluştur`). Eşleşme olmayınca istek LLM'e düşüyordu — yani "LLM hiçbir zaman ilk bileşen değildir" güvencesini koruyan katman, Türkçe bir üründe sessizce devre dışıydı. Karşılaştırma artık ASCII'ye katlanır. |
+| **Düzeltilen telafi iddiası** | Bu tablonun önceki hâli, telafi olarak *"AI sırası davranışı `tests/unit/domain.smoke.mjs` içinde kısmen kapsanmıştır"* diyordu. **Bu doğru değildi:** birim testlerinde `niyetiCoz`, `BnosAiPipeline` veya `bnos-client` geçen tek satır yoktur. AI boru hattının hiç test kapsamı olmamıştı — ve kapsam gelir gelmez iki kusur çıktı. |
 
-### 5.6 GitHub Actions
+> **Ders:** Gerçek olmayan bir telafi, gerçek bir boşluğu gizler. §5'teki her
+> "Telafi" satırı, iddia ettiği kapsamın var olduğu **doğrulanarak** yazılmalıdır.
+
+### 5.6 GitHub Actions — ⚠️ **kısmen açık**
 
 | | |
 |---|---|
 | **Engel** | İş akışları yerelde çalıştırılamaz |
 | **Telafi** | `ci.yml` ve `dependency-boundary.yml` YAML sözdizimi `config-check.mjs` tarafından doğrulandı (N-9). İş akışları `pnpm verify` zinciriyle hizalandı; bağımlılıksız doğrulama CI'ın **ilk** işidir. |
-| **Ne zaman doğrulanacak** | İlk push |
+| **Durum (27 Temmuz 2026)** | Depo `origin`'e (GitHub) push edilmiş durumda, dolayısıyla iş akışları tetiklenmiş olmalıdır. **Ancak koşum sonucu bu ortamdan doğrulanamadı** — `gh` CLI kurulu değil. CI'ın gerçekten yeşil olduğu GitHub arayüzünden teyit edilmelidir. |
+| **Ne zaman doğrulanacak** | `gh run list` ya da GitHub Actions sekmesi |
 
 ---
 
@@ -264,6 +283,20 @@ Yukarıdaki telafiler geçici çözüm olarak başladı; kalıcı bir ikinci sav
 `scripts/` betikleri CI'ın ilk işidir. İkisi aynı kuralı uygular; biri diğerinin yerine geçmez.
 
 Bu tasarım kararının değeri Faz 0'da somut olarak kanıtlandı: hata 8 (sessizce devre dışı kalan denetleyici), yalnızca bağımlılıksız katmanın negatif testleri sayesinde yakalandı.
+
+**Oturum 2 — ters yönde kanıt.** Faz 0, taban katmanın asıl kaynağı yakaladığı
+bir vaka üretmişti. Asıl kaynak katmanı ilk kez koştuğunda ise taban katmanın
+**göremeyeceği** dört kusur çıktı:
+
+| Kusur | Yalnızca hangi araç görebilirdi | Neden taban katman göremezdi |
+|---|---|---|
+| Dairesel bağımlılık | dependency-cruiser | `boundary.mjs` grafik kurmaz, yalnızca import desenlerini eşler |
+| `String(unknown)` → `[object Object]` | ESLint (tip-farkında) | Tip bilgisi gerektirir; regex taraması ifade tipini bilemez |
+| `AI-001` erişilemezliği | vitest (çalışma zamanı) | Statik olarak kural da çağrı noktası da geçerlidir; ihlal ancak **kesişimin boş olmasıyla** ortaya çıkar |
+| Türkçe niyet eşleşmemesi | vitest (çalışma zamanı) | Desen de girdi de tek başına doğrudur; hata yalnızca koşarken görünür |
+
+İki katman **simetriktir**: ne biri diğerinin yerine geçer ne de biri diğerini
+gereksizleştirir. Faz 0'da taban katman kazandı, Oturum 2'de asıl kaynak katmanı.
 
 ---
 
@@ -330,7 +363,7 @@ Yeni sözleşme testi dosyaları: `backend/test/contract/oturum.spec.ts` · `num
 | 1 | TS6377 kalıcı olarak çözüldü; ortak build-info yok | ✅ §4.3 |
 | 2 | Tam build zinciri çalıştı (Project References, boundary, negatif, verify) | ✅ §2, §3 |
 | 3 | Boundary denetleyicisi doğrulandı; boş eşleşme koruması aktif; kural başına dosya sayısı raporlanıyor | ✅ §2.3, N-5 |
-| 4 | Çevrimdışı çalıştırılabilen tüm testler koştu | ✅ 49 birim + 10 negatif + 22 belge |
+| 4 | Çevrimdışı çalıştırılabilen tüm testler koştu | ✅ 57 birim + 12 negatif + 25 belge |
 | 5 | Çalıştırılamayan doğrulamalar açıkça listelendi | ✅ §5 |
 | 6 | Çalışan proje kodu üretildi | ✅ §8 |
 
@@ -359,8 +392,11 @@ Kök: `package.json` · `pnpm-workspace.yaml` · `tsconfig.json` · `tsconfig.ba
 
 ## 9. Blok-1'e devir notu
 
-**İlk iş (B1.1):** Ağ erişimli ortamda `pnpm install` → `pnpm --filter @bnos/database generate` → `pnpm lint` → `pnpm test` yeşil alınması. §5'teki beş kalemin tamamı burada kapanır.
+**İlk iş (B1.1) — ✅ tamamlandı (DEVLOG Oturum 1–2).** `pnpm install` →
+`prisma generate` → `pnpm lint` → `pnpm test` zinciri yeşil. §5'teki beş
+kalemin **dördü** burada kapandı; beşincisi (§5.4) Docker'a bağlıdır ve
+ağ erişimiyle çözülmez. Kapanan üç doğrulama dört gerçek kusur buldu.
 
-**İkinci iş (B1.5):** PostgreSQL ayağa kalkar kalkmaz CT-01 ve CT-11 koşulmalıdır. RLS'in çalışma zamanında gerçekten izole ettiği kanıtlanmadan Blok-1'in ilerisine geçilmemelidir — bu, §5.4'te orta risk olarak işaretlenmiştir.
+**İkinci iş (B1.5) — açık, tek engel.** PostgreSQL ayağa kalkar kalkmaz CT-01 ve CT-11 koşulmalıdır. RLS'in çalışma zamanında gerçekten izole ettiği kanıtlanmadan Blok-1'in ilerisine geçilmemelidir — bu, §5.4'te orta risk olarak işaretlenmiştir.
 
 **Tek gerçek engel (teknik değil):** C-4 — KMK emredici hükümler, genel kurul yeter sayısı ve vekalet sınırları. Sprint 3'ü bloke ediyor ve 11 haftalık pencere tüketiliyor. Hukuki görüş gerektirir.

@@ -44,7 +44,7 @@
 ### 3.1 Belgeler
 
 ```text
-docs/adr/log/0001 … 0006          Altı karar kaydı (append-only)
+docs/adr/log/0001 … 0007          Yedi karar kaydı (append-only)
 docs/bfs/BFS-v1.md                Teknik standartlar — 16 bölüm
 docs/ais/AIS-v1.md                Port ve entegrasyon sözleşmeleri — 10 bölüm
 ```
@@ -62,7 +62,7 @@ Standartların belgede kalmaması için üç katmanda zorlama kuruldu.
 | Tenant kimliği (§2) | Markalı tip — ham string geçemez | `tenant-context.ts` |
 | Para float yasağı (§11) | `no-restricted-syntax` lint kuralı | `eslint.config.js` |
 | Finansal kayıt silinmezliği (§33) | Çalışma zamanı hatası | `soft-delete.ts` |
-| `BYPASSRLS` yasağı (§2) | Rol tanımı `NOBYPASSRLS` + sözleşme testi | `docker/init/01-roles.sql` |
+| `BYPASSRLS` yasağı (§2) | Rol tanımı `NOBYPASSRLS` + sözleşme testi | `database/init/01-roles.sql` |
 
 **Tasarım ilkesi:** Bir standart yalnızca belgede yazılıysa ihlal edilir. Derleme zamanında ya da CI'da zorlanmayan kural, kural değil temennidir.
 
@@ -72,9 +72,9 @@ Standartların belgede kalmaması için üç katmanda zorlama kuruldu.
 package.json · pnpm-workspace.yaml · tsconfig.base.json
 eslint.config.js · .dependency-cruiser.cjs
 .github/workflows/ci.yml · dependency-boundary.yml
-docker/docker-compose.yml · docker/init/01-roles.sql
-packages/shared-kernel   (11 kaynak dosyası — dolu)
-packages/core-domain · apartman-domain · bnos-client · module-sdk · ui-tokens  (iskelet)
+docker-compose.yml · database/init/01-roles.sql
+shared/kernel   (11 kaynak dosyası — dolu)
+shared/core-domain · apartman-domain · bnos-client · module-sdk · ui-tokens  (iskelet)
 ```
 
 ---

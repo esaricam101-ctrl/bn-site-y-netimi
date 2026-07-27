@@ -76,9 +76,9 @@ Karar kayıtları: [`docs/adr/log/`](docs/adr/log/)
 |---|---|
 | [0001](docs/adr/log/0001-adr-surum-hiyerarsisi.md) | ADR v1.1 tek kaynak; v1.0 tarihsel |
 | [0002](docs/adr/log/0002-tenant-modeli.md) | Tenant = apartman · PostgreSQL RLS · `portfolio/group/site` yok |
-| [0003](docs/adr/log/0003-cift-tarafli-muhasebe.md) | Çift taraflı defter; işletme defteri **türetilmiş rapor** (KMK m.36) |
+| [0003](docs/adr/log/0003-muhasebe-cift-tarafli.md) | Çift taraflı defter; işletme defteri **türetilmiş rapor** (KMK m.36) |
 | [0004](docs/adr/log/0004-ai-yurutme-sirasi.md) | Memory → KG → BRE → Agent → LLM. **LLM asla ilk değil** |
-| [0005](docs/adr/log/0005-finansal-onbellek-yasagi.md) | Finansal bakiye önbeklenmez; özet tablo kullanılır |
+| [0005](docs/adr/log/0005-finansal-ozet-onbellek.md) | Finansal bakiye önbeklenmez; özet tablo kullanılır |
 | [0006](docs/adr/log/0006-uc-kapi.md) | Üç kapı: Kimlik → Kiracı → İzin |
 | [0007](docs/adr/log/0007-para-tipi-bigint.md) | Para = ölçeklenmiş `bigint`, harici ondalık kütüphanesi yok |
 

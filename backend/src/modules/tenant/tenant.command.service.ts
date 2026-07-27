@@ -100,7 +100,7 @@ export class TenantCommandService {
 
       const tenant = Tenant.olustur({
         id: tenantId(kayit.id), kod: kayit.kod, ad: kayit.ad,
-        tip: kayit.tip as 'APARTMAN', durum: kayit.durum as 'KURULUM',
+        tip: kayit.tip, durum: kayit.durum,
         saatDilimi: kayit.saatDilimi, paraBirimi: 'TRY', lisansKodu: kayit.lisansKodu,
       });
       const aktif = tenant.aktiflestir();

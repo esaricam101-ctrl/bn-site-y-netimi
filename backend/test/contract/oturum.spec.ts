@@ -6,15 +6,33 @@
  */
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
+import type { Server } from 'node:http';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { ProblemDetailsFilter } from '../../src/common/errors/problem-details.filter';
 import { CorrelationInterceptor } from '../../src/common/context/correlation.interceptor';
 
+/**
+ * `getHttpServer()` ve `Response.body` her ikisi de `any` döner. Tiplenmemiş
+ * gövde, sözleşme testinin doğruladığı alan adının sessizce yanlış yazılmasına
+ * izin verir — sınır burada bir kez tiplenir.
+ */
+interface GirisYaniti {
+  readonly accessToken: string;
+  readonly varsayilanPanel: string;
+}
+
+interface HataYaniti {
+  readonly detail: string;
+  readonly gerekenIzinler?: readonly string[];
+}
+
 describe('CT-04 · Üç kapı', () => {
   let app: INestApplication;
   let token: string;
+
+  const sunucu = (): Server => app.getHttpServer() as Server;
 
   beforeAll(async () => {
     const modul = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -24,66 +42,66 @@ describe('CT-04 · Üç kapı', () => {
     app.useGlobalInterceptors(new CorrelationInterceptor());
     await app.init();
 
-    const giris = await request(app.getHttpServer())
+    const giris = await request(sunucu())
       .post('/api/v1/oturum/giris')
       .send({ eposta: 'yonetici@guzel-apartmani.test', sifre: 'bnos1234' });
-    token = giris.body.accessToken;
+    token = (giris.body as GirisYaniti).accessToken;
   });
 
   afterAll(() => app.close());
 
   it('belirteçsiz istek 401 döner', async () => {
-    const y = await request(app.getHttpServer()).get('/api/v1/kisiler');
+    const y = await request(sunucu()).get('/api/v1/kisiler');
     expect(y.status).toBe(401);
   });
 
   it('sağlık ucu kimlik gerektirmez (@Public)', async () => {
-    const y = await request(app.getHttpServer()).get('/api/v1/saglik');
+    const y = await request(sunucu()).get('/api/v1/saglik');
     expect(y.status).toBe(200);
   });
 
   it('geçerli belirteçle erişim sağlanır', async () => {
-    const y = await request(app.getHttpServer())
+    const y = await request(sunucu())
       .get('/api/v1/kisiler')
       .set('Authorization', `Bearer ${token}`);
     expect(y.status).toBe(200);
   });
 
   it('yetkisiz işlem 403 döner ve GEREKEN İZNİ ADIYLA söyler', async () => {
-    const y = await request(app.getHttpServer())
+    const y = await request(sunucu())
       .post('/api/v1/tenants')
       .set('Authorization', `Bearer ${token}`)
       .send({ kod: 'yeni-apartman', ad: 'Yeni Apartman' });
     // Apartman Yöneticisi rolünde tenant.setup izni YOKTUR.
     expect(y.status).toBe(403);
-    expect(y.body.gerekenIzinler).toContain('tenant.setup');
+    expect((y.body as HataYaniti).gerekenIzinler).toContain('tenant.setup');
   });
 
   it('hata yanıtı RFC 7807 biçimindedir ve korelasyon kimliği taşır', async () => {
-    const y = await request(app.getHttpServer()).get('/api/v1/kisiler');
+    const y = await request(sunucu()).get('/api/v1/kisiler');
     expect(y.headers['content-type']).toContain('application/problem+json');
     expect(y.body).toHaveProperty('correlationId');
     expect(y.body).toHaveProperty('sonrakiEylem');
   });
 
   it('hatalı e-posta ile hatalı şifre AYIRT EDİLMEZ', async () => {
-    const a = await request(app.getHttpServer())
+    const a = await request(sunucu())
       .post('/api/v1/oturum/giris')
       .send({ eposta: 'olmayan@ornek.test', sifre: 'bnos1234' });
-    const b = await request(app.getHttpServer())
+    const b = await request(sunucu())
       .post('/api/v1/oturum/giris')
       .send({ eposta: 'yonetici@guzel-apartmani.test', sifre: 'yanlis-sifre' });
 
     expect(a.status).toBe(401);
     expect(b.status).toBe(401);
     // Kullanıcı sayımını (enumeration) önler.
-    expect(a.body.detail).toBe(b.body.detail);
+    expect((a.body as HataYaniti).detail).toBe((b.body as HataYaniti).detail);
   });
 
   it('giriş rolüne uygun panele yönlendirir', async () => {
-    const y = await request(app.getHttpServer())
+    const y = await request(sunucu())
       .post('/api/v1/oturum/giris')
       .send({ eposta: 'yonetici@guzel-apartmani.test', sifre: 'bnos1234' });
-    expect(y.body.varsayilanPanel).toBe('/yonetim');
+    expect((y.body as GirisYaniti).varsayilanPanel).toBe('/yonetim');
   });
 });

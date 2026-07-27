@@ -1,4 +1,11 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * `new URL(...).pathname` Windows'ta `/C:/...` döndürür ve alias çözümlemesi
+ * kırılır. `fileURLToPath` her iki platformda da doğru mutlak yolu verir.
+ */
+const paket = (yol: string): string => fileURLToPath(new URL(yol, import.meta.url));
 
 export default defineConfig({
   test: {
@@ -10,11 +17,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@bnos/kernel': new URL('../shared/kernel/src/index.ts', import.meta.url).pathname,
-      '@bnos/core-domain': new URL('../shared/core-domain/src/index.ts', import.meta.url).pathname,
-      '@bnos/apartman-domain': new URL('../shared/apartman-domain/src/index.ts', import.meta.url).pathname,
-      '@bnos/bnos-client': new URL('../shared/bnos-client/src/index.ts', import.meta.url).pathname,
-      '@bnos/module-sdk': new URL('../shared/module-sdk/src/index.ts', import.meta.url).pathname,
+      '@bnos/kernel': paket('../shared/kernel/src/index.ts'),
+      '@bnos/core-domain': paket('../shared/core-domain/src/index.ts'),
+      '@bnos/apartman-domain': paket('../shared/apartman-domain/src/index.ts'),
+      '@bnos/bnos-client': paket('../shared/bnos-client/src/index.ts'),
+      '@bnos/module-sdk': paket('../shared/module-sdk/src/index.ts'),
     },
   },
 });

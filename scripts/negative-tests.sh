@@ -115,6 +115,14 @@ process.exit(ok ? 1 : 0);
 " >/dev/null 2>&1 && r=OK || r=FAIL
 kontrol "$r" "N-12 sifre — bozulmuş tohum özeti doğrulanmaz"
 
+# --- N-13  Kırık belge bağlantısı ---
+# markdownlint bicimi denetler, HEDEFI denetlemez. Bu sinif hata bu depoda
+# iki kez gerceklesti (DEVLOG TODO-6).
+printf '# Negatif\n\n[kirik](olmayan-dosya-xyz.md)\n' > docs/__neg.md
+node scripts/link-check.mjs >/dev/null 2>&1 && r=FAIL || r=OK
+rm -f docs/__neg.md
+kontrol "$r" "N-13 link-check — kırık belge bağlantısı (DEVLOG TODO-6)"
+
 echo
 echo "Negatif test: $gecti geçti, $kaldi yakalanmadı"
 if [ "$kaldi" -ne 0 ]; then

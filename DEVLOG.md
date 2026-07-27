@@ -7,7 +7,240 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
-## 2026-07-27 · Oturum 1 — Geliştirme ortamının ayağa kaldırılması
+## 2026-07-27 · Oturum 3 — Belge tutarlılığı ve bağlantı denetimi
+
+**Kapsam:** TODO-6 · `VALIDATION_REPORT.md` güncellemesi
+**Sonuç:** Belge doğrulaması zorlanır hale geldi · 13 negatif test (12 → 13)
+**Önceki durum:** Oturum 2 — kod tarafı yeşil, belgeler Faz 0'da kalmıştı
+
+### 1. Yapılan işler
+
+#### 1.1 TODO-6'daki her iddia önce doğrulandı
+
+Belgeye güvenilmedi; dört iddianın dördü de kaynaktan teyit edildi ve düzeltildi.
+
+| İddia | Doğrulama | Düzeltme |
+|---|---|---|
+| README'de iki kırık ADR bağlantısı | Dosya adları karşılaştırıldı | `0003-muhasebe-cift-tarafli.md` · `0005-finansal-ozet-onbellek.md` |
+| `FAZ-0-DURUM.md` bayat yollar | `docker-compose.yml` kökte, `database/init/` gerçek | `docker/…` → gerçek yollar; `packages/shared-kernel` → `shared/kernel` |
+| Aynı belge "0001 … 0006" diyor | `ls docs/adr/log/` → 7 ADR | "0001 … 0007 · Yedi karar kaydı" |
+| TypeScript 6.0.3 iddiası | Kurulu sürüm 5.9.3, `package.json` `^5.6.0` | 5.9.3 yazıldı |
+
+Sayım tutarsızlığı da giderildi: §7 kriter 4 "49 birim + 10 negatif + 22 belge"
+diyordu; gerçek değerler **57 + 12 + 25**.
+
+#### 1.2 Kırık bağlantı sınıfı artık zorlanıyor
+
+TODO-6'nın kalemleri tek tek düzeltilebilirdi; ancak aynı sınıf hata bu depoda
+**iki kez** gerçekleşti. `markdownlint` biçimi denetler, **hedefi denetlemez** —
+`[0003](docs/adr/log/olmayan-dosya.md)` biçimsel olarak kusursuzdur.
+
+Eklendi: [`scripts/link-check.mjs`](scripts/link-check.mjs). Diğer
+`scripts/*.mjs` ile aynı sözleşmeyi izler — `fileURLToPath` ile kök hesabı, boş
+tarama koruması, ihlalde çıkış kodu 1. `pnpm lint:md` artık markdownlint'ten
+sonra bunu da koşar; ayrıca `pnpm verify:links` olarak tek başına çağrılabilir.
+
+**N-13 negatif testi eklendi** (12 → 13). Denetleyicinin gerçekten yakaladığı,
+kasıtlı kırık bağlantı enjekte edilerek kanıtlandı — projenin kendi kuralı:
+*hiçbir şey denetlemeyen bir kontrol de yeşil yanar.*
+
+#### 1.3 Çift kopya sorunu: soyut bir risk değil, gerçekleşmiş bir hata
+
+`VALIDATION_REPORT.md` kökte ve `docs/` altında byte-eş duruyordu. Yeni
+denetleyici ilk koşusunda bunun somut sonucunu buldu: belge içindeki
+`adr/log/0007-para-tipi-bigint.md` göreli bağlantısı, **iki farklı dizin
+derinliğinde aynı anda doğru olamaz**. Kopyaların birinde her zaman kırıktı.
+
+Kanıt niteliğinde olan: hiçbir belge `docs/` kopyasına bağlanmıyordu — README ve
+DEVLOG dahil tüm gelen bağlantılar kök kopyaya gidiyor. Kopya yetimdi.
+
+`docs/VALIDATION_REPORT.md` bir **yönlendirme belgesine** indirgendi; kök kopya
+tek kaynaktır ve bağlantısı `docs/adr/log/…` olarak düzeltildi.
+
+#### 1.4 `VALIDATION_REPORT.md` Oturum 1–2 gerçekliğine güncellendi
+
+§5'in beş kaleminden dördü (§5.1, §5.1b, §5.2, §5.3, §5.5) **kapandı** olarak
+işaretlendi; her birine ne bulduğu yazıldı. §5.4 tek açık kalem olarak öne
+çıkarıldı. §5.6 (GitHub Actions) **kısmen açık**: depo push edilmiş durumda,
+ancak `gh` kurulu olmadığı için CI'ın gerçekten yeşil olduğu bu ortamdan
+doğrulanamadı — bu açıkça yazıldı, varsayılmadı.
+
+§6'ya ters yönde kanıt eklendi: Faz 0'da taban katman asıl kaynağı yakalamıştı;
+Oturum 2'de asıl kaynak katmanı, taban katmanın **göremeyeceği** dört kusur
+buldu. İki katman simetriktir.
+
+#### 1.5 Küçük temizlik
+
+`frontend/web/{app,components,lib,messages,public}` — PowerShell'de genişlemeyen
+brace-expansion artığı, boş klasör olarak duruyordu. Gerçek klasörlerin beşi de
+ayrıca mevcut olduğu için silindi.
+
+### 2. Değiştirilen dosyalar
+
+| Dosya | Değişiklik | Sınıf |
+|---|---|---|
+| `scripts/link-check.mjs` | **YENİ** — bağlantı denetleyicisi | Zorlama |
+| `scripts/negative-tests.sh` | N-13 eklendi | Zorlama |
+| `package.json` | `verify:links`; `lint:md` zincire bağlandı | Zorlama |
+| `docs/VALIDATION_REPORT.md` | Byte-eş kopya → yönlendirme belgesi | Belge |
+| `VALIDATION_REPORT.md` | §1, §5.1–§5.6, §6, §9 güncellendi; sayımlar ve ADR bağlantısı düzeltildi | Belge |
+| `README.md` | İki kırık ADR bağlantısı | Belge |
+| `docs/FAZ-0-DURUM.md` | Bayat yollar, ADR sayısı | Belge |
+| `frontend/web/{app,…}/` | **SİLİNDİ** — brace-expansion artığı | Temizlik |
+
+### 3. Bu oturumda çalıştırılmayanlar
+
+- `pnpm test:contract` — PostgreSQL gerektirir (TODO-3).
+- CI koşum sonucu — `gh` kurulu değil.
+
+---
+
+## 2026-07-27 · Oturum 2 — Doğrulama katmanının kapatılması
+
+**Kapsam:** TODO-1 doğrulaması · TODO-2 · TODO-4 · `VALIDATION_REPORT.md` §5.2, §5.3, §5.5
+**Sonuç:** Derlenen 9 paketin 9'u yeşil · ESLint 0 hata · CT-12 yeşil · 12/12 negatif test
+**Önceki durum:** Oturum 1 — build TODO-1 ile bloke, ESLint 44 hata, üç doğrulama hiç koşmamış
+
+### 1. Yapılan işler
+
+#### 1.1 Kapanan doğrulamalar
+
+| Doğrulama | Rapordaki madde | Oturum 1 | Oturum 2 |
+|---|---|---|---|
+| `pnpm -r build` | — | 8/9 | ✅ **9/9** |
+| ESLint | §5.2 | ❌ 44 hata | ✅ **0 hata** |
+| dependency-cruiser | §5.3 | ✅ 0 ihlal | ✅ 0 ihlal (1 bulundu, düzeltildi) |
+| **vitest — CT-12** | §5.5 | ⛔ koşulmadı | ✅ **5/5** |
+| Negatif testler | — | ⛔ `bash` yok | ✅ **12/12** |
+| Birim testleri | — | ✅ 57/57 | ✅ 57/57 |
+| `pnpm verify` | — | ✅ 7 adım | ✅ 7 adım |
+
+`VALIDATION_REPORT.md` §5'teki beş kalemden **dördü kapandı**. Yalnızca §5.4
+(PostgreSQL) açık — Docker hâlâ kurulu değil.
+
+#### 1.2 Üç doğrulama ilk kez koştuğunda dört gerçek kusur buldu
+
+Hiçbiri Oturum 1'in bağımlılıksız katmanınca yakalanamazdı; üçü ancak
+**AST/çalışma zamanı** analiziyle görülebilir.
+
+**Kusur 1 — `AI-001` kuralı hiçbir zaman tetiklenemiyordu.** (vitest · CT-12)
+
+ADR-0004'ün başlık kuralı — *"AI ajanları kayıt atamaz; öneri üretir ve adı
+geçen bir insan işler"* — `kayit.yaz`, `odeme.yurut`, `tahakkuk.isle`
+eylemlerini engelliyordu. Ancak boru hattının tek çağrı noktası
+([`ai-pipeline.ts`](shared/bnos-client/src/ai-pipeline.ts)) yalnızca
+`oneri.uret` veya `okuma` talep ediyordu. Kesişim **boş**: kural ölü koddu ve
+bir AGENT principal'ı için LLM gerçekten çağrılıyordu.
+
+`EYLEM_ONERISI` niyeti artık yazma sınıfını da açıkça beyan eder
+(`['oneri.uret', 'kayit.yaz']`), böylece BRE **üretimden önce** karar verebilir.
+Kural verisi değişmedi; eksik olan boru hattının beyanıydı.
+
+**Kusur 2 — deterministik niyet sınıflandırması Türkçe metinde çalışmıyordu.**
+(vitest · CT-12)
+
+Desenler ASCII yazılmıştı (`olustur`), girdi ise Türkçeydi (`oluştur`).
+Eşleşme olmayınca sınıflandırma `BILINMIYOR` dönüyor ve istek **LLM'e
+düşüyordu** — yani ADR-0004'ün "LLM hiçbir zaman ilk bileşen değildir"
+güvencesini koruyan deterministik katman, Türkçe bir üründe sessizce devre
+dışıydı. Karşılaştırma artık NFD ayrıştırma + birleşik işaret atma + `ı`
+eşlemesiyle ASCII'ye katlanarak yapılır.
+
+Bu iki kusur birbirini gizliyordu: kusur 2 niyeti `BILINMIYOR` yaptığı için
+kusur 1'in yol açtığı yazma talebi hiç oluşmuyordu.
+
+**Kusur 3 — dairesel bağımlılık.** (dependency-cruiser)
+
+`decorators/index.ts` → `current-user.decorator.ts` → `decorators/index.ts`.
+`CurrentUser`, `AktifPrincipal`'ın iki satırlık takma adıydı; yalnızca
+`tenant.controller.ts` bu adı kullanıyordu, kod tabanının geri kalanı
+`AktifPrincipal` diyordu. Controller kod tabanının kendi adına geçirildi, shim
+dosyası kaldırıldı. Döngü de çift isim de gitti.
+
+Bu, `boundary.mjs`'in **yapamadığı** analizdir — §5.3 bunu açıkça
+"bağımlılıksız betikte yoktur" diye kaydetmişti. İlk gerçek getirisi budur.
+
+**Kusur 4 — hata gövdesi `[object Object]` sızdırabiliyordu.** (ESLint
+`no-base-to-string`)
+
+[`problem-details.filter.ts`](backend/src/common/errors/problem-details.filter.ts)
+`String(govde['mesaj'] ?? …)` yazıyordu; `govde` alanları `unknown`. Nesne
+taşıyan bir `HttpException` gövdesi, kullanıcıya dönen RFC 7807 `detail`
+alanına `"[object Object]"` olarak yazılırdı — BFS v1 §12'nin "tek net sonraki
+eylem" kuralının sessiz ihlali. Artık yalnızca gerçek metin kabul edilir,
+gerisi geri düşüşe bırakılır.
+
+#### 1.3 ESLint 44 → 0
+
+| Sınıf | Adet | Çözüm |
+|---|---|---|
+| `bnos/require-tenant-cache-key` yanlış pozitifi | 3 | Kural değil kod işaretlendi — aşağıya bakınız |
+| Sözleşme testlerinde `any` | 28 | Gerçek tipler verildi — aşağıya bakınız |
+| Parse hatası (tsconfig dışı dosyalar) | 5 | Araç dosyaları için tip-farkında lint kapatıldı |
+| `no-unnecessary-type-assertion` | 3 | Assertion'lar kaldırıldı |
+| `no-unsafe-*` (i18n dinamik import) | 2 | `MesajAgaci` tipi tanımlandı |
+| İlk koşuda görünmeyenler (parse hatası ardında saklıydı) | 3 | `no-base-to-string` (2), `consistent-type-imports` (1) |
+
+**Önbellek anahtarı kuralı (TODO-2'nin mimari kısmı).** Kural AST tabanlıdır ve
+markalı tipi göremez; `OnbellekServisi` imzaları **zaten** `OnbellekAnahtari`
+alır, ham string geçmek derlenmez. Zorlama tip düzeyinde yapıldığı için üç çağrı
+gerekçeli `eslint-disable-next-line` ile işaretlendi. Kuralı gevşetmek, gerçek
+ihlalleri de kaçırmasına yol açardı; kod değiştirmek ise markalı tipin sağladığı
+garantiyi tekrarlamak olurdu. ADR gerektirecek bir sapma değildir — kuralın
+kapsamı ile tip sisteminin kapsamı farklıdır.
+
+**Sözleşme testlerindeki `any`.** Yalnızca susturmak yerine gerçek tipler
+verildi: `getHttpServer()` → `node:http` `Server`, yanıt gövdeleri için
+`GirisYaniti`/`HataYaniti` arayüzleri, `tx: any` → `Prisma.TransactionClient`.
+Sonuncusu önemlidir: `any` iken `tx.kisi` yazım hatası derlemeden geçer ve
+CT-01 hiçbir şey doğrulamadan yeşil yanardı.
+
+#### 1.4 `vitest.config.ts` — Oturum 1 kök nedeninin altıncı kopyası
+
+Alias'lar `new URL(...).pathname` ile hesaplanıyordu; Windows'ta bu `/C:/...`
+döndürür. Oturum 1'de dört `scripts/*.mjs` dosyasında düzeltilen hatanın aynısı
+burada duruyordu ve CT-12'nin `@bnos/*` import'larını çözmesini engelliyordu.
+`fileURLToPath`'e çevrildi.
+
+#### 1.5 Belgelenmiş bir telafinin gerçek olmadığı görüldü
+
+`VALIDATION_REPORT.md` §5.5, CT-12'nin telafisi olarak *"AI sırası davranışı
+`tests/unit/domain.smoke.mjs` içinde `node:test` ile kısmen kapsanmıştır"*
+diyor. Birim testlerinde `niyetiCoz`, `BnosAiPipeline` veya `bnos-client`
+geçen **tek bir satır yoktur**. AI boru hattının bu oturuma kadar hiç test
+kapsamı olmamıştı — ve kapsam gelir gelmez iki kusur çıktı.
+
+### 2. Değiştirilen dosyalar
+
+| Dosya | Değişiklik | Sınıf |
+|---|---|---|
+| `shared/bnos-client/src/ai-pipeline.ts` | ASCII katlama; `EYLEM_ONERISI` yazma sınıfını beyan eder | **Davranış** |
+| `backend/src/common/errors/problem-details.filter.ts` | `metinVeyaYok()`; `String()` zorlaması kaldırıldı | **Davranış** |
+| `backend/src/modules/tenant/tenant.controller.ts` | `CurrentUser` → `AktifPrincipal` | Yapı |
+| `backend/src/common/decorators/index.ts` | Shim re-export'u kaldırıldı | Yapı |
+| `backend/src/common/decorators/current-user.decorator.ts` | **SİLİNDİ** — dairesel bağımlılık | Yapı |
+| `backend/src/common/prisma/cache.service.ts` | 3 gerekçeli `eslint-disable` | Lint |
+| `backend/src/modules/tenant/tenant.command.service.ts` | Gereksiz assertion'lar kaldırıldı | Tip |
+| `backend/src/modules/tenant/tenant.query.service.ts` | Kullanılmayan `_principal` gerekçelendirildi | Lint |
+| `backend/src/common/context/correlation.interceptor.ts` | Gereksiz assertion kaldırıldı | Tip |
+| `backend/test/contract/oturum.spec.ts` | `Server` + gövde arayüzleri | Test tipi |
+| `backend/test/contract/rls-izolasyon.spec.ts` | `Prisma.TransactionClient` | Test tipi |
+| `backend/vitest.config.ts` | `fileURLToPath` | Windows uyumu |
+| `frontend/web/lib/i18n.ts` | `MesajAgaci` tipi | Tip |
+| `eslint.config.js` | `tests/.derleme` ignore; araç dosyaları için tip denetimi kapalı | Lint yapılandırması |
+
+`tenant.command.service.ts`'deki assertion'lar yalnızca gereksiz değil,
+**yanlıştı**: `kayit.tip as 'APARTMAN'` bir SITE kaydını da APARTMAN olarak
+tipliyordu. Prisma enum'ları `TenantTipi`/`TenantDurumu` union'larıyla birebir
+örtüştüğü için assertion'sız hâli hem derleniyor hem doğruyu söylüyor.
+
+### 3. Bu oturumda çalıştırılmayanlar
+
+- `pnpm test:contract` — PostgreSQL gerektirir (TODO-3).
+- `pnpm lint:md` — belge lint.
+- `pnpm dev` — backend artık derlendiği için başlatılabilir; denenmedi.
+
+---
 
 **Kapsam:** Blok-1 adım B1.1 (araç zinciri) · kod yazımı değil, ortam hazırlığı
 **Sonuç:** Ortam çalışır durumda · 10 paketten 9'u derleniyor · doğrulama zinciri yeşil
@@ -41,6 +274,10 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 | `database` (`prisma generate`) | ✅ |
 | `frontend/web` (`next build`) | ✅ 5 rota, 87.3 kB ortak JS |
 | `backend` (`nest build`) | ❌ TS2307 — bkz. TODO-1 |
+
+> **Oturum 2 düzeltmesi:** Buradaki "10 paketten 9'u" ifadesi `@bnos/mobile`'ı da
+> sayıyordu; o pakette `build` script'i yoktur. Doğru sayı 9 derlenen paketin
+> 8'idir.
 
 #### 1.4 Yol boyunca beş kök neden bulundu ve düzeltildi
 
@@ -123,41 +360,19 @@ kullanıcı `PATH` girdisi, `pyyaml` Python paketi.
 
 Öncelik sırasına göre. Numaralar oturumlar arası sabittir.
 
-### TODO-1 · `TenantModule` ve `TenantController` yok — backend build'i bloke ediyor
+### ~~TODO-1~~ · `TenantModule` ve `TenantController` — **KAPANDI (Oturum 2)**
 
-**Öncelik: yüksek.** Tek kalan build hatası.
+Modül, controller ve DTO'lar yazıldı; `pnpm -r build` tümüyle yeşil. Controller
+`AktifPrincipal` ve `RequirePermission` dekoratörlerini `kisi` şablonuyla aynı
+biçimde kullanır. Oturum 2, eklenen kodda bir dairesel bağımlılık ve iki
+gereksiz tip assertion'ı temizledi.
 
-[`backend/src/app.module.ts`](backend/src/app.module.ts) satır 16
-`./modules/tenant/tenant.module` import ediyor ama dosya yok. Modül klasöründe
-yalnızca `tenant.command.service.ts`, `tenant.query.service.ts` ve `dto/` var;
-`kisi` modülünde bulunan `*.module.ts` + `*.controller.ts` çifti eksik. Tenant
-özelliği hiçbir HTTP yüzeyine bağlı değil.
+### ~~TODO-2~~ · ESLint 44 hata — **KAPANDI (Oturum 2)**
 
-Bu bir kod boşluğudur, ortam sorunu değildir. Controller'ın hangi rotaları açacağı
-ve `olustur` / `aktiflestir` komutlarının hangi izin dekoratörleriyle korunacağı
-tasarım kararı gerektirir. `kisi` modülü birebir şablon olarak kullanılabilir.
-
-### TODO-2 · ESLint 44 hata — özel mimari kural yanlış pozitif üretiyor
-
-**Öncelik: yüksek** (kural kısmı) / orta (gerisi).
-
-Hiç çalıştırılamamış olan `bnos/require-tenant-cache-key` kuralı ilk koşusunda
-[`backend/src/common/prisma/cache.service.ts`](backend/src/common/prisma/cache.service.ts)
-içinde 3 kez tetikliyor — ancak parametreler **zaten** markalı `OnbellekAnahtari`
-tipinde. Kural yalnızca doğrudan `onbellekAnahtari(...)` çağrısını kabul ediyor,
-markalı tipte bir değişkeni tanımıyor. Kuralın mı yoksa kodun mu değişeceği
-mimari bir karardır.
-
-Kalan 41 hatanın dağılımı:
-
-- 28 hata sözleşme testlerindeki `any` kullanımından (`oturum.spec.ts` 15,
-  `rls-izolasyon.spec.ts` 13).
-- 6 hata `tsconfig` projesine dahil olmayan dosyaların parse edilememesinden:
-  `eslint.config.js`, `tools/eslint-rules/*.js`, `backend/vitest.config.ts` ve
-  **üretilmiş `tests/.derleme/` çıktısı**. Sonuncusu açıkça ESLint ignore
-  listesine girmelidir — üretilmiş dosya lint edilmemeli.
-- 7 hata `no-unsafe-*` ve `no-unnecessary-type-assertion` kaynaklı; 3'ü
-  `--fix` ile otomatik düzelebilir.
+44 → 0. Dağılım ve gerekçeler Oturum 2 §1.3'te. Mimari karar gerektiren tek
+kalem olan `bnos/require-tenant-cache-key`, kural gevşetilmeden çözüldü:
+`OnbellekServisi` imzaları markalı tip zorladığı için üç çağrı gerekçeli
+`eslint-disable` ile işaretlendi. Ayrı bir ADR gerektirmez.
 
 ### TODO-3 · Docker + PostgreSQL — RLS'in çalışma zamanı kanıtı
 
@@ -173,43 +388,62 @@ Docker kurulu değil; WSL çekirdeği var ama kurulu dağıtım yok. Kurulmadan
 koşulamıyor. Devir notu bunu açıkça şarta bağlıyor: *"RLS'in gerçekten izole
 ettiği kanıtlanmadan Blok-1'in ilerisine geçilmemelidir."*
 
-### TODO-4 · `bash` PATH'e alınmalı
+### TODO-4 · `bash` PATH'e alınmalı — **kısmen kapandı (Oturum 2)**
 
-**Öncelik: orta.** Git Bash `C:\Program Files\Git\bin\bash.exe` olarak kurulu ama
-`PATH`'te değil. `pnpm test:negative` (12 negatif test) ve `pnpm setup` bu haliyle
-çalışmıyor. Negatif testler, denetleyicilerin gerçekten bir şey denetlediğini
-kanıtlayan katmandır — Faz 0'ın en değerli bulgusu (sessizce devre dışı kalan
-`boundary.mjs`) bu katman sayesinde yakalanmıştı.
+**Öncelik: düşük.** 12 negatif test Oturum 2'de Git Bash ile doğrudan koşuldu ve
+**12/12 geçti**; denetleyicilerin gerçekten denetlediği kanıtlandı. Ancak
+`C:\Program Files\Git\bin\bash.exe` hâlâ `PATH`'te değil, dolayısıyla PowerShell
+üzerinden `pnpm test:negative` ve `pnpm setup` çalışmıyor. Koşum komutu:
 
-### TODO-5 · Sürüm kontrolü yok
+```bash
+TSC="$PWD/node_modules/.bin/tsc" bash scripts/negative-tests.sh
+```
 
-**Öncelik: orta.** Proje bir git deposu değil. Append-only ADR günlüğü, CI iş
-akışları ve `.gitignore` mevcutken sürüm kontrolü olmaması, bu oturumdaki
-değişikliklerin de geri alınamaz olması demek. `git init` + ilk commit önerilir.
+`TSC` değişkeni gerekir: betik varsayılan olarak `tsc` çağırır, o da `PATH`'te
+değildir.
+
+**Küçük kusur:** N-1 testi `shared/kernel/src/__neg.ts` dosyasını silerken
+derlenmiş çıktısını (`shared/kernel/dist/__neg.*`) bırakıyor. `dist/`
+`.gitignore` kapsamındadır, dolayısıyla depoyu kirletmez; yine de betik
+kendi artığını temizlemelidir.
+
+### ~~TODO-5~~ · Sürüm kontrolü — **KAPANDI**
+
+Proje artık bir git deposu (`master`, `origin` tanımlı).
 
 ### TODO-6 · Belge tutarsızlıkları
 
 **Öncelik: düşük.** Oturum 1 analizinde tespit edilenler:
 
-- [`README.md`](README.md) satır 79 ve 81'de **iki kırık ADR bağlantısı**:
-  `0003-cift-tarafli-muhasebe.md` ve `0005-finansal-onbellek-yasagi.md` diye
-  bağlantı veriyor; gerçek dosyalar `0003-muhasebe-cift-tarafli.md` ve
-  `0005-finansal-ozet-onbellek.md`.
-- [`docs/FAZ-0-DURUM.md`](docs/FAZ-0-DURUM.md) §3.3'te bayat yollar:
-  `packages/shared-kernel`, `docker/docker-compose.yml`, `docker/init/01-roles.sql`
-  yazıyor; gerçekte `shared/kernel`, kök `docker-compose.yml`,
-  `database/init/01-roles.sql`. Aynı belge §3.1'de "0001 … 0006" diyor, 7 ADR var.
-- `VALIDATION_REPORT.md` kökte ve `docs/` altında **byte-eş kopya**. Aynı şekilde
-  `.github/workflows/*` ile `infrastructure/github/workflows/*` byte-eş. Biri
-  değişirse sessizce ayrışır.
-- `VALIDATION_REPORT.md` §2.2 "57 birim / 12 negatif" derken §7 kriter 4
-  "49 birim / 10 negatif" diyor.
-- `VALIDATION_REPORT.md` derlemenin TypeScript 6.0.3 ile yapıldığını söylüyor;
-  `package.json` `^5.6.0` sabitliyor ve kurulan sürüm 5.9.3.
-- `frontend/web/{app,components,lib,messages,public}` — PowerShell'de genişlemeyen
-  brace-expansion artığı, boş klasör olarak duruyor.
+**Oturum 3'te kapatılanlar** — ✅ README'deki iki kırık ADR bağlantısı ·
+✅ `FAZ-0-DURUM.md` bayat yolları ve ADR sayısı · ✅ `VALIDATION_REPORT.md`
+sayım tutarsızlığı, TypeScript sürümü ve §5.5 telafi iddiası ·
+✅ `VALIDATION_REPORT.md` çift kopyası · ✅ brace-expansion artığı.
+
+Kırık bağlantı sınıfı artık [`scripts/link-check.mjs`](scripts/link-check.mjs)
+ile zorlanıyor ve N-13 negatif testiyle kanıtlanıyor — tek tek düzeltmek yerine
+sınıfın tamamı kapatıldı.
+
+**Açık kalanlar:**
+
+- `.github/workflows/*` ile `infrastructure/github/workflows/*` **byte-eş**.
+  GitHub yalnızca `.github/` altını okur; `infrastructure/` kopyası ölüdür ve
+  sessizce ayrışabilir. README `infrastructure/` dizinini listelediği için
+  kopyanın bir dağıtım/arşiv amacı olup olmadığı belirsizdir — **sahibine
+  sorulmalı**, körlemesine silinmemeli. (Oturum 3'te bilinçli olarak
+  dokunulmadı.)
+- Spesifikasyon belgelerinde yaygın `packages/` referansları:
+  `docs/bfs/BFS-v1.md`, `docs/ais/AIS-v1.md`, `docs/BASELINE.md`,
+  `docs/IMPLEMENTATION-ROADMAP.md`, `docs/compliance/03-EKSIKLER-BACKLOG.md`.
+  Proje `packages/` → `shared/` taşındı ama bu belgeler güncellenmedi.
+  **Bunlar sürümlenmiş standart belgeleridir** (BFS v1, AIS v1) ve
+  `docs/adr/log/0007` **append-only karar günlüğüdür** — sessizce yeniden
+  yazılmaları kaydı bozar. Düzeltme yerine bir "yol sözlüğü" eki ya da yeni
+  sürüm (BFS v1.1) uygun olabilir; bu bir karardır, düzeltme değil.
 - Boş klasörler: `backend/test/integration/`, `frontend/web/components/`,
   `frontend/web/public/`, `infrastructure/k8s/` (sonuncusu README'de listeli).
+  Git boş klasör izlemez; bunlar yalnızca yerel dosya sisteminde vardır.
+  Yer tutucu oldukları için bırakıldı.
 
 ### TODO-7 · Engelleyici, teknik olmayan — C-4 hukuki görüş
 
@@ -221,8 +455,10 @@ tüketiliyor. Faz 0 ile paralel başlatılmalıydı.
 
 ## Next Session
 
-**Başlangıç noktası:** Ortam hazır. `pnpm install` ve `pnpm verify` yeşil. Tek
-build hatası TODO-1.
+**Başlangıç noktası:** Veritabanı gerektirmeyen her doğrulama yeşil. Build 9/9
+(`@bnos/mobile`'ın build script'i yoktur), ESLint 0, dependency-cruiser 0 ihlal,
+57 birim + **13 negatif** + 5 CT-12 testi geçiyor; belge lint ve bağlantı
+denetimi 0 hata. **Tek açık teknik engel TODO-3'tür (Docker).**
 
 ### Ortamı geri kazanma
 
@@ -232,34 +468,60 @@ kullanıcı registry'sine yazıldı, halihazırda açık süreçler eski ortamı
 ```bash
 pnpm --version   # 9.12.0 beklenir
 pnpm verify      # 7 adım, tümü GECTI beklenir
+pnpm -r build    # 9 paket, hepsi Done beklenir
+pnpm lint        # 0 hata beklenir
+pnpm lint:md     # markdownlint 0 + kırık bağlantı 0 beklenir
+```
+
+`bash` `PATH`'te olmadığı için negatif testler şu komutla koşulur:
+
+```bash
+TSC="$PWD/node_modules/.bin/tsc" bash scripts/negative-tests.sh   # 13/13
 ```
 
 ### Önerilen sıra
 
-1. **TODO-1'e karar ver.** `TenantModule` + `TenantController` yazılacak mı?
-   Yazılacaksa `kisi` modülü şablon; rotalar ve izin dekoratörleri kararlaştırılmalı.
-   Bu kapanmadan `pnpm -r build` yeşile dönmez ve `pnpm dev` backend'i başlatamaz.
-2. **`ai-sirasi.spec.ts` koş.** Veritabanı gerektirmez, vitest artık kurulu.
-   `pnpm --filter @bnos/backend exec vitest run test/contract/ai-sirasi.spec.ts`
-   AI yürütme sırasının (ADR-0004) LLM'i hiç çağırmadığını kanıtlayan casus testi
-   yalnızca vitest ile koşar — §5.5 bu şekilde kapanır.
-3. **TODO-4'ü kapat** (tek satır `PATH` düzenlemesi), ardından
-   `pnpm test:negative` ile 12 negatif testi doğrula.
-4. **TODO-2'nin kural kısmına karar ver.** `bnos/require-tenant-cache-key`
-   gevşetilecek mi, yoksa `cache.service.ts` mi değişecek? Bu bir mimari karardır
-   ve muhtemelen bir ADR kaydı hak eder.
-5. **TODO-3.** Docker Desktop + bir WSL dağıtımı kurulduktan sonra
-   `pnpm db:up && pnpm db:migrate && pnpm db:seed`, ardından CT-01 ve CT-11.
+1. **TODO-3 — tek gerçek engel.** Docker Desktop + bir WSL dağıtımı kurulduktan
+   sonra `pnpm db:up && pnpm db:migrate && pnpm db:seed`, ardından CT-01, CT-11,
+   CT-06. Sözleşme testlerinin tip hataları Oturum 2'de temizlendi; PostgreSQL
+   ayağa kalkar kalkmaz koşabilir durumdalar.
    **Blok-1 bundan önce kapatılmış sayılmamalıdır.**
+2. **Oturum 2'nin iki davranış değişikliği gözden geçirilmeli.** Her ikisi de
+   ADR-0004 uyumunu geri getirir ancak boru hattı davranışını değiştirir:
+   `EYLEM_ONERISI` artık `kayit.yaz` talep eder (AI-001 tetiklenebilir hale
+   geldi) ve niyet eşleştirmesi ASCII'ye katlanır. İkincisi daha çok isteği
+   deterministik katmanda tutar — LLM'e düşen istek oranının azalması beklenir.
+3. **CI'ın gerçekten yeşil olduğu teyit edilmeli.** Depo `origin`'e push
+   edilmiş durumda ancak koşum sonucu doğrulanmadı — `gh` kurulu değil
+   (`VALIDATION_REPORT.md` §5.6). GitHub Actions sekmesinden bakılmalı.
+
+   `link-check.mjs` CI'a **zaten bağlıdır**: `ci.yml` `belge` işi
+   `pnpm lint:md` çağırır, o da markdownlint'ten sonra betiği koşar.
+   Mimari olarak daha doğru yeri `mimari` işidir — betik bağımlılıksızdır ve
+   o iş `pnpm install` beklemeden koşar (§6 tasarımı: *bağımlılıksız doğrulama
+   CI'ın ilk işidir*). Taşınmadı, çünkü `.github/workflows/*` ile
+   `infrastructure/github/workflows/*` byte-eştir; yalnızca birini düzenlemek
+   TODO-6'da ertelenen ayrışmayı başlatırdı. Kopya sorunu çözülünce taşınmalı.
+4. **`pnpm dev` denenmeli.** Backend ilk kez derleniyor; uçtan uca çalıştığı
+   henüz görülmedi. Redis ve PostgreSQL gerekeceği için TODO-3'e bağlıdır.
+5. **TODO-6** — belge tutarsızlıkları; ucuz ve birikiyor.
 
 ### Dikkat edilecekler
 
-- `database/prisma/schema.prisma` bu oturumda biçimsel olarak değişti. Enum
+- `database/prisma/schema.prisma` Oturum 1'de biçimsel olarak değişti. Enum
   değerleri aynıdır; `migration.sql` ile karşılaştırırken bunu göz önünde tutun.
-- `scripts/*.mjs` artık Windows'ta çalışıyor. POSIX davranışı korundu
-  (junction yalnızca `win32`'de, göreli symlink diğer platformlarda).
+- `scripts/*.mjs` **ve** `backend/vitest.config.ts` artık Windows'ta çalışıyor.
+  POSIX davranışı korundu (junction yalnızca `win32`'de, göreli symlink diğer
+  platformlarda). `new URL(...).pathname` kalıbı bu kod tabanında altı kez
+  tekrarlanmıştı — yeni bir dosyada görülürse aynı hatadır.
 - `.env` gerçek bir rastgele `JWT_SECRET` taşıyor ve `.gitignore` kapsamındadır;
   depoya girmemelidir.
+- **`CurrentUser` dekoratörü artık yoktur.** Tek ad `AktifPrincipal`'dır. Yeni
+  controller'lar `../../common/decorators` barrel'ından import etmelidir; bir
+  alias dosyası eklemek dairesel bağımlılık üretir (Oturum 2, kusur 3).
+- ESLint araç dosyalarını (`eslint.config.js`, `tools/eslint-rules/*.js`,
+  `*.cjs`, `vitest.config.ts`) tip denetimi olmadan lint eder. Bu dosyalara
+  uygulama kodu taşınmamalıdır — tip-farkında kurallar orada koşmaz.
 
 ---
 

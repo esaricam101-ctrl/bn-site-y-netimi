@@ -27,5 +27,3 @@ export const AktifPrincipal = createParamDecorator(
     return principal;
   },
 );
-
-export { CurrentUser } from './current-user.decorator';

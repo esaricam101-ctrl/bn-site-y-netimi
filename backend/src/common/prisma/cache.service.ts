@@ -25,6 +25,10 @@ export class OnbellekServisi implements OnModuleDestroy {
 
   async getir<T>(anahtar: OnbellekAnahtari): Promise<T | null> {
     try {
+      // Kural AST tabanlidir ve markali tipi goremez; `anahtar` burada zaten
+      // OnbellekAnahtari'dir — ham string GECILEMEZ, derlenmez. Zorlama tip
+      // duzeyinde bu imzada yapilir (ADR v1.1 §37).
+      // eslint-disable-next-line bnos/require-tenant-cache-key
       const ham = await this.redis.get(anahtar);
       return ham ? (JSON.parse(ham) as T) : null;
     } catch {
@@ -35,6 +39,8 @@ export class OnbellekServisi implements OnModuleDestroy {
 
   async yaz(anahtar: OnbellekAnahtari, deger: unknown, ttlSaniye: number): Promise<void> {
     try {
+      // Ayni gerekce: `anahtar` markali OnbellekAnahtari tipindedir.
+      // eslint-disable-next-line bnos/require-tenant-cache-key
       await this.redis.set(anahtar, JSON.stringify(deger), 'EX', ttlSaniye);
     } catch {
       /* yut — önbellek yazımı başarısızlığı isteği bozmaz */
@@ -44,6 +50,10 @@ export class OnbellekServisi implements OnModuleDestroy {
   /** Geçersizleştirme domain event'lerle yapılır; TTL'e bel bağlanmaz (§37 kural 2). */
   async desenSil(desen: string): Promise<void> {
     const anahtarlar = await this.redis.keys(desen);
+    // `anahtarlar` redis.keys() ciktisidir, cagiran tarafindan uretilmis bir
+    // anahtar degildir. Desenin tenant kapsamli oldugunu `desen` parametresini
+    // veren cagiran garanti eder — bu imza markali tip tasimaz.
+    // eslint-disable-next-line bnos/require-tenant-cache-key
     if (anahtarlar.length > 0) await this.redis.del(...anahtarlar);
   }
 

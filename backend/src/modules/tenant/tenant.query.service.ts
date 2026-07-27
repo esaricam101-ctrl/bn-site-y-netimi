@@ -25,6 +25,9 @@ export interface TenantOzeti {
 export class TenantQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // principal imzada tutulur: Query tarafi yetki filtresini ileride buradan
+  // uygulayacaktir (ADR v1.1 §38). Simdilik okunmuyor.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async ozet(id: string, _principal: Principal): Promise<TenantOzeti> {
     const kayit = await this.prisma.tenant.findUnique({
       where: { id },
