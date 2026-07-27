@@ -7,6 +7,113 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-27 · Oturum 4 — Bağımsız Bölüm modülü
+
+**Kapsam:** Apartman yönetimi çekirdek varlığı · Blok-1 dikey dilimi
+**Sonuç:** `BolumModule` HTTP yüzeyine bağlandı · 58 birim · 14 negatif test
+**Önceki durum:** Oturum 3 — belgeler tutarlı, kod tarafı `kisi`/`oturum`/`tenant` ile sınırlı
+
+### 1. Yapılan işler
+
+#### 1.1 Eksik olan neydi
+
+`backend/src/modules/` altında `health`, `kisi`, `oturum`, `tenant` vardı.
+Apartman yönetiminin **çekirdek varlığı** olan bağımsız bölüm (daire) yoktu:
+domain aggregate'i ([`bagimsiz-bolum.ts`](shared/apartman-domain/src/bolum/bagimsiz-bolum.ts))
+ve Prisma modeli yazılmıştı, HTTP ve kalıcılık yüzeyi yoktu. TODO-1'in Tenant
+için olduğu durumun aynısı.
+
+Eklendi: [`backend/src/modules/bolum/`](backend/src/modules/bolum/) — `kisi`
+modülü birebir şablon alındı (CQRS ayrımı, cursor sayfalama, üç kapı
+dekoratörleri, audit + outbox).
+
+| Uç | İzin | İşlev |
+|---|---|---|
+| `POST /bolumler` | `bolum.manage` | Bağımsız bölüm oluştur |
+| `GET /bolumler` | `bolum.view` | Cursor sayfalamalı liste |
+| `GET /bolumler/arsa-payi-durumu` | `bolum.view` | KMK md. 3 denetimi |
+| `DELETE /bolumler/:id` | `bolum.manage` | Soft delete, gerekçe zorunlu |
+
+`bolum.view` / `bolum.manage` izinleri katalogda **zaten** tanımlıydı; modül
+yazılmadığı için kullanılmıyorlardı.
+
+#### 1.2 KMK md. 3 kuralı test ediliyordu ama zorlanmıyordu
+
+`arsaPaylariniDogrula()` — arsa paylarının toplamının tamı etmesi kuralı —
+`apartman-domain` içinde tanımlıydı ve birim testi vardı (`domain.smoke.mjs`),
+ancak **hiçbir uygulama kodu çağırmıyordu.** Kural belgede ve testte vardı,
+çalışan sistemde yoktu.
+
+Bu, Oturum 2'de `AI-001` kuralında görülen kusurun aynı sınıfı: kural yazılmış,
+erişilebilir yere bağlanmamış. Toplam 1'den sapıyorsa yönetim planı hatalıdır ve
+tahakkuk çalıştırılmamalıdır — artık `GET /bolumler/arsa-payi-durumu` bunu
+raporlar.
+
+Rapor, aggregate olarak yeniden kurulamayan kayıtları **sessizce atlamaz**;
+atlarsa toplam yanlış çıkar ve rapor yalan söyler. Bu kayıtlar
+`okunamayanBolumler` alanında adlarıyla döner ve `gecerli` false olur.
+
+#### 1.3 Arsa payı JSON'da metin taşınır
+
+DTO `arsaPayiPay` / `arsaPayiPayda` alanlarını **metin** olarak alır, `number`
+olarak değil. JSON `number` çift duyarlıklı float'tır; 1/3 gibi paylarda yuvarlama
+hatası doğurur ve payların toplamı KMK md. 3'ün şart koştuğu tamı tutmaz.
+Sunucuda `BigInt`'e çevrilir; veritabanında da `BigInt`'tir. Gerekçe ADR-0007
+(para = ölçeklenmiş `bigint`) ile aynı çizgidedir.
+
+#### 1.4 Doğrulama domain'de kalır, serviste tekrarlanmaz
+
+`BolumCommandService.olustur()` önce `BagimsizBolum.olustur()` çağırır; geçersiz
+ölçü ya da arsa payı veritabanına **hiç ulaşmaz**. Net/brüt m² ilişkisi ve arsa
+payı sınırları serviste yeniden yazılmadı — kural iki yerde yazılırsa biri eskir.
+
+Silme kuralı: bölüm ANA_VERİ sınıfındadır, gerekçe zorunludur ve **açık borcu
+olan bölüm silinemez**. Borç bölüme bağlıdır, kişiye değil (ADR v1.1 §5); açık
+borçlu bölüm silinirse borç sahipsiz kalır.
+
+#### 1.5 Event kataloğu genişletildi
+
+`apartman.bagimsiz_bolum.olusturuldu` ve `.silindi` eklendi. Dikey **`core`
+değil `apartman`**: bağımsız bölüm `apartman-domain` paketindedir ve paket
+sınırı (BFS v1 §1.3) bu ayrımı zaten zorlar.
+
+Katalog kaydı çalışma zamanında doğrulandı: iki yeni event kabul ediliyor,
+kayıtsız bir üçüncüsü (`.guncellendi`) hâlâ reddediliyor. Birim testi eklendi
+(57 → 58) — katalogdan düşerlerse outbox yazımı çalışma zamanında patlar,
+derlemede değil.
+
+#### 1.6 Kendi bağlantı denetleyicimde yanlış pozitif
+
+Oturum 3'te eklenen `link-check.mjs`, satır içi kod ve kod bloklarını
+atlamıyordu. DEVLOG'un kendisi — markdownlint'in ne yakalamadığını anlatırken —
+örnek olarak kırık bir bağlantı **gösteriyordu**; denetleyici bunu gerçek
+bağlantı sanıp `pnpm lint:md` zincirini kırmızıya düşürdü.
+
+Düzeltildi: fenced blok ve satır içi kod, satır sayısı korunarak boşaltılır.
+**N-14 negatif testi eklendi** (13 → 14): kod bloğundaki bağlantı yanlış pozitif
+üretmemelidir. Her şeyi işaretleyen bir denetleyici, hiçbir şeyi işaretlemeyen
+kadar bozuktur — N-5'in (boş eşleşme koruması) ters yönü.
+
+### 2. Değiştirilen dosyalar
+
+| Dosya | Değişiklik | Sınıf |
+|---|---|---|
+| `backend/src/modules/bolum/` | **YENİ** — 5 dosya (module, controller, command, query, dto) | Özellik |
+| `backend/src/app.module.ts` | `BolumModule` kaydı | Bağlama |
+| `shared/core-domain/src/outbox/domain-event.ts` | İki event katalog kaydı | Sözleşme |
+| `tests/unit/domain.smoke.mjs` | Bölüm event kapsamı (57 → 58) | Test |
+| `scripts/link-check.mjs` | Kod bloğu / satır içi kod atlanır | Düzeltme |
+| `scripts/negative-tests.sh` | N-14 (13 → 14) | Zorlama |
+
+### 3. Bu oturumda çalıştırılmayanlar
+
+- Modülün uçtan uca davranışı — PostgreSQL gerektirir (TODO-3). Derleme, lint,
+  paket sınırı ve dairesel bağımlılık denetimlerinden geçti; **HTTP uçları
+  gerçek bir veritabanına karşı hiç çağrılmadı.**
+- `pnpm test:contract` · `pnpm dev`.
+
+---
+
 ## 2026-07-27 · Oturum 3 — Belge tutarlılığı ve bağlantı denetimi
 
 **Kapsam:** TODO-6 · `VALIDATION_REPORT.md` güncellemesi
@@ -388,6 +495,31 @@ Docker kurulu değil; WSL çekirdeği var ama kurulu dağıtım yok. Kurulmadan
 koşulamıyor. Devir notu bunu açıkça şarta bağlıyor: *"RLS'in gerçekten izole
 ettiği kanıtlanmadan Blok-1'in ilerisine geçilmemelidir."*
 
+**Docker'ı bekleyen test borcu** (Docker kurulduğunda sırayla koşulacaklar):
+
+| Test | Kaynak | Durum |
+|---|---|---|
+| CT-01 · tenant izolasyonu | `rls-izolasyon.spec.ts` | Yazılmış, tipleri temiz (Oturum 2) |
+| CT-11 · `BYPASSRLS` yetkisi yok | `rls-izolasyon.spec.ts` | Yazılmış |
+| CT-06 · kısmi unique index, audit değişmezliği | `silme-standardi.spec.ts` | Yazılmış |
+| CT-04 · üç kapı | `oturum.spec.ts` | Yazılmış, tipleri temiz (Oturum 2) |
+| CT-13/CT-14 · numaralandırma, kullanıcı sayımı | `numaralandirma.spec.ts` · `oturum.spec.ts` | Yazılmış |
+| **Bölüm modülü uçtan uca** | **YAZILMADI** | Oturum 4'te eklenen 4 uç hiç çağrılmadı |
+
+Son satır bu oturumun bıraktığı borçtur: `BolumModule` derleme, lint, paket
+sınırı ve dairesel bağımlılık denetimlerinden geçti, ancak **gerçek bir
+veritabanına karşı hiç çalıştırılmadı.** Özellikle doğrulanmamış olanlar:
+
+- Soft delete uzantısının bölüm listesini de merkezî filtrelediği
+- Açık borçlu bölümün gerçekten silinemediği (`Borc` ilişkisi üzerinden)
+- Aynı blokta mükerrer kapı no kontrolünün çalıştığı — bu kontrolün DB
+  kısıtı **yoktur**, dar bir yarış penceresi taşır (kalıcı çözüm:
+  `(tenant_id, blok_id, kapi_no)` kısmi unique index, migration gerektirir)
+- `arsa-payi-durumu` ucunun gerçek veride doğru toplam ürettiği
+
+Oturum 2'nin dersi burada geçerlidir: **hiç koşmamış bir test yeşil sayılamaz** —
+CT-12 ilk koştuğunda 2/5 başarısızdı.
+
 ### TODO-4 · `bash` PATH'e alınmalı — **kısmen kapandı (Oturum 2)**
 
 **Öncelik: düşük.** 12 negatif test Oturum 2'de Git Bash ile doğrudan koşuldu ve
@@ -456,9 +588,11 @@ tüketiliyor. Faz 0 ile paralel başlatılmalıydı.
 ## Next Session
 
 **Başlangıç noktası:** Veritabanı gerektirmeyen her doğrulama yeşil. Build 9/9
-(`@bnos/mobile`'ın build script'i yoktur), ESLint 0, dependency-cruiser 0 ihlal,
-57 birim + **13 negatif** + 5 CT-12 testi geçiyor; belge lint ve bağlantı
-denetimi 0 hata. **Tek açık teknik engel TODO-3'tür (Docker).**
+(`@bnos/mobile`'ın build script'i yoktur), ESLint 0, dependency-cruiser 0 ihlal
+(249 modül), **58 birim + 14 negatif** + 5 CT-12 testi geçiyor; belge lint ve
+bağlantı denetimi 0 hata. **Tek açık teknik engel TODO-3'tür (Docker).**
+
+Modüller: `health` · `oturum` · `tenant` · `kisi` · **`bolum`** (Oturum 4).
 
 ### Ortamı geri kazanma
 
@@ -476,16 +610,21 @@ pnpm lint:md     # markdownlint 0 + kırık bağlantı 0 beklenir
 `bash` `PATH`'te olmadığı için negatif testler şu komutla koşulur:
 
 ```bash
-TSC="$PWD/node_modules/.bin/tsc" bash scripts/negative-tests.sh   # 13/13
+TSC="$PWD/node_modules/.bin/tsc" bash scripts/negative-tests.sh   # 14/14
 ```
 
 ### Önerilen sıra
 
 1. **TODO-3 — tek gerçek engel.** Docker Desktop + bir WSL dağıtımı kurulduktan
-   sonra `pnpm db:up && pnpm db:migrate && pnpm db:seed`, ardından CT-01, CT-11,
-   CT-06. Sözleşme testlerinin tip hataları Oturum 2'de temizlendi; PostgreSQL
-   ayağa kalkar kalkmaz koşabilir durumdalar.
+   sonra `pnpm db:up && pnpm db:migrate && pnpm db:seed`, ardından TODO-3'teki
+   test borcu tablosu baştan sona koşulmalı. Sözleşme testlerinin tip hataları
+   Oturum 2'de temizlendi; PostgreSQL ayağa kalkar kalkmaz koşabilir durumdalar.
    **Blok-1 bundan önce kapatılmış sayılmamalıdır.**
+
+   Öncelikli yeni borç: **`bolum` modülü için sözleşme testi yazılmalı.**
+   Oturum 4'te eklenen dört uç gerçek veritabanına karşı hiç çağrılmadı;
+   özellikle mükerrer kapı no kontrolünün DB kısıtı yoktur ve yarış penceresi
+   taşır.
 2. **Oturum 2'nin iki davranış değişikliği gözden geçirilmeli.** Her ikisi de
    ADR-0004 uyumunu geri getirir ancak boru hattı davranışını değiştirir:
    `EYLEM_ONERISI` artık `kayit.yaz` talep eder (AI-001 tetiklenebilir hale

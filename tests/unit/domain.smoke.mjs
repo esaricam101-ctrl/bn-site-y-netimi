@@ -66,6 +66,17 @@ test('event: katalogdaki event standart zarf uretir', () => {
   assert.equal(zarf.occurredAt.toISOString(), '2026-07-26T09:00:00.000Z');
 });
 
+test('event: bagimsiz bolum eventleri katalogda kayitli', () => {
+  // Bolum modulu bu eventleri yayinlar; katalogdan dusurulurse outbox yazimi
+  // calisma zamaninda patlar, derlemede degil.
+  assert.ok(CD.katalogdaVarMi('apartman.bagimsiz_bolum.olusturuldu', 1));
+  assert.ok(CD.katalogdaVarMi('apartman.bagimsiz_bolum.silindi', 1));
+  // 'apartman' dikeyi core'dan ayridir — bolum core-domain'e ait degildir.
+  const bolumKayitlari = CD.EVENT_KATALOGU.filter((k) => k.sahipModul === 'bolum');
+  assert.equal(bolumKayitlari.length, 2);
+  assert.ok(bolumKayitlari.every((k) => k.eventType.startsWith('apartman.')));
+});
+
 /* ---------------- Numaralandirma (§35) ---------------- */
 
 test('numara: BOSLUKSUZ seriler gerekce tasir', () => {

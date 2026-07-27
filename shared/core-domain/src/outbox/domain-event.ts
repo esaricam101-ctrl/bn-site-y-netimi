@@ -24,6 +24,9 @@ export const EVENT_KATALOGU: readonly EventKatalogKaydi[] = [
   { eventType: 'core.kisi.olusturuldu', eventVersion: 1, sahipModul: 'kisi', aciklama: 'Kisi kaydi olusturuldu' },
   { eventType: 'core.kisi.guncellendi', eventVersion: 1, sahipModul: 'kisi', aciklama: 'Kisi kaydi guncellendi' },
   { eventType: 'core.kisi.silindi', eventVersion: 1, sahipModul: 'kisi', aciklama: 'Kisi kaydi soft-delete edildi' },
+  // Bagimsiz bolum 'apartman' dikeyindedir; core degildir (BFS v1 §1.3 paket siniri).
+  { eventType: 'apartman.bagimsiz_bolum.olusturuldu', eventVersion: 1, sahipModul: 'bolum', aciklama: 'Bagimsiz bolum kaydi olusturuldu' },
+  { eventType: 'apartman.bagimsiz_bolum.silindi', eventVersion: 1, sahipModul: 'bolum', aciklama: 'Bagimsiz bolum kaydi soft-delete edildi' },
 ];
 
 const KATALOG_INDEKS = new Map(

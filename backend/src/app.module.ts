@@ -16,6 +16,7 @@ import { HealthModule } from './modules/health/health.module';
 import { OturumModule } from './modules/oturum/oturum.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { KisiModule } from './modules/kisi/kisi.module';
+import { BolumModule } from './modules/bolum/bolum.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { KisiModule } from './modules/kisi/kisi.module';
     OturumModule,
     TenantModule,
     KisiModule,
+    BolumModule,
   ],
   providers: [
     // ÜÇ KAPI — sıra değişmez (ADR-0006 · BFS v1 §3).

@@ -23,6 +23,17 @@ const ATLA = new Set(['node_modules', '.git', 'dist', '.next', '.derleme']);
 // [metin](hedef) — hedefteki #parca ve baslik metni ayiklanir
 const BAGLANTI = /\[[^\]]*\]\(\s*([^)\s#]+)(?:#[^)\s]*)?(?:\s+"[^"]*")?\s*\)/g;
 
+/**
+ * Kod bloklari ve satir ici kod, baglanti DEGILDIR. Belgeler kirik baglantiyi
+ * ornek olarak gostermek zorunda kalabilir; bunlari taramak yanlis pozitif
+ * uretir. Icerik silinmez, satir sayisi korunacak sekilde bosaltilir.
+ */
+function koduBosalt(metin) {
+  return metin
+    .replace(/^([ \t]*)(```|~~~)[\s\S]*?^\1?\2[^\n]*$/gm, (b) => b.replace(/[^\n]/g, ' '))
+    .replace(/(`+)(?:(?!\1)[\s\S])*\1/g, (b) => b.replace(/[^\n]/g, ' '));
+}
+
 function* markdownDosyalari(dizin) {
   for (const ad of readdirSync(dizin)) {
     if (ATLA.has(ad)) continue;
@@ -39,7 +50,7 @@ let baglanti = 0;
 for (const dosya of markdownDosyalari(KOK)) {
   taranan++;
   const goreli = relative(KOK, dosya).replaceAll('\\', '/');
-  const icerik = readFileSync(dosya, 'utf8');
+  const icerik = koduBosalt(readFileSync(dosya, 'utf8'));
 
   for (const eslesme of icerik.matchAll(BAGLANTI)) {
     const hedef = eslesme[1] ?? '';

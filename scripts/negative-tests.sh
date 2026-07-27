@@ -123,6 +123,15 @@ node scripts/link-check.mjs >/dev/null 2>&1 && r=FAIL || r=OK
 rm -f docs/__neg.md
 kontrol "$r" "N-13 link-check — kırık belge bağlantısı (DEVLOG TODO-6)"
 
+# --- N-14  Kod bloğu içindeki bağlantı SAYILMAMALI ---
+# Ters yon: her seyi isaretleyen bir denetleyici, hicbir seyi isaretlemeyen
+# kadar bozuktur. Belgeler kirik baglantiyi ornek olarak gostermek zorunda
+# kalir; bunlar yanlis pozitif uretirse denetleyici devre disi birakilir.
+printf '# Negatif\n\n```\n[a](yok-blok.md)\n```\n\nSatir ici: `[b](yok-satir.md)`\n' > docs/__neg.md
+node scripts/link-check.mjs >/dev/null 2>&1 && r=OK || r=FAIL
+rm -f docs/__neg.md
+kontrol "$r" "N-14 link-check — kod bloğundaki bağlantı yanlış pozitif ÜRETMEZ"
+
 echo
 echo "Negatif test: $gecti geçti, $kaldi yakalanmadı"
 if [ "$kaldi" -ne 0 ]; then
