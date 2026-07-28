@@ -4,7 +4,9 @@ import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { ApartmanCommandService } from './apartman.command.service';
-import { ApartmanQueryService, type ApartmanSatiri } from './apartman.query.service';
+import {
+  ApartmanQueryService, type ApartmanSatiri, type HiyerarsiAgaci,
+} from './apartman.query.service';
 import { ApartmanGuncelleDto, ApartmanOlusturDto, ApartmanSilDto } from './dto/apartman.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -47,6 +49,22 @@ export class ApartmanController {
     @AktifPrincipal() principal: Principal,
   ): Promise<ApartmanSatiri> {
     return this.query.detay(id, principal);
+  }
+
+  @Get(':id/hiyerarsi')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiOperation({
+    summary: 'Apartmanın tüm hiyerarşisi (Blok → Kat → Bölüm)',
+    description:
+      'Yönetim ekranı gezinmesi için tek çağrı. Kata bağlanmamış bölümler ' +
+      '`katsizBolumler` altında AYRI döner — gizlenirse bölüm sayısı tutmaz ' +
+      've eksik veri fark edilmez.',
+  })
+  hiyerarsi(
+    @Param('id') id: string,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<HiyerarsiAgaci> {
+    return this.query.hiyerarsi(id, principal);
   }
 
   @Patch(':id')

@@ -1,11 +1,18 @@
 import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
+import type { BolumDurumu, BolumNiteligi } from '@bnos/apartman-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { BolumCommandService } from './bolum.command.service';
-import { BolumQueryService, type ArsaPayiRaporu, type BolumSatiri } from './bolum.query.service';
-import { BolumGuncelleDto, BolumOlusturDto, BolumSilDto } from './dto/bolum.dto';
+import {
+  BolumQueryService,
+  type ArsaPayiRaporu, type BolumSatiri, type HiyerarsiDenetimi,
+} from './bolum.query.service';
+import {
+  BOLUM_DURUMLARI, BOLUM_NITELIKLERI,
+  BolumGuncelleDto, BolumOlusturDto, BolumSilDto,
+} from './dto/bolum.dto';
 import type { SayfaliSonuc } from '../kisi/kisi.query.service';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -35,14 +42,46 @@ export class BolumController {
 
   @Get()
   @RequirePermission(IZINLER.BOLUM_GORUNTULE)
-  @ApiOperation({ summary: 'Bağımsız bölümleri listele (cursor sayfalama)' })
+  @ApiQuery({ name: 'apartmanId', required: false, description: 'Blok üzerinden dolaylı süzer.' })
+  @ApiQuery({ name: 'blokId', required: false })
+  @ApiQuery({ name: 'katId', required: false })
+  @ApiQuery({ name: 'durum', required: false, enum: BOLUM_DURUMLARI })
+  @ApiQuery({ name: 'nitelik', required: false, enum: BOLUM_NITELIKLERI })
+  @ApiOperation({
+    summary: 'Bağımsız bölümleri listele (cursor sayfalama + hiyerarşi süzgeçleri)',
+    description: 'Süzgeçler birleşir: `blokId` + `durum` aynı anda verilebilir.',
+  })
   listele(
     @AktifPrincipal() principal: Principal,
     @Query('imlec') imlec?: string,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
+    @Query('apartmanId') apartmanId?: string,
+    @Query('blokId') blokId?: string,
+    @Query('katId') katId?: string,
+    @Query('durum') durum?: BolumDurumu,
+    @Query('nitelik') nitelik?: BolumNiteligi,
   ): Promise<SayfaliSonuc<BolumSatiri>> {
     const temizLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50;
-    return this.query.listele(principal, imlec, temizLimit);
+    return this.query.listele(principal, imlec, temizLimit, {
+      ...(apartmanId ? { apartmanId } : {}),
+      ...(blokId ? { blokId } : {}),
+      ...(katId ? { katId } : {}),
+      ...(durum ? { durum } : {}),
+      ...(nitelik ? { nitelik } : {}),
+    });
+  }
+
+  @Get('hiyerarsi-denetimi')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiOperation({
+    summary: 'Hiyerarşiyi uçtan uca denetle',
+    description:
+      'Apartman → Blok → Kat → Bölüm zincirindeki tutarsızlıkları raporlar. ' +
+      'Oluşturma anında zorlanan kurallar MEVCUT veride bozuk kalmış olabilir; ' +
+      'kontroller sonradan eklendi. Yalnızca rapor üretir, veriyi DÜZELTMEZ.',
+  })
+  hiyerarsiDenetimi(@AktifPrincipal() principal: Principal): Promise<HiyerarsiDenetimi> {
+    return this.query.hiyerarsiDenetimi(principal);
   }
 
   @Get('arsa-payi-durumu')
