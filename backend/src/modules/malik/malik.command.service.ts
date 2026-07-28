@@ -24,7 +24,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { MalikEkleDto } from './dto/malik.dto';
+import type { MalikDuzeltDto, MalikEkleDto } from './dto/malik.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @Injectable()
@@ -154,6 +154,82 @@ export class MalikCommandService {
       });
 
       return { id, durum: 'AKTIF' };
+    });
+  }
+
+  /**
+   * Yazım hatası ve vekâlet düzeltmesi. HİSSE ORANI DEĞİŞTİRİLEMEZ.
+   *
+   * Hisse değişikliği bir devirdir: eski oran bir döneme, yeni oran başka bir
+   * döneme aittir. Kaydı yerinde güncellemek geçmiş tahakkukların dayanağını
+   * sessizce değiştirir. Doğru akış: `devret` ile kapat, yeni oranla yeni kayıt.
+   */
+  async duzelt(
+    bolumId: string,
+    malikId: string,
+    dto: MalikDuzeltDto,
+    principal: Principal,
+  ): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('malik.duzelt');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.malik.findFirst({
+        where: { id: malikId, bolumId, tenantId: principal.tenantId },
+        select: {
+          id: true, tapuTuru: true, tapuYevmiyeNo: true,
+          vekilKisiId: true, vekaletnameNo: true, vekaletBitisTarihi: true,
+        },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Malik kaydı bulunamadı: ${malikId}`);
+
+      // Vekalet ya tumuyle vardir ya hic. Sonuc durumuna bakilir: mevcut kayit
+      // ile gelen degerler birlestirildikten SONRA butun olmali.
+      const sonVekil = dto.vekilKisiId ?? kayit.vekilKisiId;
+      const sonVekaletname = dto.vekaletnameNo ?? kayit.vekaletnameNo;
+      if ((sonVekil === null) !== (sonVekaletname === null)) {
+        throw new IsKuraliIhlali(
+          'Vekil bilgisi eksik kalıyor: vekil kişi ve vekâletname numarası birlikte bulunmalıdır.',
+          'Ya ikisini de doldurun ya da ikisini de boşaltın.',
+        );
+      }
+
+      if (dto.vekilKisiId !== undefined) {
+        const vekil = await tx.kisi.findFirst({
+          where: { id: dto.vekilKisiId, tenantId: principal.tenantId }, select: { id: true },
+        });
+        if (!vekil) throw new KayitBulunamadi(`Vekil kişi bulunamadı: ${dto.vekilKisiId}`);
+      }
+
+      await tx.malik.update({
+        where: { id: malikId },
+        data: {
+          ...(dto.tapuTuru === undefined ? {} : { tapuTuru: dto.tapuTuru }),
+          ...(dto.tapuYevmiyeNo === undefined ? {} : { tapuYevmiyeNo: dto.tapuYevmiyeNo }),
+          ...(dto.vekilKisiId === undefined ? {} : { vekilKisiId: dto.vekilKisiId }),
+          ...(dto.vekaletnameNo === undefined ? {} : { vekaletnameNo: dto.vekaletnameNo }),
+          ...(dto.vekaletBitisTarihi === undefined
+            ? {}
+            : { vekaletBitisTarihi: takvimTarihiniYaz(takvimTarihi(dto.vekaletBitisTarihi)) }),
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'Malik', varlikId: malikId,
+        oncekiDeger: {
+          tapuTuru: kayit.tapuTuru, tapuYevmiyeNo: kayit.tapuYevmiyeNo,
+          vekilKisiId: kayit.vekilKisiId, vekaletnameNo: kayit.vekaletnameNo,
+        },
+        sonrakiDeger: {
+          tapuTuru: dto.tapuTuru ?? kayit.tapuTuru,
+          tapuYevmiyeNo: dto.tapuYevmiyeNo ?? kayit.tapuYevmiyeNo,
+          vekilKisiId: sonVekil, vekaletnameNo: sonVekaletname,
+        },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return { id: malikId, durum: 'GUNCELLENDI' };
     });
   }
 

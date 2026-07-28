@@ -5,7 +5,7 @@ import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { KiraciCommandService } from './kiraci.command.service';
 import { KiraciQueryService, type KiraciSatiri } from './kiraci.query.service';
-import { KiraciEkleDto, KiraciTahliyeDto } from './dto/kiraci.dto';
+import { KiraciDuzeltDto, KiraciEkleDto, KiraciTahliyeDto } from './dto/kiraci.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @ApiTags('Kiracı')
@@ -49,6 +49,25 @@ export class KiraciController {
     @Query('tarih') tarih?: string,
   ): Promise<readonly KiraciSatiri[]> {
     return this.query.listele(bolumId, principal, tarih);
+  }
+
+  @Patch(':kiraciId')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Sözleşme bilgisini düzelt / uzat',
+    description:
+      'KİŞİ ve BAŞLANGIÇ tarihi değiştirilemez — ikisi de sözleşmenin kimliğidir. ' +
+      'Yanlış kişiye açılmış sözleşme düzeltilmez; tahliye edilip doğru kişiyle ' +
+      'yenisi açılır. `bitis` uzatılırsa sonraki sözleşmelerle çakışma kontrol ' +
+      'edilir — aksi hâlde iki geçerli kiracı oluşur.',
+  })
+  duzelt(
+    @Param('bolumId') bolumId: string,
+    @Param('kiraciId') kiraciId: string,
+    @Body() dto: KiraciDuzeltDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.command.duzelt(bolumId, kiraciId, dto, principal);
   }
 
   @Patch(':kiraciId/tahliye')

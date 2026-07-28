@@ -23,7 +23,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { KiraciEkleDto, KiraciTahliyeDto } from './dto/kiraci.dto';
+import type { KiraciDuzeltDto, KiraciEkleDto, KiraciTahliyeDto } from './dto/kiraci.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @Injectable()
@@ -104,6 +104,99 @@ export class KiraciCommandService {
       });
 
       return { id, durum: 'AKTIF' };
+    });
+  }
+
+  /**
+   * Sözleşme bilgisi düzeltme / uzatma.
+   *
+   * KİŞİ ve BAŞLANGIÇ tarihi değiştirilemez — ikisi de sözleşmenin kimliğidir.
+   * Yanlış kişiye açılmış bir sözleşme düzeltilmez; tahliye edilip doğru
+   * kişiyle yenisi açılır.
+   *
+   * `bitis` uzatılırsa sonraki kira sözleşmeleriyle çakışma kontrol edilir —
+   * aksi halde iki geçerli kiracı oluşur ve kullanana ait gider yanlış kişiye
+   * yazılır.
+   */
+  async duzelt(
+    bolumId: string,
+    kiraciId: string,
+    dto: KiraciDuzeltDto,
+    principal: Principal,
+  ): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('kiraci.duzelt');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.kiraci.findFirst({
+        where: { id: kiraciId, bolumId, tenantId: principal.tenantId },
+        select: {
+          id: true, kisiId: true, baslangic: true, bitis: true,
+          sozlesmeNo: true, sozlesmeTarihi: true, depozito: true, tahliyeTarihi: true,
+        },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Kiracı kaydı bulunamadı: ${kiraciId}`);
+
+      const baslangic = takvimTarihiniOku(kayit.baslangic);
+      const yeniBitis = dto.bitis === undefined ? undefined : takvimTarihi(dto.bitis);
+
+      if (yeniBitis !== undefined) {
+        if (kayit.tahliyeTarihi !== null) {
+          throw new IsKuraliIhlali(
+            'Tahliye edilmiş bir sözleşmenin bitiş tarihi değiştirilemez.',
+            'Yeni bir kira sözleşmesi oluşturun.',
+          );
+        }
+        if (yeniBitis < baslangic) {
+          throw new IsKuraliIhlali(
+            `Sözleşme bitişi (${yeniBitis}) başlangıçtan (${baslangic}) önce olamaz.`,
+          );
+        }
+
+        // Uzatma sonraki sozlesmelerle cakisabilir; kendi kaydi disarida birakilir.
+        const digerleri = await tx.kiraci.findMany({
+          where: { tenantId: principal.tenantId, bolumId, id: { not: kiraciId } },
+          select: { kisiId: true, baslangic: true, bitis: true },
+        });
+        const mevcut: BolumIliskisi[] = digerleri.map((k) => ({
+          kisiId: k.kisiId, rol: 'KIRACI' as const,
+          baslangic: takvimTarihiniOku(k.baslangic),
+          bitis: takvimTarihiniOkuVeyaNull(k.bitis),
+        }));
+        iliskiyiDogrula(mevcut, {
+          kisiId: kayit.kisiId, rol: 'KIRACI', baslangic, bitis: yeniBitis,
+        });
+      }
+
+      await tx.kiraci.update({
+        where: { id: kiraciId },
+        data: {
+          ...(dto.sozlesmeNo === undefined ? {} : { sozlesmeNo: dto.sozlesmeNo }),
+          ...(dto.sozlesmeTarihi === undefined
+            ? {}
+            : { sozlesmeTarihi: takvimTarihiniYaz(takvimTarihi(dto.sozlesmeTarihi)) }),
+          ...(dto.depozito === undefined ? {} : { depozito: dto.depozito }),
+          ...(yeniBitis === undefined ? {} : { bitis: takvimTarihiniYaz(yeniBitis) }),
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'Kiraci', varlikId: kiraciId,
+        oncekiDeger: {
+          sozlesmeNo: kayit.sozlesmeNo,
+          depozito: kayit.depozito === null ? null : kayit.depozito.toFixed(4),
+          bitis: takvimTarihiniOkuVeyaNull(kayit.bitis),
+        },
+        sonrakiDeger: {
+          sozlesmeNo: dto.sozlesmeNo ?? kayit.sozlesmeNo,
+          depozito: dto.depozito ?? (kayit.depozito === null ? null : kayit.depozito.toFixed(4)),
+          bitis: yeniBitis ?? takvimTarihiniOkuVeyaNull(kayit.bitis),
+        },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return { id: kiraciId, durum: 'GUNCELLENDI' };
     });
   }
 

@@ -5,7 +5,7 @@ import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { MalikCommandService } from './malik.command.service';
 import { MalikQueryService, type HisseRaporu, type MalikSatiri } from './malik.query.service';
-import { MalikDevretDto, MalikEkleDto } from './dto/malik.dto';
+import { MalikDevretDto, MalikDuzeltDto, MalikEkleDto } from './dto/malik.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @ApiTags('Malik')
@@ -68,6 +68,27 @@ export class MalikController {
     @Query('tarih') tarih?: string,
   ): Promise<HisseRaporu> {
     return this.query.hisseDurumu(bolumId, principal, tarih);
+  }
+
+  @Patch(':malikId')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Malik kaydını düzelt (yazım hatası · vekâlet)',
+    description:
+      'HİSSE ORANI burada DEĞİŞTİRİLEMEZ. Hisse değişikliği bir devirdir: eski ' +
+      'oran bir döneme, yeni oran başka bir döneme aittir. Kaydı yerinde ' +
+      'güncellemek geçmiş tahakkukların dayanağını sessizce değiştirir — Şubat ' +
+      'borcu 1/2 hisseye göre yazılmışken kayıt 1/3’e çevrilirse borç artık ' +
+      'hiçbir orana karşılık gelmez. Doğru akış: `devret` ile kapat, yeni oranla ' +
+      'yeni kayıt aç.',
+  })
+  duzelt(
+    @Param('bolumId') bolumId: string,
+    @Param('malikId') malikId: string,
+    @Body() dto: MalikDuzeltDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.command.duzelt(bolumId, malikId, dto, principal);
   }
 
   @Patch(':malikId/devret')

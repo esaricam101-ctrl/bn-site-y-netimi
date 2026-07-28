@@ -60,6 +60,39 @@ export class MalikEkleDto {
   vekaletBitisTarihi?: string;
 }
 
+/**
+ * Malik kaydı düzeltme. HİSSE ORANI burada DEĞİŞTİRİLEMEZ.
+ *
+ * Hisse değişikliği bir devir işlemidir: eski oran bir döneme, yeni oran
+ * başka bir döneme aittir. Kaydı yerinde güncellemek geçmiş tahakkukların
+ * dayanağını sessizce değiştirir — Şubat borcu 1/2 hisseye göre yazılmışken
+ * kayıt 1/3'e çevrilirse borç artık hiçbir orana karşılık gelmez.
+ * Doğru akış: mevcut kaydı `devret` ile kapat, yeni oranla yeni kayıt aç.
+ *
+ * Burada yalnızca YAZIM HATALARI ve vekâlet bilgisi düzeltilir.
+ */
+export class MalikDuzeltDto {
+  @ApiPropertyOptional({ enum: TAPU_TURLERI })
+  @IsOptional() @IsIn(TAPU_TURLERI)
+  tapuTuru?: (typeof TAPU_TURLERI)[number];
+
+  @ApiPropertyOptional({ example: '2026/1234' })
+  @IsOptional() @IsString() @Length(1, 40)
+  tapuYevmiyeNo?: string;
+
+  @ApiPropertyOptional({ description: 'Vekil kişi. Verilirse vekaletnameNo da gerekir.' })
+  @IsOptional() @IsUUID()
+  vekilKisiId?: string;
+
+  @ApiPropertyOptional({ example: '2026/5678' })
+  @IsOptional() @IsString() @Length(1, 40)
+  vekaletnameNo?: string;
+
+  @ApiPropertyOptional({ example: '2027-01-01' })
+  @IsOptional() @Matches(TAKVIM_TARIHI, { message: TARIH_MESAJI })
+  vekaletBitisTarihi?: string;
+}
+
 export class MalikDevretDto {
   @ApiProperty({
     example: '2026-12-31',

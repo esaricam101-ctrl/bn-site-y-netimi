@@ -5,7 +5,7 @@ import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { SakinCommandService } from './sakin.command.service';
 import { SakinQueryService, type SakinSatiri } from './sakin.query.service';
-import { SakinCikisDto, SakinEkleDto } from './dto/sakin.dto';
+import { SakinCikisDto, SakinDuzeltDto, SakinEkleDto } from './dto/sakin.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @ApiTags('Sakin')
@@ -50,6 +50,23 @@ export class SakinController {
     @Query('tarih') tarih?: string,
   ): Promise<readonly SakinSatiri[]> {
     return this.query.listele(bolumId, principal, tarih);
+  }
+
+  @Patch(':sakinId')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Sakin bilgisini düzelt',
+    description:
+      'KİŞİ değiştirilemez — kaydın kimliğidir. Yanlış kişi girildiyse çıkış ' +
+      'verilip doğru kişiyle yeni kayıt açılır.',
+  })
+  duzelt(
+    @Param('bolumId') bolumId: string,
+    @Param('sakinId') sakinId: string,
+    @Body() dto: SakinDuzeltDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.command.duzelt(bolumId, sakinId, dto, principal);
   }
 
   @Patch(':sakinId/cikis')

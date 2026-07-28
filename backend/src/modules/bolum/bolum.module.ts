@@ -6,5 +6,6 @@ import { BolumQueryService } from './bolum.query.service';
 @Module({
   controllers: [BolumController],
   providers: [BolumCommandService, BolumQueryService],
+  exports: [BolumQueryService],
 })
 export class BolumModule {}

@@ -6,5 +6,6 @@ import { KiraciQueryService } from './kiraci.query.service';
 @Module({
   controllers: [KiraciController],
   providers: [KiraciCommandService, KiraciQueryService],
+  exports: [KiraciQueryService],
 })
 export class KiraciModule {}

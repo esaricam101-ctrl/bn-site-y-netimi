@@ -24,6 +24,7 @@ import { KatModule } from './modules/kat/kat.module';
 import { MalikModule } from './modules/malik/malik.module';
 import { KiraciModule } from './modules/kiraci/kiraci.module';
 import { SakinModule } from './modules/sakin/sakin.module';
+import { DaireModule } from './modules/daire/daire.module';
 
 @Module({
   imports: [
@@ -46,6 +47,8 @@ import { SakinModule } from './modules/sakin/sakin.module';
     MalikModule,
     KiraciModule,
     SakinModule,
+    // Okuma modeli: yukarıdakileri tek daire kartında birleştirir.
+    DaireModule,
     IliskiModule,
   ],
   providers: [

@@ -27,7 +27,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { SakinEkleDto } from './dto/sakin.dto';
+import type { SakinDuzeltDto, SakinEkleDto } from './dto/sakin.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @Injectable()
@@ -109,6 +109,72 @@ export class SakinCommandService {
       });
 
       return { id, durum: 'AKTIF' };
+    });
+  }
+
+  /**
+   * Sakin bilgisi düzeltme. KİŞİ değiştirilemez — kaydın kimliğidir.
+   *
+   * Giriş tarihi düzeltilirse çıkış tarihiyle sırası yeniden denetlenir.
+   */
+  async duzelt(
+    bolumId: string,
+    sakinId: string,
+    dto: SakinDuzeltDto,
+    principal: Principal,
+  ): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('sakin.duzelt');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.sakin.findFirst({
+        where: { id: sakinId, bolumId, tenantId: principal.tenantId },
+        select: {
+          id: true, yakinlikDerecesi: true, girisTarihi: true, cikisTarihi: true,
+          acilDurumKisiAdi: true, acilDurumTelefon: true,
+        },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Sakin kaydı bulunamadı: ${sakinId}`);
+
+      const yeniGiris = dto.girisTarihi === undefined ? undefined : takvimTarihi(dto.girisTarihi);
+      const mevcutCikis = takvimTarihiniOkuVeyaNull(kayit.cikisTarihi);
+
+      if (yeniGiris !== undefined && mevcutCikis !== null && mevcutCikis < yeniGiris) {
+        throw new IsKuraliIhlali(
+          `Giriş tarihi (${yeniGiris}) mevcut çıkış tarihinden (${mevcutCikis}) sonra olamaz.`,
+          'Önce çıkış tarihini düzeltin.',
+        );
+      }
+
+      await tx.sakin.update({
+        where: { id: sakinId },
+        data: {
+          ...(dto.yakinlikDerecesi === undefined ? {} : { yakinlikDerecesi: dto.yakinlikDerecesi }),
+          ...(yeniGiris === undefined ? {} : { girisTarihi: takvimTarihiniYaz(yeniGiris) }),
+          ...(dto.acilDurumKisiAdi === undefined ? {} : { acilDurumKisiAdi: dto.acilDurumKisiAdi }),
+          ...(dto.acilDurumTelefon === undefined ? {} : { acilDurumTelefon: dto.acilDurumTelefon }),
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'Sakin', varlikId: sakinId,
+        oncekiDeger: {
+          yakinlikDerecesi: kayit.yakinlikDerecesi,
+          girisTarihi: takvimTarihiniOku(kayit.girisTarihi),
+          acilDurumKisiAdi: kayit.acilDurumKisiAdi,
+          acilDurumTelefon: kayit.acilDurumTelefon,
+        },
+        sonrakiDeger: {
+          yakinlikDerecesi: dto.yakinlikDerecesi ?? kayit.yakinlikDerecesi,
+          girisTarihi: yeniGiris ?? takvimTarihiniOku(kayit.girisTarihi),
+          acilDurumKisiAdi: dto.acilDurumKisiAdi ?? kayit.acilDurumKisiAdi,
+          acilDurumTelefon: dto.acilDurumTelefon ?? kayit.acilDurumTelefon,
+        },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return { id: sakinId, durum: 'GUNCELLENDI' };
     });
   }
 

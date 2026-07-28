@@ -4,7 +4,10 @@ import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { KisiCommandService } from './kisi.command.service';
-import { KisiQueryService, type KisiSatiri, type SayfaliSonuc } from './kisi.query.service';
+import {
+  KisiQueryService,
+  type KisiIliskiOzeti, type KisiSatiri, type SayfaliSonuc,
+} from './kisi.query.service';
 import { KisiOlusturDto, KisiSilDto } from './dto/kisi.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -34,6 +37,24 @@ export class KisiController {
   ): Promise<SayfaliSonuc<KisiSatiri>> {
     const temizLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50;
     return this.query.listele(principal, imlec, temizLimit);
+  }
+
+  @Get(':id/bolumler')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiOperation({
+    summary: 'Kişinin tüm bölüm ilişkileri (malik · kiracı · sakin)',
+    description:
+      'Daire kartının TERSİ görünüm: “bu kişi nerelerde kayıtlı?”. Bir kişi ' +
+      'taşındığında ya da KVKK talebi geldiğinde hangi kayıtların etkilendiğini ' +
+      'görmek için gerekir.\n\n' +
+      'Aynı kişi aynı bölümde üç rolde birden bulunabilir — oturan malik hem ' +
+      'MALIK hem SAKIN kaydı taşır. Roller AYRI satırlar olarak döner.',
+  })
+  bolumIliskileri(
+    @Param('id') id: string,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KisiIliskiOzeti> {
+    return this.query.bolumIliskileri(id, principal);
   }
 
   @Delete(':id')

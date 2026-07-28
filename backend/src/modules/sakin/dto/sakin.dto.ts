@@ -38,6 +38,28 @@ export class SakinEkleDto {
   acilDurumTelefon?: string;
 }
 
+/**
+ * Sakin bilgisi düzeltme. KİŞİ değiştirilemez — kaydın kimliğidir.
+ * Yanlış kişi girildiyse çıkış verilip doğru kişiyle yeni kayıt açılır.
+ */
+export class SakinDuzeltDto {
+  @ApiPropertyOptional({ enum: YAKINLIK_DERECELERI })
+  @IsOptional() @IsIn(YAKINLIK_DERECELERI)
+  yakinlikDerecesi?: (typeof YAKINLIK_DERECELERI)[number];
+
+  @ApiPropertyOptional({ example: '2026-02-01', description: 'Giriş tarihi düzeltmesi.' })
+  @IsOptional() @Matches(TAKVIM_TARIHI, { message: TARIH_MESAJI })
+  girisTarihi?: string;
+
+  @ApiPropertyOptional({ example: 'Ayşe Yılmaz' })
+  @IsOptional() @IsString() @Length(2, 120)
+  acilDurumKisiAdi?: string;
+
+  @ApiPropertyOptional({ example: '+905321234567' })
+  @IsOptional() @IsString() @Length(5, 24)
+  acilDurumTelefon?: string;
+}
+
 export class SakinCikisDto {
   @ApiProperty({
     example: '2026-12-31',

@@ -38,6 +38,33 @@ export class KiraciEkleDto {
   depozito?: string;
 }
 
+/**
+ * Sözleşme bilgisi düzeltme. KİŞİ ve BAŞLANGIÇ tarihi değiştirilemez:
+ * ikisi de sözleşmenin kimliğidir. Yanlış kişiye açılmış bir sözleşme
+ * düzeltilmez — tahliye edilip doğru kişiyle yenisi açılır.
+ */
+export class KiraciDuzeltDto {
+  @ApiPropertyOptional({ example: 'K-2026-014' })
+  @IsOptional() @IsString() @Length(1, 40)
+  sozlesmeNo?: string;
+
+  @ApiPropertyOptional({ example: '2025-12-20' })
+  @IsOptional() @Matches(TAKVIM_TARIHI, { message: TARIH_MESAJI })
+  sozlesmeTarihi?: string;
+
+  @ApiPropertyOptional({ example: '25000.00', description: 'Para değeri metin olarak.' })
+  @IsOptional()
+  @Matches(/^\d+(\.\d{1,4})?$/, { message: 'Depozito en fazla 4 ondalık basamaklı pozitif sayı olmalıdır.' })
+  depozito?: string;
+
+  @ApiPropertyOptional({
+    example: '2027-06-30',
+    description: 'Sözleşme bitişi (uzatma/kısaltma). Başlangıçtan önce olamaz.',
+  })
+  @IsOptional() @Matches(TAKVIM_TARIHI, { message: TARIH_MESAJI })
+  bitis?: string;
+}
+
 export class KiraciTahliyeDto {
   @ApiProperty({
     example: '2026-12-31',

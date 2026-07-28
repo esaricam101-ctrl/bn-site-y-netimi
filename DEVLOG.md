@@ -7,6 +7,110 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-28 · Oturum 9 — Hiyerarşi gezinmesi ve profesyonel kişi yönetimi
+
+**Kapsam:** Hiyerarşiyi uçtan uca doğrulama · malik/kiracı/sakin profesyonelleştirme
+**Sonuç:** 44 → **51 uç** · 293 modül · zincir yeşil
+**Migration:** Gerekmedi
+
+### 1. En ciddi boşluk: hiyerarşi kurulabiliyordu ama gezinilemiyordu
+
+`bolum.listele` yalnızca `tenantId` süzüyordu. Bir bloğun ya da katın bölümleri
+**listelenemiyordu.** Apartman → Blok → Kat zinciri oluşturuluyor, sonra o
+zincirin herhangi bir düğümünden aşağı inilemiyordu.
+
+Kapatılanlar:
+
+| Uç | İşlev |
+|---|---|
+| `GET /bolumler?apartmanId=&blokId=&katId=&durum=&nitelik=` | Hiyerarşi süzgeçleri (birleşir) |
+| `GET /apartmanlar/:id/hiyerarsi` | Blok → Kat → Bölüm ağacı, tek çağrı |
+| `GET /bolumler/hiyerarsi-denetimi` | Tutarsızlık raporu |
+
+`apartmanId` blok üzerinden **dolaylı** süzer — bölümün doğrudan apartman
+referansı yoktur, hiyerarşi blok üzerinden kurulur.
+
+Ağaç görünümü bölümleri **tek sorguda** çekip bellekte gruplar; blok × kat kadar
+sorgu atmak N+1 olurdu. Kata bağlanmamış bölümler `katsizBolumler` altında
+**ayrı** döner — sessizce gizlenirse ağaç tam görünür ama bölüm sayısı tutmaz ve
+eksik veri fark edilmez.
+
+**Tutarlılık denetimi neden gerekli:** oluşturma anında zorlanan kurallar mevcut
+veride bozuk kalmış olabilir — kontroller sonradan eklendi, daha önce yazılmış
+kayıtlar bu kapıdan geçmedi. Denetlenen beş tutarsızlık:
+`KAT_BLOK_UYUSMAZLIGI` · `KAT_NO_UYUSMAZLIGI` · `KATSIZ_BLOK` · `BLOKSUZ_KAT` ·
+`HIYERARSI_DISI`. Yalnızca **rapor** üretir; toplu düzeltme ayrı bir akıştır ve
+yönetici onayı gerektirir.
+
+### 2. Daire kartı — dört görünüm tek çağrıda
+
+`GET /daireler/:bolumId/kart?tarih=`
+
+Bir daire kartını çizmek için malik listesi, hisse durumu, kira sözleşmesi ve
+sakin listesi **birlikte** gerekir. Dört ayrı istek, ekranın dört ayrı anlık
+görüntüyü birleştirmesi demektir; `tarih` süzgeci verildiğinde bunların
+tutarsız olması mümkündür.
+
+`tarih` verilmezse **tüm tarihçe** döner: geçmiş malikler, tahliye edilmiş
+kiracılar ve çıkmış sakinler dâhil. Kayıtlar silinmediği için bu görünüm
+eksiksizdir.
+
+`daire` modülü yalnızca **okuma modelidir** — yeni varlık tanımlamaz, yazma
+işlemleri kendi modüllerinde kalır. Mevcut query servisleri yeniden kullanılır;
+satır eşleme mantığı kopyalanmaz (bunun için dört modüle `exports` eklendi).
+
+"Daire", `nitelik: MESKEN` olan bir bağımsız bölümdür; ayrı bir hiyerarşi
+seviyesi **değildir** — KMK'da bağımsız bölüm zaten dairedir.
+
+### 3. Düzeltme uçları — ve neyin düzeltilemediği
+
+Profesyonel yönetimde yanlış girilen tapu yevmiye no ya da acil durum telefonu
+düzeltilebilmeli. Üç yeni `PATCH` eklendi. Ama **her alan düzeltilebilir
+değildir** ve bu kısıtlar kasıtlıdır:
+
+| Uç | Düzeltilemez | Gerekçe |
+|---|---|---|
+| `PATCH …/malikler/:id` | **Hisse oranı** | Hisse değişikliği bir devirdir: eski oran bir döneme, yeni oran başkasına aittir. Yerinde güncellemek geçmiş tahakkukun dayanağını sessizce değiştirir — Şubat borcu 1/2'ye göre yazılmışken kayıt 1/3'e çevrilirse borç hiçbir orana karşılık gelmez. Doğru akış: `devret` + yeni kayıt |
+| `PATCH …/kiracilar/:id` | Kişi, başlangıç | İkisi de sözleşmenin kimliğidir. Yanlış kişiye açılmış sözleşme düzeltilmez; tahliye edilip yenisi açılır |
+| `PATCH …/sakinler/:id` | Kişi | Kaydın kimliğidir |
+
+Kira `bitis` uzatılırsa sonraki sözleşmelerle çakışma denetlenir — aksi hâlde
+iki geçerli kiracı oluşur ve kullanana ait gider yanlış kişiye yazılır.
+Malik düzeltmesinde vekâlet bütünlüğü **sonuç durumuna** bakılarak kontrol
+edilir: mevcut kayıt ile gelen değerler birleştirildikten sonra ya tümü dolu ya
+tümü boş olmalıdır.
+
+### 4. Kişi bazında görünüm
+
+`GET /kisiler/:id/bolumler` — daire kartının **tersi**: "bu kişi nerelerde
+kayıtlı?". Bir kişi taşındığında ya da KVKK talebi geldiğinde hangi kayıtların
+etkilendiğini görmek için gerekir.
+
+Aynı kişi aynı bölümde üç rolde birden bulunabilir — oturan malik hem `MALIK`
+hem `SAKIN` kaydı taşır. Roller **ayrı satırlar** olarak döner, tek bir "rol"
+alanına indirgenmez.
+
+### 5. Bu oturumda TAMAMLANMAYANLAR
+
+- **Toplu düzeltme akışları** — hiyerarşi denetimi sorunları raporluyor ama
+  düzeltmiyor; bölüm taşıma (blok/kat değişikliği) ve arsa payı toplu düzeltme
+  yazılmadı.
+- **GiderTuru API'si** — sprint kapsamında ama bu görevin dışında bırakıldı.
+- **UI ekranları** — frontend hâlâ 3 sayfalık iskelet.
+- **51 ucun hiçbiri gerçek veritabanına karşı çağrılmadı** (TODO-3).
+
+### 6. Migration gerektiren TODO'lar (dokunulmadı)
+
+1. `bolum_iliskisi` ile `malik`/`kiraci` örtüşmesi — tahakkuk yazılırken hangi
+   tablonun kaynak olduğu netleşmeli; gereksizleşen tablo migration ile kalkar.
+2. Malik hisse çakışması için `EXCLUDE USING gist` kısıtı — kural bugün yalnızca
+   uygulama katmanında, yarış penceresi açık.
+3. `(tenant_id, blok_id, kapi_no)` kısmi unique index — mükerrer kapı no kontrolü
+   de yarış penceresi taşıyor.
+4. Migration `0002` hiç uygulanmadı ve doğrulanmadı.
+
+---
+
 ## 2026-07-28 · Oturum 8 — Sprint 2. parça: Malik · Kiracı · Sakin API'leri
 
 **Kapsam:** Öncelik listesindeki 8 modülün eksik işlevleri

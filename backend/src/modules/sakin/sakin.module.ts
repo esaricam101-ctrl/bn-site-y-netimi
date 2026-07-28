@@ -6,5 +6,6 @@ import { SakinQueryService } from './sakin.query.service';
 @Module({
   controllers: [SakinController],
   providers: [SakinCommandService, SakinQueryService],
+  exports: [SakinQueryService],
 })
 export class SakinModule {}
