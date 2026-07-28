@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { Principal } from '@bnos/kernel';
+import {
+  takvimTarihi, takvimTarihiniOku, takvimTarihiniOkuVeyaNull, type Principal,
+} from '@bnos/kernel';
 import { KayitBulunamadi } from '@bnos/core-domain';
-import { BagimsizBolum, arsaPaylariniDogrula } from '@bnos/apartman-domain';
-import type { BolumDurumu, BolumNiteligi } from '@bnos/apartman-domain';
+import {
+  BagimsizBolum, arsaPaylariniDogrula, hisseleriDogrula, tarihtekiMalikler,
+} from '@bnos/apartman-domain';
+import type { BolumDurumu, BolumNiteligi, MalikHissesi } from '@bnos/apartman-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { SayfaliSonuc } from '../kisi/kisi.query.service';
 
@@ -64,6 +68,47 @@ export interface HiyerarsiDenetimi {
   readonly saglam: boolean;
   readonly bolumSayisi: number;
   readonly sorunlar: readonly HiyerarsiSorunu[];
+}
+
+/** Tek bölümün yerleşim ve mülkiyet durumu — bina geneli özet satırı. */
+export interface YerlesimSatiri {
+  readonly bolumId: string;
+  readonly kapiNo: string;
+  readonly blokAdi: string | null;
+  readonly kat: number;
+  readonly durum: string;
+  readonly malikSayisi: number;
+  /** Hisse toplamı tamı ediyor mu (bugün itibarıyla). */
+  readonly hisseTam: boolean;
+  readonly kiraciVarMi: boolean;
+  readonly sakinSayisi: number;
+  /** Ne malik ne kiracı ne sakin — fiilen boş. */
+  readonly bosMu: boolean;
+}
+
+export interface YerlesimOzeti {
+  readonly bolumSayisi: number;
+  readonly malikKaydiOlmayan: number;
+  readonly hissesiEksikOlan: number;
+  readonly kiracili: number;
+  readonly bos: number;
+  readonly satirlar: readonly YerlesimSatiri[];
+}
+
+/** Bina geneli hisse denetimi — tahakkuk öncesi kapı. */
+export interface HisseDenetimSatiri {
+  readonly bolumId: string;
+  readonly kapiNo: string;
+  readonly toplam: string;
+  readonly mesaj: string;
+}
+
+export interface HisseDenetimi {
+  readonly saglam: boolean;
+  readonly tarih: string;
+  readonly bolumSayisi: number;
+  /** Yalnızca SORUNLU bölümler döner; sağlam olanlar listeye girmez. */
+  readonly sorunlular: readonly HisseDenetimSatiri[];
 }
 
 export interface ArsaPayiRaporu {
@@ -187,6 +232,134 @@ export class BolumQueryService {
         cilt: k.tapuCilt,
         sahife: k.tapuSahife,
       },
+    };
+  }
+
+  /**
+   * BİNA GENELİ hisse denetimi — tahakkuk öncesi kapı.
+   *
+   * `malikler/hisse-durumu` tek bölümü denetler; kırk daireli bir binada kırk
+   * çağrı gerekirdi ve yönetici hangisinin eksik olduğunu göremezdi. Bu uç
+   * yalnızca SORUNLU bölümleri döndürür — sağlam olanlar listeyi şişirmez.
+   *
+   * Hisse toplamı tamı etmeyen bir bölümde tahakkuk yapılamaz: eksikse payın
+   * bir kısmı hiçbir kişiye yazılmaz, fazlaysa aynı tutar iki kez istenir.
+   */
+  async hisseDenetimi(principal: Principal, tarihMetni?: string): Promise<HisseDenetimi> {
+    const tarih =
+      tarihMetni === undefined ? takvimTarihiniOku(new Date()) : takvimTarihi(tarihMetni);
+
+    const bolumler = await this.prisma.bagimsizBolum.findMany({
+      where: { tenantId: principal.tenantId },
+      select: {
+        id: true, kapiNo: true,
+        malikler: {
+          select: { kisiId: true, hissePay: true, hissePayda: true, tapuBaslangic: true, tapuBitis: true },
+        },
+      },
+      orderBy: { kapiNo: 'asc' },
+    });
+
+    const sorunlular: HisseDenetimSatiri[] = [];
+
+    for (const b of bolumler) {
+      const hisseler: MalikHissesi[] = b.malikler.map((m) => ({
+        kisiId: m.kisiId,
+        hissePay: m.hissePay,
+        hissePayda: m.hissePayda,
+        baslangic: takvimTarihiniOku(m.tapuBaslangic),
+        bitis: takvimTarihiniOkuVeyaNull(m.tapuBitis),
+      }));
+
+      // Dogrulama domain'e aittir ve burada TEKRARLANMAZ.
+      const sonuc = hisseleriDogrula(hisseler, tarih);
+      if (!sonuc.gecerli) {
+        sorunlular.push({
+          bolumId: b.id, kapiNo: b.kapiNo,
+          toplam: sonuc.toplam, mesaj: sonuc.mesaj,
+        });
+      }
+    }
+
+    return {
+      saglam: sorunlular.length === 0,
+      tarih,
+      bolumSayisi: bolumler.length,
+      sorunlular,
+    };
+  }
+
+  /**
+   * Bina geneli yerleşim özeti — kim oturuyor, hangi daire boş.
+   *
+   * Yönetim ekranının ana tablosudur: her bölüm için malik sayısı, hisse
+   * tamlığı, kira durumu ve sakin sayısı tek sorguda gelir. Daire kartını
+   * bölüm bölüm çağırmak kırk daire için kırk istek demektir.
+   *
+   * `bosMu`: ne malik ne kiracı ne sakin kaydı var. Malik kaydı olmayan bir
+   * bölüm tahakkuka giremez; bu yüzden ayrıca sayılır.
+   */
+  async yerlesimOzeti(principal: Principal, tarihMetni?: string): Promise<YerlesimOzeti> {
+    const tarih =
+      tarihMetni === undefined ? takvimTarihiniOku(new Date()) : takvimTarihi(tarihMetni);
+
+    const bolumler = await this.prisma.bagimsizBolum.findMany({
+      where: { tenantId: principal.tenantId },
+      select: {
+        id: true, kapiNo: true, kat: true, durum: true,
+        blok: { select: { ad: true } },
+        malikler: {
+          select: { kisiId: true, hissePay: true, hissePayda: true, tapuBaslangic: true, tapuBitis: true },
+        },
+        kiracilar: { select: { baslangic: true, bitis: true } },
+        sakinler: { select: { girisTarihi: true, cikisTarihi: true } },
+      },
+      orderBy: [{ kat: 'asc' }, { kapiNo: 'asc' }],
+    });
+
+    const satirlar: YerlesimSatiri[] = bolumler.map((b) => {
+      const hisseler: MalikHissesi[] = b.malikler.map((m) => ({
+        kisiId: m.kisiId,
+        hissePay: m.hissePay,
+        hissePayda: m.hissePayda,
+        baslangic: takvimTarihiniOku(m.tapuBaslangic),
+        bitis: takvimTarihiniOkuVeyaNull(m.tapuBitis),
+      }));
+      const gecerliMalikler = tarihtekiMalikler(hisseler, tarih);
+
+      const kiraciVarMi = b.kiracilar.some((k) => {
+        const bas = takvimTarihiniOku(k.baslangic);
+        const bit = takvimTarihiniOkuVeyaNull(k.bitis);
+        return bas <= tarih && (bit === null || bit >= tarih);
+      });
+
+      const sakinSayisi = b.sakinler.filter((s) => {
+        const giris = takvimTarihiniOku(s.girisTarihi);
+        const cikis = takvimTarihiniOkuVeyaNull(s.cikisTarihi);
+        return giris <= tarih && (cikis === null || cikis >= tarih);
+      }).length;
+
+      return {
+        bolumId: b.id,
+        kapiNo: b.kapiNo,
+        blokAdi: b.blok?.ad ?? null,
+        kat: b.kat,
+        durum: b.durum,
+        malikSayisi: gecerliMalikler.length,
+        hisseTam: hisseleriDogrula(hisseler, tarih).gecerli,
+        kiraciVarMi,
+        sakinSayisi,
+        bosMu: gecerliMalikler.length === 0 && !kiraciVarMi && sakinSayisi === 0,
+      };
+    });
+
+    return {
+      bolumSayisi: satirlar.length,
+      malikKaydiOlmayan: satirlar.filter((s) => s.malikSayisi === 0).length,
+      hissesiEksikOlan: satirlar.filter((s) => !s.hisseTam).length,
+      kiracili: satirlar.filter((s) => s.kiraciVarMi).length,
+      bos: satirlar.filter((s) => s.bosMu).length,
+      satirlar,
     };
   }
 

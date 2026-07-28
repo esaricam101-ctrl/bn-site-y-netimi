@@ -7,11 +7,13 @@ import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { BolumCommandService, type TopluSonuc } from './bolum.command.service';
 import {
   BolumQueryService,
-  type ArsaPayiRaporu, type BolumSatiri, type HiyerarsiDenetimi,
+  type ArsaPayiRaporu, type BolumSatiri, type HisseDenetimi,
+  type HiyerarsiDenetimi, type YerlesimOzeti,
 } from './bolum.query.service';
 import {
   BOLUM_DURUMLARI, BOLUM_NITELIKLERI,
   ArsaPayiDuzeltDto, BolumGuncelleDto, BolumOlusturDto, BolumSilDto, BolumTasiDto,
+  TopluBolumOlusturDto,
 } from './dto/bolum.dto';
 import type { SayfaliSonuc } from '../kisi/kisi.query.service';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
@@ -71,6 +73,41 @@ export class BolumController {
     });
   }
 
+  @Get('hisse-denetimi')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiQuery({ name: 'tarih', required: false, description: 'Varsayılan: bugün.' })
+  @ApiOperation({
+    summary: 'BİNA GENELİ hisse denetimi (tahakkuk öncesi kapı)',
+    description:
+      '`malikler/hisse-durumu` tek bölümü denetler; kırk daireli binada kırk çağrı ' +
+      'gerekirdi. Bu uç yalnızca SORUNLU bölümleri döndürür.\n\n' +
+      'Hisse toplamı tamı etmeyen bölümde tahakkuk yapılamaz: eksikse payın bir ' +
+      'kısmı hiçbir kişiye yazılmaz, fazlaysa aynı tutar iki kez istenir.',
+  })
+  hisseDenetimi(
+    @AktifPrincipal() principal: Principal,
+    @Query('tarih') tarih?: string,
+  ): Promise<HisseDenetimi> {
+    return this.query.hisseDenetimi(principal, tarih);
+  }
+
+  @Get('yerlesim-ozeti')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiQuery({ name: 'tarih', required: false, description: 'Varsayılan: bugün.' })
+  @ApiOperation({
+    summary: 'Bina geneli yerleşim özeti — kim oturuyor, hangi daire boş',
+    description:
+      'Yönetim ekranının ana tablosu: her bölüm için malik sayısı, hisse tamlığı, ' +
+      'kira durumu ve sakin sayısı tek sorguda. Daire kartını bölüm bölüm ' +
+      'çağırmak kırk daire için kırk istek demektir.',
+  })
+  yerlesimOzeti(
+    @AktifPrincipal() principal: Principal,
+    @Query('tarih') tarih?: string,
+  ): Promise<YerlesimOzeti> {
+    return this.query.yerlesimOzeti(principal, tarih);
+  }
+
   @Get('hiyerarsi-denetimi')
   @RequirePermission(IZINLER.BOLUM_GORUNTULE)
   @ApiOperation({
@@ -94,6 +131,25 @@ export class BolumController {
   })
   arsaPayiDurumu(@AktifPrincipal() principal: Principal): Promise<ArsaPayiRaporu> {
     return this.query.arsaPayiDurumu(principal);
+  }
+
+  @Post('toplu')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Bölümleri toplu oluştur',
+    description:
+      'Kırk daireli bir binayı tek tek girmek operasyonel olarak kullanılamaz. ' +
+      'Hiyerarşi (blok/kat) tüm satırlar için ortaktır. Tek işlem: bir satır ' +
+      'geçersizse hiçbiri yazılmaz — yarım girilmiş bir kat, arsa payı toplamını ' +
+      'da yarım bırakır ve neyin eksik olduğu görünmez.\n\n' +
+      'Arsa payı toplamı burada DENETLENMEZ; bina parça parça girilirken toplam ' +
+      'doğal olarak 1’in altındadır. Tamlık `arsa-payi-durumu` ile denetlenir.',
+  })
+  topluOlustur(
+    @Body() dto: TopluBolumOlusturDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<TopluSonuc> {
+    return this.command.topluOlustur(dto, principal);
   }
 
   @Post('tasi')

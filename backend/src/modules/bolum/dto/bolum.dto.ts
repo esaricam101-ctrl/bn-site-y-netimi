@@ -250,6 +250,78 @@ export class ArsaPayiDuzeltDto {
   gerekce!: string;
 }
 
+/** Toplu oluşturmada tek satır. Hiyerarşi tüm satırlar için ortaktır. */
+export class TopluBolumSatiriDto {
+  @ApiProperty({ example: '12' })
+  @IsString() @Length(1, 16)
+  kapiNo!: string;
+
+  @ApiPropertyOptional({ example: '12A' })
+  @IsOptional() @IsString() @Length(1, 16)
+  icKapiNo?: string;
+
+  @ApiPropertyOptional({ enum: BOLUM_NITELIKLERI, example: 'MESKEN' })
+  @IsOptional() @IsIn(BOLUM_NITELIKLERI)
+  nitelik?: (typeof BOLUM_NITELIKLERI)[number];
+
+  @ApiPropertyOptional({ enum: DAIRE_TIPLERI, example: 'IKI_BIR' })
+  @IsOptional() @IsIn(DAIRE_TIPLERI)
+  daireTipi?: (typeof DAIRE_TIPLERI)[number];
+
+  @ApiProperty({ example: 120.5 })
+  @IsPositive()
+  brutM2!: number;
+
+  @ApiProperty({ example: 98.25 })
+  @IsPositive()
+  netM2!: number;
+
+  @ApiProperty({ example: '45', description: 'Arsa payı — PAY. Tam sayı metni.' })
+  @IsNumberString({ no_symbols: true }, { message: 'Arsa payı payı yalnızca rakam içermelidir.' })
+  arsaPayiPay!: string;
+
+  @ApiProperty({ example: '1000', description: 'Arsa payı — PAYDA. Tam sayı metni.' })
+  @IsNumberString({ no_symbols: true }, { message: 'Arsa payı paydası yalnızca rakam içermelidir.' })
+  arsaPayiPayda!: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional() @IsBoolean()
+  aidatMuafiyeti?: boolean;
+}
+
+/**
+ * Bölümleri TOPLU oluşturur.
+ *
+ * Kırk daireli bir binayı tek tek girmek operasyonel olarak kullanılamaz.
+ * Hiyerarşi (blok/kat) tüm satırlar için ortaktır; kat verilirse bölümlerin
+ * `kat` alanı katın numarasıyla EŞİTLENİR.
+ *
+ * Arsa payı toplamı burada DENETLENMEZ: bina parça parça girilirken toplam
+ * doğal olarak 1'in altındadır. Tamlık `arsa-payi-durumu` ile denetlenir ve
+ * `arsa-payi-duzelt` ile tamamlanır.
+ */
+export class TopluBolumOlusturDto {
+  @ApiProperty({ description: 'Bölümlerin bağlanacağı blok.' })
+  @IsUUID()
+  blokId!: string;
+
+  @ApiPropertyOptional({ description: 'Kat. Verilirse bloğa ait olmalı.' })
+  @IsOptional() @IsUUID()
+  katId?: string;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Kat numarası. `katId` verilirse o katın numarasıyla eşit olmalıdır.',
+  })
+  @IsInt() @Min(-10) @Max(200)
+  kat!: number;
+
+  @ApiProperty({ type: [TopluBolumSatiriDto] })
+  @IsArray() @ArrayNotEmpty() @ArrayMaxSize(500)
+  @ValidateNested({ each: true }) @Type(() => TopluBolumSatiriDto)
+  bolumler!: TopluBolumSatiriDto[];
+}
+
 export class BolumSilDto {
   @ApiProperty({
     example: 'Bölüm birleştirildi, kayıt mükerrer',

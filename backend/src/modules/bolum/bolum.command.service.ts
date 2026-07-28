@@ -22,6 +22,7 @@ import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
 import type {
   ArsaPayiDuzeltDto, BolumGuncelleDto, BolumOlusturDto, BolumTasiDto,
+  TopluBolumOlusturDto,
 } from './dto/bolum.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -274,6 +275,137 @@ export class BolumCommandService {
       });
 
       return { id, durum: 'GUNCELLENDI' };
+    });
+  }
+
+  /**
+   * Bölümleri TOPLU oluşturur.
+   *
+   * Kırk daireli bir binayı tek tek girmek operasyonel olarak kullanılamaz.
+   * Tek transaction: bir satır geçersizse hiçbiri yazılmaz — yarım girilmiş bir
+   * kat, arsa payı toplamını da yarım bırakır ve neyin eksik olduğu görünmez.
+   *
+   * Her satır domain aggregate'inden geçer; ölçü kuralları burada tekrarlanmaz.
+   */
+  async topluOlustur(
+    dto: TopluBolumOlusturDto,
+    principal: Principal,
+  ): Promise<TopluSonuc> {
+    const baglam = mevcutBaglamiZorunluKil('bolum.topluOlustur');
+
+    // Parti icindeki mukerrer kapi no, veritabanina hic gitmeden yakalanir.
+    const kapiSayaci = new Map<string, number>();
+    for (const b of dto.bolumler) {
+      const k = b.kapiNo.trim();
+      kapiSayaci.set(k, (kapiSayaci.get(k) ?? 0) + 1);
+    }
+    const mukerrer = Array.from(kapiSayaci.entries()).filter(([, n]) => n > 1).map(([k]) => k);
+    if (mukerrer.length > 0) {
+      throw new IsKuraliIhlali(
+        `Listede mükerrer kapı numarası var: ${mukerrer.join(', ')}.`,
+        'Aynı blokta iki bölüm aynı kapı numarasını taşıyamaz.',
+      );
+    }
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const blok = await tx.blok.findFirst({
+        where: { id: dto.blokId, tenantId: principal.tenantId },
+        select: { id: true, ad: true },
+      });
+      if (!blok) throw new KayitBulunamadi(`Blok bulunamadı: ${dto.blokId}`);
+
+      if (dto.katId !== undefined) {
+        const kat = await tx.kat.findFirst({
+          where: { id: dto.katId, tenantId: principal.tenantId },
+          select: { id: true, no: true, blokId: true },
+        });
+        if (!kat) throw new KayitBulunamadi(`Kat bulunamadı: ${dto.katId}`);
+        if (kat.blokId !== dto.blokId) {
+          throw new IsKuraliIhlali(
+            'Seçilen kat, seçilen bloğa ait değil.',
+            'Kat ve blok seçimini kontrol edin.',
+          );
+        }
+        if (kat.no !== dto.kat) {
+          throw new IsKuraliIhlali(
+            `Kat numarası (${dto.kat}) seçilen kat kaydıyla (${kat.no}) uyuşmuyor.`,
+            'Kat numarasını kat kaydıyla eşitleyin.',
+          );
+        }
+      }
+
+      const mevcutlar = await tx.bagimsizBolum.findMany({
+        where: { tenantId: principal.tenantId, blokId: dto.blokId },
+        select: { kapiNo: true },
+      });
+      const dolu = new Set(mevcutlar.map((m) => m.kapiNo));
+      const cakisan = dto.bolumler.map((b) => b.kapiNo.trim()).filter((k) => dolu.has(k));
+      if (cakisan.length > 0) {
+        throw new IsKuraliIhlali(
+          `'${blok.ad}' bloğunda şu kapı numaraları zaten kayıtlı: ${cakisan.join(', ')}.`,
+          'Çakışan satırları listeden çıkarın.',
+        );
+      }
+
+      // Once TUM satirlar domain'den gecirilir; biri gecersizse hicbiri yazilmaz.
+      const hazir = dto.bolumler.map((b) =>
+        BagimsizBolum.olustur({
+          id: randomUUID(),
+          tenantId: principal.tenantId,
+          blokId: dto.blokId,
+          katId: dto.katId ?? null,
+          kapiNo: b.kapiNo.trim(),
+          icKapiNo: b.icKapiNo?.trim() ?? null,
+          kat: dto.kat,
+          nitelik: b.nitelik ?? 'MESKEN',
+          daireTipi: b.daireTipi ?? null,
+          kullanimAmaci: null,
+          durum: 'AKTIF',
+          brutM2: b.brutM2,
+          netM2: b.netM2,
+          arsaPayiPay: BigInt(b.arsaPayiPay),
+          arsaPayiPayda: BigInt(b.arsaPayiPayda),
+          aidatMuafiyeti: b.aidatMuafiyeti ?? false,
+          tapu: {
+            ada: null, parsel: null, pafta: null,
+            bagimsizBolumNo: null, cilt: null, sahife: null,
+          },
+        }).anlik(),
+      );
+
+      await tx.bagimsizBolum.createMany({
+        data: hazir.map((o) => ({
+          id: o.id, tenantId: o.tenantId, blokId: o.blokId, katId: o.katId,
+          kapiNo: o.kapiNo, icKapiNo: o.icKapiNo, kat: o.kat,
+          nitelik: o.nitelik, daireTipi: o.daireTipi, durum: o.durum,
+          brutM2: o.brutM2, netM2: o.netM2,
+          arsaPayiPay: o.arsaPayiPay, arsaPayiPayda: o.arsaPayiPayda,
+          aidatMuafiyeti: o.aidatMuafiyeti,
+        })),
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
+        varlik: 'BagimsizBolum', varlikId: hazir.map((o) => o.id).join(','),
+        sonrakiDeger: {
+          blokId: dto.blokId, katId: dto.katId ?? null, kat: dto.kat,
+          kapiNolar: hazir.map((o) => o.kapiNo),
+        },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      // Her bolum icin ayri event: tuketiciler tek tek bolume tepki verir.
+      for (const o of hazir) {
+        await this.outbox.yayinla(tx, {
+          eventType: 'apartman.bagimsiz_bolum.olusturuldu', eventVersion: 1,
+          tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
+          aggregate: { tip: 'BagimsizBolum', id: o.id, version: 1 },
+          payload: { kapiNo: o.kapiNo, nitelik: o.nitelik, blokId: o.blokId },
+        });
+      }
+
+      return { etkilenen: hazir.length, durum: 'OLUSTURULDU' };
     });
   }
 
