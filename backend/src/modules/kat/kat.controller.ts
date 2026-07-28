@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { KatCommandService } from './kat.command.service';
 import { KatQueryService, type KatSatiri } from './kat.query.service';
-import { KatOlusturDto, KatSilDto } from './dto/kat.dto';
+import { KatGuncelleDto, KatOlusturDto, KatSilDto } from './dto/kat.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @ApiTags('Kat')
@@ -39,6 +39,22 @@ export class KatController {
     @AktifPrincipal() principal: Principal,
   ): Promise<readonly KatSatiri[]> {
     return this.query.listele(blokId, principal);
+  }
+
+  @Patch(':id')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Katı güncelle',
+    description:
+      'Kat başka bir bloğa taşınmaz. Bölümü olan katın NUMARASI değiştirilemez — ' +
+      'bölümlerin kat bilgisi bu numaraya bağlıdır.',
+  })
+  guncelle(
+    @Param('id') id: string,
+    @Body() dto: KatGuncelleDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.command.guncelle(id, dto, principal);
   }
 
   @Delete(':id')

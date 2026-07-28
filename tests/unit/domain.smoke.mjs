@@ -75,17 +75,29 @@ test('event: apartman dikeyi eventleri katalogda kayitli', () => {
     'apartman.kat.olusturuldu', 'apartman.kat.silindi',
     'apartman.bagimsiz_bolum.olusturuldu', 'apartman.bagimsiz_bolum.silindi',
     'apartman.bolum_iliskisi.kuruldu', 'apartman.bolum_iliskisi.sonlandirildi',
+    'apartman.malik.eklendi', 'apartman.malik.devredildi',
+    'apartman.kiraci.eklendi', 'apartman.kiraci.tahliye_edildi',
+    'apartman.sakin.eklendi', 'apartman.sakin.cikti',
   ]) {
     assert.ok(CD.katalogdaVarMi(t, 1), `${t} katalogda yok`);
   }
 
   // 'apartman' dikeyi core'dan ayridir — bu varliklar core-domain'e ait degil.
   const apartmanKayitlari = CD.EVENT_KATALOGU.filter((k) => k.eventType.startsWith('apartman.'));
-  assert.equal(apartmanKayitlari.length, 10);
+  assert.equal(apartmanKayitlari.length, 16);
   assert.deepEqual(
     [...new Set(apartmanKayitlari.map((k) => k.sahipModul))].sort(),
-    ['apartman', 'blok', 'bolum', 'iliski', 'kat'],
+    ['apartman', 'blok', 'bolum', 'iliski', 'kat', 'kiraci', 'malik', 'sakin'],
   );
+
+  // Malik/Kiraci/Sakin kayitlari SILINMEZ; donem kapanir. Katalogda 'silindi'
+  // fiili bulunmamasi bu tasarim kararinin kaniti niteligindedir.
+  for (const modul of ['malik', 'kiraci', 'sakin']) {
+    const silme = CD.EVENT_KATALOGU.filter(
+      (k) => k.sahipModul === modul && k.eventType.endsWith('.silindi'),
+    );
+    assert.equal(silme.length, 0, `${modul} modulunde silme event'i olmamali`);
+  }
 });
 
 /* ---------------- Numaralandirma (§35) ---------------- */

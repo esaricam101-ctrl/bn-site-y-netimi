@@ -1,11 +1,11 @@
-import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { BolumCommandService } from './bolum.command.service';
 import { BolumQueryService, type ArsaPayiRaporu, type BolumSatiri } from './bolum.query.service';
-import { BolumOlusturDto, BolumSilDto } from './dto/bolum.dto';
+import { BolumGuncelleDto, BolumOlusturDto, BolumSilDto } from './dto/bolum.dto';
 import type { SayfaliSonuc } from '../kisi/kisi.query.service';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -55,6 +55,32 @@ export class BolumController {
   })
   arsaPayiDurumu(@AktifPrincipal() principal: Principal): Promise<ArsaPayiRaporu> {
     return this.query.arsaPayiDurumu(principal);
+  }
+
+  @Get(':id')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiOperation({ summary: 'Bağımsız bölüm detayı' })
+  detay(
+    @Param('id') id: string,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<BolumSatiri> {
+    return this.query.detay(id, principal);
+  }
+
+  @Patch(':id')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Bağımsız bölümü güncelle',
+    description:
+      'ARSA PAYI ve BLOK/KAT burada değiştirilemez. Arsa payı KMK md. 3 toplamını ' +
+      'etkiler; tek bölümde değiştirmek binanın toplamını sessizce bozar.',
+  })
+  guncelle(
+    @Param('id') id: string,
+    @Body() dto: BolumGuncelleDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.command.guncelle(id, dto, principal);
   }
 
   @Delete(':id')

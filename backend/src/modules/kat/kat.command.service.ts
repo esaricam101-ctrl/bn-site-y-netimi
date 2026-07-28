@@ -12,7 +12,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { KatOlusturDto } from './dto/kat.dto';
+import type { KatGuncelleDto, KatOlusturDto } from './dto/kat.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @Injectable()
@@ -71,6 +71,66 @@ export class KatCommandService {
       });
 
       return { id, durum: 'AKTIF' };
+    });
+  }
+
+  /**
+   * Kısmi güncelleme. Kat başka bir bloğa TAŞINMAZ.
+   *
+   * Kat numarası değişirse o kattaki bölümlerin `kat` alanı tutarsızlaşır —
+   * bölüm oluşturmada bu iki değerin eşitliği zorlanıyor. Bu yüzden bölümü
+   * olan katın numarası değiştirilemez.
+   */
+  async guncelle(id: string, dto: KatGuncelleDto, principal: Principal): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('kat.guncelle');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.kat.findFirst({
+        where: { id, tenantId: principal.tenantId },
+        select: { id: true, no: true, ad: true, blokId: true },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Kat bulunamadı: ${id}`);
+
+      if (dto.no !== undefined && dto.no !== kayit.no) {
+        const bolumSayisi = await tx.bagimsizBolum.count({ where: { katId: id } });
+        if (bolumSayisi > 0) {
+          throw new IsKuraliIhlali(
+            `${kayit.no}. katta ${bolumSayisi} bağımsız bölüm var; kat numarası değiştirilemez.`,
+            'Bölümlerin kat bilgisi bu numaraya bağlıdır; önce bölümleri taşıyın.',
+          );
+        }
+        const cakisan = await tx.kat.findFirst({
+          where: {
+            tenantId: principal.tenantId, blokId: kayit.blokId, no: dto.no, id: { not: id },
+          },
+          select: { id: true },
+        });
+        if (cakisan) {
+          throw new IsKuraliIhlali(
+            `Bu blokta ${dto.no}. kat zaten tanımlı.`,
+            'Kat numarasını kontrol edin.',
+          );
+        }
+      }
+
+      await tx.kat.update({
+        where: { id },
+        data: {
+          ...(dto.no === undefined ? {} : { no: dto.no }),
+          ...(dto.ad === undefined ? {} : { ad: dto.ad.trim() }),
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'Kat', varlikId: id,
+        oncekiDeger: { no: kayit.no, ad: kayit.ad },
+        sonrakiDeger: { no: dto.no ?? kayit.no, ad: dto.ad ?? kayit.ad },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return { id, durum: 'GUNCELLENDI' };
     });
   }
 

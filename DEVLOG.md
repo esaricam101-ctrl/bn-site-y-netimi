@@ -7,6 +7,98 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-28 · Oturum 8 — Sprint 2. parça: Malik · Kiracı · Sakin API'leri
+
+**Kapsam:** Öncelik listesindeki 8 modülün eksik işlevleri
+**Sonuç:** 27 → **44 uç** · 290 modül · zincir yeşil
+**Migration:** Gerekmedi — tablolar Oturum 7 şemasında hazırdı
+
+### 1. Eksik olan neydi
+
+Oturum 7 şema, domain kuralları ve testleri teslim etmişti; **HTTP yüzeyleri
+yoktu**. Envanter:
+
+| Modül | Oturum 7 sonu | Eksik |
+|---|---|---|
+| Apartman · Blok · Kat · Bölüm | Create, List, Delete | Detay, Güncelleme |
+| **Malik · Kiracı · Sakin** | **hiç modül yok** | Tümü |
+
+### 2. Üç yeni modül
+
+**Malik** — `bolumler/:bolumId/malikler`
+
+| Uç | İşlev |
+|---|---|
+| `POST` | Hisseli malik ekle |
+| `GET ?tarih=` | Malikler + tapu tarihçesi |
+| `GET /hisse-durumu?tarih=` | %100 kontrolü (tahakkuk öncesi kapı) |
+| `PATCH /:id/devret` | Tapu dönemini kapat |
+
+**Hisse invaryantı iki yönlü değildir** — bu ayrım kasıtlıdır:
+
+- Toplam **> 1** → her zaman hatadır (aynı pay iki kişiye yazılmış). Yazma
+  anında reddedilir.
+- Toplam **< 1** → eksik kayıttır, hata değil: malikler tek tek girilirken
+  toplam doğal olarak 1'in altındadır. Yazmada engellenirse ilk malik bile
+  eklenemezdi. Tahakkuk öncesi `hisseleriZorunluKil` ile zorlanır.
+
+**Kiracı** — `bolumler/:bolumId/kiracilar` · `POST` · `GET ?tarih=` ·
+`PATCH /:id/tahliye`. Tahliye, `bitis` alanını da yazar; yazmasa ilişki süresiz
+görünür ve yeni kiracı eklenemezdi.
+
+**Sakin** — `bolumler/:bolumId/sakinler` · `POST` · `GET ?tarih=` ·
+`PATCH /:id/cikis`. **Tekillik kuralı YOKTUR** — malik ve kiracıdan farklı
+olarak bir bölümde aynı anda birden çok sakin geçerlidir; zorlansaydı dört
+kişilik bir ailenin yalnızca biri kaydedilebilirdi. Yalnızca aynı kişinin açık
+ikinci kaydı engellenir (veri girişi hatası).
+
+Üçünde de **silme ucu yoktur.** Dönem kapanır, kayıt kalır. Birim testi bunu
+sabitliyor: `malik`/`kiraci`/`sakin` modüllerinde `.silindi` event'i
+bulunmaması doğrulanıyor.
+
+### 3. Eksik CRUD tamamlandı
+
+Apartman · Blok · Kat · Bölüm için `GET /:id` ve `PATCH /:id`. Kısmi
+güncelleme: `undefined` = dokunma. Bu ayrım korunmazsa boş string gönderen bir
+istemci adresi sessizce siler.
+
+Bilinçli kısıtlar:
+
+- **Blok** başka apartmana, **kat** başka bloğa taşınmaz — hiyerarşi sabittir.
+- **Bölümü olan katın numarası** değiştirilemez: bölümlerin `kat` alanı bu
+  numaraya bağlı ve oluşturmada eşitliği zorlanıyor.
+- **Bölümde arsa payı ve blok/kat** güncellenemez (§5).
+- Bölüm güncellemesi ölçü kurallarını **domain'e yeniden doğrulatır**: mevcut
+  ve yeni değerler birleştirilip `BagimsizBolum.olustur()` çağrılır; net m² ≤
+  brüt m² kuralı iki yerde yazılmaz.
+
+### 4. Not — `iliski` modülü ile örtüşme
+
+`BolumIliskisi` tablosu ve `iliski` modülü **yerinde bırakıldı** (çalışan
+özellik kaldırılmadı). Artık `Malik` ve `Kiraci` daha zengin kaydı tutuyor.
+
+Domain düzeyinde çakışma yok: `borcSorumlulariniCoz` düz bir `BolumIliskisi`
+arayüzü alır, tablo değil — tahakkuk servisi bu diziyi `Malik`/`Kiraci`
+tablolarından kurabilir. Tahakkuk henüz yazılmadığı için ikisini de tüketen
+kod yok.
+
+**Karar gerektiren:** Tahakkuk yazılırken hangi kaydın kaynak olduğu
+netleştirilmeli. İki tabloyu birlikte canlı tutmak, "malik kim?" sorusunun iki
+farklı cevabı olması demektir.
+
+### 5. Bu oturumda TAMAMLANMAYANLAR
+
+- **GiderTuru API'si** — şema ve 7 aidat yöntemi hazır, uç yok. Aidat kuralları
+  hâlâ yalnızca `KMK_VARSAYILAN_GIDERLER` sabit dizisinden okunabiliyor;
+  tenant bazlı override saklanamıyor.
+- **UI ekranları** — frontend hâlâ 3 sayfalık iskelet.
+- **Arsa payı toplu düzeltme** ve **bölüm taşıma (blok/kat değişikliği)**
+  akışları.
+- **Migration doğrulaması** (TODO-3) — bu oturumda migration'a dokunulmadı.
+- **Uçtan uca test** — 44 ucun hiçbiri gerçek veritabanına karşı çağrılmadı.
+
+---
+
 ## 2026-07-28 · Oturum 7 — Profesyonel yönetim sprinti · 1. parça: temel
 
 **Kapsam:** ADR-0008 · hiyerarşi · 7 aidat yöntemi · çoklu malik · şema + migration

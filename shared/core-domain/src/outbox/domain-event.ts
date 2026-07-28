@@ -36,6 +36,13 @@ export const EVENT_KATALOGU: readonly EventKatalogKaydi[] = [
   { eventType: 'apartman.apartman.silindi', eventVersion: 1, sahipModul: 'apartman', aciklama: 'Apartman kaydi soft-delete edildi' },
   { eventType: 'apartman.kat.olusturuldu', eventVersion: 1, sahipModul: 'kat', aciklama: 'Kat kaydi olusturuldu' },
   { eventType: 'apartman.kat.silindi', eventVersion: 1, sahipModul: 'kat', aciklama: 'Kat kaydi soft-delete edildi' },
+  // Malik / Kiraci / Sakin kayitlari SILINMEZ; donemleri kapanir (tarihce).
+  { eventType: 'apartman.malik.eklendi', eventVersion: 1, sahipModul: 'malik', aciklama: 'Bolume hisseli malik eklendi' },
+  { eventType: 'apartman.malik.devredildi', eventVersion: 1, sahipModul: 'malik', aciklama: 'Malik hissesi devredildi; tapu donemi kapandi' },
+  { eventType: 'apartman.kiraci.eklendi', eventVersion: 1, sahipModul: 'kiraci', aciklama: 'Bolume kira sozlesmesi baglandi' },
+  { eventType: 'apartman.kiraci.tahliye_edildi', eventVersion: 1, sahipModul: 'kiraci', aciklama: 'Kiraci tahliye edildi; sozlesme kapandi' },
+  { eventType: 'apartman.sakin.eklendi', eventVersion: 1, sahipModul: 'sakin', aciklama: 'Bolume fiilen oturan sakin eklendi' },
+  { eventType: 'apartman.sakin.cikti', eventVersion: 1, sahipModul: 'sakin', aciklama: 'Sakin bolumden ayrildi' },
 ];
 
 const KATALOG_INDEKS = new Map(

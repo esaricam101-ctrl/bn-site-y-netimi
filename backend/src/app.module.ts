@@ -21,6 +21,9 @@ import { IliskiModule } from './modules/iliski/iliski.module';
 import { BlokModule } from './modules/blok/blok.module';
 import { ApartmanModule } from './modules/apartman/apartman.module';
 import { KatModule } from './modules/kat/kat.module';
+import { MalikModule } from './modules/malik/malik.module';
+import { KiraciModule } from './modules/kiraci/kiraci.module';
+import { SakinModule } from './modules/sakin/sakin.module';
 
 @Module({
   imports: [
@@ -38,6 +41,11 @@ import { KatModule } from './modules/kat/kat.module';
     BlokModule,
     KatModule,
     BolumModule,
+    // Bölüme bağlı kişi ilişkileri: malik (hisseli) · kiracı (sözleşmeli) ·
+    // sakin (fiilen oturan). Üçü AYRI kavramdır.
+    MalikModule,
+    KiraciModule,
+    SakinModule,
     IliskiModule,
   ],
   providers: [

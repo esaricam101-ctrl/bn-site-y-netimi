@@ -16,7 +16,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { BlokOlusturDto } from './dto/blok.dto';
+import type { BlokGuncelleDto, BlokOlusturDto } from './dto/blok.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @Injectable()
@@ -73,6 +73,48 @@ export class BlokCommandService {
       });
 
       return { id, durum: 'AKTIF' };
+    });
+  }
+
+  /** Kısmi güncelleme. Blok başka bir apartmana TAŞINMAZ — hiyerarşi sabittir. */
+  async guncelle(id: string, dto: BlokGuncelleDto, principal: Principal): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('blok.guncelle');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.blok.findFirst({
+        where: { id, tenantId: principal.tenantId },
+        select: { id: true, ad: true, apartmanId: true },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Blok bulunamadı: ${id}`);
+
+      const yeniAd = dto.ad?.trim();
+      if (yeniAd !== undefined && yeniAd !== kayit.ad) {
+        // Tekillik APARTMAN icindedir; sitede iki apartmanin da 'A Blok'u olabilir.
+        const cakisan = await tx.blok.findFirst({
+          where: {
+            tenantId: principal.tenantId, apartmanId: kayit.apartmanId,
+            ad: yeniAd, id: { not: id },
+          },
+          select: { id: true },
+        });
+        if (cakisan) {
+          throw new IsKuraliIhlali(
+            `Bu apartmanda '${yeniAd}' adında bir blok zaten var.`,
+            'Farklı bir blok adı kullanın.',
+          );
+        }
+        await tx.blok.update({ where: { id }, data: { ad: yeniAd } });
+      }
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'Blok', varlikId: id,
+        oncekiDeger: { ad: kayit.ad }, sonrakiDeger: { ad: yeniAd ?? kayit.ad },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return { id, durum: 'GUNCELLENDI' };
     });
   }
 

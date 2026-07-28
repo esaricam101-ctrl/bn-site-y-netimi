@@ -18,7 +18,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { BolumOlusturDto } from './dto/bolum.dto';
+import type { BolumGuncelleDto, BolumOlusturDto } from './dto/bolum.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @Injectable()
@@ -160,6 +160,110 @@ export class BolumCommandService {
       });
 
       return { id: o.id, durum: 'AKTIF' };
+    });
+  }
+
+  /**
+   * Kısmi güncelleme.
+   *
+   * Ölçü değişikliği domain'e yeniden doğrulatılır: net m² brüt m²yi aşamaz.
+   * Bu kural iki yerde yazılmaz — mevcut ve yeni değerler birleştirilip
+   * `BagimsizBolum.olustur()` çağrılır.
+   */
+  async guncelle(
+    id: string,
+    dto: BolumGuncelleDto,
+    principal: Principal,
+  ): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('bolum.guncelle');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.bagimsizBolum.findFirst({
+        where: { id, tenantId: principal.tenantId },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${id}`);
+
+      const kapiNo = dto.kapiNo?.trim() ?? kayit.kapiNo;
+      const brutM2 = dto.brutM2 ?? kayit.brutM2.toNumber();
+      const netM2 = dto.netM2 ?? kayit.netM2.toNumber();
+
+      // Olcu ve nitelik kurallari domain'de; burada TEKRARLANMAZ.
+      BagimsizBolum.olustur({
+        id: kayit.id,
+        tenantId: principal.tenantId,
+        blokId: kayit.blokId,
+        katId: kayit.katId,
+        kapiNo,
+        icKapiNo: dto.icKapiNo?.trim() ?? kayit.icKapiNo,
+        kat: kayit.kat,
+        nitelik: dto.nitelik ?? kayit.nitelik,
+        daireTipi: dto.daireTipi ?? kayit.daireTipi,
+        kullanimAmaci: dto.kullanimAmaci?.trim() ?? kayit.kullanimAmaci,
+        durum: dto.durum ?? kayit.durum,
+        brutM2,
+        netM2,
+        arsaPayiPay: kayit.arsaPayiPay,
+        arsaPayiPayda: kayit.arsaPayiPayda,
+        aidatMuafiyeti: dto.aidatMuafiyeti ?? kayit.aidatMuafiyeti,
+        tapu: {
+          ada: dto.tapuAda ?? kayit.tapuAda,
+          parsel: dto.tapuParsel ?? kayit.tapuParsel,
+          pafta: dto.tapuPafta ?? kayit.tapuPafta,
+          bagimsizBolumNo: dto.tapuBagimsizBolumNo ?? kayit.tapuBagimsizBolumNo,
+          cilt: dto.tapuCilt ?? kayit.tapuCilt,
+          sahife: dto.tapuSahife ?? kayit.tapuSahife,
+        },
+      });
+
+      if (kapiNo !== kayit.kapiNo) {
+        const cakisan = await tx.bagimsizBolum.findFirst({
+          where: {
+            tenantId: principal.tenantId, blokId: kayit.blokId, kapiNo, id: { not: id },
+          },
+          select: { id: true },
+        });
+        if (cakisan) {
+          throw new IsKuraliIhlali(
+            `'${kapiNo}' kapı numarası bu blokta zaten kayıtlı.`,
+            'Kapı numarasını kontrol edin.',
+          );
+        }
+      }
+
+      await tx.bagimsizBolum.update({
+        where: { id },
+        data: {
+          ...(dto.kapiNo === undefined ? {} : { kapiNo }),
+          ...(dto.icKapiNo === undefined ? {} : { icKapiNo: dto.icKapiNo.trim() }),
+          ...(dto.nitelik === undefined ? {} : { nitelik: dto.nitelik }),
+          ...(dto.daireTipi === undefined ? {} : { daireTipi: dto.daireTipi }),
+          ...(dto.kullanimAmaci === undefined ? {} : { kullanimAmaci: dto.kullanimAmaci.trim() }),
+          ...(dto.durum === undefined ? {} : { durum: dto.durum }),
+          ...(dto.brutM2 === undefined ? {} : { brutM2: dto.brutM2 }),
+          ...(dto.netM2 === undefined ? {} : { netM2: dto.netM2 }),
+          ...(dto.aidatMuafiyeti === undefined ? {} : { aidatMuafiyeti: dto.aidatMuafiyeti }),
+          ...(dto.tapuAda === undefined ? {} : { tapuAda: dto.tapuAda }),
+          ...(dto.tapuParsel === undefined ? {} : { tapuParsel: dto.tapuParsel }),
+          ...(dto.tapuPafta === undefined ? {} : { tapuPafta: dto.tapuPafta }),
+          ...(dto.tapuBagimsizBolumNo === undefined ? {} : { tapuBagimsizBolumNo: dto.tapuBagimsizBolumNo }),
+          ...(dto.tapuCilt === undefined ? {} : { tapuCilt: dto.tapuCilt }),
+          ...(dto.tapuSahife === undefined ? {} : { tapuSahife: dto.tapuSahife }),
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'BagimsizBolum', varlikId: id,
+        oncekiDeger: {
+          kapiNo: kayit.kapiNo, durum: kayit.durum,
+          brutM2: kayit.brutM2.toNumber(), netM2: kayit.netM2.toNumber(),
+        },
+        sonrakiDeger: { kapiNo, durum: dto.durum ?? kayit.durum, brutM2, netM2 },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return { id, durum: 'GUNCELLENDI' };
     });
   }
 

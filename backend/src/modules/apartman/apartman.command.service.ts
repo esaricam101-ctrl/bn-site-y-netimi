@@ -15,7 +15,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { ApartmanOlusturDto } from './dto/apartman.dto';
+import type { ApartmanGuncelleDto, ApartmanOlusturDto } from './dto/apartman.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @Injectable()
@@ -67,6 +67,63 @@ export class ApartmanCommandService {
       });
 
       return { id, durum: 'AKTIF' };
+    });
+  }
+
+  /** Kısmi güncelleme: yalnızca verilen alanlar değişir. */
+  async guncelle(
+    id: string,
+    dto: ApartmanGuncelleDto,
+    principal: Principal,
+  ): Promise<KomutSonucu> {
+    const baglam = mevcutBaglamiZorunluKil('apartman.guncelle');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const kayit = await tx.apartman.findFirst({
+        where: { id, tenantId: principal.tenantId },
+        select: { id: true, ad: true, adres: true, siteIciKod: true },
+      });
+      if (!kayit) throw new KayitBulunamadi(`Apartman bulunamadı: ${id}`);
+
+      const yeniAd = dto.ad?.trim();
+      if (yeniAd !== undefined && yeniAd !== kayit.ad) {
+        const cakisan = await tx.apartman.findFirst({
+          where: { tenantId: principal.tenantId, ad: yeniAd, id: { not: id } },
+          select: { id: true },
+        });
+        if (cakisan) {
+          throw new IsKuraliIhlali(
+            `'${yeniAd}' adında bir apartman bu yerleşkede zaten var.`,
+            'Farklı bir apartman adı kullanın.',
+          );
+        }
+      }
+
+      // `undefined` = dokunma, `null`/deger = yaz. Ayrimi korumak, bos string
+      // gonderen bir istemcinin adresi sessizce silmesini engeller.
+      await tx.apartman.update({
+        where: { id },
+        data: {
+          ...(yeniAd === undefined ? {} : { ad: yeniAd }),
+          ...(dto.adres === undefined ? {} : { adres: dto.adres.trim() }),
+          ...(dto.siteIciKod === undefined ? {} : { siteIciKod: dto.siteIciKod.trim() }),
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'Apartman', varlikId: id,
+        oncekiDeger: { ad: kayit.ad, adres: kayit.adres, siteIciKod: kayit.siteIciKod },
+        sonrakiDeger: {
+          ad: yeniAd ?? kayit.ad,
+          adres: dto.adres ?? kayit.adres,
+          siteIciKod: dto.siteIciKod ?? kayit.siteIciKod,
+        },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return { id, durum: 'GUNCELLENDI' };
     });
   }
 

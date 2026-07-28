@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsUUID, Length, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, IsUUID, Length, MinLength } from 'class-validator';
 
 export class BlokOlusturDto {
   @ApiProperty({
@@ -14,6 +14,12 @@ export class BlokOlusturDto {
   })
   @IsString() @Length(1, 40)
   ad!: string;
+}
+
+export class BlokGuncelleDto {
+  @ApiPropertyOptional({ example: 'B Blok' })
+  @IsOptional() @IsString() @Length(1, 40)
+  ad?: string;
 }
 
 export class BlokSilDto {

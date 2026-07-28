@@ -15,6 +15,16 @@ export class KatOlusturDto {
   ad?: string;
 }
 
+export class KatGuncelleDto {
+  @ApiPropertyOptional({ example: 4, description: 'Kat numarası. Blok içinde tekildir.' })
+  @IsOptional() @IsInt() @Min(-10) @Max(200)
+  no?: number;
+
+  @ApiPropertyOptional({ example: 'Zemin' })
+  @IsOptional() @IsString() @Length(1, 40)
+  ad?: string;
+}
+
 export class KatSilDto {
   @ApiProperty({
     example: 'Kat numarası yanlış girilmiş',

@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { ApartmanCommandService } from './apartman.command.service';
 import { ApartmanQueryService, type ApartmanSatiri } from './apartman.query.service';
-import { ApartmanOlusturDto, ApartmanSilDto } from './dto/apartman.dto';
+import { ApartmanGuncelleDto, ApartmanOlusturDto, ApartmanSilDto } from './dto/apartman.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @ApiTags('Apartman')
@@ -37,6 +37,30 @@ export class ApartmanController {
   @ApiOperation({ summary: 'Apartmanları listele (blok sayısıyla)' })
   listele(@AktifPrincipal() principal: Principal): Promise<readonly ApartmanSatiri[]> {
     return this.query.listele(principal);
+  }
+
+  @Get(':id')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiOperation({ summary: 'Apartman detayı' })
+  detay(
+    @Param('id') id: string,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<ApartmanSatiri> {
+    return this.query.detay(id, principal);
+  }
+
+  @Patch(':id')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Apartmanı güncelle',
+    description: 'Kısmi güncelleme: yalnızca gönderilen alanlar değişir.',
+  })
+  guncelle(
+    @Param('id') id: string,
+    @Body() dto: ApartmanGuncelleDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.command.guncelle(id, dto, principal);
   }
 
   @Delete(':id')

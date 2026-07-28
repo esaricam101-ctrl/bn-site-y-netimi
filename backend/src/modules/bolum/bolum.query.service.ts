@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Principal } from '@bnos/kernel';
+import { KayitBulunamadi } from '@bnos/core-domain';
 import { BagimsizBolum, arsaPaylariniDogrula } from '@bnos/apartman-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { SayfaliSonuc } from '../kisi/kisi.query.service';
@@ -101,6 +102,45 @@ export class BolumQueryService {
         },
       })),
       sonrakiImlec: fazlaVar && sonKayit ? sonKayit.id : null,
+    };
+  }
+
+  async detay(id: string, principal: Principal): Promise<BolumSatiri> {
+    const k = await this.prisma.bagimsizBolum.findFirst({
+      where: { id, tenantId: principal.tenantId },
+      select: {
+        id: true, kapiNo: true, icKapiNo: true, kat: true, katId: true,
+        nitelik: true, daireTipi: true, kullanimAmaci: true, durum: true,
+        brutM2: true, netM2: true,
+        arsaPayiPay: true, arsaPayiPayda: true, aidatMuafiyeti: true,
+        tapuAda: true, tapuParsel: true, tapuPafta: true,
+        tapuBagimsizBolumNo: true, tapuCilt: true, tapuSahife: true,
+      },
+    });
+    if (!k) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${id}`);
+
+    return {
+      id: k.id,
+      kapiNo: k.kapiNo,
+      icKapiNo: k.icKapiNo,
+      kat: k.kat,
+      katId: k.katId,
+      nitelik: k.nitelik,
+      daireTipi: k.daireTipi,
+      kullanimAmaci: k.kullanimAmaci,
+      durum: k.durum,
+      brutM2: k.brutM2.toNumber(),
+      netM2: k.netM2.toNumber(),
+      arsaPayi: `${k.arsaPayiPay}/${k.arsaPayiPayda}`,
+      aidatMuafiyeti: k.aidatMuafiyeti,
+      tapu: {
+        ada: k.tapuAda,
+        parsel: k.tapuParsel,
+        pafta: k.tapuPafta,
+        bagimsizBolumNo: k.tapuBagimsizBolumNo,
+        cilt: k.tapuCilt,
+        sahife: k.tapuSahife,
+      },
     };
   }
 

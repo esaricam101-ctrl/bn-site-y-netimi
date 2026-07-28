@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Principal } from '@bnos/kernel';
+import { KayitBulunamadi } from '@bnos/core-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export interface ApartmanSatiri {
@@ -37,5 +38,24 @@ export class ApartmanQueryService {
       siteIciKod: k.siteIciKod,
       blokSayisi: k._count.bloklar,
     }));
+  }
+
+  async detay(id: string, principal: Principal): Promise<ApartmanSatiri> {
+    const k = await this.prisma.apartman.findFirst({
+      where: { id, tenantId: principal.tenantId },
+      select: {
+        id: true, ad: true, adres: true, siteIciKod: true,
+        _count: { select: { bloklar: true } },
+      },
+    });
+    if (!k) throw new KayitBulunamadi(`Apartman bulunamadı: ${id}`);
+
+    return {
+      id: k.id,
+      ad: k.ad,
+      adres: k.adres,
+      siteIciKod: k.siteIciKod,
+      blokSayisi: k._count.bloklar,
+    };
   }
 }

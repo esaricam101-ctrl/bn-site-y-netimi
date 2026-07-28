@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
 import { BlokCommandService } from './blok.command.service';
 import { BlokQueryService, type BlokSatiri } from './blok.query.service';
-import { BlokOlusturDto, BlokSilDto } from './dto/blok.dto';
+import { BlokGuncelleDto, BlokOlusturDto, BlokSilDto } from './dto/blok.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 @ApiTags('Blok')
@@ -39,6 +39,30 @@ export class BlokController {
     @Query('apartmanId') apartmanId?: string,
   ): Promise<readonly BlokSatiri[]> {
     return this.query.listele(principal, apartmanId);
+  }
+
+  @Get(':id')
+  @RequirePermission(IZINLER.BOLUM_GORUNTULE)
+  @ApiOperation({ summary: 'Blok detayı' })
+  detay(
+    @Param('id') id: string,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<BlokSatiri> {
+    return this.query.detay(id, principal);
+  }
+
+  @Patch(':id')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Bloğu güncelle',
+    description: 'Blok başka bir apartmana taşınmaz; hiyerarşi sabittir.',
+  })
+  guncelle(
+    @Param('id') id: string,
+    @Body() dto: BlokGuncelleDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.command.guncelle(id, dto, principal);
   }
 
   @Delete(':id')

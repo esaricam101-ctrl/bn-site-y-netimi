@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Principal } from '@bnos/kernel';
+import { KayitBulunamadi } from '@bnos/core-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export interface BlokSatiri {
@@ -43,5 +44,26 @@ export class BlokQueryService {
       katSayisi: k._count.katlar,
       bolumSayisi: k._count.bolumler,
     }));
+  }
+
+  async detay(id: string, principal: Principal): Promise<BlokSatiri> {
+    const k = await this.prisma.blok.findFirst({
+      where: { id, tenantId: principal.tenantId },
+      select: {
+        id: true, ad: true, apartmanId: true,
+        apartman: { select: { ad: true } },
+        _count: { select: { bolumler: true, katlar: true } },
+      },
+    });
+    if (!k) throw new KayitBulunamadi(`Blok bulunamadı: ${id}`);
+
+    return {
+      id: k.id,
+      ad: k.ad,
+      apartmanId: k.apartmanId,
+      apartmanAdi: k.apartman.ad,
+      katSayisi: k._count.katlar,
+      bolumSayisi: k._count.bolumler,
+    };
   }
 }

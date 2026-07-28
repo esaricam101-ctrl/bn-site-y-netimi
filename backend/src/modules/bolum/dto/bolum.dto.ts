@@ -115,6 +115,78 @@ export class BolumOlusturDto {
   tapuSahife?: string;
 }
 
+/**
+ * Kısmi güncelleme. ARSA PAYI ve BLOK/KAT burada DEĞİŞTİRİLEMEZ:
+ *
+ * - Arsa payı KMK md. 3 toplamını etkiler; tek bölümde değiştirmek binanın
+ *   toplamını sessizce bozar. Ayrı bir toplu düzeltme akışı gerektirir.
+ * - Blok/kat değişikliği hiyerarşi taşımasıdır; mükerrer kapı no kontrolü
+ *   blok bazlı olduğu için ayrı bir "taşı" işlemi gerektirir.
+ *
+ * İkisi de TODO olarak bırakılmıştır (DEVLOG).
+ */
+export class BolumGuncelleDto {
+  @ApiPropertyOptional({ example: '12' })
+  @IsOptional() @IsString() @Length(1, 16)
+  kapiNo?: string;
+
+  @ApiPropertyOptional({ example: '12A' })
+  @IsOptional() @IsString() @Length(1, 16)
+  icKapiNo?: string;
+
+  @ApiPropertyOptional({ enum: BOLUM_NITELIKLERI })
+  @IsOptional() @IsIn(BOLUM_NITELIKLERI)
+  nitelik?: (typeof BOLUM_NITELIKLERI)[number];
+
+  @ApiPropertyOptional({ enum: DAIRE_TIPLERI })
+  @IsOptional() @IsIn(DAIRE_TIPLERI)
+  daireTipi?: (typeof DAIRE_TIPLERI)[number];
+
+  @ApiPropertyOptional({ example: 'konut' })
+  @IsOptional() @IsString() @Length(1, 80)
+  kullanimAmaci?: string;
+
+  @ApiPropertyOptional({ enum: BOLUM_DURUMLARI })
+  @IsOptional() @IsIn(BOLUM_DURUMLARI)
+  durum?: (typeof BOLUM_DURUMLARI)[number];
+
+  @ApiPropertyOptional({ example: 120.5 })
+  @IsOptional() @IsPositive()
+  brutM2?: number;
+
+  @ApiPropertyOptional({ example: 98.25 })
+  @IsOptional() @IsPositive()
+  netM2?: number;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional() @IsBoolean()
+  aidatMuafiyeti?: boolean;
+
+  @ApiPropertyOptional({ example: '1234' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuAda?: string;
+
+  @ApiPropertyOptional({ example: '56' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuParsel?: string;
+
+  @ApiPropertyOptional({ example: 'G21b' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuPafta?: string;
+
+  @ApiPropertyOptional({ example: '7' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuBagimsizBolumNo?: string;
+
+  @ApiPropertyOptional({ example: '12' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuCilt?: string;
+
+  @ApiPropertyOptional({ example: '1180' })
+  @IsOptional() @IsString() @Length(1, 20)
+  tapuSahife?: string;
+}
+
 export class BolumSilDto {
   @ApiProperty({
     example: 'Bölüm birleştirildi, kayıt mükerrer',
