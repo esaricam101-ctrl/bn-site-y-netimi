@@ -8,9 +8,9 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ## 1. Son tamamlanan iş
 
-**Commit `dd624ce`** — Dashboard, Apartman ve Blok/Kat ekranları.
+**Commit `299e486`** — Kiracı ve Sakin yönetim arayüzleri.
 
-Bu oturumda teslim edilen commit zinciri:
+Teslim edilen commit zinciri:
 
 | Commit | İş |
 |---|---|
@@ -18,9 +18,12 @@ Bu oturumda teslim edilen commit zinciri:
 | `bf31046` | Mock servis katmanı + veri tablosu + Bağımsız Bölümler ekranı |
 | `572617c` | 360° Daire Kartı + denetim kaydı sorgu ucu (`GET /audit`) |
 | `dd624ce` | Dashboard + Apartman + Blok/Kat ekranları |
+| `d60dc49` | Oturum devir notu |
+| `494abd8` | Malik yönetim arayüzü + bildirim (toast) altyapısı |
+| `299e486` | Kiracı + Sakin yönetim arayüzleri |
 
 **Doğrulama (son commit itibarıyla):** build 9/9 · ESLint 0 · verify 7/7 ·
-137 birim testi · depcruise 0 ihlal · belge lint 0 · 57 backend ucu · 9 web rotası.
+137 birim testi · belge lint 0 · 57 backend ucu · 9 web rotası.
 
 Çalışma ağacı **temiz**, `origin/master` ile **senkron**.
 
@@ -30,9 +33,11 @@ Bu oturumda teslim edilen commit zinciri:
 
 ### A. Migration gerektirmeyenler (hemen yapılabilir)
 
-1. **Malik / Kiracı / Sakin yönetim ekranları.** Backend uçları hazır
-   (`POST`/`GET`/`PATCH`), daire kartında **okuma** var ama **yazma/düzenleme
-   ekranı yok**. Form doğrulama, toplu işlem ve ilişkilendirme burada.
+1. ~~**Malik / Kiracı / Sakin yönetim ekranları.**~~ ✅ `494abd8` + `299e486`.
+   Ekleme · devir/tahliye/çıkış · malik düzeltme, form doğrulama ve bildirim
+   altyapısı tamam. Kalan: **kiracı ve sakin için düzeltme (PATCH) arayüzü** —
+   backend uçları var (`PATCH …/kiracilar/:id`, `PATCH …/sakinler/:id`), arayüz
+   yok.
 2. **Kat ekranı (bağımsız).** Şu an bloklar sayfasında açılır liste olarak
    var; ayrı yönetim ekranı yok.
 3. **Arama ve filtreleme ekranı** (öncelik listesi #15) — veri tablosunda
@@ -91,23 +96,25 @@ TSC="$PWD/node_modules/.bin/tsc" bash scripts/negative-tests.sh
 
 ### İlk görev
 
-**Malik yönetim ekranı** (`frontend/web/app/daireler/[bolumId]/` altına form
-akışı ya da ayrı `/malikler` ekranı).
+**Kat yönetim ekranı** (bekleyen liste A-2).
 
-Neden bu: daire kartı malikleri **gösteriyor** ama ekleme/devretme/düzeltme
-arayüzü yok. Backend tarafı eksiksiz hazır:
+Neden bu: hiyerarşinin tek eksik seviyesi. Apartman, Blok ve Bağımsız Bölüm
+ekranları var; kat yalnızca bloklar sayfasında **açılır liste** olarak
+görünüyor — ekleme, düzeltme ve silme arayüzü yok. Backend hazır:
 
 | Uç | İşlev |
 |---|---|
-| `POST /bolumler/:bolumId/malikler` | Hisseli malik ekle |
-| `GET /bolumler/:bolumId/malikler?tarih=` | Malikler + tapu tarihçesi |
-| `GET /bolumler/:bolumId/malikler/hisse-durumu` | %100 denetimi |
-| `PATCH /bolumler/:bolumId/malikler/:id` | Yazım hatası · vekâlet düzeltme |
-| `PATCH /bolumler/:bolumId/malikler/:id/devret` | Tapu dönemini kapat |
+| `POST /katlar` | Kat oluştur (bloğa bağlı) |
+| `GET /katlar?blokId=` | Bloğun katları (bölüm sayısıyla) |
+| `PATCH /katlar/:id` | Kat no · ad düzeltme |
+| `DELETE /katlar/:id` | Soft delete, gerekçe zorunlu |
 
-Dikkat edilecek kural: **hisse oranı düzeltilemez**, devir gerektirir. Arayüz
-bunu ayrı iki eylem olarak sunmalı — tek "düzenle" formunda birleştirmek
-geçmiş tahakkukun dayanağını sessizce değiştirmeye davet eder.
+Dikkat edilecek kural: **bölümü olan katın NUMARASI değiştirilemez** —
+bölümlerin `kat` alanı bu numaraya bağlıdır ve oluşturmada eşitliği zorlanır.
+Arayüz bu durumda alanı devre dışı bırakmalı ve nedenini yazmalı.
+
+İkinci görev olarak **kiracı/sakin düzeltme arayüzü** (A-1'in kalanı) hızlı
+bir iş: `malik-eylemleri.tsx` deseni birebir uygulanabilir.
 
 ---
 
