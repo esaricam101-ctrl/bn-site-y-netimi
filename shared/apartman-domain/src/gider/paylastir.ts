@@ -4,7 +4,7 @@
  * Dagitim @bnos/kernel'in dagit() fonksiyonu uzerinden yapilir; yuvarlama
  * farki kaybolmaz ve paylarin toplami daima giderin tamamina esittir.
  */
-import { dagit, topla, sifir, type Money } from '@bnos/kernel';
+import { dagit, topla, sifir, apiBicimi, type Money } from '@bnos/kernel';
 import { DogrulamaHatasi } from '@bnos/core-domain';
 import type { BagimsizBolum } from '../bolum/bagimsiz-bolum.js';
 import { giderTuruDogrula } from './gider-turu.js';
@@ -16,6 +16,26 @@ export interface PaylasimGirdisi {
   readonly tuketim?: bigint;
   /** SABIT_TUTAR kurali icin bolume ozel sabit agirlik. */
   readonly sabitAgirlik?: bigint;
+  /**
+   * KULLANIM_BAZLI kurali icin: bolum bu hizmeti kullaniyor mu?
+   * Otopark, havuz, jeneratör gibi giderlerde yalnizca kullananlar oder —
+   * yonetim plani boyle ongorduyse (KMK md. 20 istisnasi).
+   */
+  readonly kullaniyorMu?: boolean;
+  /** BLOK_BAZLI kurali icin bolumun blogu. */
+  readonly blokId?: string | null;
+  /** MANUEL kurali icin yoneticinin bolume yazdigi tutar. */
+  readonly manuelTutar?: Money;
+}
+
+/** Kural bazli ek parametreler. Tahakkuk aninda verilir, gider turunde degil. */
+export interface PaylasimSecenekleri {
+  /**
+   * BLOK_BAZLI kurali icin hedef blok. Gider bu bloga aittir; diger bloklarin
+   * bolumleri odemez. Ayni asansor onarimi ertesi ay baska blokta olabilir,
+   * bu yuzden GiderTuru'nde degil tahakkuk aninda verilir.
+   */
+  readonly hedefBlokId?: string;
 }
 
 export interface PaylasimSatiri {
@@ -29,10 +49,33 @@ export interface PaylasimSatiri {
   readonly agirlik: bigint | null;
 }
 
-function agirlikCoz(kural: Exclude<PaylasimKurali, 'KARMA'>, g: PaylasimGirdisi): bigint {
+function agirlikCoz(
+  kural: Exclude<PaylasimKurali, 'KARMA' | 'MANUEL'>,
+  g: PaylasimGirdisi,
+  secenekler: PaylasimSecenekleri,
+): bigint {
   switch (kural) {
     case 'ESIT':
       return 1n;
+    // KULLANIM_BAZLI ve BLOK_BAZLI birer KAPSAM kuralidir: kapsam disindaki
+    // bolum sifir agirlik alir ve payi sifir olur. Kapsam ici bolumler esit
+    // paylasir. `dagit()` sifir agirlikli satira sifir verir.
+    case 'KULLANIM_BAZLI':
+      if (g.kullaniyorMu === undefined) {
+        throw new DogrulamaHatasi(
+          `KULLANIM_BAZLI paylasim icin '${g.bolum.kapiNo}' bolumunun kullanim bilgisi girilmemis.`,
+          'Hizmeti kullanan bolumleri isaretleyin.',
+        );
+      }
+      return g.kullaniyorMu ? 1n : 0n;
+    case 'BLOK_BAZLI':
+      if (secenekler.hedefBlokId === undefined) {
+        throw new DogrulamaHatasi(
+          'BLOK_BAZLI paylasim icin hedef blok belirtilmemis.',
+          'Giderin hangi bloga ait oldugunu secin.',
+        );
+      }
+      return g.blokId === secenekler.hedefBlokId ? 1n : 0n;
     case 'ARSA_PAYI':
       return g.bolum.arsaPayiAgirligi();
     // METREKARE tarihsel addir ve BRUT_M2 ile ayni davranir (bkz. gider-turu.ts).
@@ -59,22 +102,70 @@ function agirlikCoz(kural: Exclude<PaylasimKurali, 'KARMA'>, g: PaylasimGirdisi)
   }
 }
 
+/** Kurala gore sifir toplam durumunda ne yapilmasi gerektigini anlatir. */
+function sifirAgirlikOnerisi(kural: Exclude<PaylasimKurali, 'KARMA' | 'MANUEL'>): string {
+  switch (kural) {
+    case 'TUKETIM':
+      return 'Sayac okumalarinin girildiginden emin olun.';
+    case 'KULLANIM_BAZLI':
+      return 'Hicbir bolum bu hizmeti kullanmiyor olarak isaretli; kullanim listesini kontrol edin.';
+    case 'BLOK_BAZLI':
+      return 'Secilen blokta bolum yok; hedef blogu kontrol edin.';
+    default:
+      return 'Paylasim kuralini gozden gecirin.';
+  }
+}
+
 /** Tek bir kural icin agirliklari cozer ve sifir toplamini reddeder. */
 function agirliklariCoz(
-  kural: Exclude<PaylasimKurali, 'KARMA'>,
+  kural: Exclude<PaylasimKurali, 'KARMA' | 'MANUEL'>,
   giderKodu: string,
   dahil: readonly PaylasimGirdisi[],
+  secenekler: PaylasimSecenekleri,
 ): readonly bigint[] {
-  const agirliklar = dahil.map((g) => agirlikCoz(kural, g));
+  const agirliklar = dahil.map((g) => agirlikCoz(kural, g, secenekler));
   if (agirliklar.every((a) => a === 0n)) {
     throw new DogrulamaHatasi(
       `'${giderKodu}' icin tum agirliklar sifir. ${kural} kurali uygulanamaz.`,
-      kural === 'TUKETIM'
-        ? 'Sayac okumalarinin girildiginden emin olun.'
-        : 'Paylasim kuralini gozden gecirin.',
+      sifirAgirlikOnerisi(kural),
     );
   }
   return agirliklar;
+}
+
+/**
+ * MANUEL dagitim: yonetici tutarlari bolum bolum belirler.
+ *
+ * Dagitim YAPILMAZ, dogrulama yapilir: verilen tutarlarin toplami giderin
+ * tamamina esit olmalidir. Esit degilse fark sessizce kaybolur ya da fazla
+ * tahakkuk edilir — ikisi de mizani bozar.
+ */
+function manuelDagit(
+  giderKodu: string,
+  toplam: Money,
+  dahil: readonly PaylasimGirdisi[],
+): readonly Money[] {
+  const eksik = dahil.filter((g) => g.manuelTutar === undefined);
+  if (eksik.length > 0) {
+    throw new DogrulamaHatasi(
+      `MANUEL paylasim icin su bolumlerin tutari girilmemis: ` +
+        `${eksik.map((g) => g.bolum.kapiNo).join(', ')}.`,
+      'Dagitim tablosunu eksiksiz doldurun.',
+    );
+  }
+
+  const tutarlar = dahil.map((g) => g.manuelTutar as Money);
+  const verilen = tutarlar.reduce((t, m) => topla(t, m), sifir(toplam.paraBirimi));
+
+  if (verilen.kurus !== toplam.kurus) {
+    throw new DogrulamaHatasi(
+      `'${giderKodu}' icin manuel dagitim toplami gider tutarina esit degil ` +
+        `(dagitilan ${apiBicimi(verilen)}, gider ${apiBicimi(toplam)}).`,
+      'Tutarlari gideri tam karsilayacak sekilde duzeltin.',
+    );
+  }
+
+  return tutarlar;
 }
 
 /**
@@ -89,13 +180,14 @@ function karmaDagit(
   toplam: Money,
   dahil: readonly PaylasimGirdisi[],
   bilesenler: readonly KarmaBilesen[],
+  secenekler: PaylasimSecenekleri,
 ): readonly Money[] {
   const parcalar = dagit(toplam, bilesenler.map((b) => BigInt(b.yuzde)));
 
   const birikim: Money[] = dahil.map(() => sifir(toplam.paraBirimi));
   bilesenler.forEach((bilesen, bi) => {
     const parca = parcalar[bi] as Money;
-    const agirliklar = agirliklariCoz(bilesen.kural, gider.kod, dahil);
+    const agirliklar = agirliklariCoz(bilesen.kural, gider.kod, dahil, secenekler);
     const paylar = dagit(parca, agirliklar);
     paylar.forEach((pay, i) => {
       birikim[i] = topla(birikim[i] as Money, pay);
@@ -115,6 +207,7 @@ export function gideriPaylastir(
   gider: GiderTuru,
   toplam: Money,
   girdiler: readonly PaylasimGirdisi[],
+  secenekler: PaylasimSecenekleri = {},
 ): readonly PaylasimSatiri[] {
   // Bozuk bir kural tanimi (ornegin toplami 100 olmayan KARMA) sessizce
   // eksik dagitim uretir; tanim dagitimdan ONCE reddedilir.
@@ -136,7 +229,7 @@ export function gideriPaylastir(
 
   if (gider.paylasimKurali === 'KARMA') {
     const bilesenler = gider.karmaBilesenler ?? [];
-    const paylar = karmaDagit(gider, toplam, dahil, bilesenler);
+    const paylar = karmaDagit(gider, toplam, dahil, bilesenler, secenekler);
     return dahil.map((g, i) => ({
       bolumId: g.bolum.id,
       kapiNo: g.bolum.kapiNo,
@@ -146,7 +239,18 @@ export function gideriPaylastir(
     }));
   }
 
-  const agirliklar = agirliklariCoz(gider.paylasimKurali, gider.kod, dahil);
+  if (gider.paylasimKurali === 'MANUEL') {
+    const tutarlar = manuelDagit(gider.kod, toplam, dahil);
+    return dahil.map((g, i) => ({
+      bolumId: g.bolum.id,
+      kapiNo: g.bolum.kapiNo,
+      tutar: tutarlar[i] as Money,
+      // MANUEL'de dagitim yok, dolayisiyla agirlik da yok.
+      agirlik: null,
+    }));
+  }
+
+  const agirliklar = agirliklariCoz(gider.paylasimKurali, gider.kod, dahil, secenekler);
   const paylar = dagit(toplam, agirliklar);
 
   return dahil.map((g, i) => ({

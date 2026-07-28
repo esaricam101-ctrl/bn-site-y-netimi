@@ -15,17 +15,26 @@ import { borcAlicisiTipi } from '../gider/gider-turu.js';
 
 export type SorumlulukSirasi = 'ASIL' | 'IKINCIL';
 
+/**
+ * Bolumle iliskili kisi rolu.
+ *
+ * SAKIN, yonetim plani ya da genel kurul karari borcu FIILEN OTURANA yazdiginda
+ * zincire girer (SorumlulukTipi.SAKINE_AIT). Kiraci bir sirket olup dairede
+ * calisani oturuyorsa su/isinma gideri sakine yansitilabilir.
+ */
+export type BolumRolu = 'MALIK' | 'KIRACI' | 'SAKIN';
+
 export interface BorcSorumlusu {
   readonly kisiId: string;
   readonly sira: SorumlulukSirasi;
-  readonly rol: 'MALIK' | 'KIRACI';
+  readonly rol: BolumRolu;
   /** Cozumleme ani — snapshot kaniti. */
   readonly cozumlemeTarihi: TakvimTarihi;
 }
 
 export interface BolumIliskisi {
   readonly kisiId: string;
-  readonly rol: 'MALIK' | 'KIRACI';
+  readonly rol: BolumRolu;
   readonly baslangic: TakvimTarihi;
   readonly bitis: TakvimTarihi | null;
 }
@@ -111,6 +120,7 @@ export function borcSorumlulariniCoz(
   // Coklu malik desteklenir; TEK malik durumunda cikti eskisiyle birebir aynidir.
   const malikler = gecerli.filter((i) => i.rol === 'MALIK');
   const kiraci = gecerli.find((i) => i.rol === 'KIRACI');
+  const sakin = gecerli.find((i) => i.rol === 'SAKIN');
 
   if (malikler.length === 0) {
     throw new DogrulamaHatasi(
@@ -119,20 +129,34 @@ export function borcSorumlulariniCoz(
     );
   }
 
-  const alici = borcAlicisiTipi(gider, kiraci !== undefined);
+  const alici = borcAlicisiTipi(gider, {
+    kiraciVarMi: kiraci !== undefined,
+    sakinVarMi: sakin !== undefined,
+  });
 
   const malikSorumlulari = (sira: SorumlulukSirasi): readonly BorcSorumlusu[] =>
     malikler.map((m) => ({
       kisiId: m.kisiId, sira, rol: 'MALIK' as const, cozumlemeTarihi: tahakkukTarihi,
     }));
 
-  // MALIKE_AIT: kiraci zincire hic girmez, tum malikler asil sorumludur.
+  // MALIKE_AIT: kiraci ve sakin zincire hic girmez, tum malikler asil sorumludur.
   if (alici === 'MALIK') return malikSorumlulari('ASIL');
 
-  // KULLANANA_AIT + kiraci var: kiraci asil, malikler ikincil. Malik her
-  // durumda zincirdedir — kiraci odemezse basvurulacak taraf kaybolmaz.
+  // Asil sorumlu kiraci ya da sakindir; MALIKLER HER DURUMDA IKINCIL olarak
+  // zincirdedir — odenmezse basvurulacak taraf kaybolmaz (KMK md. 22).
+  //
+  // SAKINE_AIT'te kiraci da varsa zincir uc katmanlidir: sakin asil, kiraci ve
+  // malikler ikincil. Kiraci sozlesmenin tarafidir; sakin odemezse ondan
+  // istenir, o da odemezse malikten.
+  const asil = alici === 'SAKIN' ? (sakin as BolumIliskisi) : (kiraci as BolumIliskisi);
+  const araKatman: readonly BorcSorumlusu[] =
+    alici === 'SAKIN' && kiraci !== undefined
+      ? [{ kisiId: kiraci.kisiId, sira: 'IKINCIL', rol: 'KIRACI', cozumlemeTarihi: tahakkukTarihi }]
+      : [];
+
   return [
-    { kisiId: (kiraci as BolumIliskisi).kisiId, sira: 'ASIL', rol: 'KIRACI', cozumlemeTarihi: tahakkukTarihi },
+    { kisiId: asil.kisiId, sira: 'ASIL', rol: alici, cozumlemeTarihi: tahakkukTarihi },
+    ...araKatman,
     ...malikSorumlulari('IKINCIL'),
   ];
 }

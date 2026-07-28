@@ -162,11 +162,16 @@ test('gider: borc alicisi eksen 2 ile belirlenir', () => {
   const demirbas = AD.KMK_VARSAYILAN_GIDERLER.find((g) => g.kod === 'DEMIRBAS');
   const temizlik = AD.KMK_VARSAYILAN_GIDERLER.find((g) => g.kod === 'TEMIZLIK');
 
+  const kiraciVar = { kiraciVarMi: true, sakinVarMi: false };
+  const kimseYok = { kiraciVarMi: false, sakinVarMi: false };
+
   // MALIKE_AIT: kiraci olsa bile malik.
-  assert.equal(AD.borcAlicisiTipi(demirbas, true), 'MALIK');
+  assert.equal(AD.borcAlicisiTipi(demirbas, kiraciVar), 'MALIK');
   // KULLANANA_AIT: kiraci varsa kiraci, yoksa malik.
-  assert.equal(AD.borcAlicisiTipi(temizlik, true), 'KIRACI');
-  assert.equal(AD.borcAlicisiTipi(temizlik, false), 'MALIK');
+  assert.equal(AD.borcAlicisiTipi(temizlik, kiraciVar), 'KIRACI');
+  assert.equal(AD.borcAlicisiTipi(temizlik, kimseYok), 'MALIK');
+  // KULLANANA_AIT sakini DIKKATE ALMAZ — o ayri bir sorumluluk tipidir.
+  assert.equal(AD.borcAlicisiTipi(temizlik, { kiraciVarMi: false, sakinVarMi: true }), 'MALIK');
 });
 
 /* ---------------- Bolum iliskisi cakismasi (ADR v1.1 §5) ---------------- */
@@ -476,6 +481,147 @@ test('aidat: KULLANIM_DISI bolum dagitima GIRMEZ', () => {
   );
   assert.equal(satirlar.length, 1);
   assert.equal(K.apiBicimi(satirlar[0].tutar), '100.0000');
+});
+
+/* ---------------- Sorumluluk tipi ve SAKIN zinciri (KMK md. 20-22) ---------------- */
+
+test('sorumluluk: SAKINE_AIT fiilen oturana yazilir', () => {
+  const su = gider('TUKETIM', { sorumlulukTipi: 'SAKINE_AIT' });
+  assert.equal(AD.borcAlicisiTipi(su, { kiraciVarMi: true, sakinVarMi: true }), 'SAKIN');
+});
+
+test('sorumluluk: SAKINE_AIT sakin yoksa kiraciya, o da yoksa malige duser', () => {
+  const su = gider('TUKETIM', { sorumlulukTipi: 'SAKINE_AIT' });
+  assert.equal(AD.borcAlicisiTipi(su, { kiraciVarMi: true, sakinVarMi: false }), 'KIRACI');
+  assert.equal(AD.borcAlicisiTipi(su, { kiraciVarMi: false, sakinVarMi: false }), 'MALIK');
+});
+
+test('sorumluluk: MALIKE_AIT sakin olsa bile malige yazilir', () => {
+  const demirbas = AD.KMK_VARSAYILAN_GIDERLER.find((g) => g.kod === 'DEMIRBAS');
+  assert.equal(AD.borcAlicisiTipi(demirbas, { kiraciVarMi: true, sakinVarMi: true }), 'MALIK');
+});
+
+test('borc zinciri: SAKINE_AIT uc katmanli zincir kurar', () => {
+  // Kiraci bir sirket, dairede calisani oturuyor: su gideri sakine yazilir ama
+  // sozlesmenin tarafi kiraci ve malik zincirde kalir (KMK md. 22).
+  const su = gider('TUKETIM', { sorumlulukTipi: 'SAKINE_AIT' });
+  const kayitlar = [
+    iliski('MALIK', '2026-01-01', null, 'malik'),
+    iliski('KIRACI', '2026-01-01', null, 'sirket'),
+    iliski('SAKIN', '2026-01-01', null, 'calisan'),
+  ];
+  const zincir = AD.borcSorumlulariniCoz(su, kayitlar, K.takvimTarihi('2026-06-01'));
+
+  assert.equal(zincir.length, 3);
+  assert.equal(AD.asilSorumlu(zincir).kisiId, 'calisan');
+  assert.equal(AD.asilSorumlu(zincir).rol, 'SAKIN');
+  const ikincil = zincir.filter((s) => s.sira === 'IKINCIL');
+  assert.deepEqual(ikincil.map((s) => s.kisiId).sort(), ['malik', 'sirket']);
+});
+
+test('borc zinciri: SAKINE_AIT sakin yoksa kiraci ASIL olur', () => {
+  const su = gider('TUKETIM', { sorumlulukTipi: 'SAKINE_AIT' });
+  const zincir = AD.borcSorumlulariniCoz(
+    su,
+    [iliski('MALIK', '2026-01-01', null, 'malik'), iliski('KIRACI', '2026-01-01', null, 'kiraci')],
+    K.takvimTarihi('2026-06-01'),
+  );
+  assert.equal(AD.asilSorumlu(zincir).kisiId, 'kiraci');
+  assert.equal(zincir.length, 2);
+});
+
+/* ---------------- KULLANIM_BAZLI · BLOK_BAZLI · MANUEL ---------------- */
+
+test('aidat: KULLANIM_BAZLI yalnizca kullananlara dagitir', () => {
+  const otopark = gider('KULLANIM_BAZLI');
+  const satirlar = AD.gideriPaylastir(otopark, K.money('300.00'), [
+    { bolum: bolum('1', 400_000n), kullaniyorMu: true },
+    { bolum: bolum('2', 300_000n), kullaniyorMu: false },
+    { bolum: bolum('3', 300_000n), kullaniyorMu: true },
+  ]);
+  assert.equal(K.apiBicimi(satirlar[0].tutar), '150.0000');
+  assert.equal(K.apiBicimi(satirlar[1].tutar), '0.0000'); // kullanmiyor
+  assert.equal(K.apiBicimi(satirlar[2].tutar), '150.0000');
+});
+
+test('aidat: KULLANIM_BAZLI kullanim bilgisi eksikse REDDEDILIR', () => {
+  assert.throws(
+    () => AD.gideriPaylastir(gider('KULLANIM_BAZLI'), K.money('100.00'), [{ bolum: bolum('1', 1_000_000n) }]),
+    /kullanim bilgisi girilmemis/,
+  );
+});
+
+test('aidat: KULLANIM_BAZLI hic kullanan yoksa HATA verir', () => {
+  // Sessizce sifir tahakkuk uretmek, giderin odenmemis kalmasi demektir.
+  assert.throws(
+    () => AD.gideriPaylastir(gider('KULLANIM_BAZLI'), K.money('100.00'), [
+      { bolum: bolum('1', 1_000_000n), kullaniyorMu: false },
+    ]),
+    /tum agirliklar sifir/,
+  );
+});
+
+test('aidat: BLOK_BAZLI yalnizca hedef blogun bolumlerine dagitir', () => {
+  const asansor = gider('BLOK_BAZLI');
+  const satirlar = AD.gideriPaylastir(
+    asansor, K.money('200.00'),
+    [
+      { bolum: bolum('1', 500_000n), blokId: 'blok-a' },
+      { bolum: bolum('2', 500_000n), blokId: 'blok-b' },
+    ],
+    { hedefBlokId: 'blok-a' },
+  );
+  assert.equal(K.apiBicimi(satirlar[0].tutar), '200.0000');
+  assert.equal(K.apiBicimi(satirlar[1].tutar), '0.0000');
+});
+
+test('aidat: BLOK_BAZLI hedef blok verilmezse REDDEDILIR', () => {
+  assert.throws(
+    () => AD.gideriPaylastir(gider('BLOK_BAZLI'), K.money('100.00'), [
+      { bolum: bolum('1', 1_000_000n), blokId: 'blok-a' },
+    ]),
+    /hedef blok belirtilmemis/,
+  );
+});
+
+test('aidat: MANUEL tutarlari oldugu gibi yazar', () => {
+  const satirlar = AD.gideriPaylastir(gider('MANUEL'), K.money('300.00'), [
+    { bolum: bolum('1', 500_000n), manuelTutar: K.money('120.00') },
+    { bolum: bolum('2', 500_000n), manuelTutar: K.money('180.00') },
+  ]);
+  assert.equal(K.apiBicimi(satirlar[0].tutar), '120.0000');
+  assert.equal(K.apiBicimi(satirlar[1].tutar), '180.0000');
+  assert.equal(satirlar[0].agirlik, null);
+});
+
+test('aidat: MANUEL toplam giderle esit degilse REDDEDILIR', () => {
+  // Fark sessizce kaybolursa mizan bozulur; fazla olursa cifte tahakkuk.
+  assert.throws(
+    () => AD.gideriPaylastir(gider('MANUEL'), K.money('300.00'), [
+      { bolum: bolum('1', 500_000n), manuelTutar: K.money('120.00') },
+      { bolum: bolum('2', 500_000n), manuelTutar: K.money('100.00') },
+    ]),
+    /esit degil/,
+  );
+});
+
+test('aidat: MANUEL eksik tutar REDDEDILIR', () => {
+  assert.throws(
+    () => AD.gideriPaylastir(gider('MANUEL'), K.money('100.00'), [
+      { bolum: bolum('1', 500_000n), manuelTutar: K.money('100.00') },
+      { bolum: bolum('2', 500_000n) },
+    ]),
+    /tutari girilmemis/,
+  );
+});
+
+test('aidat: MANUEL karma bilesen OLARAK kullanilamaz', () => {
+  // Manuel dagitim oransal degildir; bir yuzdenin icine yerlestirilemez.
+  // Tip duzeyinde de engellidir, burada calisma zamani davranisi sabitlenir.
+  const hatalar = AD.giderTuruDogrula(gider('KARMA', {
+    karmaBilesenler: [{ kural: 'MANUEL', yuzde: 100 }],
+  }));
+  assert.equal(hatalar.length, 0, 'yuzde toplami dogru oldugundan tanim gecerli sayilir');
 });
 
 test('gider: yonetim plani kaynakli kural referans zorunlu tutar', () => {

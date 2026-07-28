@@ -7,6 +7,99 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-28 · Oturum 10 — Toplu düzeltme ve KMK'ya uygun tahakkuk kuralları
+
+**Kapsam:** Toplu düzeltme akışları · 8 hesaplama yöntemi · SAKİN sorumluluğu
+**Sonuç:** 51 → **53 uç** · **107 birim testi** (93 → 107) · zincir yeşil
+**Migration:** Gerekmedi — gerektirenler §4'te
+
+### 1. Toplu düzeltme akışları
+
+Oturum 9'un hiyerarşi denetimi sorunları **raporluyordu ama düzeltmiyordu**.
+
+`POST /bolumler/tasi` — bölümleri başka blok/kata taşır. Tek transaction: biri
+başarısız olursa hiçbiri taşınmaz; yarım kalan taşıma hiyerarşiyi denetimin
+bulduğundan daha bozuk bırakırdı. Kapı no tekilliği blok bazlıdır — hedef blokta
+çakışma **ve taşınanların kendi arasındaki mükerrerlik** ayrı ayrı denetlenir.
+`hedefKatId` verilirse bölümün `kat` alanı katın numarasıyla eşitlenir; aksi
+halde taşımanın kendisi `KAT_NO_UYUSMAZLIGI` üretirdi.
+
+`POST /bolumler/arsa-payi-duzelt` — KMK md. 3. İşlem **sonundaki** toplam
+hesaplanır: gönderilen satırlar + dokunulmayan bölümler. Tamı etmiyorsa hiçbir
+satır yazılmaz. Doğrulama kayıpsız kesir aritmetiğiyle yapılır.
+
+### 2. Sorumluluk tipi — SAKİN zincire girdi
+
+KMK md. 20 giderlere kimin katılacağını belirler; yönetim planı ve genel kurul
+kararı bunu değiştirebilir. Üçüncü bir sorumluluk tipi eklendi:
+
+| Tip | Borç kime | Geri düşüş |
+|---|---|---|
+| `MALIKE_AIT` | Her koşulda malik | — (KMK md. 19-20) |
+| `KULLANANA_AIT` | Kiracı varsa kiracı | → malik |
+| **`SAKINE_AIT`** | Fiilen oturan | → kiracı → malik |
+
+**Neden ayrı:** kiracı bir şirket olabilir ve dairede şirketin çalışanı
+oturuyor olabilir. Su ya da ısınma gibi tüketime bağlı giderlerde yönetim planı
+sorumluluğu fiilen oturana verebilir.
+
+`SAKINE_AIT` + kiracı varsa zincir **üç katmanlıdır**: sakin ASIL, kiracı ve
+malikler İKİNCİL. Kiracı sözleşmenin tarafıdır; sakin ödemezse ondan, o da
+ödemezse malikten istenir (KMK md. 22). Malik her zaman zincirin sonundadır.
+
+### 3. Sekiz hesaplama yöntemi
+
+| Yöntem | Durum | Not |
+|---|---|---|
+| Eşit Pay · Arsa Payı · Brüt m² · Net m² | vardı | — |
+| Tüketim · Sabit Tutar · Karma | vardı | — |
+| **Kullanım Bazlı** | **YENİ** | Otopark, havuz, jeneratör — yalnızca kullananlar |
+| **Blok Bazlı** | **YENİ** | O bloktaki asansör onarımı gibi |
+| **Manuel** | **YENİ** | Yönetici tutarları bölüm bölüm belirler |
+| **Malik Hisse Oranı** | eksen 4'e bağlandı | Aşağıya bakınız |
+
+`KULLANIM_BAZLI` ve `BLOK_BAZLI` birer **kapsam** kuralıdır: kapsam dışı bölüm
+sıfır ağırlık alır, payı sıfır olur. Mevcut ağırlık mekanizması içinde çözüldü;
+yeni bir dağıtım motoru gerekmedi. Hiç kullanan yoksa ya da hedef blok boşsa
+**hata verilir** — sessizce sıfır tahakkuk üretmek, giderin ödenmemiş kalması
+demektir.
+
+`MANUEL` dağıtım yapmaz, **doğrulama** yapar: verilen tutarların toplamı giderin
+tamamına eşit olmalıdır. Eşit değilse fark sessizce kaybolur ya da fazla
+tahakkuk edilir — ikisi de mizanı bozar. `MANUEL` bir `KARMA` bileşeni **olamaz**
+(oransal değildir); tip düzeyinde engellidir.
+
+**Dördüncü eksen.** `GiderTuru` artık `malikPaylasimi` taşıyor. `paylasimKurali`
+gideri **bölümlere** dağıtır; `malikPaylasimi` bir bölüme düşen payın o bölümün
+(birden çok olabilen) **malikleri arasında** nasıl bölüneceğini belirler. İki
+eksen bağımsızdır: arsa payına göre dağıtılan bir gider, bölüm içinde eşit de
+bölünebilir. Belirtilmezse `HISSE_ORANI` varsayılır.
+
+"Malik Hisse Oranı" bir `PaylasimKurali` **değildir** ve bu kasıtlıdır: hisse
+oranı bir gideri bölümlere dağıtmaz, bir bölümün borcunu maliklerine böler.
+
+### 4. Migration gerektiren TODO'lar
+
+1. **`IliskiRolu` enum'una `SAKIN` eklenmeli.** Domain `SAKINE_AIT` sorumluluğunu
+   ve üç katmanlı zinciri **bugün destekliyor**, ancak Prisma enum'unda `SAKIN`
+   yok. Tip sistemi bunu derleme anında yakaladı; `iliski` modülünün yazma yolu
+   dar tipe (`MALIK | KIRACI`) sabitlendi. **Sakin sorumluluğu veritabanına
+   yazılamaz** — yalnızca hesaplanabilir.
+2. **`PaylasimKurali` enum'una** `KULLANIM_BAZLI`, `BLOK_BAZLI`, `MANUEL`
+   eklenmeli. Domain destekliyor, `GiderTuru` tablosu saklayamıyor.
+3. **`SorumlulukTipi` enum'una** `SAKINE_AIT` eklenmeli.
+4. **`BorcSorumlusu.rol`** `IliskiRolu` tipindedir; (1) çözülmeden sakin
+   sorumlusu kaydedilemez.
+5. Önceki oturumlardan devam: `bolum_iliskisi` ile `malik`/`kiraci` örtüşmesi ·
+   hisse çakışması için `EXCLUDE USING gist` · kapı no kısmi unique index ·
+   migration `0002` hiç uygulanmadı.
+
+**Sonuç:** Kural motoru KMK'ya uygun çalışıyor ve birim testli, ancak yeni
+kuralların **kalıcı hâle gelmesi migration'a bağlıdır.** Tahakkuk servisi
+yazılmadan önce 1–4 kapatılmalıdır.
+
+---
+
 ## 2026-07-28 · Oturum 9 — Hiyerarşi gezinmesi ve profesyonel kişi yönetimi
 
 **Kapsam:** Hiyerarşiyi uçtan uca doğrulama · malik/kiracı/sakin profesyonelleştirme

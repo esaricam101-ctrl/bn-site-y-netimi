@@ -1,9 +1,20 @@
 /**
- * Gider siniflandirmasi — ADR v1.1 §4 · backlog Y-11
+ * Gider siniflandirmasi — ADR v1.1 §4 · backlog Y-11 · 634 sayili KMK
  *
- * Her gider turu UC BAGIMSIZ EKSEN tasir. Eksenler birbirinden bagimsizdir:
- * bir gider hem arsa payina gore dagitilip hem kullanana yansitilabilir.
+ * Her gider turu DORT BAGIMSIZ EKSEN tasir:
+ *   1. paylasimKurali  gider BOLUMLERE nasil dagitilir
+ *   2. sorumlulukTipi  borc KIME yazilir (malik / kiraci / sakin)
+ *   3. kuralKaynagi    kurali kim koydu (KMK / yonetim plani / genel kurul)
+ *   4. malikPaylasimi  bolumun payi MALIKLER ARASINDA nasil bolunur
+ *
+ * Eksenler birbirinden bagimsizdir: bir gider hem arsa payina gore dagitilip
+ * hem kullanana yansitilabilir, hem de bolum icinde esit bolunebilir.
+ *
+ * KURALLAR KODA GOMULMEZ. Buradaki KMK_VARSAYILAN_GIDERLER yalnizca kanunun
+ * varsayilanidir; her tenant yonetim plani veya genel kurul karariyla kendi
+ * kuralini tanimlar ve override daima kaynak referansi tasir.
  */
+import type { MalikPaylasimi } from '../malik/malik.js';
 
 /**
  * Eksen 1 — paylasim kurali.
@@ -23,6 +34,12 @@ export type PaylasimKurali =
   | 'METREKARE'
   | 'TUKETIM'
   | 'SABIT_TUTAR'
+  /** Yalnizca hizmeti KULLANAN bolumler oder — otopark, havuz, jeneratör. */
+  | 'KULLANIM_BAZLI'
+  /** Yalnizca ilgili BLOGUN bolumleri oder — o bloktaki asansor onarimi gibi. */
+  | 'BLOK_BAZLI'
+  /** Yonetici tutarlari BOLUM BOLUM belirler; toplam gidere esit olmak zorundadir. */
+  | 'MANUEL'
   | 'KARMA';
 
 /**
@@ -30,17 +47,38 @@ export type PaylasimKurali =
  * dagitilir. Ornek: yakitin %30'u esit, %70'i brut m2.
  */
 export interface KarmaBilesen {
-  readonly kural: Exclude<PaylasimKurali, 'KARMA'>;
+  /**
+   * MANUEL bir bilesen OLAMAZ: manuel dagitim oransal degil, bolum bolum
+   * verilen tutarlardir; bir yuzdenin icine yerlestirilemez.
+   */
+  readonly kural: Exclude<PaylasimKurali, 'KARMA' | 'MANUEL'>;
   /** Tam sayi yuzde. Bilesenlerin toplami 100 olmak zorundadir. */
   readonly yuzde: number;
 }
 
 /**
- * Eksen 2 — sorumluluk tipi
- *   MALIKE_AIT    -> demirbas, yatirim, ana yapi onarimi. HER KOSULDA malik.
- *   KULLANANA_AIT -> varsa kiraci, yoksa malik.
+ * Eksen 2 — sorumluluk tipi. Borcun KIME yazilacagini belirler.
+ *
+ *   MALIKE_AIT    -> demirbas, yatirim, ana yapi onarimi. HER KOSULDA malik
+ *                    (KMK md. 19-20: anayapinin korunmasi malike aittir).
+ *   KULLANANA_AIT -> varsa kiraci, yoksa malik (KMK md. 20/a: kapici, kalorifer,
+ *                    temizlik giderlerine kullanan katilir).
+ *   SAKINE_AIT    -> fiilen oturan. Sakin yoksa kiraci, o da yoksa malik.
+ *
+ * SAKINE_AIT ile KULLANANA_AIT ayrimi onemlidir: kiraci bir sirket olabilir ve
+ * dairede sirketin calisani oturuyor olabilir. Su ya da isinma gibi tuketime
+ * bagli giderlerde yonetim plani sorumlulugu FIILEN OTURANA verebilir.
+ *
+ * Hangi giderin hangi tipte oldugu KODA GOMULMEZ — yonetim plani veya genel
+ * kurul karariyla belirlenir ve `kuralKaynagi` ile kayda gecer.
  */
-export type SorumlulukTipi = 'MALIKE_AIT' | 'KULLANANA_AIT';
+export type SorumlulukTipi = 'MALIKE_AIT' | 'KULLANANA_AIT' | 'SAKINE_AIT';
+
+/** Bolumde tahakkuk aninda kimlerin bulundugu. */
+export interface KullanimDurumu {
+  readonly kiraciVarMi: boolean;
+  readonly sakinVarMi: boolean;
+}
 
 /** Eksen 3 — kuralin kaynagi. Kimin degistirebilecegini belirler. */
 export type KuralKaynagi = 'KMK_VARSAYILAN' | 'YONETIM_PLANI' | 'GENEL_KURUL_KARARI';
@@ -55,6 +93,17 @@ export interface GiderTuru {
   readonly kaynakReferansi: string | null;
   /** Yalnizca `paylasimKurali === 'KARMA'` iken doludur. */
   readonly karmaBilesenler?: readonly KarmaBilesen[];
+  /**
+   * Eksen 4 — bolumun borcu MALIKLER ARASINDA nasil bolunur.
+   *
+   * `paylasimKurali` gideri BOLUMLERE dagitir; bu alan bir bolume dusen payin
+   * o bolumun (birden cok olabilen) malikleri arasinda nasil bolunecegini
+   * belirler. Iki eksen bagimsizdir: arsa payina gore dagitilan bir gider,
+   * bolum icinde esit de bolunebilir.
+   *
+   * Belirtilmezse `HISSE_ORANI` varsayilir — tapu hissesi dogal olcuttur.
+   */
+  readonly malikPaylasimi?: MalikPaylasimi;
 }
 
 /**
@@ -124,10 +173,26 @@ export function giderTuruDogrula(g: GiderTuru): readonly string[] {
 
 /**
  * Bir giderin borcunun kime yazilacagini belirler (Eksen 2).
- * Yonetici, yonetim plani ve kararlara gore bu secimi override edebilir;
- * override daima GiderTuru uzerinden yapilir, tahakkuk aninda degil.
+ *
+ * Yonetici, yonetim plani ve genel kurul kararlarina gore bu secimi override
+ * edebilir; override daima GiderTuru uzerinden yapilir, TAHAKKUK ANINDA DEGIL.
+ * Aksi halde ayni gider iki ayri tahakkukta farkli kisiye yazilabilir ve
+ * "neden bu kisi?" sorusunun belgeye dayali cevabi kalmaz.
+ *
+ * GERI DUSUS ZINCIRI: sorumlu rol o bolumde bulunmuyorsa bir ust role dusulur.
+ * Malik her zaman zincirin sonundadir — basvurulacak taraf kaybolmaz.
  */
-export function borcAlicisiTipi(gider: GiderTuru, kiraciVarMi: boolean): 'MALIK' | 'KIRACI' {
-  if (gider.sorumlulukTipi === 'MALIKE_AIT') return 'MALIK';
-  return kiraciVarMi ? 'KIRACI' : 'MALIK';
+export function borcAlicisiTipi(
+  gider: GiderTuru,
+  durum: KullanimDurumu,
+): 'MALIK' | 'KIRACI' | 'SAKIN' {
+  switch (gider.sorumlulukTipi) {
+    case 'MALIKE_AIT':
+      return 'MALIK';
+    case 'SAKINE_AIT':
+      if (durum.sakinVarMi) return 'SAKIN';
+      return durum.kiraciVarMi ? 'KIRACI' : 'MALIK';
+    case 'KULLANANA_AIT':
+      return durum.kiraciVarMi ? 'KIRACI' : 'MALIK';
+  }
 }

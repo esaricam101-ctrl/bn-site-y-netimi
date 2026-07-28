@@ -75,7 +75,11 @@ export class IliskiCommandService {
       await tx.bolumIliskisi.create({
         data: {
           id, tenantId: principal.tenantId, bolumId,
-          kisiId: yeni.kisiId, rol: yeni.rol,
+          // `dto.rol` dar tiplidir (MALIK | KIRACI); `yeni.rol` domain'in genis
+          // `BolumRolu` tipini tasir ve SAKIN'i da icerir. Prisma `IliskiRolu`
+          // enum'unda SAKIN YOKTUR — eklenmesi migration gerektirir (DEVLOG TODO).
+          // Bu yuzden veritabanina dar tip yazilir.
+          kisiId: yeni.kisiId, rol: dto.rol,
           baslangic: takvimTarihiniYaz(yeni.baslangic),
           bitis: yeni.bitis === null ? null : takvimTarihiniYaz(yeni.bitis),
         },
