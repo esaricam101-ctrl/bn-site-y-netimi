@@ -25,6 +25,7 @@ import { MalikModule } from './modules/malik/malik.module';
 import { KiraciModule } from './modules/kiraci/kiraci.module';
 import { SakinModule } from './modules/sakin/sakin.module';
 import { DaireModule } from './modules/daire/daire.module';
+import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
 
 @Module({
   imports: [
@@ -50,6 +51,8 @@ import { DaireModule } from './modules/daire/daire.module';
     // Okuma modeli: yukarıdakileri tek daire kartında birleştirir.
     DaireModule,
     IliskiModule,
+    // Denetim kaydı OKUMA ucu. Yazma tarafı common/audit içindedir.
+    AuditSorguModule,
   ],
   providers: [
     // ÜÇ KAPI — sıra değişmez (ADR-0006 · BFS v1 §3).

@@ -50,6 +50,85 @@ export interface MockBolum {
   readonly aidatMuafiyeti: boolean;
 }
 
+/** Malik satırı — gerçek uçla (MalikSatiri) aynı şekil. */
+export interface MockMalik {
+  readonly id: string;
+  readonly kisiId: string;
+  readonly kisiAdi: string;
+  readonly hisse: string;
+  readonly tapuTuru: string;
+  readonly tapuBaslangic: string;
+  readonly tapuBitis: string | null;
+  readonly tapuYevmiyeNo: string | null;
+  readonly vekilKisiId: string | null;
+  readonly vekilAdi: string | null;
+  readonly vekaletnameNo: string | null;
+  readonly vekaletBitisTarihi: string | null;
+  readonly gecerliMi: boolean;
+}
+
+export interface MockHisseRaporu {
+  readonly gecerli: boolean;
+  readonly toplam: string;
+  readonly mesaj: string;
+  readonly tarih: string;
+  readonly malikSayisi: number;
+}
+
+export interface MockKiraci {
+  readonly id: string;
+  readonly kisiId: string;
+  readonly kisiAdi: string;
+  readonly baslangic: string;
+  readonly bitis: string | null;
+  readonly sozlesmeNo: string | null;
+  readonly sozlesmeTarihi: string | null;
+  readonly depozito: string | null;
+  readonly depozitoIadeTarihi: string | null;
+  readonly tahliyeTarihi: string | null;
+  readonly tahliyeGerekcesi: string | null;
+  readonly gecerliMi: boolean;
+}
+
+export interface MockSakin {
+  readonly id: string;
+  readonly kisiId: string;
+  readonly kisiAdi: string;
+  readonly eposta: string | null;
+  readonly telefon: string | null;
+  readonly yakinlikDerecesi: string;
+  readonly girisTarihi: string;
+  readonly cikisTarihi: string | null;
+  readonly acilDurumKisiAdi: string | null;
+  readonly acilDurumTelefon: string | null;
+  readonly gecerliMi: boolean;
+}
+
+/** Daire kartı — gerçek uçla (DaireKarti) aynı şekil. */
+export interface MockDaireKarti {
+  readonly bolum: MockBolum;
+  readonly malikler: readonly MockMalik[];
+  readonly hisseDurumu: MockHisseRaporu;
+  readonly kiracilar: readonly MockKiraci[];
+  readonly sakinler: readonly MockSakin[];
+  readonly tarih: string | null;
+}
+
+/** Denetim kaydı — gerçek uçla (AuditSatiri) aynı şekil. */
+export interface MockAuditSatiri {
+  readonly id: string;
+  readonly eylem: string;
+  readonly varlik: string;
+  readonly varlikId: string;
+  readonly principalId: string;
+  readonly principalTipi: string;
+  readonly gerekce: string | null;
+  readonly correlationId: string;
+  readonly olusmaAni: string;
+  readonly oncekiDeger: unknown;
+  readonly sonrakiDeger: unknown;
+}
+
 /** Gerçek uç cursor sayfalama döner; mock da AYNI zarfı taşır. */
 export interface SayfaliSonuc<T> {
   readonly kayitlar: readonly T[];
@@ -143,6 +222,107 @@ const yerlesimSatirlari: readonly MockYerlesimSatiri[] = mockBolumler.map((b, i)
   sakinSayisi: i % 4,
   bosMu: i % 5 === 0,
 }));
+
+/**
+ * Daire kartı mock'u — bölüm kimliğinden TÜRETİLİR, sabittir.
+ *
+ * Her beşinci bölümde malik yok (hisse denetimi uyarısı görünsün), her
+ * üçüncüsünde kiracı var. Yerleşim özetiyle AYNI kuralı kullanır; iki ekran
+ * çelişkili veri göstermez.
+ */
+export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
+  const bolum = mockBolumler.find((b) => b.id === bolumId);
+  if (bolum === undefined) return null;
+
+  const i = mockBolumler.indexOf(bolum);
+  const malikSayisi = i % 5 === 0 ? 0 : i % 3 === 0 ? 2 : 1;
+  const hisseTam = i % 5 !== 0;
+
+  const malikler: MockMalik[] = Array.from({ length: malikSayisi }, (_, m) => ({
+    id: `malik-${bolumId}-${m}`,
+    kisiId: `kisi-m-${i}-${m}`,
+    kisiAdi: m === 0 ? 'Ayşe Yılmaz' : 'Mehmet Yılmaz',
+    hisse: malikSayisi === 2 ? '1/2' : '1/1',
+    tapuTuru: 'KAT_MULKIYETI',
+    tapuBaslangic: '2020-03-15',
+    tapuBitis: null,
+    tapuYevmiyeNo: `2020/${1000 + i}`,
+    vekilKisiId: null,
+    vekilAdi: null,
+    vekaletnameNo: null,
+    vekaletBitisTarihi: null,
+    gecerliMi: true,
+  }));
+
+  const kiraciVar = i % 3 === 1;
+  const kiracilar: MockKiraci[] = kiraciVar
+    ? [{
+        id: `kiraci-${bolumId}`,
+        kisiId: `kisi-k-${i}`,
+        kisiAdi: 'Zeynep Demir',
+        baslangic: '2025-09-01',
+        bitis: null,
+        sozlesmeNo: `K-2025-${100 + i}`,
+        sozlesmeTarihi: '2025-08-20',
+        depozito: '25000.0000',
+        depozitoIadeTarihi: null,
+        tahliyeTarihi: null,
+        tahliyeGerekcesi: null,
+        gecerliMi: true,
+      }]
+    : [];
+
+  const sakinSayisi = i % 4;
+  const sakinler: MockSakin[] = Array.from({ length: sakinSayisi }, (_, s) => ({
+    id: `sakin-${bolumId}-${s}`,
+    kisiId: `kisi-s-${i}-${s}`,
+    kisiAdi: s === 0 ? 'Zeynep Demir' : 'Ali Demir',
+    eposta: s === 0 ? 'zeynep@ornek.test' : null,
+    telefon: '+90 532 000 00 00',
+    yakinlikDerecesi: s === 0 ? 'KENDISI' : 'COCUK',
+    girisTarihi: '2025-09-01',
+    cikisTarihi: null,
+    acilDurumKisiAdi: 'Fatma Demir',
+    acilDurumTelefon: '+90 533 111 11 11',
+    gecerliMi: true,
+  }));
+
+  return {
+    bolum,
+    malikler,
+    hisseDurumu: {
+      gecerli: hisseTam && malikSayisi > 0,
+      toplam: malikSayisi === 0 ? '0.000000' : '1.000000',
+      mesaj:
+        malikSayisi === 0
+          ? 'Bu tarihte geçerli malik kaydı yok. Bölüm sahipsiz görünüyor.'
+          : 'Hisse oranları toplamı tamı ediyor.',
+      tarih: '2026-07-28',
+      malikSayisi,
+    },
+    kiracilar,
+    sakinler,
+    tarih: null,
+  };
+}
+
+/** Denetim kaydı mock'u — bölüm kimliğine göre sabit üretilir. */
+export function mockAuditKayitlari(varlikId: string): readonly MockAuditSatiri[] {
+  return [
+    {
+      id: `audit-${varlikId}-2`, eylem: 'GUNCELLE', varlik: 'BagimsizBolum',
+      varlikId, principalId: 'kullanici-1', principalTipi: 'INSAN',
+      gerekce: null, correlationId: 'c-2', olusmaAni: '2026-06-14T09:12:00.000Z',
+      oncekiDeger: { durum: 'BOS' }, sonrakiDeger: { durum: 'AKTIF' },
+    },
+    {
+      id: `audit-${varlikId}-1`, eylem: 'OLUSTUR', varlik: 'BagimsizBolum',
+      varlikId, principalId: 'kullanici-1', principalTipi: 'INSAN',
+      gerekce: null, correlationId: 'c-1', olusmaAni: '2026-01-08T14:03:00.000Z',
+      oncekiDeger: null, sonrakiDeger: { kapiNo: 'A11', nitelik: 'MESKEN' },
+    },
+  ];
+}
 
 export const mockYerlesim: MockYerlesimOzeti = {
   bolumSayisi: yerlesimSatirlari.length,

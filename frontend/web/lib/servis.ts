@@ -11,8 +11,11 @@
  */
 import { api } from './api';
 import {
-  mockApartmanlar, mockBloklar, mockBolumler, mockKatlar, mockYerlesim,
-  type MockApartman, type MockBlok, type MockBolum, type MockKat,
+  mockApartmanlar, mockAuditKayitlari, mockBloklar, mockBolumler,
+  mockDaireKarti, mockKatlar, mockYerlesim,
+  type MockApartman, type MockAuditSatiri, type MockBlok, type MockBolum,
+  type MockDaireKarti, type MockHisseRaporu, type MockKat, type MockKiraci,
+  type MockMalik, type MockSakin,
   type MockYerlesimOzeti, type MockYerlesimSatiri, type SayfaliSonuc,
 } from './mock/veri';
 
@@ -78,13 +81,42 @@ export const servis = {
 
   yerlesimOzeti: (): Promise<MockYerlesimOzeti> =>
     getir('/bolumler/yerlesim-ozeti', mockYerlesim),
+
+  /** Daire kartı — malik · hisse · kiracı · sakin tek çağrıda. */
+  daireKarti: async (bolumId: string): Promise<MockDaireKarti> => {
+    const mock = mockDaireKarti(bolumId);
+    if (MOCK_AKTIF) {
+      if (mock === null) throw new Error(`Bölüm bulunamadı: ${bolumId}`);
+      return gecikmeli(mock);
+    }
+    const token = jeton();
+    return api<MockDaireKarti>(`/daireler/${bolumId}/kart`, {
+      ...(token ? { token } : {}),
+    });
+  },
+
+  /** Denetim kayıtları — kim, ne zaman, ne yaptı. */
+  auditKayitlari: (
+    varlik: string,
+    varlikId: string,
+  ): Promise<SayfaliSonuc<MockAuditSatiri>> =>
+    getir(`/audit?varlik=${varlik}&varlikId=${varlikId}`, {
+      kayitlar: mockAuditKayitlari(varlikId),
+      sonrakiImlec: null,
+    }),
 };
 
 export type {
   MockApartman as Apartman,
+  MockAuditSatiri as AuditSatiri,
   MockBlok as Blok,
   MockBolum as Bolum,
+  MockDaireKarti as DaireKarti,
+  MockHisseRaporu as HisseRaporu,
   MockKat as Kat,
+  MockKiraci as Kiraci,
+  MockMalik as Malik,
+  MockSakin as Sakin,
   MockYerlesimOzeti as YerlesimOzeti,
   MockYerlesimSatiri as YerlesimSatiri,
   SayfaliSonuc,
