@@ -13,6 +13,7 @@ import { api } from './api';
 import {
   mockApartmanlar, mockAuditKayitlari, mockBloklar, mockBolumler,
   mockDaireKarti, mockKatlar, mockYerlesim,
+  mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
   type MockApartman, type MockAuditSatiri, type MockBlok, type MockBolum,
   type MockDaireKarti, type MockHisseRaporu, type MockKat, type MockKiraci,
   type MockMalik, type MockSakin,
@@ -37,6 +38,47 @@ async function getir<T>(yol: string, mockDeger: T): Promise<T> {
   if (MOCK_AKTIF) return gecikmeli(mockDeger);
   const token = jeton();
   return api<T>(yol, { ...(token ? { token } : {}) });
+}
+
+/**
+ * Yazma isteği. Mock modda `mockEtki` çalıştırılır — hiçbir şey yapmasaydı
+ * kullanıcı formu doldurur, "kaydedildi" görür ve liste değişmezdi.
+ *
+ * Kayıt oluşturan her POST idempotency anahtarı taşır (BFS v1 §12): ağ
+ * yeniden denemesi mükerrer kayıt üretmemelidir.
+ */
+async function gonder(
+  yol: string,
+  method: 'POST' | 'PATCH',
+  govde: unknown,
+  mockEtki: () => void,
+): Promise<void> {
+  if (MOCK_AKTIF) {
+    mockEtki();
+    await gecikmeli(null);
+    return;
+  }
+  const token = jeton();
+  await api<unknown>(yol, {
+    method,
+    govde,
+    ...(token ? { token } : {}),
+    ...(method === 'POST' ? { idempotencyKey: crypto.randomUUID() } : {}),
+  });
+}
+
+export interface MalikEkleGirdisi {
+  readonly kisiAdi: string;
+  readonly hissePay: string;
+  readonly hissePayda: string;
+  readonly tapuTuru: string;
+  readonly tapuBaslangic: string;
+  readonly tapuYevmiyeNo?: string;
+}
+
+export interface MalikDuzeltGirdisi {
+  readonly tapuTuru?: string;
+  readonly tapuYevmiyeNo?: string;
 }
 
 export const servis = {
@@ -104,6 +146,36 @@ export const servis = {
       kayitlar: mockAuditKayitlari(varlikId),
       sonrakiImlec: null,
     }),
+
+  // --- Malik yazma işlemleri ---
+  // Mock modda bellek örtüsü güncellenir; kalıcılık gerçek backend'in işidir
+  // ve taklit EDİLMEZ (sayfa yenilenince başlangıç durumuna döner).
+
+  malikEkle: (bolumId: string, dto: MalikEkleGirdisi): Promise<void> =>
+    gonder(`/bolumler/${bolumId}/malikler`, 'POST', dto, () => {
+      mockMalikEkle(bolumId, dto);
+    }),
+
+  /** Tapu dönemini kapatır. Kayıt SİLİNMEZ — tarihçe korunur. */
+  malikDevret: (bolumId: string, malikId: string, tapuBitis: string): Promise<void> =>
+    gonder(
+      `/bolumler/${bolumId}/malikler/${malikId}/devret`, 'PATCH', { tapuBitis },
+      () => { mockMalikDevret(bolumId, malikId, tapuBitis); },
+    ),
+
+  /**
+   * Yazım hatası ve vekâlet düzeltmesi. HİSSE ORANI BURADA DEĞİŞTİRİLEMEZ —
+   * hisse değişikliği bir devirdir (`malikDevret` + `malikEkle`).
+   */
+  malikDuzelt: (
+    bolumId: string,
+    malikId: string,
+    dto: MalikDuzeltGirdisi,
+  ): Promise<void> =>
+    gonder(
+      `/bolumler/${bolumId}/malikler/${malikId}`, 'PATCH', dto,
+      () => { mockMalikDuzelt(bolumId, malikId, dto); },
+    ),
 };
 
 export type {

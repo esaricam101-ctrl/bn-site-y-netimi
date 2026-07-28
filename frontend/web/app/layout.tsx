@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations } from 'next-intl/server';
 import { GorunumSaglayici } from '@/components/gorunum-saglayici';
+import { BildirimSaglayici } from '@/components/bildirim';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -35,11 +36,13 @@ export default async function RootLayout({
       <body data-density="rahat">
         <NextIntlClientProvider messages={messages}>
           <GorunumSaglayici>
-            {/* Erisilebilirlik: klavye kullanicisi icin atlama baglantisi */}
-            <a href="#icerik" className="skip">
-              {t('genelBakis')}
-            </a>
-            <div id="icerik">{children}</div>
+            <BildirimSaglayici>
+              {/* Erisilebilirlik: klavye kullanicisi icin atlama baglantisi */}
+              <a href="#icerik" className="skip">
+                {t('genelBakis')}
+              </a>
+              <div id="icerik">{children}</div>
+            </BildirimSaglayici>
           </GorunumSaglayici>
         </NextIntlClientProvider>
       </body>

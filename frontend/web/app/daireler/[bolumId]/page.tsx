@@ -21,6 +21,8 @@ import { UygulamaKabugu } from '@/components/uygulama-kabugu';
 import { BosDurum, HataDurumu, Yukleniyor } from '@/components/durumlar';
 import { SekmeCubugu, SekmePaneli, type Sekme } from '@/components/daire/sekmeler';
 import { HazirDegil } from '@/components/daire/hazir-degil';
+import { MalikEkleFormu } from '@/components/malik/malik-ekle-formu';
+import { MalikEylemleri } from '@/components/malik/malik-eylemleri';
 import { servis, type AuditSatiri, type DaireKarti } from '@/lib/servis';
 
 function Alan({ etiket, deger }: { readonly etiket: string; readonly deger: string }) {
@@ -48,6 +50,7 @@ export default function DaireKartiSayfasi({
 }) {
   const t = useTranslations('daire');
   const tb = useTranslations('bolum');
+  const tm = useTranslations('malik');
   const tn = useTranslations('navigasyon');
   const tg = useTranslations('genel');
 
@@ -58,6 +61,7 @@ export default function DaireKartiSayfasi({
 
   const [audit, setAudit] = useState<readonly AuditSatiri[] | null>(null);
   const [auditYukleniyor, setAuditYukleniyor] = useState(false);
+  const [formAcik, setFormAcik] = useState(false);
 
   const yukle = useCallback(() => {
     setYukleniyor(true);
@@ -176,36 +180,60 @@ export default function DaireKartiSayfasi({
 
       {/* --- Malikler --- */}
       <SekmePaneli anahtar="malikler" etkin={etkinSekme}>
-        {kart.malikler.length === 0 ? (
-          <BosDurum aciklama={t('malikYok')} />
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {kart.malikler.map((m) => (
-              <div key={m.id} className="glass p-[var(--cardpad)]"
-                   style={{ opacity: m.gecerliMi ? 1 : 0.6 }}>
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold">{m.kisiAdi}</p>
-                  <span className="text-sm num">{m.hisse}</span>
+        <div className="flex flex-col gap-4">
+          {!formAcik && (
+            <button
+              type="button"
+              onClick={() => setFormAcik(true)}
+              className="self-start px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold"
+              style={{ backgroundImage: 'var(--grad)' }}
+            >
+              {tm('yeniMalik')}
+            </button>
+          )}
+
+          {formAcik && (
+            <MalikEkleFormu
+              bolumId={params.bolumId}
+              onEklendi={() => { setFormAcik(false); yukle(); }}
+              onIptal={() => setFormAcik(false)}
+            />
+          )}
+
+          {kart.malikler.length === 0 ? (
+            <BosDurum aciklama={t('malikYok')} />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {kart.malikler.map((m) => (
+                <div key={m.id} className="glass p-[var(--cardpad)]"
+                     style={{ opacity: m.gecerliMi ? 1 : 0.6 }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold">{m.kisiAdi}</p>
+                    <span className="text-sm num">{m.hisse}</span>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-2 mt-3">
+                    <Alan etiket={t('tapuTuru')} deger={t(`tapuTuru_${m.tapuTuru}`)} />
+                    <Alan etiket={t('tapuBaslangic')} deger={m.tapuBaslangic} />
+                    <Alan etiket={t('tapuBitis')} deger={m.tapuBitis ?? t('surüyor')} />
+                    <Alan etiket={t('yevmiyeNo')} deger={m.tapuYevmiyeNo ?? '—'} />
+                  </dl>
+                  {m.vekilAdi !== null && (
+                    <p className="text-sm mt-3 pt-3 border-t border-[color:var(--line)]">
+                      <span className="text-[color:var(--muted-2)]">{t('vekil')}: </span>
+                      {m.vekilAdi} ({m.vekaletnameNo})
+                    </p>
+                  )}
+                  {!m.gecerliMi && (
+                    <p className="text-xs mt-2 text-[color:var(--muted-2)]">{t('gecmisKayit')}</p>
+                  )}
+
+                  {/* Devret ve Duzelt AYRI eylemlerdir — bkz. malik-eylemleri.tsx */}
+                  <MalikEylemleri bolumId={params.bolumId} malik={m} onDegisti={yukle} />
                 </div>
-                <dl className="grid grid-cols-2 gap-2 mt-3">
-                  <Alan etiket={t('tapuTuru')} deger={t(`tapuTuru_${m.tapuTuru}`)} />
-                  <Alan etiket={t('tapuBaslangic')} deger={m.tapuBaslangic} />
-                  <Alan etiket={t('tapuBitis')} deger={m.tapuBitis ?? t('surüyor')} />
-                  <Alan etiket={t('yevmiyeNo')} deger={m.tapuYevmiyeNo ?? '—'} />
-                </dl>
-                {m.vekilAdi !== null && (
-                  <p className="text-sm mt-3 pt-3 border-t border-[color:var(--line)]">
-                    <span className="text-[color:var(--muted-2)]">{t('vekil')}: </span>
-                    {m.vekilAdi} ({m.vekaletnameNo})
-                  </p>
-                )}
-                {!m.gecerliMi && (
-                  <p className="text-xs mt-2 text-[color:var(--muted-2)]">{t('gecmisKayit')}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </SekmePaneli>
 
       {/* --- Kiracılar --- */}

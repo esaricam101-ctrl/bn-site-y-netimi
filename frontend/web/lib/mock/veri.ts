@@ -230,15 +230,15 @@ const yerlesimSatirlari: readonly MockYerlesimSatiri[] = mockBolumler.map((b, i)
  * üçüncüsünde kiracı var. Yerleşim özetiyle AYNI kuralı kullanır; iki ekran
  * çelişkili veri göstermez.
  */
-export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
-  const bolum = mockBolumler.find((b) => b.id === bolumId);
-  if (bolum === undefined) return null;
-
-  const i = mockBolumler.indexOf(bolum);
+/**
+ * Bölümün BAŞLANGIÇ malik listesi — yazma örtüsünden bağımsız saf hesap.
+ *
+ * `malikleriAl` bunu çağırır; `mockDaireKarti` de örtüyü çağırır. İkisi
+ * birbirini çağırsaydı sonsuz özyineleme olurdu.
+ */
+function varsayilanMalikler(bolumId: string, i: number): MockMalik[] {
   const malikSayisi = i % 5 === 0 ? 0 : i % 3 === 0 ? 2 : 1;
-  const hisseTam = i % 5 !== 0;
-
-  const malikler: MockMalik[] = Array.from({ length: malikSayisi }, (_, m) => ({
+  return Array.from({ length: malikSayisi }, (_, m) => ({
     id: `malik-${bolumId}-${m}`,
     kisiId: `kisi-m-${i}-${m}`,
     kisiAdi: m === 0 ? 'Ayşe Yılmaz' : 'Mehmet Yılmaz',
@@ -253,6 +253,17 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
     vekaletBitisTarihi: null,
     gecerliMi: true,
   }));
+}
+
+export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
+  const bolum = mockBolumler.find((b) => b.id === bolumId);
+  if (bolum === undefined) return null;
+
+  const i = mockBolumler.indexOf(bolum);
+  // Yazma ortusu varsa o gecerlidir; eklenen malik kartta gorunur.
+  const malikler = malikleriAl(bolumId, varsayilanMalikler(bolumId, i));
+  const gecerliMalikler = malikler.filter((m) => m.gecerliMi);
+  const hisseTam = gecerliMalikler.length > 0;
 
   const kiraciVar = i % 3 === 1;
   const kiracilar: MockKiraci[] = kiraciVar
@@ -291,19 +302,106 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
     bolum,
     malikler,
     hisseDurumu: {
-      gecerli: hisseTam && malikSayisi > 0,
-      toplam: malikSayisi === 0 ? '0.000000' : '1.000000',
-      mesaj:
-        malikSayisi === 0
-          ? 'Bu tarihte geçerli malik kaydı yok. Bölüm sahipsiz görünüyor.'
-          : 'Hisse oranları toplamı tamı ediyor.',
+      gecerli: hisseTam,
+      toplam: hisseTam ? '1.000000' : '0.000000',
+      mesaj: hisseTam
+        ? 'Hisse oranları toplamı tamı ediyor.'
+        : 'Bu tarihte geçerli malik kaydı yok. Bölüm sahipsiz görünüyor.',
       tarih: '2026-07-28',
-      malikSayisi,
+      malikSayisi: gecerliMalikler.length,
     },
     kiracilar,
     sakinler,
     tarih: null,
   };
+}
+
+/**
+ * Mock yazma katmanı — oturum içi bellek örtüsü.
+ *
+ * NEDEN VAR: malik uçları backend'de GERÇEKTEN var, yalnızca veritabanı
+ * çalışmıyor (TODO-3). Yazma işlemi hiçbir şey yapmasaydı kullanıcı formu
+ * doldurur, "kaydedildi" görür ve liste değişmezdi — akış test edilemezdi.
+ *
+ * SINIR: örtü YALNIZCA bellektedir; sayfa yenilenince başlangıç durumuna
+ * döner. Kalıcılık gerçek backend'in işidir ve taklit edilmez.
+ */
+const malikOrtusu = new Map<string, MockMalik[]>();
+
+function malikleriAl(bolumId: string, varsayilan: readonly MockMalik[]): MockMalik[] {
+  const mevcut = malikOrtusu.get(bolumId);
+  if (mevcut !== undefined) return mevcut;
+  const kopya = [...varsayilan];
+  malikOrtusu.set(bolumId, kopya);
+  return kopya;
+}
+
+export interface MockMalikEkle {
+  readonly kisiAdi: string;
+  readonly hissePay: string;
+  readonly hissePayda: string;
+  readonly tapuTuru: string;
+  readonly tapuBaslangic: string;
+  readonly tapuYevmiyeNo?: string;
+}
+
+export function mockMalikEkle(bolumId: string, dto: MockMalikEkle): MockMalik {
+  const kart = mockDaireKarti(bolumId);
+  if (kart === null) throw new Error(`Bölüm bulunamadı: ${bolumId}`);
+  const liste = malikleriAl(bolumId, kart.malikler);
+
+  const yeni: MockMalik = {
+    id: `malik-${bolumId}-${liste.length}-${liste.length + 1}`,
+    kisiId: `kisi-yeni-${liste.length}`,
+    kisiAdi: dto.kisiAdi,
+    hisse: `${dto.hissePay}/${dto.hissePayda}`,
+    tapuTuru: dto.tapuTuru,
+    tapuBaslangic: dto.tapuBaslangic,
+    tapuBitis: null,
+    tapuYevmiyeNo: dto.tapuYevmiyeNo ?? null,
+    vekilKisiId: null,
+    vekilAdi: null,
+    vekaletnameNo: null,
+    vekaletBitisTarihi: null,
+    gecerliMi: true,
+  };
+  liste.push(yeni);
+  return yeni;
+}
+
+export function mockMalikDevret(bolumId: string, malikId: string, tapuBitis: string): void {
+  const kart = mockDaireKarti(bolumId);
+  if (kart === null) throw new Error(`Bölüm bulunamadı: ${bolumId}`);
+  const liste = malikleriAl(bolumId, kart.malikler);
+  const i = liste.findIndex((m) => m.id === malikId);
+  if (i < 0) throw new Error(`Malik kaydı bulunamadı: ${malikId}`);
+  // Kayit SILINMEZ; donemi kapanir ve tarihcede kalir.
+  liste[i] = { ...(liste[i] as MockMalik), tapuBitis, gecerliMi: false };
+}
+
+export function mockMalikDuzelt(
+  bolumId: string,
+  malikId: string,
+  dto: { readonly tapuTuru?: string; readonly tapuYevmiyeNo?: string },
+): void {
+  const kart = mockDaireKarti(bolumId);
+  if (kart === null) throw new Error(`Bölüm bulunamadı: ${bolumId}`);
+  const liste = malikleriAl(bolumId, kart.malikler);
+  const i = liste.findIndex((m) => m.id === malikId);
+  if (i < 0) throw new Error(`Malik kaydı bulunamadı: ${malikId}`);
+  const mevcut = liste[i] as MockMalik;
+  liste[i] = {
+    ...mevcut,
+    ...(dto.tapuTuru === undefined ? {} : { tapuTuru: dto.tapuTuru }),
+    ...(dto.tapuYevmiyeNo === undefined ? {} : { tapuYevmiyeNo: dto.tapuYevmiyeNo }),
+  };
+}
+
+/** Örtü varsa onu, yoksa hesaplanan varsayılanı döner. */
+export function mockMalikleriOku(bolumId: string): readonly MockMalik[] | null {
+  const kart = mockDaireKarti(bolumId);
+  if (kart === null) return null;
+  return malikleriAl(bolumId, kart.malikler);
 }
 
 /** Denetim kaydı mock'u — bölüm kimliğine göre sabit üretilir. */
