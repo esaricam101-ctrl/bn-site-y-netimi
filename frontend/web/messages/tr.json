@@ -36,6 +36,22 @@
     "kisiler": "Kişiler",
     "daireKarti": "Daire kartı"
   },
+  "apartman": {
+    "baslik": "Apartmanlar",
+    "bosAciklama": "Bu yerleşkede henüz apartman kaydı yok.",
+    "blokSayisi": "Blok sayısı"
+  },
+  "blok": {
+    "baslik": "Bloklar",
+    "bosAciklama": "Bu apartmanda henüz blok kaydı yok.",
+    "katSayisi": "Kat",
+    "bolumSayisi": "Bölüm"
+  },
+  "kat": {
+    "baslik": "Katlar",
+    "bosAciklama": "Bu blokta henüz kat kaydı yok.",
+    "katNo": "{no}. kat"
+  },
   "daire": {
     "baslik": "Daire Kartı",
     "sekmeOzet": "Özet",
@@ -170,7 +186,17 @@
     "durumASKIDA": "Askıda",
     "durumARSIV": "Arşiv",
     "veriTazeligi": "Veriler {saat} itibarıyla",
-    "finansalVeriTaze": "Finansal rakamlar her zaman kaynaktan okunur; önbelleklenmez."
+    "finansalVeriTaze": "Finansal rakamlar her zaman kaynaktan okunur; önbelleklenmez. Bu ekranda finansal rakam bulunmaz.",
+    "dikkatGerekenler": "Dikkat gerektirenler",
+    "genelDurum": "Genel durum",
+    "dagilim": "Dağılım",
+    "kiracili": "Kiracılı daire",
+    "bos": "Boş daire",
+    "dolulukOrani": "Doluluk oranı",
+    "malikKaydiOlmayan": "Malik kaydı olmayan",
+    "malikKaydiOlmayanAciklama": "Bu bölümler tahakkuka giremez.",
+    "hissesiEksik": "Hissesi eksik",
+    "hissesiEksikAciklama": "Hisse toplamı tamı etmiyor; tahakkuk hatalı olur."
   },
   "kisi": {
     "baslik": "Sakinler",

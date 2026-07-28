@@ -1,83 +1,115 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+/**
+ * Dashboard — apartmanın bugünkü durumu tek ekranda.
+ *
+ * Kaynak: `GET /bolumler/yerlesim-ozeti` — bina geneli malik/kiracı/sakin
+ * durumu tek sorguda gelir. Daire kartını bölüm bölüm çağırmak kırk daire
+ * için kırk istek demektir.
+ *
+ * ÖNEMLİ (ADR-0005): Bu ekranda finansal rakam YOKTUR. Bakiye ve borç
+ * önbelleklenmez ve özet uçtan okunmaz; finans ekranı ayrıdır.
+ */
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { api } from '@/lib/api';
 import { UygulamaKabugu } from '@/components/uygulama-kabugu';
 import { BosDurum, HataDurumu, Yukleniyor } from '@/components/durumlar';
+import { IstatistikKarti, OranCubugu } from '@/components/istatistik-karti';
+import { servis, type YerlesimOzeti } from '@/lib/servis';
 
-interface TenantOzeti {
-  readonly id: string;
-  readonly kod: string;
-  readonly ad: string;
-  readonly durum: string;
-  readonly saatDilimi: string;
-  readonly bolumSayisi: number;
-  readonly kisiSayisi: number;
-}
-
-/**
- * Yonetim paneli — Faz 0 dikey diliminin gorunur ucu.
- *
- * ONEMLI (ADR-0005): Bu ekrandaki finansal rakamlar onbeklenmez.
- * Ozet ucu KPI tanimi ve yerlesim gibi onbekleklenebilir kismi ile
- * bakiye gibi onbeklenmeyen kismi AYRI tasir.
- */
-export default function YonetimPaneli() {
+export default function Dashboard() {
   const t = useTranslations('panel');
   const tn = useTranslations('navigasyon');
 
-  const [ozet, setOzet] = useState<TenantOzeti | null>(null);
-  // Hata NESNESI tutulur, metni degil: HataDurumu korelasyon kimligini ve
-  // "sonraki eylem" alanini gosterir (BFS v1 §12).
+  const [ozet, setOzet] = useState<YerlesimOzeti | null>(null);
   const [hata, setHata] = useState<unknown>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
 
-  useEffect(() => {
-    const token = sessionStorage.getItem('bnos.token') ?? undefined;
-    const tenantId = sessionStorage.getItem('bnos.tenantId') ?? '';
-
-    api<TenantOzeti>(`/tenants/${tenantId}`, { ...(token ? { token } : {}) })
-      .then(setOzet)
-      .catch(setHata)
+  const yukle = useCallback(() => {
+    setYukleniyor(true);
+    setHata(null);
+    servis.yerlesimOzeti().then(setOzet).catch(setHata)
       .finally(() => setYukleniyor(false));
   }, []);
 
-  const kirintilar = [{ etiket: tn('genelBakis') }];
+  useEffect(yukle, [yukle]);
 
   return (
-    <UygulamaKabugu baslik={t('baslik')} kirintilar={kirintilar}>
-      {yukleniyor && <Yukleniyor />}
+    <UygulamaKabugu baslik={t('baslik')} kirintilar={[{ etiket: tn('genelBakis') }]}>
+      {yukleniyor && <Yukleniyor satir={5} />}
 
-      {!yukleniyor && hata !== null && <HataDurumu hata={hata} />}
+      {!yukleniyor && hata !== null && <HataDurumu hata={hata} tekrarDene={yukle} />}
 
       {!yukleniyor && hata === null && ozet === null && <BosDurum />}
 
       {!yukleniyor && hata === null && ozet !== null && (
-        <div className="max-w-5xl">
-          <p className="mb-4 text-[color:var(--muted-2)]">{ozet.ad}</p>
+        <div className="flex flex-col gap-6">
+          {/* Dikkat gerektirenler ONCE gelir — sayfanin altinda kalirsa gorulmez. */}
+          {(ozet.hissesiEksikOlan > 0 || ozet.malikKaydiOlmayan > 0) && (
+            <section aria-labelledby="uyarilar">
+              <h2 id="uyarilar" className="text-sm font-semibold mb-3">
+                {t('dikkatGerekenler')}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {ozet.malikKaydiOlmayan > 0 && (
+                  <IstatistikKarti
+                    baslik={t('malikKaydiOlmayan')}
+                    deger={ozet.malikKaydiOlmayan}
+                    aciklama={t('malikKaydiOlmayanAciklama')}
+                    uyari
+                    ikon="⚠"
+                    yol="/bolumler"
+                  />
+                )}
+                {ozet.hissesiEksikOlan > 0 && (
+                  <IstatistikKarti
+                    baslik={t('hissesiEksik')}
+                    deger={ozet.hissesiEksikOlan}
+                    aciklama={t('hissesiEksikAciklama')}
+                    uyari
+                    ikon="⚠"
+                    yol="/bolumler"
+                  />
+                )}
+              </div>
+            </section>
+          )}
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Kart baslik={t('bolumSayisi')} deger={String(ozet.bolumSayisi)} />
-            <Kart baslik={t('kisiSayisi')} deger={String(ozet.kisiSayisi)} />
-            <Kart baslik={t('durum')} deger={t(`durum${ozet.durum}`)} />
-          </div>
+          <section aria-labelledby="ozet">
+            <h2 id="ozet" className="text-sm font-semibold mb-3">{t('genelDurum')}</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <IstatistikKarti baslik={t('bolumSayisi')} deger={ozet.bolumSayisi}
+                               ikon="▦" yol="/bolumler" />
+              <IstatistikKarti baslik={t('kiracili')} deger={ozet.kiracili} ikon="◎" />
+              <IstatistikKarti baslik={t('bos')} deger={ozet.bos} ikon="◌" />
+              <IstatistikKarti
+                baslik={t('dolulukOrani')}
+                deger={
+                  ozet.bolumSayisi === 0
+                    ? '—'
+                    : `%${Math.round(((ozet.bolumSayisi - ozet.bos) / ozet.bolumSayisi) * 100)}`
+                }
+                ikon="▲"
+              />
+            </div>
+          </section>
 
-          {/* Finansal veri tazeligi kullaniciya ACIKCA soylenir (ADR-0005). */}
-          <p className="mt-6 text-xs text-[color:var(--muted-2)]">
-            {t('finansalVeriTaze')}
-          </p>
+          <section aria-labelledby="dagilim" className="glass p-[var(--cardpad)] max-w-xl">
+            <h2 id="dagilim" className="text-sm font-semibold mb-4">{t('dagilim')}</h2>
+            <div className="flex flex-col gap-4">
+              <OranCubugu etiket={t('kiracili')} deger={ozet.kiracili}
+                          toplam={ozet.bolumSayisi} />
+              <OranCubugu etiket={t('bos')} deger={ozet.bos}
+                          toplam={ozet.bolumSayisi} renk="var(--warn)" />
+              <OranCubugu etiket={t('hissesiEksik')} deger={ozet.hissesiEksikOlan}
+                          toplam={ozet.bolumSayisi} renk="var(--crit)" />
+            </div>
+          </section>
+
+          {/* ADR-0005 — bu ekranda finansal rakam bulunmaz. */}
+          <p className="text-xs text-[color:var(--muted-2)]">{t('finansalVeriTaze')}</p>
         </div>
       )}
     </UygulamaKabugu>
-  );
-}
-
-function Kart({ baslik, deger }: { readonly baslik: string; readonly deger: string }) {
-  return (
-    <div className="glass p-5">
-      <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>{baslik}</p>
-      <p className="text-3xl font-bold num">{deger}</p>
-    </div>
   );
 }
