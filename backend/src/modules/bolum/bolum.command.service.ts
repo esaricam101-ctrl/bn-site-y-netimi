@@ -13,13 +13,23 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { silmeyiDogrula, type Principal } from '@bnos/kernel';
 import { IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
-import { BagimsizBolum } from '@bnos/apartman-domain';
+import {
+  BagimsizBolum, kesirleriTopla, kesirOrani, tamiEdiyorMu,
+} from '@bnos/apartman-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { BolumGuncelleDto, BolumOlusturDto } from './dto/bolum.dto';
+import type {
+  ArsaPayiDuzeltDto, BolumGuncelleDto, BolumOlusturDto, BolumTasiDto,
+} from './dto/bolum.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
+
+/** Toplu düzeltme sonucu — tek kayıt değil, etkilenen satır sayısı döner. */
+export interface TopluSonuc {
+  readonly etkilenen: number;
+  readonly durum: string;
+}
 
 @Injectable()
 export class BolumCommandService {
@@ -264,6 +274,224 @@ export class BolumCommandService {
       });
 
       return { id, durum: 'GUNCELLENDI' };
+    });
+  }
+
+  /**
+   * Bölümleri başka bir blok/kata taşır — TOPLU.
+   *
+   * Hiyerarşi denetiminin raporladığı sorunların düzeltme akışıdır. Tek
+   * transaction: biri başarısız olursa hiçbiri taşınmaz. Yarım kalan bir
+   * taşıma, hiyerarşiyi denetimin bulduğundan daha bozuk bırakırdı.
+   *
+   * Kapı no tekilliği BLOK bazlıdır; hedef blokta çakışma varsa taşıma
+   * reddedilir. `hedefKatId` verilirse bölümün `kat` alanı katın numarasıyla
+   * EŞİTLENİR — aksi halde `KAT_NO_UYUSMAZLIGI` üretirdik.
+   */
+  async tasi(dto: BolumTasiDto, principal: Principal): Promise<TopluSonuc> {
+    const baglam = mevcutBaglamiZorunluKil('bolum.tasi');
+    const benzersizIdler = Array.from(new Set<string>(dto.bolumIdler));
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const blok = await tx.blok.findFirst({
+        where: { id: dto.hedefBlokId, tenantId: principal.tenantId },
+        select: { id: true, ad: true },
+      });
+      if (!blok) throw new KayitBulunamadi(`Hedef blok bulunamadı: ${dto.hedefBlokId}`);
+
+      let hedefKatNo: number | null = null;
+      if (dto.hedefKatId !== undefined) {
+        const kat = await tx.kat.findFirst({
+          where: { id: dto.hedefKatId, tenantId: principal.tenantId },
+          select: { id: true, no: true, blokId: true },
+        });
+        if (!kat) throw new KayitBulunamadi(`Hedef kat bulunamadı: ${dto.hedefKatId}`);
+        if (kat.blokId !== dto.hedefBlokId) {
+          throw new IsKuraliIhlali(
+            'Hedef kat, hedef bloğa ait değil.',
+            'Kat ve blok seçimini kontrol edin.',
+          );
+        }
+        hedefKatNo = kat.no;
+      }
+
+      const bolumler = await tx.bagimsizBolum.findMany({
+        where: { id: { in: benzersizIdler }, tenantId: principal.tenantId },
+        select: { id: true, kapiNo: true, blokId: true, katId: true, kat: true },
+      });
+      if (bolumler.length !== benzersizIdler.length) {
+        const bulunan = new Set(bolumler.map((b) => b.id));
+        const eksik = benzersizIdler.filter((id) => !bulunan.has(id));
+        throw new KayitBulunamadi(`Bazı bölümler bulunamadı: ${eksik.join(', ')}`);
+      }
+
+      // Hedef bloktaki mevcut kapi numaralari — tasinanlar haric.
+      const tasinanKumesi = new Set(benzersizIdler);
+      const hedeftekiler = await tx.bagimsizBolum.findMany({
+        where: { tenantId: principal.tenantId, blokId: dto.hedefBlokId },
+        select: { id: true, kapiNo: true },
+      });
+      const doluKapiNolar = new Set(
+        hedeftekiler.filter((b) => !tasinanKumesi.has(b.id)).map((b) => b.kapiNo),
+      );
+
+      const cakisanlar = bolumler.filter((b) => doluKapiNolar.has(b.kapiNo));
+      if (cakisanlar.length > 0) {
+        throw new IsKuraliIhlali(
+          `'${blok.ad}' bloğunda şu kapı numaraları zaten dolu: ` +
+            `${cakisanlar.map((b) => b.kapiNo).join(', ')}.`,
+          'Çakışan bölümlerin kapı numaralarını değiştirin veya farklı bir blok seçin.',
+        );
+      }
+
+      // Tasinanlarin kendi aralarinda da mukerrer kapi no olmamali.
+      const kapiSayaci = new Map<string, number>();
+      for (const b of bolumler) kapiSayaci.set(b.kapiNo, (kapiSayaci.get(b.kapiNo) ?? 0) + 1);
+      const mukerrer = Array.from(kapiSayaci.entries()).filter(([, n]) => n > 1).map(([k]) => k);
+      if (mukerrer.length > 0) {
+        throw new IsKuraliIhlali(
+          `Taşınan bölümler arasında mükerrer kapı numarası var: ${mukerrer.join(', ')}.`,
+          'Aynı blokta iki bölüm aynı kapı numarasını taşıyamaz.',
+        );
+      }
+
+      await tx.bagimsizBolum.updateMany({
+        where: { id: { in: benzersizIdler }, tenantId: principal.tenantId },
+        data: {
+          blokId: dto.hedefBlokId,
+          katId: dto.hedefKatId ?? null,
+          ...(hedefKatNo === null ? {} : { kat: hedefKatNo }),
+        },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'BagimsizBolum', varlikId: benzersizIdler.join(','),
+        oncekiDeger: {
+          bolumler: bolumler.map((b) => ({
+            id: b.id, kapiNo: b.kapiNo, blokId: b.blokId, katId: b.katId, kat: b.kat,
+          })),
+        },
+        sonrakiDeger: {
+          hedefBlokId: dto.hedefBlokId, hedefKatId: dto.hedefKatId ?? null, kat: hedefKatNo,
+        },
+        gerekce: dto.gerekce,
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      await this.outbox.yayinla(tx, {
+        eventType: 'apartman.bagimsiz_bolum.tasindi', eventVersion: 1,
+        tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
+        aggregate: { tip: 'BagimsizBolum', id: dto.hedefBlokId, version: 1 },
+        payload: {
+          bolumIdler: benzersizIdler,
+          hedefBlokId: dto.hedefBlokId,
+          hedefKatId: dto.hedefKatId ?? null,
+          gerekce: dto.gerekce,
+        },
+      });
+
+      return { etkilenen: benzersizIdler.length, durum: 'TASINDI' };
+    });
+  }
+
+  /**
+   * Arsa paylarını TOPLU düzeltir — KMK md. 3.
+   *
+   * Tek bölümün arsa payını değiştirmek binanın toplamını sessizce bozar; bu
+   * yüzden `guncelle` arsa payına dokunmaz. Burada işlem SONUNDAKİ toplam
+   * hesaplanır: gönderilen satırlar + DOKUNULMAYAN bölümler. Toplam tamı
+   * etmiyorsa hiçbir satır yazılmaz.
+   *
+   * Doğrulama kayıpsız kesir aritmetiğiyle yapılır — ölçekli tam sayı toplamı
+   * 1/3 gibi paylarda asla tam etmez.
+   */
+  async arsaPayiDuzelt(dto: ArsaPayiDuzeltDto, principal: Principal): Promise<TopluSonuc> {
+    const baglam = mevcutBaglamiZorunluKil('bolum.arsaPayiDuzelt');
+
+    const istenen = new Map<string, { pay: bigint; payda: bigint }>();
+    for (const s of dto.satirlar) {
+      const pay = BigInt(s.arsaPayiPay);
+      const payda = BigInt(s.arsaPayiPayda);
+      if (payda <= 0n) {
+        throw new IsKuraliIhlali(`Arsa payı paydası sıfırdan büyük olmalıdır: ${s.bolumId}`);
+      }
+      if (pay < 0n || pay > payda) {
+        throw new IsKuraliIhlali(
+          `Arsa payı geçerli bir kesir olmalıdır (${pay}/${payda}): ${s.bolumId}`,
+        );
+      }
+      if (istenen.has(s.bolumId)) {
+        throw new IsKuraliIhlali(
+          `Aynı bölüm için iki kez arsa payı verilmiş: ${s.bolumId}`,
+          'Her bölüm listede bir kez bulunmalıdır.',
+        );
+      }
+      istenen.set(s.bolumId, { pay, payda });
+    }
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const tumBolumler = await tx.bagimsizBolum.findMany({
+        where: { tenantId: principal.tenantId },
+        select: { id: true, kapiNo: true, arsaPayiPay: true, arsaPayiPayda: true },
+      });
+      const mevcutKumesi = new Set(tumBolumler.map((b) => b.id));
+
+      const bilinmeyen = Array.from(istenen.keys()).filter((id) => !mevcutKumesi.has(id));
+      if (bilinmeyen.length > 0) {
+        throw new KayitBulunamadi(`Bazı bölümler bulunamadı: ${bilinmeyen.join(', ')}`);
+      }
+
+      // Islem SONRASI durum: gonderilenler yeni, digerleri mevcut degeriyle.
+      const sonrakiKesirler = tumBolumler.map((b) => {
+        const yeni = istenen.get(b.id);
+        return yeni ?? { pay: b.arsaPayiPay, payda: b.arsaPayiPayda };
+      });
+
+      const toplam = kesirleriTopla(sonrakiKesirler);
+      if (!tamiEdiyorMu(toplam)) {
+        const oran = kesirOrani(toplam).toFixed(6);
+        throw new IsKuraliIhlali(
+          `Düzeltme sonrası arsa payları toplamı 1 etmiyor (${oran}). ` +
+            `KMK md. 3 uyarınca toplam tamı etmelidir; hiçbir satır yazılmadı.`,
+          'Dokunulmayan bölümlerin payları da toplama dâhildir — tabloyu bütün olarak gözden geçirin.',
+        );
+      }
+
+      for (const [bolumId, kesir] of istenen) {
+        await tx.bagimsizBolum.update({
+          where: { id: bolumId },
+          data: { arsaPayiPay: kesir.pay, arsaPayiPayda: kesir.payda },
+        });
+      }
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'BagimsizBolum', varlikId: Array.from(istenen.keys()).join(','),
+        oncekiDeger: {
+          // BigInt JSON'a serilestirilemez; denetim kaydinda metin tutulur.
+          paylar: tumBolumler
+            .filter((b) => istenen.has(b.id))
+            .map((b) => ({ id: b.id, kapiNo: b.kapiNo, arsaPayi: `${b.arsaPayiPay}/${b.arsaPayiPayda}` })),
+        },
+        sonrakiDeger: {
+          paylar: Array.from(istenen.entries()).map(([id, k]) => ({ id, arsaPayi: `${k.pay}/${k.payda}` })),
+          toplam: '1.000000',
+        },
+        gerekce: dto.gerekce,
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      await this.outbox.yayinla(tx, {
+        eventType: 'apartman.bagimsiz_bolum.arsa_payi_duzeltildi', eventVersion: 1,
+        tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
+        aggregate: { tip: 'BagimsizBolum', id: Array.from(istenen.keys())[0] ?? '', version: 1 },
+        payload: { bolumSayisi: istenen.size, gerekce: dto.gerekce },
+      });
+
+      return { etkilenen: istenen.size, durum: 'DUZELTILDI' };
     });
   }
 

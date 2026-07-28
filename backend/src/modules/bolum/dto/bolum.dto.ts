@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
-  IsBoolean, IsInt, IsNumberString, IsOptional, IsPositive, IsString, IsIn, IsUUID,
-  Length, Max, Min, MinLength,
+  ArrayMaxSize, ArrayNotEmpty, IsArray, IsBoolean, IsInt, IsNumberString, IsOptional,
+  IsPositive, IsString, IsIn, IsUUID, Length, Max, Min, MinLength, ValidateNested,
 } from 'class-validator';
 
 export const BOLUM_NITELIKLERI = ['MESKEN', 'ISYERI', 'DEPO', 'OTOPARK', 'ORTAK_ALAN'] as const;
@@ -185,6 +186,68 @@ export class BolumGuncelleDto {
   @ApiPropertyOptional({ example: '1180' })
   @IsOptional() @IsString() @Length(1, 20)
   tapuSahife?: string;
+}
+
+/**
+ * Bölümleri başka bir blok/kata taşır.
+ *
+ * Hiyerarşi denetiminin raporladığı `KAT_BLOK_UYUSMAZLIGI`, `KATSIZ_BLOK`,
+ * `BLOKSUZ_KAT` ve `HIYERARSI_DISI` sorunlarının düzeltme akışıdır.
+ */
+export class BolumTasiDto {
+  @ApiProperty({
+    type: [String],
+    description: 'Taşınacak bölümler. Hepsi aynı işlemde taşınır; biri başarısız olursa hiçbiri taşınmaz.',
+  })
+  @IsArray() @ArrayNotEmpty() @ArrayMaxSize(500)
+  @IsUUID(undefined, { each: true })
+  bolumIdler!: string[];
+
+  @ApiProperty({ description: 'Hedef blok.' })
+  @IsUUID()
+  hedefBlokId!: string;
+
+  @ApiPropertyOptional({
+    description: 'Hedef kat. Verilirse hedef bloğa ait olmalı; bölümün `kat` alanı bu katın numarasıyla EŞİTLENİR.',
+  })
+  @IsOptional() @IsUUID()
+  hedefKatId?: string;
+
+  @ApiProperty({ example: 'Blok yapılandırması yeniden düzenlendi' })
+  @IsString() @MinLength(10, { message: 'Taşıma gerekçesi en az 10 karakter olmalıdır.' })
+  gerekce!: string;
+}
+
+export class ArsaPayiSatiriDto {
+  @ApiProperty()
+  @IsUUID()
+  bolumId!: string;
+
+  @ApiProperty({ example: '45', description: 'Arsa payı — PAY. Tam sayı metni.' })
+  @IsNumberString({ no_symbols: true }, { message: 'Arsa payı payı yalnızca rakam içermelidir.' })
+  arsaPayiPay!: string;
+
+  @ApiProperty({ example: '1000', description: 'Arsa payı — PAYDA. Tam sayı metni.' })
+  @IsNumberString({ no_symbols: true }, { message: 'Arsa payı paydası yalnızca rakam içermelidir.' })
+  arsaPayiPayda!: string;
+}
+
+/**
+ * Arsa paylarını TOPLU düzeltir — KMK md. 3.
+ *
+ * Tek bölümün arsa payını değiştirmek binanın toplamını sessizce bozar; bu
+ * yüzden `PATCH /bolumler/:id` arsa payına dokunmaz. Toplu düzeltme, işlem
+ * SONUNDAKİ toplamın tamı ettiğini doğrular ve etmiyorsa hiçbir satırı yazmaz.
+ */
+export class ArsaPayiDuzeltDto {
+  @ApiProperty({ type: [ArsaPayiSatiriDto] })
+  @IsArray() @ArrayNotEmpty() @ArrayMaxSize(2000)
+  @ValidateNested({ each: true }) @Type(() => ArsaPayiSatiriDto)
+  satirlar!: ArsaPayiSatiriDto[];
+
+  @ApiProperty({ example: 'Yönetim planı ekindeki arsa payı tablosuna göre düzeltildi' })
+  @IsString() @MinLength(10, { message: 'Düzeltme gerekçesi en az 10 karakter olmalıdır.' })
+  gerekce!: string;
 }
 
 export class BolumSilDto {

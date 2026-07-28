@@ -4,14 +4,14 @@ import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import type { BolumDurumu, BolumNiteligi } from '@bnos/apartman-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
-import { BolumCommandService } from './bolum.command.service';
+import { BolumCommandService, type TopluSonuc } from './bolum.command.service';
 import {
   BolumQueryService,
   type ArsaPayiRaporu, type BolumSatiri, type HiyerarsiDenetimi,
 } from './bolum.query.service';
 import {
   BOLUM_DURUMLARI, BOLUM_NITELIKLERI,
-  BolumGuncelleDto, BolumOlusturDto, BolumSilDto,
+  ArsaPayiDuzeltDto, BolumGuncelleDto, BolumOlusturDto, BolumSilDto, BolumTasiDto,
 } from './dto/bolum.dto';
 import type { SayfaliSonuc } from '../kisi/kisi.query.service';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
@@ -94,6 +94,41 @@ export class BolumController {
   })
   arsaPayiDurumu(@AktifPrincipal() principal: Principal): Promise<ArsaPayiRaporu> {
     return this.query.arsaPayiDurumu(principal);
+  }
+
+  @Post('tasi')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Bölümleri başka blok/kata taşı (TOPLU)',
+    description:
+      'Hiyerarşi denetiminin raporladığı KAT_BLOK_UYUSMAZLIGI, KATSIZ_BLOK, ' +
+      'BLOKSUZ_KAT ve HIYERARSI_DISI sorunlarının düzeltme akışı. Tek işlem: ' +
+      'biri başarısız olursa hiçbiri taşınmaz — yarım kalan taşıma hiyerarşiyi ' +
+      'denetimin bulduğundan daha bozuk bırakırdı.\n\n' +
+      '`hedefKatId` verilirse bölümün `kat` alanı katın numarasıyla EŞİTLENİR.',
+  })
+  tasi(
+    @Body() dto: BolumTasiDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<TopluSonuc> {
+    return this.command.tasi(dto, principal);
+  }
+
+  @Post('arsa-payi-duzelt')
+  @RequirePermission(IZINLER.BOLUM_YONET)
+  @ApiOperation({
+    summary: 'Arsa paylarını toplu düzelt (KMK md. 3)',
+    description:
+      'Tek bölümün arsa payını değiştirmek binanın toplamını sessizce bozar; bu ' +
+      'yüzden `PATCH /bolumler/:id` arsa payına dokunmaz.\n\n' +
+      'Burada işlem SONUNDAKİ toplam hesaplanır — gönderilen satırlar + ' +
+      'DOKUNULMAYAN bölümler. Toplam tamı etmiyorsa hiçbir satır yazılmaz.',
+  })
+  arsaPayiDuzelt(
+    @Body() dto: ArsaPayiDuzeltDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<TopluSonuc> {
+    return this.command.arsaPayiDuzelt(dto, principal);
   }
 
   @Get(':id')

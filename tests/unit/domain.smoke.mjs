@@ -78,13 +78,14 @@ test('event: apartman dikeyi eventleri katalogda kayitli', () => {
     'apartman.malik.eklendi', 'apartman.malik.devredildi',
     'apartman.kiraci.eklendi', 'apartman.kiraci.tahliye_edildi',
     'apartman.sakin.eklendi', 'apartman.sakin.cikti',
+    'apartman.bagimsiz_bolum.tasindi', 'apartman.bagimsiz_bolum.arsa_payi_duzeltildi',
   ]) {
     assert.ok(CD.katalogdaVarMi(t, 1), `${t} katalogda yok`);
   }
 
   // 'apartman' dikeyi core'dan ayridir — bu varliklar core-domain'e ait degil.
   const apartmanKayitlari = CD.EVENT_KATALOGU.filter((k) => k.eventType.startsWith('apartman.'));
-  assert.equal(apartmanKayitlari.length, 16);
+  assert.equal(apartmanKayitlari.length, 18);
   assert.deepEqual(
     [...new Set(apartmanKayitlari.map((k) => k.sahipModul))].sort(),
     ['apartman', 'blok', 'bolum', 'iliski', 'kat', 'kiraci', 'malik', 'sakin'],
