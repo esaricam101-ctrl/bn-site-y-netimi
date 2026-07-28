@@ -26,6 +26,40 @@ export const renkler = {
   glassBorder: 'rgba(255,255,255,.06)',
 } as const;
 
+/**
+ * Acik tema paleti.
+ *
+ * Marka renkleri (primary/secondary) ve durum renkleri DEGISMEZ — yalnizca
+ * yuzey, metin ve cizgi degerleri degisir. Yeni marka rengi uretilmemistir.
+ *
+ * Kontrast: metin (#0F172A) acik yuzeyde (#FFFFFF) 16.7:1 orana sahiptir;
+ * WCAG AA normal metin icin 4.5:1 ister. Ikincil metin (#475569) 7.5:1 ile
+ * yine AA'yi asar (BFS v1 erisilebilirlik).
+ */
+export const acikRenkler = {
+  primary: '#0E7490',
+  secondary: '#2563EB',
+  /** Acik temada "dark" sayfa arka planidir; ad korunur, deger degisir. */
+  dark: '#F1F5F9',
+  darker: '#FFFFFF',
+  text: '#0F172A',
+  success: '#047857',
+  warn: '#B45309',
+  crit: '#B91C1C',
+  info: '#0369A1',
+  muted: 'rgba(15,23,42,.72)',
+  muted2: 'rgba(15,23,42,.56)',
+  line: 'rgba(15,23,42,.10)',
+  glassBg: 'rgba(255,255,255,.72)',
+  glassBorder: 'rgba(15,23,42,.08)',
+} as const;
+
+export type TemaModu = 'koyu' | 'acik';
+
+/** Tema moduna gore renk seti. */
+export const temaRenkleri = (tema: TemaModu = 'koyu') =>
+  tema === 'acik' ? acikRenkler : renkler;
+
 /** Uyari siddet renkleri — 1 en kritik. */
 export const siddet = {
   1: renkler.crit,
@@ -58,11 +92,20 @@ export type YogunlukModu = keyof typeof yogunluk;
 export const gradyan = `linear-gradient(135deg, ${renkler.primary}, ${renkler.secondary})`;
 export const parlama = `0 0 60px rgba(14,116,144,.15)`;
 
-/** Web icin CSS ozel degiskenleri uretir. */
-export function cssDegiskenleri(mod: YogunlukModu = 'rahat'): string {
+/**
+ * Web icin CSS ozel degiskenleri uretir.
+ *
+ * Yogunluk ve tema BAGIMSIZ eksenlerdir: sikisik acik tema da, rahat koyu tema
+ * da gecerlidir. Ikisi tek bir "gorunum" degerine bagliysa kullanici birini
+ * degistirmek icin digerinden vazgecmek zorunda kalir.
+ */
+export function cssDegiskenleri(
+  mod: YogunlukModu = 'rahat',
+  tema: TemaModu = 'koyu',
+): string {
   const y = yogunluk[mod];
   const satirlar = [
-    ...Object.entries(renkler).map(([k, v]) => `  --${kebap(k)}: ${v};`),
+    ...Object.entries(temaRenkleri(tema)).map(([k, v]) => `  --${kebap(k)}: ${v};`),
     ...Object.entries(aralik).map(([k, v]) => `  --${k}: ${v};`),
     `  --r: ${yaricap.r};`,
     `  --rs: ${yaricap.rs};`,

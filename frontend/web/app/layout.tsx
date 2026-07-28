@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations } from 'next-intl/server';
+import { GorunumSaglayici } from '@/components/gorunum-saglayici';
 import './globals.css';
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  colorScheme: 'dark',
+  // Iki tema da desteklenir; etkin olani GorunumSaglayici belirler ve
+  // `document.documentElement.style.colorScheme` ile tarayiciya bildirir.
+  colorScheme: 'dark light',
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,14 +29,18 @@ export default async function RootLayout({
   const t = await getTranslations('navigasyon');
 
   return (
-    <html lang="tr">
+    // `data-theme` istemcide GorunumSaglayici tarafindan yazilir; sunucu
+    // ciktisi koyu temadir ve hydration uyusmazligi olusmaz.
+    <html lang="tr" data-theme="koyu">
       <body data-density="rahat">
         <NextIntlClientProvider messages={messages}>
-          {/* Erisilebilirlik: klavye kullanicisi icin atlama baglantisi */}
-          <a href="#icerik" className="skip">
-            {t('genelBakis')}
-          </a>
-          <div id="icerik">{children}</div>
+          <GorunumSaglayici>
+            {/* Erisilebilirlik: klavye kullanicisi icin atlama baglantisi */}
+            <a href="#icerik" className="skip">
+              {t('genelBakis')}
+            </a>
+            <div id="icerik">{children}</div>
+          </GorunumSaglayici>
         </NextIntlClientProvider>
       </body>
     </html>

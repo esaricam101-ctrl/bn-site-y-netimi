@@ -27,7 +27,22 @@
     "talepler": "Talepler",
     "belgeler": "Belgeler",
     "ayarlar": "Ayarlar",
-    "cikis": "Çıkış"
+    "cikis": "Çıkış",
+    "anaMenu": "Ana menü",
+    "kirintiYolu": "Bulunduğunuz konum",
+    "apartmanlar": "Apartmanlar",
+    "bloklar": "Bloklar",
+    "katlar": "Katlar",
+    "kisiler": "Kişiler",
+    "daireKarti": "Daire kartı"
+  },
+  "gorunum": {
+    "tema": "Tema",
+    "koyu": "Koyu tema",
+    "acik": "Açık tema",
+    "yogunluk": "Yoğunluk",
+    "rahat": "Rahat",
+    "sikisik": "Sıkışık"
   },
   "panel": {
     "baslik": "Genel Bakış",
@@ -62,6 +77,7 @@
   "hatalar": {
     "ag": "Sunucuya ulaşılamadı",
     "destekNumarasi": "Destek numarası: {correlationId}",
-    "sonrakiEylem": "Ne yapmalı: {eylem}"
+    "sonrakiEylem": "Ne yapmalı: {eylem}",
+    "korelasyon": "Destek numarası"
   }
 }

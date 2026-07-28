@@ -31,10 +31,38 @@
   --fz: 14px;
 }
 
+/*
+ * ACIK TEMA — @bnos/ui-tokens `acikRenkler` ile ayni kaynaktan.
+ *
+ * Marka ve durum renkleri disinda yalnizca yuzey/metin/cizgi degisir.
+ * Durum renkleri acik zeminde koyulasir: #10B981 beyaz uzerinde 2.1:1 ile
+ * WCAG AA'yi karsilamaz, #047857 4.8:1 verir.
+ */
+html[data-theme='acik'] {
+  --dark: #F1F5F9;
+  --darker: #FFFFFF;
+  --text: #0F172A;
+  --success: #047857;
+  --warn: #B45309;
+  --crit: #B91C1C;
+  --info: #0369A1;
+  --muted: rgba(15, 23, 42, .72);
+  --muted-2: rgba(15, 23, 42, .56);
+  --line: rgba(15, 23, 42, .10);
+  --glass-bg: rgba(255, 255, 255, .72);
+  --glow: 0 0 60px rgba(14, 116, 144, .10);
+}
+
 /* Yogunluk anahtari — tek aralik-token degisimi (V22'den korunmustur). */
 body[data-density='sikisik'] {
   --pad: 12px; --cardpad: 14px; --rowh: 34px; --fz: 13px;
 }
+
+/*
+ * Tema gecisinde renk animasyonu YOK: sayfa capinda renk gecisi hem yavas
+ * hissettirir hem de prefers-reduced-motion kullanicisini rahatsiz eder.
+ * Gecis anlik olmalidir.
+ */
 
 body {
   background: var(--dark);

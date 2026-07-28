@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { api, ApiHatasi } from '@/lib/api';
+import { api } from '@/lib/api';
+import { UygulamaKabugu } from '@/components/uygulama-kabugu';
+import { BosDurum, HataDurumu, Yukleniyor } from '@/components/durumlar';
 
 interface TenantOzeti {
   readonly id: string;
@@ -23,11 +25,12 @@ interface TenantOzeti {
  */
 export default function YonetimPaneli() {
   const t = useTranslations('panel');
-  const tg = useTranslations('genel');
-  const th = useTranslations('hatalar');
+  const tn = useTranslations('navigasyon');
 
   const [ozet, setOzet] = useState<TenantOzeti | null>(null);
-  const [hata, setHata] = useState<string | null>(null);
+  // Hata NESNESI tutulur, metni degil: HataDurumu korelasyon kimligini ve
+  // "sonraki eylem" alanini gosterir (BFS v1 §12).
+  const [hata, setHata] = useState<unknown>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
 
   useEffect(() => {
@@ -36,44 +39,37 @@ export default function YonetimPaneli() {
 
     api<TenantOzeti>(`/tenants/${tenantId}`, { ...(token ? { token } : {}) })
       .then(setOzet)
-      .catch((h: unknown) => {
-        setHata(h instanceof ApiHatasi ? h.problem.detail : th('ag'));
-      })
+      .catch(setHata)
       .finally(() => setYukleniyor(false));
-  }, [th]);
+  }, []);
 
-  if (yukleniyor) return <main className="p-6">{tg('yukleniyor')}</main>;
-
-  if (hata) {
-    return (
-      <main className="p-6">
-        <div role="alert" className="glass p-4" style={{ color: 'var(--crit)' }}>
-          {hata}
-        </div>
-      </main>
-    );
-  }
-
-  if (!ozet) return <main className="p-6">{tg('veriYok')}</main>;
+  const kirintilar = [{ etiket: tn('genelBakis') }];
 
   return (
-    <main className="p-6 max-w-5xl mx-auto">
-      <header className="mb-6">
-        <h1 className="text-2xl font-extrabold">{t('baslik')}</h1>
-        <p style={{ color: 'var(--muted-2)' }}>{ozet.ad}</p>
-      </header>
+    <UygulamaKabugu baslik={t('baslik')} kirintilar={kirintilar}>
+      {yukleniyor && <Yukleniyor />}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Kart baslik={t('bolumSayisi')} deger={String(ozet.bolumSayisi)} />
-        <Kart baslik={t('kisiSayisi')} deger={String(ozet.kisiSayisi)} />
-        <Kart baslik={t('durum')} deger={t(`durum${ozet.durum}`)} />
-      </div>
+      {!yukleniyor && hata !== null && <HataDurumu hata={hata} />}
 
-      {/* Finansal veri tazeligi kullaniciya ACIKCA soylenir (ADR-0005). */}
-      <p className="mt-6 text-xs" style={{ color: 'var(--muted-2)' }}>
-        {t('finansalVeriTaze')}
-      </p>
-    </main>
+      {!yukleniyor && hata === null && ozet === null && <BosDurum />}
+
+      {!yukleniyor && hata === null && ozet !== null && (
+        <div className="max-w-5xl">
+          <p className="mb-4 text-[color:var(--muted-2)]">{ozet.ad}</p>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Kart baslik={t('bolumSayisi')} deger={String(ozet.bolumSayisi)} />
+            <Kart baslik={t('kisiSayisi')} deger={String(ozet.kisiSayisi)} />
+            <Kart baslik={t('durum')} deger={t(`durum${ozet.durum}`)} />
+          </div>
+
+          {/* Finansal veri tazeligi kullaniciya ACIKCA soylenir (ADR-0005). */}
+          <p className="mt-6 text-xs text-[color:var(--muted-2)]">
+            {t('finansalVeriTaze')}
+          </p>
+        </div>
+      )}
+    </UygulamaKabugu>
   );
 }
 
