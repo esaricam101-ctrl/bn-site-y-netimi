@@ -266,7 +266,7 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
   const hisseTam = gecerliMalikler.length > 0;
 
   const kiraciVar = i % 3 === 1;
-  const kiracilar: MockKiraci[] = kiraciVar
+  const varsayilanKiracilar: MockKiraci[] = kiraciVar
     ? [{
         id: `kiraci-${bolumId}`,
         kisiId: `kisi-k-${i}`,
@@ -284,7 +284,7 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
     : [];
 
   const sakinSayisi = i % 4;
-  const sakinler: MockSakin[] = Array.from({ length: sakinSayisi }, (_, s) => ({
+  const varsayilanSakinler: MockSakin[] = Array.from({ length: sakinSayisi }, (_, s) => ({
     id: `sakin-${bolumId}-${s}`,
     kisiId: `kisi-s-${i}-${s}`,
     kisiAdi: s === 0 ? 'Zeynep Demir' : 'Ali Demir',
@@ -297,6 +297,10 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
     acilDurumTelefon: '+90 533 111 11 11',
     gecerliMi: true,
   }));
+
+  // Yazma ortuleri varsa onlar gecerlidir; eklenen kayit kartta gorunur.
+  const kiracilar = kiracilariAl(bolumId, varsayilanKiracilar);
+  const sakinler = sakinleriAl(bolumId, varsayilanSakinler);
 
   return {
     bolum,
@@ -402,6 +406,112 @@ export function mockMalikleriOku(bolumId: string): readonly MockMalik[] | null {
   const kart = mockDaireKarti(bolumId);
   if (kart === null) return null;
   return malikleriAl(bolumId, kart.malikler);
+}
+
+// --- Kiracı ve Sakin yazma örtüleri (aynı bellek-içi mantık) ---
+
+const kiraciOrtusu = new Map<string, MockKiraci[]>();
+const sakinOrtusu = new Map<string, MockSakin[]>();
+
+function kiracilariAl(bolumId: string, varsayilan: readonly MockKiraci[]): MockKiraci[] {
+  const mevcut = kiraciOrtusu.get(bolumId);
+  if (mevcut !== undefined) return mevcut;
+  const kopya = [...varsayilan];
+  kiraciOrtusu.set(bolumId, kopya);
+  return kopya;
+}
+
+function sakinleriAl(bolumId: string, varsayilan: readonly MockSakin[]): MockSakin[] {
+  const mevcut = sakinOrtusu.get(bolumId);
+  if (mevcut !== undefined) return mevcut;
+  const kopya = [...varsayilan];
+  sakinOrtusu.set(bolumId, kopya);
+  return kopya;
+}
+
+export interface MockKiraciEkle {
+  readonly kisiAdi: string;
+  readonly baslangic: string;
+  readonly bitis?: string;
+  readonly sozlesmeNo?: string;
+  readonly depozito?: string;
+}
+
+export function mockKiraciEkle(bolumId: string, dto: MockKiraciEkle): void {
+  const liste = kiraciOrtusu.get(bolumId) ?? [];
+
+  // Kiraci TEKILLIGI: bir bolumde ayni anda en fazla bir gecerli sozlesme.
+  // Domain kurali (iliskiyiDogrula) sunucuda zorlanir; burada kullaniciya
+  // HIZLI geri bildirim icin tekrarlanir.
+  if (liste.some((k) => k.gecerliMi)) {
+    throw new Error('Bu bölümde geçerli bir kira sözleşmesi zaten var.');
+  }
+
+  liste.push({
+    id: `kiraci-${bolumId}-${liste.length}`,
+    kisiId: `kisi-k-yeni-${liste.length}`,
+    kisiAdi: dto.kisiAdi,
+    baslangic: dto.baslangic,
+    bitis: dto.bitis ?? null,
+    sozlesmeNo: dto.sozlesmeNo ?? null,
+    sozlesmeTarihi: null,
+    depozito: dto.depozito ?? null,
+    depozitoIadeTarihi: null,
+    tahliyeTarihi: null,
+    tahliyeGerekcesi: null,
+    gecerliMi: true,
+  });
+  kiraciOrtusu.set(bolumId, liste);
+}
+
+export function mockKiraciTahliye(
+  bolumId: string, kiraciId: string, tahliyeTarihi: string, gerekce: string,
+): void {
+  const liste = kiraciOrtusu.get(bolumId) ?? [];
+  const i = liste.findIndex((k) => k.id === kiraciId);
+  if (i < 0) throw new Error(`Kiracı kaydı bulunamadı: ${kiraciId}`);
+  const mevcut = liste[i] as MockKiraci;
+  // Tahliye sozlesmeyi de kapatir: bitis bos kalirsa iliski suresiz gorunur
+  // ve yeni kiraci eklenemez.
+  liste[i] = {
+    ...mevcut, tahliyeTarihi, tahliyeGerekcesi: gerekce,
+    bitis: tahliyeTarihi, gecerliMi: false,
+  };
+}
+
+export interface MockSakinEkle {
+  readonly kisiAdi: string;
+  readonly yakinlikDerecesi: string;
+  readonly girisTarihi: string;
+  readonly telefon?: string;
+  readonly acilDurumKisiAdi?: string;
+  readonly acilDurumTelefon?: string;
+}
+
+export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
+  const liste = sakinOrtusu.get(bolumId) ?? [];
+  // Sakin TEKILLIGI YOKTUR — bir dairede ayni anda birden cok sakin gecerlidir.
+  liste.push({
+    id: `sakin-${bolumId}-${liste.length}`,
+    kisiId: `kisi-s-yeni-${liste.length}`,
+    kisiAdi: dto.kisiAdi,
+    eposta: null,
+    telefon: dto.telefon ?? null,
+    yakinlikDerecesi: dto.yakinlikDerecesi,
+    girisTarihi: dto.girisTarihi,
+    cikisTarihi: null,
+    acilDurumKisiAdi: dto.acilDurumKisiAdi ?? null,
+    acilDurumTelefon: dto.acilDurumTelefon ?? null,
+    gecerliMi: true,
+  });
+  sakinOrtusu.set(bolumId, liste);
+}
+
+export function mockSakinCikis(bolumId: string, sakinId: string, cikisTarihi: string): void {
+  const liste = sakinOrtusu.get(bolumId) ?? [];
+  const i = liste.findIndex((s) => s.id === sakinId);
+  if (i < 0) throw new Error(`Sakin kaydı bulunamadı: ${sakinId}`);
+  liste[i] = { ...(liste[i] as MockSakin), cikisTarihi, gecerliMi: false };
 }
 
 /** Denetim kaydı mock'u — bölüm kimliğine göre sabit üretilir. */

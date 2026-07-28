@@ -14,6 +14,7 @@ import {
   mockApartmanlar, mockAuditKayitlari, mockBloklar, mockBolumler,
   mockDaireKarti, mockKatlar, mockYerlesim,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
+  mockKiraciEkle, mockKiraciTahliye, mockSakinCikis, mockSakinEkle,
   type MockApartman, type MockAuditSatiri, type MockBlok, type MockBolum,
   type MockDaireKarti, type MockHisseRaporu, type MockKat, type MockKiraci,
   type MockMalik, type MockSakin,
@@ -79,6 +80,24 @@ export interface MalikEkleGirdisi {
 export interface MalikDuzeltGirdisi {
   readonly tapuTuru?: string;
   readonly tapuYevmiyeNo?: string;
+}
+
+export interface KiraciEkleGirdisi {
+  readonly kisiAdi: string;
+  readonly baslangic: string;
+  readonly bitis?: string;
+  readonly sozlesmeNo?: string;
+  /** Para METİN taşınır — JSON number float'tır (BFS v1 §11). */
+  readonly depozito?: string;
+}
+
+export interface SakinEkleGirdisi {
+  readonly kisiAdi: string;
+  readonly yakinlikDerecesi: string;
+  readonly girisTarihi: string;
+  readonly telefon?: string;
+  readonly acilDurumKisiAdi?: string;
+  readonly acilDurumTelefon?: string;
 }
 
 export const servis = {
@@ -175,6 +194,37 @@ export const servis = {
     gonder(
       `/bolumler/${bolumId}/malikler/${malikId}`, 'PATCH', dto,
       () => { mockMalikDuzelt(bolumId, malikId, dto); },
+    ),
+
+  // --- Kiracı ---
+
+  kiraciEkle: (bolumId: string, dto: KiraciEkleGirdisi): Promise<void> =>
+    gonder(`/bolumler/${bolumId}/kiracilar`, 'POST', dto, () => {
+      mockKiraciEkle(bolumId, dto);
+    }),
+
+  /** Tahliye — sözleşme kapanır, kayıt SİLİNMEZ. */
+  kiraciTahliye: (
+    bolumId: string, kiraciId: string, tahliyeTarihi: string, tahliyeGerekcesi: string,
+  ): Promise<void> =>
+    gonder(
+      `/bolumler/${bolumId}/kiracilar/${kiraciId}/tahliye`, 'PATCH',
+      { tahliyeTarihi, tahliyeGerekcesi },
+      () => { mockKiraciTahliye(bolumId, kiraciId, tahliyeTarihi, tahliyeGerekcesi); },
+    ),
+
+  // --- Sakin ---
+
+  sakinEkle: (bolumId: string, dto: SakinEkleGirdisi): Promise<void> =>
+    gonder(`/bolumler/${bolumId}/sakinler`, 'POST', dto, () => {
+      mockSakinEkle(bolumId, dto);
+    }),
+
+  /** Çıkış — dönem kapanır, kayıt SİLİNMEZ. */
+  sakinCikis: (bolumId: string, sakinId: string, cikisTarihi: string): Promise<void> =>
+    gonder(
+      `/bolumler/${bolumId}/sakinler/${sakinId}/cikis`, 'PATCH', { cikisTarihi },
+      () => { mockSakinCikis(bolumId, sakinId, cikisTarihi); },
     ),
 };
 

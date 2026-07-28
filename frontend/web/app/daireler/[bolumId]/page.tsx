@@ -23,6 +23,8 @@ import { SekmeCubugu, SekmePaneli, type Sekme } from '@/components/daire/sekmele
 import { HazirDegil } from '@/components/daire/hazir-degil';
 import { MalikEkleFormu } from '@/components/malik/malik-ekle-formu';
 import { MalikEylemleri } from '@/components/malik/malik-eylemleri';
+import { KiraciEkleFormu, KiraciTahliyeEylemi } from '@/components/kiraci/kiraci-yonetimi';
+import { SakinCikisEylemi, SakinEkleFormu } from '@/components/sakin/sakin-yonetimi';
 import { servis, type AuditSatiri, type DaireKarti } from '@/lib/servis';
 
 function Alan({ etiket, deger }: { readonly etiket: string; readonly deger: string }) {
@@ -51,6 +53,8 @@ export default function DaireKartiSayfasi({
   const t = useTranslations('daire');
   const tb = useTranslations('bolum');
   const tm = useTranslations('malik');
+  const tk = useTranslations('kiraci');
+  const ts = useTranslations('sakinYonetim');
   const tn = useTranslations('navigasyon');
   const tg = useTranslations('genel');
 
@@ -62,6 +66,8 @@ export default function DaireKartiSayfasi({
   const [audit, setAudit] = useState<readonly AuditSatiri[] | null>(null);
   const [auditYukleniyor, setAuditYukleniyor] = useState(false);
   const [formAcik, setFormAcik] = useState(false);
+  const [kiraciFormu, setKiraciFormu] = useState(false);
+  const [sakinFormu, setSakinFormu] = useState(false);
 
   const yukle = useCallback(() => {
     setYukleniyor(true);
@@ -238,6 +244,36 @@ export default function DaireKartiSayfasi({
 
       {/* --- Kiracılar --- */}
       <SekmePaneli anahtar="kiracilar" etkin={etkinSekme}>
+        <div className="flex flex-col gap-4">
+          {!kiraciFormu && (
+            <div className="flex flex-col gap-1 items-start">
+              <button
+                type="button"
+                disabled={gecerliKiracilar.length > 0}
+                onClick={() => setKiraciFormu(true)}
+                className="px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold disabled:opacity-50"
+                style={{ backgroundImage: 'var(--grad)' }}
+              >
+                {tk('yeniSozlesme')}
+              </button>
+              {/*
+                Dugme GIZLENMEZ, devre disi birakilir ve nedeni yazilir —
+                gizlenen dugme kullaniciya neden yapamadigini anlatmaz.
+              */}
+              {gecerliKiracilar.length > 0 && (
+                <p className="text-xs text-[color:var(--muted)]">{tk('zatenVar')}</p>
+              )}
+            </div>
+          )}
+
+          {kiraciFormu && (
+            <KiraciEkleFormu
+              bolumId={params.bolumId}
+              onEklendi={() => { setKiraciFormu(false); yukle(); }}
+              onIptal={() => setKiraciFormu(false)}
+            />
+          )}
+
         {kart.kiracilar.length === 0 ? (
           <BosDurum aciklama={t('kiraciYok')} />
         ) : (
@@ -260,14 +296,37 @@ export default function DaireKartiSayfasi({
                     {k.tahliyeGerekcesi}
                   </p>
                 )}
+                <KiraciTahliyeEylemi bolumId={params.bolumId} kiraci={k} onDegisti={yukle} />
               </div>
             ))}
           </div>
         )}
+        </div>
       </SekmePaneli>
 
       {/* --- Sakinler --- */}
       <SekmePaneli anahtar="sakinler" etkin={etkinSekme}>
+        <div className="flex flex-col gap-4">
+          {/* Sakinde TEKILLIK YOK — dugme mevcut sakinler varken de etkin. */}
+          {!sakinFormu && (
+            <button
+              type="button"
+              onClick={() => setSakinFormu(true)}
+              className="self-start px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold"
+              style={{ backgroundImage: 'var(--grad)' }}
+            >
+              {ts('yeniSakin')}
+            </button>
+          )}
+
+          {sakinFormu && (
+            <SakinEkleFormu
+              bolumId={params.bolumId}
+              onEklendi={() => { setSakinFormu(false); yukle(); }}
+              onIptal={() => setSakinFormu(false)}
+            />
+          )}
+
         {kart.sakinler.length === 0 ? (
           <BosDurum aciklama={t('sakinYok')} />
         ) : (
@@ -293,10 +352,12 @@ export default function DaireKartiSayfasi({
                     {s.acilDurumKisiAdi} — {s.acilDurumTelefon}
                   </p>
                 )}
+                <SakinCikisEylemi bolumId={params.bolumId} sakin={s} onDegisti={yukle} />
               </div>
             ))}
           </div>
         )}
+        </div>
       </SekmePaneli>
 
       {/* --- Geçmiş işlemler --- */}
