@@ -7,6 +7,85 @@ kararlar buraya yazılmaz — onların yeri [`docs/adr/log/`](docs/adr/log/).
 
 ---
 
+## 2026-07-28 · Oturum 11 — Operasyonel tamamlama ve dört yeni domain
+
+**Kapsam:** Toplu oluşturma · bina geneli raporlar · sayaç/araç/evcil/belge domain
+**Sonuç:** 53 → **56 uç** · **137 birim testi** (107 → 137) · zincir yeşil
+**Migration:** Gerekmedi; gerektirenler §3'te
+
+### 1. Operasyonel eksikler
+
+`POST /bolumler/toplu` — kırk daireli bir binayı tek tek girmek operasyonel
+olarak kullanılamaz. Tek transaction: bir satır geçersizse hiçbiri yazılmaz;
+yarım girilmiş bir kat arsa payı toplamını da yarım bırakır ve neyin eksik
+olduğu görünmez. Her bölüm için **ayrı** event yayınlanır — toplu bir "parti
+oluştu" event'i tüketicilere yaramaz.
+
+`GET /bolumler/hisse-denetimi` — bina geneli, tahakkuk öncesi kapı.
+`malikler/hisse-durumu` tek bölümü denetler; kırk daireli binada kırk çağrı
+gerekirdi. Yalnızca **sorunlu** bölümler döner.
+
+`GET /bolumler/yerlesim-ozeti` — yönetim ekranının ana tablosu: her bölüm için
+malik sayısı, hisse tamlığı, kira durumu, sakin sayısı tek sorguda.
+
+### 2. Dört yeni domain modülü — kalıcılık YOK
+
+Sprint araç · sayaç · evcil hayvan · belge yönetimi istedi. **Hiçbirinin
+şemada tablosu yok**; kalıcılık ve API migration gerektiriyor — ve migration'a
+dokunmama talimatı var. Çözüm: **domain katmanı bugün yazıldı**, kalıcılık
+TODO'ya bırakıldı. Kurallar bugünden itibaren test edilebilir ve tablo
+geldiğinde servis katmanı bunları çağıracak.
+
+**Sayaç** ([`sayac.ts`](shared/apartman-domain/src/sayac/sayac.ts)) — en
+değerlisi: mevcut `TUKETIM` paylaşım kuralının girdisini üretir.
+
+- **Sayaç geriye gitmez.** Yeni okuma öncekinden küçükse hesap yapılmaz.
+  Sessizce kabul edilse negatif tüketim oluşur; bu da `TUKETIM` dağıtımında
+  negatif ağırlık demektir — dağıtım ya patlar ya başka daireye fazla yazar.
+- **Devir tahmin edilmez.** Gösterge başa döndüyse (`99999 → 00001`) bu
+  `devirMi` ile **açıkça** bildirilir. Tahmin etmek, veri girişi hatasını devir
+  sanıp gerçekte olmayan bir tüketim yazmaya yol açar.
+- **Sayaç değişiminde eski sayacın son günleri kaybolmaz** — dönem tüketimi
+  iki parçadan oluşur.
+- Okumalar ondalık değil tam sayı; `12,345 m³` → `12345` + `olcekBasamak: 3`.
+
+**Araç** — Türkiye plaka biçimi. İlk yazdığım kural **yanlıştı** (harf+rakam ≤ 5);
+kendi testim yakaladı: `34 ABC 123` gerçek bir plakadır. Doğru kural harf
+sayısının rakam sayısını belirlemesi ve toplamın **daima 5 ya da 6** olmasıdır.
+Otopark aşımı **engellenmez, görünür kılınır** — misafir aracı meşrudur, karar
+yöneticinindir; ama sessizce fazla araç kaydı otopark giderinin dağıtımını bozar.
+
+**Evcil hayvan** — KMK md. 18. Kanun yasaklamaz; **yönetim planı** sınırlama
+getirebilir. Bu yüzden izin durumu koda gömülmez, tenant verisidir
+(`SERBEST | IZINLE | YASAK`). Sınırlama **kaynak referansı taşımak zorunda** —
+KMK md. 18 uyarınca belgeye dayanmalıdır. `YASAK` tür reddedilmez,
+`kabul: false` ile bildirilir: karar yöneticinin ve gerekirse genel kurulundur.
+
+**Belge** — BFS v1 §5 ile hizalı: belge **silinmez, versiyonlanır**. Sürüm
+zinciri kopamaz; "bu belge neyin yerine geldi?" cevapsız kalırsa eski karara
+dayanan işlemler gerekçesiz görünür. Finansal belgeler asla silinmez.
+
+### 3. Migration gerektiren TODO'lar
+
+**Yeni (Oturum 11):**
+
+1. `sayac` + `sayac_okumasi` tabloları — tüketim tabanlı tahakkukun önkoşulu.
+2. `arac` tablosu + otopark tahsis alanı (`BagimsizBolum.otoparkHakki`).
+3. `evcil_hayvan` + `evcil_hayvan_politikasi` tabloları.
+4. `belge` tablosu + `belge_tipi_politikasi`; dosya deposu (MinIO) bağlantısı.
+
+**Önceki oturumlardan:** `IliskiRolu`'na `SAKIN` · `PaylasimKurali`'na
+`KULLANIM_BAZLI`/`BLOK_BAZLI`/`MANUEL` · `SorumlulukTipi`'ne `SAKINE_AIT` ·
+`bolum_iliskisi` ile `malik`/`kiraci` örtüşmesi · hisse çakışması için
+`EXCLUDE USING gist` · kapı no kısmi unique index · migration `0002` hiç
+uygulanmadı.
+
+**Durum:** Bu dört modülün kuralları çalışıyor ve testli, ancak **hiçbir veri
+kaydedilemiyor.** Docker kurulup migration üretilene kadar araç/sayaç/evcil/belge
+yönetimi API ve UI olarak açılamaz.
+
+---
+
 ## 2026-07-28 · Oturum 10 — Toplu düzeltme ve KMK'ya uygun tahakkuk kuralları
 
 **Kapsam:** Toplu düzeltme akışları · 8 hesaplama yöntemi · SAKİN sorumluluğu
