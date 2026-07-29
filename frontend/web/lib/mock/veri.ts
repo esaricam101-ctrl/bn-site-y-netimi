@@ -507,6 +507,81 @@ export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
   sakinOrtusu.set(bolumId, liste);
 }
 
+// --- Kat yazma örtüsü ---
+
+const katOrtusu = new Map<string, MockKat[]>();
+
+/** Bloğun katları — örtü varsa o geçerlidir. */
+export function mockKatlariOku(blokId: string): readonly MockKat[] {
+  const mevcut = katOrtusu.get(blokId);
+  if (mevcut !== undefined) return mevcut;
+  const kopya = mockKatlar.filter((k) => k.blokId === blokId);
+  katOrtusu.set(blokId, kopya);
+  return kopya;
+}
+
+function katListesi(blokId: string): MockKat[] {
+  mockKatlariOku(blokId);
+  return katOrtusu.get(blokId) as MockKat[];
+}
+
+export function mockKatEkle(blokId: string, no: number, ad?: string): void {
+  const liste = katListesi(blokId);
+  // Kat no BLOK ICINDE tekildir; sunucu da ayni kurali uygular.
+  if (liste.some((k) => k.no === no)) {
+    throw new Error(`Bu blokta ${no}. kat zaten tanımlı.`);
+  }
+  liste.push({
+    id: `kat-yeni-${blokId}-${no}`,
+    blokId,
+    no,
+    ad: ad ?? null,
+    bolumSayisi: 0,
+  });
+  liste.sort((a, b) => a.no - b.no);
+}
+
+export function mockKatGuncelle(
+  blokId: string, katId: string, dto: { readonly no?: number; readonly ad?: string },
+): void {
+  const liste = katListesi(blokId);
+  const i = liste.findIndex((k) => k.id === katId);
+  if (i < 0) throw new Error(`Kat bulunamadı: ${katId}`);
+  const mevcut = liste[i] as MockKat;
+
+  if (dto.no !== undefined && dto.no !== mevcut.no) {
+    // Bolumu olan katin NUMARASI degistirilemez: bolumlerin `kat` alani bu
+    // numaraya baglidir ve olusturmada esitligi zorlanir.
+    if (mevcut.bolumSayisi > 0) {
+      throw new Error(
+        `${mevcut.no}. katta ${mevcut.bolumSayisi} bağımsız bölüm var; kat numarası değiştirilemez.`,
+      );
+    }
+    if (liste.some((k) => k.id !== katId && k.no === dto.no)) {
+      throw new Error(`Bu blokta ${dto.no}. kat zaten tanımlı.`);
+    }
+  }
+
+  liste[i] = {
+    ...mevcut,
+    ...(dto.no === undefined ? {} : { no: dto.no }),
+    ...(dto.ad === undefined ? {} : { ad: dto.ad }),
+  };
+  liste.sort((a, b) => a.no - b.no);
+}
+
+export function mockKatSil(blokId: string, katId: string): void {
+  const liste = katListesi(blokId);
+  const kat = liste.find((k) => k.id === katId);
+  if (kat === undefined) throw new Error(`Kat bulunamadı: ${katId}`);
+  if (kat.bolumSayisi > 0) {
+    throw new Error(
+      `${kat.no}. katta ${kat.bolumSayisi} bağımsız bölüm var; kat silinemez.`,
+    );
+  }
+  katOrtusu.set(blokId, liste.filter((k) => k.id !== katId));
+}
+
 export function mockSakinCikis(bolumId: string, sakinId: string, cikisTarihi: string): void {
   const liste = sakinOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((s) => s.id === sakinId);

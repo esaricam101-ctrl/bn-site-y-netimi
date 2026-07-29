@@ -12,9 +12,10 @@
 import { api } from './api';
 import {
   mockApartmanlar, mockAuditKayitlari, mockBloklar, mockBolumler,
-  mockDaireKarti, mockKatlar, mockYerlesim,
+  mockDaireKarti, mockYerlesim,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
   mockKiraciEkle, mockKiraciTahliye, mockSakinCikis, mockSakinEkle,
+  mockKatEkle, mockKatGuncelle, mockKatlariOku, mockKatSil,
   type MockApartman, type MockAuditSatiri, type MockBlok, type MockBolum,
   type MockDaireKarti, type MockHisseRaporu, type MockKat, type MockKiraci,
   type MockMalik, type MockSakin,
@@ -68,6 +69,20 @@ async function gonder(
   });
 }
 
+/**
+ * Silme isteği. Gövde taşır: soft delete gerekçesi zorunludur (BFS v1 §5.2)
+ * ve denetim kaydına yazılır.
+ */
+async function sil(yol: string, govde: unknown, mockEtki: () => void): Promise<void> {
+  if (MOCK_AKTIF) {
+    mockEtki();
+    await gecikmeli(null);
+    return;
+  }
+  const token = jeton();
+  await api<unknown>(yol, { method: 'DELETE', govde, ...(token ? { token } : {}) });
+}
+
 export interface MalikEkleGirdisi {
   readonly kisiAdi: string;
   readonly hissePay: string;
@@ -113,7 +128,29 @@ export const servis = {
     ),
 
   katlar: (blokId: string): Promise<readonly MockKat[]> =>
-    getir(`/katlar?blokId=${blokId}`, mockKatlar.filter((k) => k.blokId === blokId)),
+    getir(`/katlar?blokId=${blokId}`, mockKatlariOku(blokId)),
+
+  katEkle: (blokId: string, no: number, ad?: string): Promise<void> =>
+    gonder(
+      '/katlar', 'POST',
+      { blokId, no, ...(ad === undefined || ad === '' ? {} : { ad }) },
+      () => { mockKatEkle(blokId, no, ad); },
+    ),
+
+  /**
+   * Kat düzeltme. Bölümü olan katın NUMARASI değiştirilemez — bölümlerin
+   * `kat` alanı bu numaraya bağlıdır ve oluşturmada eşitliği zorlanır.
+   */
+  katGuncelle: (
+    blokId: string, katId: string, dto: { readonly no?: number; readonly ad?: string },
+  ): Promise<void> =>
+    gonder(`/katlar/${katId}`, 'PATCH', dto, () => {
+      mockKatGuncelle(blokId, katId, dto);
+    }),
+
+  /** Soft delete — gerekçe zorunludur (BFS v1 §5.2). */
+  katSil: (blokId: string, katId: string, gerekce: string): Promise<void> =>
+    sil(`/katlar/${katId}`, { gerekce }, () => { mockKatSil(blokId, katId); }),
 
   /**
    * Bölümler. Gerçek uç cursor sayfalama döner (`{ kayitlar, sonrakiImlec }`);

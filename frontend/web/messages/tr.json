@@ -50,7 +50,26 @@
   "kat": {
     "baslik": "Katlar",
     "bosAciklama": "Bu blokta henüz kat kaydı yok.",
-    "katNo": "{no}. kat"
+    "katNo": "{no}. kat",
+    "katNo2": "Kat numarası",
+    "katAdi": "Kat adı (isteğe bağlı)",
+    "blokSec": "Blok",
+    "yeniKat": "Yeni kat ekle",
+    "noIpucu": "Bodrum katlar negatif girilir (-1, -2). Zemin kat için 0 kullanın.",
+    "bolumSayisi2": "{sayi} bölüm",
+    "duzelt": "Düzelt",
+    "eklendi": "Kat eklendi.",
+    "eklenemedi": "Kat eklenemedi.",
+    "guncellendi": "Kat güncellendi.",
+    "guncellenemedi": "Kat güncellenemedi.",
+    "silindi": "Kat silindi.",
+    "silinemedi": "Kat silinemedi.",
+    "silAciklama": "Bu işlem katı arşivler; kayıt silinmez, denetim kaydına yazılır.",
+    "silGerekce": "Silme gerekçesi (en az 10 karakter)",
+    "silinemezIpucu": "Bağımsız bölümü olan kat silinemez.",
+    "noKilitli": "Bu katta {sayi} bağımsız bölüm var; kat NUMARASI değiştirilemez. Bölümlerin kat bilgisi bu numaraya bağlıdır. Kat adı değiştirilebilir.",
+    "hataNo": "Kat numarası -10 ile 200 arasında bir tam sayı olmalıdır.",
+    "hataGerekce": "Silme gerekçesi en az 10 karakter olmalıdır."
   },
   "malik": {
     "yeniMalik": "Yeni malik ekle",

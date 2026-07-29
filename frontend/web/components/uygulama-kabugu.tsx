@@ -27,6 +27,7 @@ const MENU: readonly MenuOgesi[] = [
   { yol: '/yonetim', anahtar: 'genelBakis', simge: '◈' },
   { yol: '/apartmanlar', anahtar: 'apartmanlar', simge: '▣' },
   { yol: '/bloklar', anahtar: 'bloklar', simge: '▤' },
+  { yol: '/katlar', anahtar: 'katlar', simge: '▥' },
   { yol: '/bolumler', anahtar: 'bolumler', simge: '▦' },
   { yol: '/kisiler', anahtar: 'kisiler', simge: '◎' },
   { yol: '/belgeler', anahtar: 'belgeler', simge: '▧' },
