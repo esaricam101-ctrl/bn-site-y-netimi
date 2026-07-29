@@ -752,6 +752,144 @@ export function mockKatSil(blokId: string, katId: string): void {
   katOrtusu.set(blokId, liste.filter((k) => k.id !== katId));
 }
 
+// --- Bölüm yazma örtüsü (toplu oluşturma · taşıma) ---
+
+let bolumOrtusu: MockBolum[] | null = null;
+
+export function mockBolumleriOku(): readonly MockBolum[] {
+  return bolumOrtusu ?? mockBolumler;
+}
+
+function bolumListesi(): MockBolum[] {
+  return bolumOrtusu ?? (bolumOrtusu = [...mockBolumler]);
+}
+
+/** Blok ve kat sayaçlarını örtüde günceller. */
+function sayaclariArtir(blokId: string, katId: string | null, artis: number): void {
+  const bloklar = blokOrtusu ?? (blokOrtusu = [...mockBloklar]);
+  const bi = bloklar.findIndex((b) => b.id === blokId);
+  if (bi >= 0) {
+    const b = bloklar[bi] as MockBlok;
+    bloklar[bi] = { ...b, bolumSayisi: Math.max(0, b.bolumSayisi + artis) };
+  }
+  if (katId === null) return;
+  const katlar = katOrtusu.get(blokId);
+  if (katlar === undefined) return;
+  const ki = katlar.findIndex((k) => k.id === katId);
+  if (ki >= 0) {
+    const k = katlar[ki] as MockKat;
+    katlar[ki] = { ...k, bolumSayisi: Math.max(0, k.bolumSayisi + artis) };
+  }
+}
+
+export interface MockTopluBolumSatiri {
+  readonly kapiNo: string;
+  readonly icKapiNo?: string;
+  readonly nitelik?: string;
+  readonly daireTipi?: string;
+  readonly brutM2: number;
+  readonly netM2: number;
+  readonly arsaPayiPay: string;
+  readonly arsaPayiPayda: string;
+  readonly aidatMuafiyeti?: boolean;
+}
+
+/**
+ * Toplu oluşturma — TEK İŞLEM. Bir satır geçersizse hiçbiri yazılmaz;
+ * sunucu da böyle davranır. Yarım yazılmış kat, arsa payı toplamını da yarım
+ * bırakır ve neyin eksik olduğu görünmez.
+ */
+export function mockBolumTopluOlustur(
+  blokId: string, katId: string | null, kat: number,
+  satirlar: readonly MockTopluBolumSatiri[],
+): number {
+  const liste = bolumListesi();
+
+  // Kapi no BLOK ICINDE tekildir; once tumu denetlenir, sonra yazilir.
+  const blokKapilari = new Set(
+    liste.filter((b) => b.blokId === blokId).map((b) => b.kapiNo.toLocaleLowerCase('tr')),
+  );
+  for (const s of satirlar) {
+    const anahtar = s.kapiNo.toLocaleLowerCase('tr');
+    if (blokKapilari.has(anahtar)) {
+      throw new Error(`'${s.kapiNo}' kapı numarası bu blokta zaten kayıtlı; hiçbir satır yazılmadı.`);
+    }
+    blokKapilari.add(anahtar);
+  }
+
+  for (const [i, s] of satirlar.entries()) {
+    liste.push({
+      id: `bolum-ice-${blokId}-${kat}-${i}-${s.kapiNo}`,
+      kapiNo: s.kapiNo,
+      icKapiNo: s.icKapiNo ?? null,
+      kat,
+      katId,
+      blokId,
+      nitelik: s.nitelik ?? 'MESKEN',
+      daireTipi: s.daireTipi ?? null,
+      durum: 'AKTIF',
+      brutM2: s.brutM2,
+      netM2: s.netM2,
+      arsaPayi: `${s.arsaPayiPay}/${s.arsaPayiPayda}`,
+      aidatMuafiyeti: s.aidatMuafiyeti ?? false,
+    });
+  }
+
+  sayaclariArtir(blokId, katId, satirlar.length);
+  return satirlar.length;
+}
+
+/**
+ * Toplu taşıma — TEK İŞLEM. `hedefKatId` verilirse bölümün `kat` alanı katın
+ * numarasıyla EŞİTLENİR; eşitlenmezse bölüm bir katta, `kat` alanı başka bir
+ * numarada kalır ve hiyerarşi denetimi sonsuza dek uyarı üretir.
+ */
+export function mockBolumTasi(
+  bolumIdler: readonly string[], hedefBlokId: string, hedefKatId: string | null,
+): number {
+  const liste = bolumListesi();
+  const hedefKat = hedefKatId === null
+    ? null
+    : (katOrtusu.get(hedefBlokId) ?? mockKatlar.filter((k) => k.blokId === hedefBlokId))
+      .find((k) => k.id === hedefKatId);
+
+  if (hedefKatId !== null && hedefKat === undefined) {
+    throw new Error('Hedef kat seçilen bloğa ait değil.');
+  }
+
+  const tasinacak = bolumIdler
+    .map((id) => liste.findIndex((b) => b.id === id))
+    .filter((i) => i >= 0);
+  if (tasinacak.length !== bolumIdler.length) {
+    throw new Error('Bölümlerden biri bulunamadı; hiçbiri taşınmadı.');
+  }
+
+  // Hedef blokta kapi no cakismasi varsa HICBIRI tasinmaz.
+  const hedefKapilari = new Set(
+    liste.filter((b) => b.blokId === hedefBlokId && !bolumIdler.includes(b.id))
+      .map((b) => b.kapiNo.toLocaleLowerCase('tr')),
+  );
+  for (const i of tasinacak) {
+    const b = liste[i] as MockBolum;
+    if (hedefKapilari.has(b.kapiNo.toLocaleLowerCase('tr'))) {
+      throw new Error(`Hedef blokta '${b.kapiNo}' kapı numarası zaten var; hiçbiri taşınmadı.`);
+    }
+  }
+
+  for (const i of tasinacak) {
+    const b = liste[i] as MockBolum;
+    sayaclariArtir(b.blokId ?? hedefBlokId, b.katId, -1);
+    liste[i] = {
+      ...b,
+      blokId: hedefBlokId,
+      katId: hedefKatId,
+      ...(hedefKat === undefined || hedefKat === null ? {} : { kat: hedefKat.no }),
+    };
+    sayaclariArtir(hedefBlokId, hedefKatId, 1);
+  }
+  return tasinacak.length;
+}
+
 export function mockSakinCikis(bolumId: string, sakinId: string, cikisTarihi: string): void {
   const liste = sakinOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((s) => s.id === sakinId);

@@ -46,7 +46,11 @@ Teslim edilen commit zinciri:
    web paketi için test altyapısı kurulu değil.
 4. ~~**Kaydedilebilir filtreler.**~~ ✅ Adlandırılmış filtreler
    `localStorage`'da (`bnos.filtre.<ekran>`); görünüm profilinden ayrıdır.
-5. **CSV içe aktarma sihirbazı** ve **toplu düzenleme** akışları.
+5. ~~**CSV içe aktarma sihirbazı** ve **toplu düzenleme**.~~ ✅ Üç adımlı
+   sihirbaz (`/bolumler/ice-aktar`) → `POST /bolumler/toplu`; toplu taşıma
+   tablo seçim çubuğunda → `POST /bolumler/tasi`.
+   **Kalan:** arsa payı toplu düzeltme (`POST /bolumler/arsa-payi-duzelt`)
+   uç hazır, arayüzü yok.
 6. ~~**Apartman ve Blok için yazma arayüzü.**~~ ✅ Ekleme · düzeltme · soft
    delete; bloğu olan apartman ve bölümü olan blok silinemez (düğme devre
    dışı + neden), blok başka apartmana taşınmaz.

@@ -11,7 +11,8 @@
  */
 import { api } from './api';
 import {
-  mockAuditKayitlari, mockBolumler, mockDaireKarti, mockYerlesim,
+  mockAuditKayitlari, mockBolumleriOku, mockDaireKarti, mockYerlesim,
+  mockBolumTasi, mockBolumTopluOlustur, type MockTopluBolumSatiri,
   mockApartmanEkle, mockApartmanGuncelle, mockApartmanlariOku, mockApartmanSil,
   mockBlokEkle, mockBlokGuncelle, mockBloklariOku, mockBlokSil,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
@@ -212,7 +213,7 @@ export const servis = {
     if (suzgec.katId !== undefined) parametre.set('katId', suzgec.katId);
     const sorgu = parametre.toString();
 
-    const kayitlar = mockBolumler.filter(
+    const kayitlar = mockBolumleriOku().filter(
       (b) =>
         (suzgec.blokId === undefined || b.blokId === suzgec.blokId) &&
         (suzgec.katId === undefined || b.katId === suzgec.katId),
@@ -224,6 +225,39 @@ export const servis = {
       kayitlar, sonrakiImlec: null,
     });
   },
+
+  /**
+   * Toplu bölüm oluşturma — CSV içe aktarmanın hedefi.
+   *
+   * TEK İŞLEMDİR: bir satır geçersizse hiçbiri yazılmaz. Yarım girilmiş bir
+   * kat, arsa payı toplamını da yarım bırakır ve neyin eksik olduğu görünmez.
+   * Arsa payı TOPLAMI burada denetlenmez; bina parça parça girilirken toplam
+   * doğal olarak 1'in altındadır (KMK md. 3 tamlığı ayrı uçla denetlenir).
+   */
+  bolumTopluOlustur: (
+    blokId: string, katId: string | null, kat: number,
+    bolumler: readonly MockTopluBolumSatiri[],
+  ): Promise<void> =>
+    gonder(
+      '/bolumler/toplu', 'POST',
+      { blokId, ...(katId === null ? {} : { katId }), kat, bolumler },
+      () => { mockBolumTopluOlustur(blokId, katId, kat, bolumler); },
+    ),
+
+  /** Toplu taşıma. Gerekçe zorunlu — hiyerarşi değişikliği denetime yazılır. */
+  bolumTasi: (
+    bolumIdler: readonly string[], hedefBlokId: string,
+    hedefKatId: string | null, gerekce: string,
+  ): Promise<void> =>
+    gonder(
+      '/bolumler/tasi', 'POST',
+      {
+        bolumIdler, hedefBlokId,
+        ...(hedefKatId === null ? {} : { hedefKatId }),
+        gerekce,
+      },
+      () => { mockBolumTasi(bolumIdler, hedefBlokId, hedefKatId); },
+    ),
 
   yerlesimOzeti: (): Promise<MockYerlesimOzeti> =>
     getir('/bolumler/yerlesim-ozeti', mockYerlesim),
