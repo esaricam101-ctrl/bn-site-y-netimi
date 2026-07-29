@@ -11,7 +11,6 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { ProblemDetailsFilter } from '../../src/common/errors/problem-details.filter';
-import { CorrelationInterceptor } from '../../src/common/context/correlation.interceptor';
 
 /**
  * `getHttpServer()` ve `Response.body` her ikisi de `any` döner. Tiplenmemiş
@@ -39,7 +38,9 @@ describe('CT-04 · Üç kapı', () => {
     app = modul.createNestApplication();
     app.setGlobalPrefix('api/v1');
     app.useGlobalFilters(new ProblemDetailsFilter());
-    app.useGlobalInterceptors(new CorrelationInterceptor());
+    // Bağlam middleware'i AppModule.configure() ile gelir; burada ayrıca
+    // kaydedilirse İÇ İÇE bir depo oluşur ve guard'ların yazdığı tenant
+    // bilgisi handler'a ulaşmaz.
     await app.init();
 
     const giris = await request(sunucu())

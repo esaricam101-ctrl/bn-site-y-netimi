@@ -43,6 +43,10 @@ export const EVENT_KATALOGU: readonly EventKatalogKaydi[] = [
   { eventType: 'apartman.kiraci.tahliye_edildi', eventVersion: 1, sahipModul: 'kiraci', aciklama: 'Kiraci tahliye edildi; sozlesme kapandi' },
   { eventType: 'apartman.sakin.eklendi', eventVersion: 1, sahipModul: 'sakin', aciklama: 'Bolume fiilen oturan sakin eklendi' },
   { eventType: 'apartman.sakin.cikti', eventVersion: 1, sahipModul: 'sakin', aciklama: 'Sakin bolumden ayrildi' },
+  // Gider turu — aidat kurallari VERIDIR (KMK md. 20). Kural degisikligi
+  // her dairenin aidatini etkiler; bu yuzden ayri event olarak yayilir.
+  { eventType: 'apartman.gider_turu.tanimlandi', eventVersion: 1, sahipModul: 'gider-turu', aciklama: 'Gider turu ve paylasim kurali tanimlandi' },
+  { eventType: 'apartman.gider_turu.degistirildi', eventVersion: 1, sahipModul: 'gider-turu', aciklama: 'Gider turunun paylasim kurali veya sorumlulugu degistirildi' },
   // Toplu duzeltme akislari — hiyerarsi denetiminin raporladigi sorunlarin karsiligi.
   { eventType: 'apartman.bagimsiz_bolum.tasindi', eventVersion: 1, sahipModul: 'bolum', aciklama: 'Bolumler baska blok/kata tasindi' },
   { eventType: 'apartman.bagimsiz_bolum.arsa_payi_duzeltildi', eventVersion: 1, sahipModul: 'bolum', aciklama: 'Arsa paylari toplu duzeltildi (KMK md. 3)' },

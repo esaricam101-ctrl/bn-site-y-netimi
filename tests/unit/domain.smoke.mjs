@@ -79,16 +79,19 @@ test('event: apartman dikeyi eventleri katalogda kayitli', () => {
     'apartman.kiraci.eklendi', 'apartman.kiraci.tahliye_edildi',
     'apartman.sakin.eklendi', 'apartman.sakin.cikti',
     'apartman.bagimsiz_bolum.tasindi', 'apartman.bagimsiz_bolum.arsa_payi_duzeltildi',
+    // Gider turu — aidat kurallari VERIDIR (KMK md. 20). Kural degisikligi
+    // her dairenin aidatini etkiledigi icin ayri event olarak yayilir.
+    'apartman.gider_turu.tanimlandi', 'apartman.gider_turu.degistirildi',
   ]) {
     assert.ok(CD.katalogdaVarMi(t, 1), `${t} katalogda yok`);
   }
 
   // 'apartman' dikeyi core'dan ayridir — bu varliklar core-domain'e ait degil.
   const apartmanKayitlari = CD.EVENT_KATALOGU.filter((k) => k.eventType.startsWith('apartman.'));
-  assert.equal(apartmanKayitlari.length, 18);
+  assert.equal(apartmanKayitlari.length, 20);
   assert.deepEqual(
     [...new Set(apartmanKayitlari.map((k) => k.sahipModul))].sort(),
-    ['apartman', 'blok', 'bolum', 'iliski', 'kat', 'kiraci', 'malik', 'sakin'],
+    ['apartman', 'blok', 'bolum', 'gider-turu', 'iliski', 'kat', 'kiraci', 'malik', 'sakin'],
   );
 
   // Malik/Kiraci/Sakin kayitlari SILINMEZ; donem kapanir. Katalogda 'silindi'

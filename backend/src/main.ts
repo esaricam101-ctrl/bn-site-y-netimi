@@ -11,7 +11,6 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
-import { CorrelationInterceptor } from './common/context/correlation.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -31,7 +30,8 @@ async function bootstrap(): Promise<void> {
   );
   // RFC 7807 — her hata korelasyon kimliği ve tek net sonraki eylem taşır (BFS v1 §12)
   app.useGlobalFilters(new ProblemDetailsFilter());
-  app.useGlobalInterceptors(new CorrelationInterceptor());
+  // İstek bağlamı AppModule.configure() içinde MIDDLEWARE olarak kurulur —
+  // guard'lardan önce çalışması gerekir (bkz. correlation.middleware.ts).
 
   const swagger = new DocumentBuilder()
     .setTitle('BNOS Apartman Yönetimi API')

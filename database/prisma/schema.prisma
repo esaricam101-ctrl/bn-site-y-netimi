@@ -335,6 +335,10 @@ enum BolumDurumu {
 enum IliskiRolu {
   MALIK
   KIRACI
+  /// Fiilen oturan. Malik ve kiracıdan AYRIDIR: kiracı şirket olabilir,
+  /// dairede oturan çalışanı olabilir. `SAKINE_AIT` giderlerin borç
+  /// sorumlusu bu roldür.
+  SAKIN
 }
 
 model BolumIliskisi {
@@ -488,15 +492,29 @@ enum PaylasimKurali {
   ARSA_PAYI
   BRUT_M2
   NET_M2
+  /// Geriye dönük uyumluluk — BRUT_M2 ile aynı davranır. Yeni tanımlarda
+  /// hangi ölçünün kastedildiği açık yazılır (BFS v1 §11).
   METREKARE
   TUKETIM
   SABIT_TUTAR
+  /// Yalnızca hizmeti KULLANAN bölümler öder — otopark, havuz, jeneratör.
+  KULLANIM_BAZLI
+  /// Yalnızca ilgili BLOĞUN bölümleri öder — o bloktaki asansör onarımı gibi.
+  BLOK_BAZLI
+  /// Yönetici tutarları bölüm bölüm belirler; toplam gidere eşit olmalıdır.
+  MANUEL
   KARMA
 }
 
 enum SorumlulukTipi {
   MALIKE_AIT
   KULLANANA_AIT
+  /// Fiilen oturana ait. Sakin yoksa kiracı, o da yoksa malik.
+  ///
+  /// KULLANANA_AIT'ten ayrıdır: kiracı bir şirket olabilir ve dairede
+  /// şirketin çalışanı oturuyor olabilir. Su ya da ısınma gibi tüketime
+  /// bağlı giderlerde yönetim planı sorumluluğu fiilen oturana verebilir.
+  SAKINE_AIT
 }
 
 enum KuralKaynagi {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
@@ -9,7 +9,7 @@ import { TenantGuard } from './common/guards/tenant.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { AuditModule } from './common/audit/audit.module';
-import { CorrelationInterceptor } from './common/context/correlation.interceptor';
+import { CorrelationMiddleware } from './common/context/correlation.middleware';
 import { OutboxModule } from './common/outbox/outbox.module';
 import { NumberingModule } from './common/numbering/numbering.module';
 import { HealthModule } from './modules/health/health.module';
@@ -25,6 +25,7 @@ import { MalikModule } from './modules/malik/malik.module';
 import { KiraciModule } from './modules/kiraci/kiraci.module';
 import { SakinModule } from './modules/sakin/sakin.module';
 import { DaireModule } from './modules/daire/daire.module';
+import { GiderTuruModule } from './modules/gider-turu/gider-turu.module';
 import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
 
 @Module({
@@ -51,6 +52,8 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     // Okuma modeli: yukarıdakileri tek daire kartında birleştirir.
     DaireModule,
     IliskiModule,
+    // Aidat kuralları — VERİ olarak (KMK md. 20). Tahakkuk bu katalogdan okur.
+    GiderTuruModule,
     // Denetim kaydı OKUMA ucu. Yazma tarafı common/audit içindedir.
     AuditSorguModule,
   ],
@@ -60,8 +63,18 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     { provide: APP_GUARD, useClass: AuthGuard },        // Kapı 1 — Kimlik
     { provide: APP_GUARD, useClass: TenantGuard },      // Kapı 2 — Kiracı
     { provide: APP_GUARD, useClass: PermissionGuard },  // Kapı 3 — İzin
-    { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /**
+   * İstek bağlamı MIDDLEWARE ile kurulur, interceptor ile DEĞİL.
+   *
+   * NestJS sırası: middleware → guard → interceptor → handler. Bağlam bir
+   * interceptor'da kurulsaydı guard'lar (Üç Kapı) ondan önce çalışır ve
+   * principal/tenant bilgisini bağlama YAZAMAZDI — nitekim yazamıyordu.
+   */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(CorrelationMiddleware).forRoutes('*');
+  }
+}
