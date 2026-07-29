@@ -1,4 +1,4 @@
-# Oturum Özeti — 29 Temmuz 2026
+# Oturum Özeti — 29 Temmuz 2026 (Docker kuruldu)
 
 Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 [`DEVLOG.md`](DEVLOG.md) içindedir; burada yalnızca *nerede kaldık* ve
@@ -6,154 +6,199 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
-## 1. Son tamamlanan iş
+## 1. Bu oturumda ne oldu
 
-**Commit `ec76035`** — Arsa payı toplu düzeltme arayüzü.
-**A listesi (migration gerektirmeyenler) tamamen kapandı.**
-
-Bu oturumda teslim edilenler:
+**Docker kuruldu ve veritabanı ilk kez ayağa kalktı.** Bu, aylardır
+görülemeyen hataları görünür yaptı: üç kritik hata yalnızca ayakta bir
+veritabanıyla ortaya çıkabilirdi. Hepsi derleniyordu, lint geçiyordu ve
+tip denetiminden geçiyordu.
 
 | Commit | İş |
 |---|---|
-| `8bca955` | Apartman ve Blok yazma arayüzleri (A-6) |
-| `66bd2a5` | Gelişmiş filtre paneli + kaydedilebilir filtreler (A-3 · A-4) |
-| `b4759d3` | CSV içe aktarma sihirbazı + toplu taşıma (A-5) |
-| `ec76035` | Arsa payı toplu düzeltme (KMK md. 3) |
+| `48b0b7d` | Veritabanı ayağa kalktı — üç kritik hata düzeltildi |
+| `3d05194` | Sözleşme testleri 24/24 — iki yetki açığı kapatıldı |
+| `53e5010` | Gider Türü modülü + istek bağlamı middleware'e alındı |
+| `e4149c4` | Gider Türü arayüzü |
+| `002fcf8` | Tahakkuk modülü |
+| `5322afe` | Araç modülü + migration 0004 |
 
-Önceki oturumların zinciri: `1ef7d5b` · `bf31046` · `572617c` · `dd624ce` ·
-`494abd8` · `299e486` · `c529be2` · `1bc1d6a`.
+Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
+`b4759d3` · `ec76035` · `89a56df` · `666c918`.
 
-**Doğrulama (son commit itibarıyla):** build 9/9 · ESLint 0 · verify 7/7 ·
-belge lint 0 · 57 backend ucu · **13 web rotası**.
+### Bulunan ve düzeltilen hatalar
 
-Çalışma ağacı **temiz**, `origin/master` ile **senkron**.
+1. **Migration 0001 hiç çalışamazdı.** Prisma'nın üretmesi gereken tablo
+   DDL'i hiç üretilmemişti; dosyada yalnızca elle yazılan RLS bölümü vardı.
+   `relation "kisi" does not exist` ile düşüyordu. 0001 ve 0002 birleştirilip
+   tek doğru temel üretildi.
+2. **Giriş hiç çalışamazdı.** `kullanici` RLS taşır; kod "sistem işlemi olarak
+   çalışır" diyordu ama `sistemIslemi` RLS'i **atlamaz**, yalnızca bağlam
+   *kurmaz*. `POST /oturum/giris` her çağrıda 500 dönüyordu. RLS'siz
+   `oturum_dizini` katalogu eklendi (migration 0002); senkronu **trigger**
+   tutar, uygulama kodu değil.
+3. **Her okuma ucu 500 dönüyordu.** 11 sorgu servisinde 30 çağrı RLS'li
+   tabloları tenant bağlamı dışında okuyordu — Kapı 2 dahil.
+4. **Bütün yazma uçları kırıktı.** İstek bağlamı bir *interceptor*'da
+   kuruluyordu; NestJS'te guard'lar interceptor'lardan **önce** çalışır, bu
+   yüzden Üç Kapı bağlama yazamıyordu. Middleware'e alındı.
+5. **Tenant uçlarında hiç izin denetimi yoktu.** Kimliği doğrulanmış herhangi
+   bir kullanıcı platforma yeni yerleşke açabiliyordu.
+6. **Paylaşılan paketler CommonJS'ten `require` edilemiyordu**; backend
+   derlense de dist hiç çalışmıyordu.
 
----
+### Kalıcı korumalar
 
-## 2. Bekleyen işler — öncelik sırasıyla
+- `scripts/rls-scan.mjs` — RLS'li modele tenant bağlamı dışında erişen her
+  çağrıyı yakalar. `pnpm verify` zincirinde (artık **8/8**).
+- `scripts/db.mjs` — migration `bnos_migrator`, tohum `bnos_app` rolüyle
+  koşar. Tohumun uygulama rolüyle koşması **kasıtlıdır**: RLS böylece fiilen
+  sınanır.
+- `unplugin-swc` — vitest esbuild ile derliyordu ve `emitDecoratorMetadata`
+  desteklemediği için NestJS DI testlerde çalışmıyordu.
 
-### A. Migration gerektirmeyenler (hemen yapılabilir)
+### Çalışma zamanı kanıtı (ilk kez alınabildi)
 
-1. ~~**Malik / Kiracı / Sakin yönetim ekranları.**~~ ✅ `494abd8` · `299e486` ·
-   `1bc1d6a`. Ekleme · devir/tahliye/çıkış · düzeltme, form doğrulama ve
-   bildirim altyapısı tamam.
-2. ~~**Kat ekranı (bağımsız).**~~ ✅ `c529be2`. Ekleme · düzeltme · soft delete;
-   bölümü olan katta numara kilitli.
-3. ~~**Arama ve filtreleme ekranı**~~ ✅ Kolon bazında işleçli filtre paneli
-   (`components/tablo/filtre.ts` motor · `filtre-paneli.tsx` arayüz).
-   **Bilinen boşluk:** motorun çalışma zamanı birim testi yok — `tests/unit`
-   yalnızca `shared/*/dist` ve `backend/src/common` derlemesini koşabiliyor,
-   web paketi için test altyapısı kurulu değil.
-4. ~~**Kaydedilebilir filtreler.**~~ ✅ Adlandırılmış filtreler
-   `localStorage`'da (`bnos.filtre.<ekran>`); görünüm profilinden ayrıdır.
-5. ~~**CSV içe aktarma sihirbazı** ve **toplu düzenleme**.~~ ✅ Üç adımlı
-   sihirbaz (`/bolumler/ice-aktar`) → `POST /bolumler/toplu`; toplu taşıma
-   tablo seçim çubuğunda → `POST /bolumler/tasi`; arsa payı toplu düzeltme
-   (`/bolumler/arsa-payi`) → `POST /bolumler/arsa-payi-duzelt`, canlı kesir
-   toplamı ve liste ekranında bozuk toplam uyarısı.
-6. ~~**Apartman ve Blok için yazma arayüzü.**~~ ✅ Ekleme · düzeltme · soft
-   delete; bloğu olan apartman ve bölümü olan blok silinemez (düğme devre
-   dışı + neden), blok başka apartmana taşınmaz.
-
-### B. Kütüphane kararı gerektirenler
-
-6. **PDF çıktısı ve XLSX aktarımı.** Şu an CSV ve yazdırma var; **yazdırma
-   stil sayfası yazıldı** (`globals.css` · `@media print`) — koyu tema
-   basılmaz, tablo başlığı her sayfada tekrarlanır, araç çubuğu ve seçim
-   kolonu kâğıda çıkmaz, çıktıya ekran adı ve tarih basılır. **Resmî görünümlü
-   belge (işletme defteri · borç bildirimi) hâlâ kütüphane kararı bekliyor.**
-7. **Grafikler.** Basit oran çubuğu elde yazıldı; zaman serisi ya da çoklu
-   eksen gerekirse kütüphane değerlendirilmeli.
-
-### C. Migration bekleyenler — **Docker kurulmadan başlanamaz**
-
-8. `arac` · `sayac` + `sayac_okumasi` · `evcil_hayvan` + politikası ·
-   `belge` + politikası · `not` tabloları. **Domain katmanları yazılı ve
-   testli** (`shared/apartman-domain/src/{arac,sayac,evcil,belge}`); yalnızca
-   kalıcılık ve API eksik.
-9. `IliskiRolu` enum'una `SAKIN`; `PaylasimKurali`'na `KULLANIM_BAZLI` ·
-   `BLOK_BAZLI` · `MANUEL`; `SorumlulukTipi`'ne `SAKINE_AIT`. **Domain bunları
-   bugün destekliyor ama veritabanına yazılamıyor.**
-10. `bolum_iliskisi` ile `malik`/`kiraci` örtüşmesinin çözülmesi — tahakkuk
-    yazılırken hangi tablonun kaynak olduğu netleşmeli.
-11. Hisse çakışması için `EXCLUDE USING gist`; kapı no kısmi unique index.
-12. **Migration `0002` hiç uygulanmadı ve doğrulanmadı** (elle yazıldı).
-13. Koordinat alanı (harita) ve MinIO dosya deposu (fotoğraf/belge).
-
-### D. Bloke — teknik olmayan
-
-14. **C-4 hukuki görüş** (KMK emredici hükümler, genel kurul yeter sayısı,
-    vekâlet sınırları). Sprint 3'ü bloke ediyor.
+- Tenant bağlamı olmadan sorgu → exception.
+- A tenant'ı B'nin kaydını **göremiyor**.
+- Yabancı `tenant_id` ile yazma → *"new row violates row-level security policy"*.
+- Audit UPDATE/DELETE → trigger reddediyor, kayıt duruyor.
+- `bnos_app` ve `bnos_migrator` → `rolbypassrls = false`.
+- 22/22 tenant tablosunda RLS + politika.
 
 ---
 
-## 3. Sonraki oturum — ilk komut ve ilk görev
+## 2. Şu anki durum
 
-### İlk çalıştırılacak komut
+**Doğrulama:** 9/9 build · ESLint 0 · verify **8/8** · sözleşme testleri
+**24/24** · migration **4/4 uygulandı** · 14 web rotası.
+
+Çalışma ağacı temiz, `origin/master` ile senkron.
+
+### Altyapı
 
 ```bash
-pnpm verify && pnpm -r build && pnpm lint
+pnpm db:up        # postgres · redis · minio
+pnpm db:status    # migration durumu
+pnpm db:reset     # sıfırla + migration + tohum (tohum bnos_app rolüyle)
+pnpm test:contract
 ```
 
-Beklenen: `Tum kontroller yesil` · 9 paket `Done` · `0 hata`.
+Tohum: iki tenant, her biri 1 apartman · 1 blok · 2 kat · bölümler ·
+malikler · 10 KMK varsayılan gider türü.
+Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
 
-`pnpm` bulunamazsa terminali kapatıp açın — `PATH` girdisi kullanıcı
-registry'sine yazılıdır, açık süreçler eski ortamı miras alır.
+### Tamamlanan modüller
 
-Negatif testler `bash` `PATH`'te olmadığı için şu komutla koşulur:
-
-```bash
-TSC="$PWD/node_modules/.bin/tsc" bash scripts/negative-tests.sh
-```
-
-### İlk görev — **karar gerekiyor**
-
-**A listesinde iş kalmadı.** Migration gerektirmeyen ve backend'i hazır olan
-her akış yazıldı. Kalan üç yolun ikisi bloke, biri kullanıcı kararı bekliyor:
-
-| Yol | Durum | Ne gerekiyor |
-|---|---|---|
-| **B — PDF / XLSX çıktısı** | Kütüphane kararı bekliyor | Kullanıcı onayı: bağımlılık eklenecek mi? |
-| **C — araç · sayaç · evcil · belge · not** | **Docker bloke** | PostgreSQL kurulumu; domain katmanları zaten yazılı ve testli |
-| **D — genel kurul / tahakkuk** | Hukuki görüş bekliyor | C-4 raporu (teknik değil) |
-
-**Öneri:** oturuma başlarken kullanıcıya B için sorulmalı. PDF/XLSX'in şu anki
-karşılığı CSV + tarayıcı yazdırmadır ve ikisi de çalışıyor; asıl eksik,
-**resmî görünümlü işletme defteri / borç bildirimi çıktısı**. Bu, kütüphane
-seçilmeden yapılamaz (`@react-pdf/renderer`, `pdfmake` ya da sunucu tarafı
-üretim — üçünün de lisans ve boyut etkisi farklıdır).
-
-Kullanıcı bağımlılık istemiyorsa yapılabilecek migration'sız iş:
-**yazdırma stil sayfası** (`@media print`) — mevcut ekranlardan düzgün A4
-çıktısı almak. Bu bağımlılık gerektirmez ve bugünkü `window.print()`
-çağrısını kullanılabilir hale getirir.
+| Modül | Durum |
+|---|---|
+| **Gider Türü** | ✅ API + UI. KMK md. 20 dört ekseni; kaynak referansı zorunluluğu; KARMA toplam denetimi |
+| **Tahakkuk** | ✅ API. Dağıtım → sorumluluk → malik bölüşümü; snapshot; boşluksuz numara; önizleme |
+| **Araç** | ✅ API + migration 0004. Plaka normalizasyonu; dönemsel kayıt; otopark aşım raporu |
 
 ---
 
-## 4. Sonraki oturumda dikkat edilecekler
+## 3. Bekleyen işler
 
-- **Sahte veri üretilmez.** Backend'i olmayan alanlar (araç · sayaç · belge ·
-  not) `HazirDegil` bileşeniyle işaretlidir; uydurma satır göstermek
-  kullanıcıya sistemin çalıştığını sandırır.
-- **Mock tipleri gerçek uçların şeklini birebir taşır.** Yeni servis
-  eklerken zarf (`{ kayitlar, sonrakiImlec }` gibi) korunmalı; ayrılırsa
-  `NEXT_PUBLIC_MOCK=0` yapıldığında sayfa bozulur.
+### A. Kalan iki modül (kullanıcı listesindeki sıra)
+
+1. **Sayaç** — domain hazır (`shared/apartman-domain/src/sayac`), tablo yok.
+   İki tablo gerekir: `sayac` + `sayac_okumasi`.
+   **Dikkat edilecek kurallar (domain'de yazılı):**
+   - Sayaç geriye gitmez; giderse ya sayaç değişmiştir ya okuma hatalıdır.
+   - **Devir (rollover) açık bayrak ister** — sessizce varsayılmaz. Beş
+     basamaklı sayaçta 99 998 → 3 okuması ya devirdir ya hatadır; tahmin
+     edilirse tüketim 100 kat yanlış hesaplanır.
+   - Sayaç değişen dönemde tüketim **iki parçanın toplamıdır**.
+   - Tahakkuk tarafı hazır: `TUKETIM` paylaşım kuralı `bolumGirdileri[].tuketim`
+     alanını zaten okuyor.
+2. **Belge** — domain hazır (`shared/apartman-domain/src/belge`), tablo yok.
+   **MinIO ayakta** (`localhost:9000`, `minio`/`minio12345`) ama S3 istemcisi
+   henüz yazılmadı. Belge sınıfı BFS v1 §5'te **versiyonlanır**, silinmez.
+
+### B. Migration yazarken İKİ TUZAK — 0004'te yaşandı
+
+1. **`prisma migrate diff` çıktısı olduğu gibi kullanılamaz.** Diff, şemada
+   karşılığı olmayan elle yazılmış kısmi unique index'leri **düşürmek ister**
+   (`borc_tahakkuk_no_uq`, `malik_kisi_donem_uq`, `kiraci_kisi_donem_uq`,
+   `sakin_kisi_donem_uq`, `yevmiye_fis_no_uq`). Körlemesine uygulanırsa
+   mükerrer tahakkuk numarası sessizce mümkün hale gelir. **Her migration'da
+   `DROP INDEX` satırları elle gözden geçirilmelidir.**
+2. **FK eklemek `FORCE ROW LEVEL SECURITY` ile çakışır.** `ADD CONSTRAINT
+   ... FOREIGN KEY` bir doğrulama taraması başlatır; tarama hedef tabloyu
+   okur ve FORCE altında sahibi bile politikaya tabidir. Çözüm 0004'te
+   yazılı: hedef tabloların FORCE'u yalnızca o işlem boyunca kaldırılır,
+   hemen geri verilir.
+
+### C. Kütüphane kararı bekleyenler
+
+3. **PDF / XLSX çıktısı.** Yazdırma stil sayfası yazıldı (`@media print`);
+   resmî görünümlü işletme defteri / borç bildirimi hâlâ kütüphane kararı
+   bekliyor.
+4. **Grafikler** — zaman serisi gerekirse.
+
+### D. Arayüzü olmayan hazır API'ler
+
+5. **Tahakkuk ekranı** — API tamam (`POST /tahakkuk/calistir` önizlemeli),
+   arayüz yok. Önizleme modu bir sihirbaz için hazır: yönetici dağıtımı
+   görüp onaylayarak uygulayabilmeli.
+6. **Araç ekranı** — API tamam, arayüz yok.
+
+### E. Bloke — teknik olmayan
+
+7. **C-4 hukuki görüş** (KMK emredici hükümler, genel kurul yeter sayısı,
+   vekâlet sınırları).
+
+---
+
+## 4. Sonraki oturum — ilk komut ve ilk görev
+
+```bash
+pnpm db:up && pnpm db:status && pnpm verify && pnpm test:contract
+```
+
+Beklenen: `4 migrations found` · `Database schema is up to date` ·
+`Tum kontroller yesil` · `24 passed`.
+
+Docker Desktop kapalıysa önce başlatılmalı:
+`C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
+
+### İlk görev
+
+**Sayaç modülü** (bekleyen liste A-1). Neden bu: `TUKETIM` paylaşım kuralı
+tahakkukta destekleniyor ama tüketim değeri **elle** giriliyor. Sayaç
+okuması olmadan ısıtma ve su giderleri 5627 sayılı Enerji Verimliliği
+Kanunu'na uygun paylaştırılamaz.
+
+Desen hazır: `backend/src/modules/arac/` birebir şablon olarak kullanılabilir
+(migration + servis + controller + DTO, dönemsel kayıt, audit).
+
+---
+
+## 5. Sonraki oturumda dikkat edilecekler
+
+- **`sistemIslemi` RLS'i ATLAMAZ**, yalnızca tenant bağlamı **kurmaz**.
+  Yalnızca RLS taşımayan katalog tabloları (`tenant`, `oturum_dizini`) için
+  kullanılır. `scripts/rls-scan.mjs` bunu denetler.
+- **Üç Kapı bağlamı middleware'den gelir.** Bir interceptor'da bağlam kurmak
+  guard'lara ulaşmaz (NestJS sırası: middleware → guard → interceptor).
+- **Audit `varlik_id` bir UUID'dir.** Bileşik anahtar (`KOD:donem`) yazma
+  anında patlar; çalıştırmaya kendi kimliği verilmelidir.
+- **Para ve pay hiçbir yerde ondalık tutulmaz.** Kuruşu `Number`'a çevirip
+  bölmek float yuvarlaması yapar (`moneyKurustan` kullanın). Arsa payı ve
+  hisse kesirdir (`lib/kesir.ts` · `shared/apartman-domain/src/kesir.ts`).
+- **Sahte veri üretilmez.** Backend'i olmayan alanlar `HazirDegil` bileşeniyle
+  işaretlidir.
 - **CT-05 disiplini:** kullanıcıya görünen her metin `messages/tr.json`
-  içinde bir i18n anahtarıdır. Bu oturumda build iki kez bu yüzden kırıldı.
-- `useSearchParams` kullanan sayfalar `<Suspense>` sınırı ister (Next.js App
-  Router); sınır olmadan prerender aşamasında patlar.
-- **Para ve pay hiçbir yerde ondalık tutulmaz.** Arsa payı ve hisse kesirdir
-  (`lib/kesir.ts` · `shared/apartman-domain/src/kesir.ts`); 1/3 ondalığa
-  çevrilince toplam asla tamı etmez ve ekran doğru veriyi hatalı gösterir.
+  içinde bir i18n anahtarıdır.
 - **Web paketinin birim testi yok.** `tests/unit` yalnızca `shared/*/dist` ve
   `backend/src/common` derlemesini koşar; `filtre.ts`, `csv-oku.ts` ve
-  `lib/kesir.ts` yalnızca tip denetimi ve derleme ile korunuyor. Web için
-  test altyapısı kurulacaksa bu üç modül ilk adaydır.
+  `lib/kesir.ts` yalnızca tip denetimi ve derleme ile korunuyor.
 - **Enum kodları iki yerde aynalı:** `frontend/web/lib/kodlar.ts` ve
-  `messages/tr.json`. Domain'e yeni kod eklenirse ikisine de eklenmelidir;
-  eklenmezse kayıt listede doğru görünür ama filtrede seçenek çıkmaz.
-- **Docker hâlâ kurulu değil.** Migration üretilemez, sözleşme testleri
-  koşulamaz, RLS'in çalışma zamanı kanıtı alınamaz (DEVLOG TODO-3).
+  `messages/tr.json`. Domain'e yeni kod eklenirse ikisine de eklenmelidir.
+- **Yetki modeli kararı:** `tenant.setup` Apartman Yöneticisi'nden alınıp
+  Yönetim Şirketi'ne verildi (yeni yerleşke açmak bir onboarding işlemidir).
+  Belgelerde yetki matrisi yok; farklı isteniyorsa tek yerden değişir:
+  `shared/core-domain/src/yetki/roller.ts`.
 
 ---
 
