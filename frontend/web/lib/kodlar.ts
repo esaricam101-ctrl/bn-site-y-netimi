@@ -28,3 +28,35 @@ export const DAIRE_TIPLERI = [
   'STUDYO', 'BIR_SIFIR', 'BIR_BIR', 'IKI_BIR', 'UC_BIR',
   'DORT_BIR', 'BES_BIR', 'DUBLEKS', 'DIGER',
 ] as const;
+
+/* ------------------------- Gider türü eksenleri ------------------------- */
+/*
+ * Dört BAĞIMSIZ eksen (KMK md. 20 · `shared/apartman-domain/src/gider`):
+ *   1. paylaşım kuralı  — gider BÖLÜMLERE nasıl dağıtılır
+ *   2. sorumluluk tipi  — borç KİME yazılır
+ *   3. kural kaynağı    — kuralı kim koydu
+ *   4. malik paylaşımı  — bölümün payı MALİKLER ARASINDA nasıl bölünür
+ */
+
+export const PAYLASIM_KURALLARI = [
+  'ESIT', 'ARSA_PAYI', 'BRUT_M2', 'NET_M2', 'METREKARE', 'TUKETIM',
+  'SABIT_TUTAR', 'KULLANIM_BAZLI', 'BLOK_BAZLI', 'MANUEL', 'KARMA',
+] as const;
+
+/**
+ * KARMA içinde kullanılamayanlar: KARMA'nın kendisi (özyineleme) ve MANUEL.
+ * MANUEL oransal değildir — bölüm bölüm verilen tutarlardır ve bir yüzdenin
+ * içine yerleştirilemez.
+ */
+export const KARMA_BILESEN_KURALLARI = [
+  'ESIT', 'ARSA_PAYI', 'BRUT_M2', 'NET_M2', 'METREKARE', 'TUKETIM',
+  'SABIT_TUTAR', 'KULLANIM_BAZLI', 'BLOK_BAZLI',
+] as const;
+
+export const SORUMLULUK_TIPLERI = ['MALIKE_AIT', 'KULLANANA_AIT', 'SAKINE_AIT'] as const;
+
+export const KURAL_KAYNAKLARI = [
+  'KMK_VARSAYILAN', 'YONETIM_PLANI', 'GENEL_KURUL_KARARI',
+] as const;
+
+export const MALIK_PAYLASIMLARI = ['ESIT', 'HISSE_ORANI', 'MANUEL'] as const;

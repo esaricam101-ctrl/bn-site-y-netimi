@@ -890,6 +890,182 @@ export function mockBolumTasi(
   return tasinacak.length;
 }
 
+/** Gider türü satırı — gerçek uçla (`GiderTuruSatiri`) aynı şekil. */
+export interface MockGiderTuru {
+  readonly id: string;
+  readonly kod: string;
+  readonly ad: string;
+  readonly paylasimKurali: string;
+  readonly sorumlulukTipi: string;
+  readonly kuralKaynagi: string;
+  readonly kaynakReferansi: string | null;
+  readonly karmaBilesenler: readonly { kural: string; yuzde: number }[] | null;
+  readonly malikPaylasimi: string;
+  readonly aktifMi: boolean;
+  readonly ozelKuralMi: boolean;
+}
+
+/**
+ * KMK md. 20 varsayılanları — tohum verisiyle AYNI liste.
+ *
+ * Mock ile gerçek uç arasında fark olmaması önemlidir: arayüz mock'ta
+ * çalışıp gerçekte çalışmazsa fark ancak sahada görülür.
+ */
+const mockGiderTurleriTaban: readonly MockGiderTuru[] = [
+  ['KAPICI', 'Kapıcı gideri', 'ESIT', 'KULLANANA_AIT'],
+  ['ANA_BAKIM', 'Anagayrimenkul bakım ve onarım', 'ARSA_PAYI', 'MALIKE_AIT'],
+  ['SIGORTA', 'Bina sigortası', 'ARSA_PAYI', 'MALIKE_AIT'],
+  ['YENILEME_FONU', 'Yenileme fonu', 'ARSA_PAYI', 'MALIKE_AIT'],
+  ['ISITMA', 'Isıtma gideri', 'TUKETIM', 'KULLANANA_AIT'],
+  ['SU', 'Su gideri', 'TUKETIM', 'KULLANANA_AIT'],
+  ['ASANSOR_ISLETME', 'Asansör işletme gideri', 'ESIT', 'KULLANANA_AIT'],
+  ['ELEKTRIK_ORTAK', 'Ortak alan elektriği', 'ESIT', 'KULLANANA_AIT'],
+  ['TEMIZLIK', 'Temizlik gideri', 'ESIT', 'KULLANANA_AIT'],
+  ['YONETIM', 'Yönetim gideri', 'ESIT', 'KULLANANA_AIT'],
+].map(([kod, ad, kural, sorumluluk]) => ({
+  id: `gt-${kod as string}`,
+  kod: kod as string,
+  ad: ad as string,
+  paylasimKurali: kural as string,
+  sorumlulukTipi: sorumluluk as string,
+  kuralKaynagi: 'KMK_VARSAYILAN',
+  kaynakReferansi: null,
+  karmaBilesenler: null,
+  malikPaylasimi: 'HISSE_ORANI',
+  aktifMi: true,
+  ozelKuralMi: false,
+}));
+
+let giderTuruOrtusu: MockGiderTuru[] | null = null;
+
+export function mockGiderTurleriniOku(yalnizcaAktif = false): readonly MockGiderTuru[] {
+  const liste = giderTuruOrtusu ?? mockGiderTurleriTaban;
+  return yalnizcaAktif ? liste.filter((g) => g.aktifMi) : liste;
+}
+
+function giderTuruListesi(): MockGiderTuru[] {
+  return giderTuruOrtusu ?? (giderTuruOrtusu = [...mockGiderTurleriTaban]);
+}
+
+export interface MockGiderTuruGirdisi {
+  readonly kod: string;
+  readonly ad: string;
+  readonly paylasimKurali: string;
+  readonly sorumlulukTipi: string;
+  readonly kuralKaynagi: string;
+  readonly kaynakReferansi?: string;
+  readonly karmaBilesenler?: readonly { kural: string; yuzde: number }[];
+  readonly malikPaylasimi?: string;
+  readonly aktifMi?: boolean;
+}
+
+/**
+ * Sunucudaki `giderTuruDogrula` ile AYNI kuralları uygular.
+ *
+ * Mock gevşek olsaydı arayüz mock'ta kabul edip gerçekte reddedilirdi;
+ * geliştirici hatayı ancak backend'e bağlandığında görürdü.
+ */
+function giderTuruDogrulaMock(g: MockGiderTuruGirdisi): void {
+  if (g.kuralKaynagi !== 'KMK_VARSAYILAN' && (g.kaynakReferansi ?? '').trim() === '') {
+    throw new Error(
+      `'${g.kod}': ${g.kuralKaynagi} kaynaklı kural referans taşımalıdır ` +
+        '(yönetim planı maddesi veya genel kurul karar no).',
+    );
+  }
+  const bilesenler = g.karmaBilesenler ?? [];
+  if (g.paylasimKurali === 'KARMA') {
+    if (bilesenler.length === 0) {
+      throw new Error(`'${g.kod}': KARMA paylaşım en az bir bileşen taşımalıdır.`);
+    }
+    const toplam = bilesenler.reduce((t, b) => t + b.yuzde, 0);
+    if (toplam !== 100) {
+      throw new Error(
+        `'${g.kod}': KARMA bileşenlerinin toplamı 100 olmalıdır, ${toplam} verildi. ` +
+          'Aksi halde giderin bir kısmı dağıtılmadan kalır ya da fazla dağıtılır.',
+      );
+    }
+    if (bilesenler.length !== new Set(bilesenler.map((b) => b.kural)).size) {
+      throw new Error(`'${g.kod}': aynı kural KARMA içinde birden fazla kez kullanılamaz.`);
+    }
+  } else if (bilesenler.length > 0) {
+    throw new Error(
+      `'${g.kod}': karma bileşenler yalnızca KARMA paylaşımında tanımlanır, ` +
+        `kural '${g.paylasimKurali}'.`,
+    );
+  }
+}
+
+export function mockGiderTuruEkle(dto: MockGiderTuruGirdisi): void {
+  const liste = giderTuruListesi();
+  const kod = dto.kod.trim().toLocaleUpperCase('tr');
+  giderTuruDogrulaMock({ ...dto, kod });
+  if (liste.some((g) => g.kod === kod)) {
+    throw new Error(`'${kod}' kodlu gider türü zaten tanımlı.`);
+  }
+  liste.push({
+    id: `gt-yeni-${kod}`,
+    kod,
+    ad: dto.ad.trim(),
+    paylasimKurali: dto.paylasimKurali,
+    sorumlulukTipi: dto.sorumlulukTipi,
+    kuralKaynagi: dto.kuralKaynagi,
+    kaynakReferansi: dto.kaynakReferansi?.trim() ?? null,
+    karmaBilesenler: dto.paylasimKurali === 'KARMA' ? (dto.karmaBilesenler ?? []) : null,
+    malikPaylasimi: dto.malikPaylasimi ?? 'HISSE_ORANI',
+    aktifMi: dto.aktifMi ?? true,
+    ozelKuralMi: dto.kuralKaynagi !== 'KMK_VARSAYILAN',
+  });
+  liste.sort((a, b) => a.kod.localeCompare(b.kod, 'tr'));
+}
+
+export function mockGiderTuruGuncelle(
+  id: string,
+  dto: Partial<MockGiderTuruGirdisi>,
+): void {
+  const liste = giderTuruListesi();
+  const i = liste.findIndex((g) => g.id === id);
+  if (i < 0) throw new Error(`Gider türü bulunamadı: ${id}`);
+  const mevcut = liste[i] as MockGiderTuru;
+
+  const birlesik: MockGiderTuruGirdisi = {
+    kod: mevcut.kod,
+    ad: dto.ad ?? mevcut.ad,
+    paylasimKurali: dto.paylasimKurali ?? mevcut.paylasimKurali,
+    sorumlulukTipi: dto.sorumlulukTipi ?? mevcut.sorumlulukTipi,
+    kuralKaynagi: dto.kuralKaynagi ?? mevcut.kuralKaynagi,
+    ...(dto.kaynakReferansi ?? mevcut.kaynakReferansi
+      ? { kaynakReferansi: dto.kaynakReferansi ?? mevcut.kaynakReferansi ?? '' }
+      : {}),
+    ...((dto.karmaBilesenler ?? mevcut.karmaBilesenler)
+      ? { karmaBilesenler: dto.karmaBilesenler ?? mevcut.karmaBilesenler ?? [] }
+      : {}),
+  };
+  giderTuruDogrulaMock(birlesik);
+
+  const yeniKural = birlesik.paylasimKurali;
+  liste[i] = {
+    ...mevcut,
+    ad: birlesik.ad,
+    paylasimKurali: yeniKural,
+    sorumlulukTipi: birlesik.sorumlulukTipi,
+    kuralKaynagi: birlesik.kuralKaynagi,
+    kaynakReferansi: birlesik.kaynakReferansi ?? null,
+    // KARMA'dan cikildiginda bilesenler TEMIZLENIR — sunucu tarafi da boyle.
+    karmaBilesenler: yeniKural === 'KARMA' ? (birlesik.karmaBilesenler ?? []) : null,
+    ...(dto.malikPaylasimi === undefined ? {} : { malikPaylasimi: dto.malikPaylasimi }),
+    ...(dto.aktifMi === undefined ? {} : { aktifMi: dto.aktifMi }),
+    ozelKuralMi: birlesik.kuralKaynagi !== 'KMK_VARSAYILAN',
+  };
+}
+
+export function mockGiderTuruSil(id: string): void {
+  const liste = giderTuruListesi();
+  const i = liste.findIndex((g) => g.id === id);
+  if (i < 0) throw new Error(`Gider türü bulunamadı: ${id}`);
+  // Kayit SILINMEZ, pasife alinir: gecmis tahakkuklar bu ture baglidir.
+  liste[i] = { ...(liste[i] as MockGiderTuru), aktifMi: false };
+}
+
 /** Arsa payı raporu — gerçek uçla (`ArsaPayiRaporu`) aynı şekil. */
 export interface MockArsaPayiRaporu {
   readonly gecerli: boolean;

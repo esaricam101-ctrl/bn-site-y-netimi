@@ -14,7 +14,9 @@ import { kesirCoz, kesirleriTopla, kesirYaz, tamiEdiyorMu, type Kesir } from './
 import {
   mockAuditKayitlari, mockBolumleriOku, mockDaireKarti, mockYerlesim,
   mockArsaPayiDuzelt, mockBolumTasi, mockBolumTopluOlustur,
+  mockGiderTuruEkle, mockGiderTuruGuncelle, mockGiderTurleriniOku, mockGiderTuruSil,
   type MockArsaPayiRaporu, type MockArsaPayiSatiri, type MockTopluBolumSatiri,
+  type MockGiderTuru, type MockGiderTuruGirdisi,
   mockApartmanEkle, mockApartmanGuncelle, mockApartmanlariOku, mockApartmanSil,
   mockBlokEkle, mockBlokGuncelle, mockBloklariOku, mockBlokSil,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
@@ -267,6 +269,27 @@ export const servis = {
       () => { mockBolumTopluOlustur(blokId, katId, kat, bolumler); },
     ),
 
+  // --- Gider türleri (aidat kuralları — KMK md. 20) ---
+
+  giderTurleri: (yalnizcaAktif = false): Promise<readonly MockGiderTuru[]> =>
+    getir(
+      `/gider-turleri${yalnizcaAktif ? '?yalnizcaAktif=true' : ''}`,
+      mockGiderTurleriniOku(yalnizcaAktif),
+    ),
+
+  giderTuruEkle: (dto: MockGiderTuruGirdisi): Promise<void> =>
+    gonder('/gider-turleri', 'POST', dto, () => { mockGiderTuruEkle(dto); }),
+
+  /** `kod` DEĞİŞTİRİLEMEZ — geçmiş tahakkuklar bu kodla ilişkilendirilir. */
+  giderTuruGuncelle: (
+    id: string, dto: Partial<MockGiderTuruGirdisi>,
+  ): Promise<void> =>
+    gonder(`/gider-turleri/${id}`, 'PATCH', dto, () => { mockGiderTuruGuncelle(id, dto); }),
+
+  /** Arşivleme — kayıt silinmez, pasife alınır. */
+  giderTuruSil: (id: string, gerekce: string): Promise<void> =>
+    sil(`/gider-turleri/${id}`, { gerekce }, () => { mockGiderTuruSil(id); }),
+
   /**
    * Arsa payı toplamı denetimi — KMK md. 3.
    *
@@ -419,6 +442,8 @@ export type {
   MockBlok as Blok,
   MockBolum as Bolum,
   MockDaireKarti as DaireKarti,
+  MockGiderTuru as GiderTuru,
+  MockGiderTuruGirdisi as GiderTuruGirdisi,
   MockHisseRaporu as HisseRaporu,
   MockKat as Kat,
   MockKiraci as Kiraci,
