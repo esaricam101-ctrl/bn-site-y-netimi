@@ -890,6 +890,74 @@ export function mockBolumTasi(
   return tasinacak.length;
 }
 
+/** Arsa payı raporu — gerçek uçla (`ArsaPayiRaporu`) aynı şekil. */
+export interface MockArsaPayiRaporu {
+  readonly gecerli: boolean;
+  readonly toplam: string;
+  readonly mesaj: string;
+  readonly bolumSayisi: number;
+  readonly okunamayanBolumler: readonly string[];
+}
+
+export interface MockArsaPayiSatiri {
+  readonly bolumId: string;
+  readonly arsaPayiPay: string;
+  readonly arsaPayiPayda: string;
+}
+
+/**
+ * Arsa paylarını TOPLU düzeltir — KMK md. 3.
+ *
+ * İşlem SONUNDAKİ toplam hesaplanır: gönderilen satırlar + DOKUNULMAYAN
+ * bölümler. Tamı etmiyorsa hiçbir satır yazılmaz; sunucu da böyle davranır.
+ * Tek bölümün payını değiştirmeye izin vermek binanın toplamını sessizce
+ * bozar — bu yüzden `PATCH /bolumler/:id` arsa payına dokunmaz.
+ */
+export function mockArsaPayiDuzelt(satirlar: readonly MockArsaPayiSatiri[]): number {
+  const liste = bolumListesi();
+  const harita = new Map(satirlar.map((s) => [s.bolumId, s]));
+
+  for (const s of satirlar) {
+    if (!liste.some((b) => b.id === s.bolumId)) {
+      throw new Error(`Bölüm bulunamadı: ${s.bolumId}`);
+    }
+  }
+
+  // Islem SONUNDAKI toplam — dokunulmayanlar da dahil.
+  const toplam = liste.reduce(
+    (acc, b) => {
+      const yeni = harita.get(b.id);
+      const ham = yeni === undefined
+        ? b.arsaPayi
+        : `${yeni.arsaPayiPay}/${yeni.arsaPayiPayda}`;
+      const parcalar = ham.split('/');
+      const pay = BigInt(parcalar[0] ?? '0');
+      const payda = BigInt(parcalar[1] ?? '1');
+      if (payda === 0n) return acc;
+      return {
+        pay: acc.pay * payda + pay * acc.payda,
+        payda: acc.payda * payda,
+      };
+    },
+    { pay: 0n, payda: 1n },
+  );
+
+  if (toplam.pay !== toplam.payda) {
+    throw new Error(
+      'Arsa payı toplamı tamı etmiyor; hiçbir satır yazılmadı (KMK md. 3).',
+    );
+  }
+
+  for (const s of satirlar) {
+    const i = liste.findIndex((b) => b.id === s.bolumId);
+    liste[i] = {
+      ...(liste[i] as MockBolum),
+      arsaPayi: `${s.arsaPayiPay}/${s.arsaPayiPayda}`,
+    };
+  }
+  return satirlar.length;
+}
+
 export function mockSakinCikis(bolumId: string, sakinId: string, cikisTarihi: string): void {
   const liste = sakinOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((s) => s.id === sakinId);

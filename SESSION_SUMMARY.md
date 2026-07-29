@@ -48,9 +48,9 @@ Teslim edilen commit zinciri:
    `localStorage`'da (`bnos.filtre.<ekran>`); görünüm profilinden ayrıdır.
 5. ~~**CSV içe aktarma sihirbazı** ve **toplu düzenleme**.~~ ✅ Üç adımlı
    sihirbaz (`/bolumler/ice-aktar`) → `POST /bolumler/toplu`; toplu taşıma
-   tablo seçim çubuğunda → `POST /bolumler/tasi`.
-   **Kalan:** arsa payı toplu düzeltme (`POST /bolumler/arsa-payi-duzelt`)
-   uç hazır, arayüzü yok.
+   tablo seçim çubuğunda → `POST /bolumler/tasi`; arsa payı toplu düzeltme
+   (`/bolumler/arsa-payi`) → `POST /bolumler/arsa-payi-duzelt`, canlı kesir
+   toplamı ve liste ekranında bozuk toplam uyarısı.
 6. ~~**Apartman ve Blok için yazma arayüzü.**~~ ✅ Ekleme · düzeltme · soft
    delete; bloğu olan apartman ve bölümü olan blok silinemez (düğme devre
    dışı + neden), blok başka apartmana taşınmaz.

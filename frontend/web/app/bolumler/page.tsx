@@ -155,6 +155,40 @@ function TopluTasima({
   );
 }
 
+/**
+ * Arsa payı toplamı uyarısı.
+ *
+ * Bozuk toplam TAHAKKUKU BOZAR: arsa payına göre paylaştırılan her gider
+ * yanlış dağıtılır ve hata aylar sonra "aidatım neden farklı" sorusuyla
+ * ortaya çıkar. Bu yüzden liste ekranında sürekli görünür — ayrı bir rapora
+ * gidilmesi beklenmez.
+ *
+ * Toplam TAM ise hiçbir şey gösterilmez; her şey yolundayken de bir rozet
+ * göstermek uyarıyı gürültüye çevirir.
+ */
+function ArsaPayiUyarisi() {
+  const t = useTranslations('bolum');
+  const [rapor, setRapor] = useState<{ gecerli: boolean; toplam: string } | null>(null);
+
+  useEffect(() => {
+    servis.arsaPayiDurumu()
+      .then((r) => setRapor({ gecerli: r.gecerli, toplam: r.toplam }))
+      // Sessiz gecilir: uyari BILGILENDIRICIDIR, listeyi engellememelidir.
+      .catch(() => setRapor(null));
+  }, []);
+
+  if (rapor === null || rapor.gecerli) return null;
+
+  return (
+    <Link href="/bolumler/arsa-payi" role="status"
+          className="px-3 py-1.5 text-sm rounded-[var(--rs)] border inline-flex items-center gap-2"
+          style={{ borderColor: 'var(--crit)', color: 'var(--crit)' }}>
+      <span aria-hidden="true">⚠</span>
+      {t('arsaPayiBozuk', { toplam: rapor.toplam })}
+    </Link>
+  );
+}
+
 function Rozet({ metin, renk }: { readonly metin: string; readonly renk: string }) {
   return (
     <span
@@ -248,12 +282,17 @@ export default function BolumlerSayfasi() {
       baslik={t('baslik')}
       kirintilar={[{ etiket: tn('genelBakis'), yol: '/yonetim' }, { etiket: tn('bolumler') }]}
     >
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link href="/bolumler/ice-aktar"
               className="px-4 h-[var(--rowh)] inline-flex items-center rounded-[var(--rs)] text-white font-semibold"
               style={{ backgroundImage: 'var(--grad)' }}>
           {t('iceAktar')}
         </Link>
+        <Link href="/bolumler/arsa-payi"
+              className="px-4 h-[var(--rowh)] inline-flex items-center rounded-[var(--rs)] border border-[color:var(--line)]">
+          {t('arsaPayiDuzelt')}
+        </Link>
+        <ArsaPayiUyarisi />
       </div>
 
       {yukleniyor && <Yukleniyor satir={6} />}

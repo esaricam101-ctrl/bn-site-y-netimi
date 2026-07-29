@@ -10,9 +10,11 @@
  * göstermek demektir ve arayüz geliştirilemez.
  */
 import { api } from './api';
+import { kesirCoz, kesirleriTopla, kesirYaz, tamiEdiyorMu, type Kesir } from './kesir';
 import {
   mockAuditKayitlari, mockBolumleriOku, mockDaireKarti, mockYerlesim,
-  mockBolumTasi, mockBolumTopluOlustur, type MockTopluBolumSatiri,
+  mockArsaPayiDuzelt, mockBolumTasi, mockBolumTopluOlustur,
+  type MockArsaPayiRaporu, type MockArsaPayiSatiri, type MockTopluBolumSatiri,
   mockApartmanEkle, mockApartmanGuncelle, mockApartmanlariOku, mockApartmanSil,
   mockBlokEkle, mockBlokGuncelle, mockBloklariOku, mockBlokSil,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
@@ -84,6 +86,27 @@ async function sil(yol: string, govde: unknown, mockEtki: () => void): Promise<v
   }
   const token = jeton();
   await api<unknown>(yol, { method: 'DELETE', govde, ...(token ? { token } : {}) });
+}
+
+/**
+ * Mock arsa payı raporu. Toplam kesir olarak hesaplanır; ondalığa çevrilmez
+ * — 1/3 gibi paylarda ondalık toplam asla tamı etmez (bkz. `lib/kesir.ts`).
+ */
+function arsaPayiRaporuUret(): MockArsaPayiRaporu {
+  const bolumler = mockBolumleriOku();
+  const toplam = kesirleriTopla(
+    bolumler.map((b) => kesirCoz(b.arsaPayi)).filter((k): k is Kesir => k !== null),
+  );
+  const gecerli = tamiEdiyorMu(toplam);
+  return {
+    gecerli,
+    toplam: kesirYaz(toplam),
+    mesaj: gecerli
+      ? 'Arsa payı toplamı tamı ediyor.'
+      : 'Arsa payı toplamı tamı etmiyor; yönetim planı ekiyle karşılaştırın (KMK md. 3).',
+    bolumSayisi: bolumler.length,
+    okunamayanBolumler: bolumler.filter((b) => kesirCoz(b.arsaPayi) === null).map((b) => b.id),
+  };
 }
 
 export interface ApartmanGirdisi {
@@ -243,6 +266,28 @@ export const servis = {
       { blokId, ...(katId === null ? {} : { katId }), kat, bolumler },
       () => { mockBolumTopluOlustur(blokId, katId, kat, bolumler); },
     ),
+
+  /**
+   * Arsa payı toplamı denetimi — KMK md. 3.
+   *
+   * Mock tarafında toplam BURADA hesaplanmaz; hesap `mockArsaPayiDuzelt`
+   * içindeki kesir aritmetiğiyle aynı olmalı diye tek yerde toplanır ve
+   * rapor da oradan türetilir (bkz. `arsaPayiRaporuUret`).
+   */
+  arsaPayiDurumu: (): Promise<MockArsaPayiRaporu> =>
+    getir('/bolumler/arsa-payi-durumu', arsaPayiRaporuUret()),
+
+  /**
+   * Arsa paylarını TOPLU düzeltir. Tek bölümün payını değiştirmek binanın
+   * toplamını sessizce bozar; bu yüzden tekil güncelleme arsa payına
+   * dokunmaz. Toplam tamı etmiyorsa hiçbir satır yazılmaz.
+   */
+  arsaPayiDuzelt: (
+    satirlar: readonly MockArsaPayiSatiri[], gerekce: string,
+  ): Promise<void> =>
+    gonder('/bolumler/arsa-payi-duzelt', 'POST', { satirlar, gerekce }, () => {
+      mockArsaPayiDuzelt(satirlar);
+    }),
 
   /** Toplu taşıma. Gerekçe zorunlu — hiyerarşi değişikliği denetime yazılır. */
   bolumTasi: (
