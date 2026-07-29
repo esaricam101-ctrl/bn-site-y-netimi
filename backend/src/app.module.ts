@@ -27,6 +27,7 @@ import { SakinModule } from './modules/sakin/sakin.module';
 import { DaireModule } from './modules/daire/daire.module';
 import { GiderTuruModule } from './modules/gider-turu/gider-turu.module';
 import { TahakkukModule } from './modules/tahakkuk/tahakkuk.module';
+import { AracModule } from './modules/arac/arac.module';
 import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
 
 @Module({
@@ -58,6 +59,8 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     // Tahakkuk: gideri bölümlere paylaştırıp borç yazar. GiderTuru'nden SONRA
     // gelir — kural olmadan tahakkuk çalıştırılamaz.
     TahakkukModule,
+    // Operasyonel varlıklar — dönemsel kayıtlar, silinmez.
+    AracModule,
     // Denetim kaydı OKUMA ucu. Yazma tarafı common/audit içindedir.
     AuditSorguModule,
   ],

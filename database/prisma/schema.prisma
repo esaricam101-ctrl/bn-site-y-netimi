@@ -55,6 +55,7 @@ model Tenant {
   kisiler          Kisi[]
   kullanicilar     Kullanici[]
   oturumDizini     OturumDizini[]
+  araclar          Arac[]
   apartmanlar      Apartman[]
   bloklar          Blok[]
   katlar           Kat[]
@@ -106,6 +107,7 @@ model Kisi {
   vekillikleri    Malik[]          @relation("MalikVekil")
   kiraciliklari   Kiraci[]
   sakinlikleri    Sakin[]
+  araclari        Arac[]
 
   @@index([tenantId, soyad, ad])
   @@map("kisi")
@@ -307,6 +309,7 @@ model BagimsizBolum {
   kiracilar Kiraci[]
   sakinler  Sakin[]
   borclar   Borc[]
+  araclar   Arac[]
 
   @@index([tenantId, blokId])
   @@index([tenantId, katId])
@@ -710,6 +713,58 @@ model BorcSorumlusu {
   @@unique([borcId, kisiId, sira])
   @@index([tenantId, kisiId])
   @@map("borc_sorumlusu")
+}
+
+// ===========================================================================
+// OPERASYONEL VARLIKLAR — araç
+//
+// Domain katmanı (`shared/apartman-domain/src/arac`) bu kuralları zaten
+// taşıyordu; eksik olan kalıcılıktı.
+// ===========================================================================
+
+enum AracTuru {
+  OTOMOBIL
+  MOTOSIKLET
+  TICARI
+  BISIKLET
+  DIGER
+}
+
+/// Bölüme kayıtlı araç. Sahibi malik, kiracı veya sakin olabilir.
+///
+/// DÖNEMSELDİR: kayıt silinmez, `bitis` ile kapanır. Otopark gideri
+/// KULLANIM_BAZLI dağıtıldığında hangi ayda hangi aracın kayıtlı olduğu
+/// geriye dönük olarak bilinmek zorundadır.
+model Arac {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  bolumId  String @map("bolum_id") @db.Uuid
+  kisiId   String @map("kisi_id") @db.Uuid
+
+  /// Normalize edilmiş plaka (boşluksuz, büyük harf) — mükerrer denetimi
+  /// bu değer üzerinden yapılır.
+  plaka String   @db.VarChar(16)
+  tur   AracTuru @default(OTOMOBIL)
+  marka String?  @db.VarChar(40)
+  model String?  @db.VarChar(40)
+  renk  String?  @db.VarChar(24)
+
+  /// Tahsisli otopark yeri etiketi. Boşsa araç kayıtlı ama yer tahsisli değil.
+  otoparkYeri String? @map("otopark_yeri") @db.VarChar(24)
+
+  baslangic DateTime  @db.Date
+  bitis     DateTime? @db.Date
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  bolum  BagimsizBolum @relation(fields: [bolumId], references: [id])
+  kisi   Kisi          @relation(fields: [kisiId], references: [id])
+
+  @@index([tenantId, bolumId])
+  @@index([tenantId, plaka])
+  @@map("arac")
 }
 
 // ===========================================================================
