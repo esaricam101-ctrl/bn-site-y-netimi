@@ -228,7 +228,23 @@ ekran bunu satır satır göstermelidir.
 
 ---
 
-## 5. Sonraki oturumda dikkat edilecekler
+## 5. Bu oturumda alınan önemli kararlar
+
+Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
+
+| Karar | Gerekçe | Nerede |
+|---|---|---|
+| **0001 ve 0002 tek temele birleştirildi** | 0001 uygulanamaz durumdaydı (tablo DDL'i yoktu) ve ikisi de hiçbir veritabanına uygulanmamıştı. Ayrı tutmak, 0001 dönemine ait kurgusal bir şema uydurmayı gerektirirdi. | `migrations/0001_init` başlığı |
+| **Giriş için RLS'siz `oturum_dizini` katalogu** | `kullanici` RLS taşır, giriş tenant'ı bilmeden okumak zorunda. Reddedilenler: BYPASSRLS'li rol (ele geçirilirse izolasyon tümüyle kalkar), SECURITY DEFINER (FORCE RLS sahibi de kapsar), girişte tüm tenant'ları dolaşmak (10 000 tenant = 10 000 sorgu). Senkronu **trigger** tutar. | `migrations/0002_oturum_dizini` |
+| **İstek bağlamı interceptor'dan middleware'e alındı** | NestJS sırası middleware → guard → interceptor. Bağlam interceptor'da kurulunca Üç Kapı ona yazamıyordu ve **bütün yazma uçları** 403 dönüyordu. | `common/context/correlation.middleware.ts` |
+| **`tenant.setup` Yönetim Şirketi'ne taşındı** | Yeni yerleşke açmak onboarding işlemidir; tek bina yöneten rolde olmamalı. Belgelerde yetki matrisi **yok** — bu bir yorum, farklı isteniyorsa tek yerden değişir. | `shared/core-domain/src/yetki/roller.ts` |
+| **`prisma migrate diff` çıktısı elle süzülür** | Diff, şemada karşılığı olmayan elle yazılmış kısmi index'leri düşürmek ister; uygulanırsa mükerrer tahakkuk numarası sessizce mümkün olur. Migration'lar elle yazılıyor. | `migrations/0004` · `0005` · `0006` |
+| **Dosya API'den geçmez (önimzalı URL)** | 50 MB'lık bir belgeyi Node üzerinden akıtmak olay döngüsünü tıkar; içerik hiç uygulama belleğine girmez. Bedeli: dosyasız kayıt riski — `HeadObject` ile kapatıldı. | `common/storage/nesne-deposu.service.ts` |
+| **Yeni bağımlılıklar: `@aws-sdk/client-s3`, `unplugin-swc`** | S3 imzalama elle yazılamayacak kadar güvenlik-kritik. `unplugin-swc` olmadan sözleşme testleri hiç koşamıyordu (esbuild `emitDecoratorMetadata` desteklemez). | `backend/package.json` |
+
+---
+
+## 6. Sonraki oturumda dikkat edilecekler
 
 - **`sistemIslemi` RLS'i ATLAMAZ**, yalnızca tenant bağlamı **kurmaz**.
   Yalnızca RLS taşımayan katalog tabloları (`tenant`, `oturum_dizini`) için
