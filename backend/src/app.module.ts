@@ -26,6 +26,7 @@ import { KiraciModule } from './modules/kiraci/kiraci.module';
 import { SakinModule } from './modules/sakin/sakin.module';
 import { DaireModule } from './modules/daire/daire.module';
 import { GiderTuruModule } from './modules/gider-turu/gider-turu.module';
+import { TahakkukModule } from './modules/tahakkuk/tahakkuk.module';
 import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
 
 @Module({
@@ -54,6 +55,9 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     IliskiModule,
     // Aidat kuralları — VERİ olarak (KMK md. 20). Tahakkuk bu katalogdan okur.
     GiderTuruModule,
+    // Tahakkuk: gideri bölümlere paylaştırıp borç yazar. GiderTuru'nden SONRA
+    // gelir — kural olmadan tahakkuk çalıştırılamaz.
+    TahakkukModule,
     // Denetim kaydı OKUMA ucu. Yazma tarafı common/audit içindedir.
     AuditSorguModule,
   ],

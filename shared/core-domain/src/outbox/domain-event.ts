@@ -47,6 +47,8 @@ export const EVENT_KATALOGU: readonly EventKatalogKaydi[] = [
   // her dairenin aidatini etkiler; bu yuzden ayri event olarak yayilir.
   { eventType: 'apartman.gider_turu.tanimlandi', eventVersion: 1, sahipModul: 'gider-turu', aciklama: 'Gider turu ve paylasim kurali tanimlandi' },
   { eventType: 'apartman.gider_turu.degistirildi', eventVersion: 1, sahipModul: 'gider-turu', aciklama: 'Gider turunun paylasim kurali veya sorumlulugu degistirildi' },
+  // Tahakkuk — gider bolumlere paylastirildi ve borc yazildi.
+  { eventType: 'apartman.tahakkuk.calistirildi', eventVersion: 1, sahipModul: 'tahakkuk', aciklama: 'Gider bolumlere paylastirildi ve borc kayitlari olusturuldu' },
   // Toplu duzeltme akislari — hiyerarsi denetiminin raporladigi sorunlarin karsiligi.
   { eventType: 'apartman.bagimsiz_bolum.tasindi', eventVersion: 1, sahipModul: 'bolum', aciklama: 'Bolumler baska blok/kata tasindi' },
   { eventType: 'apartman.bagimsiz_bolum.arsa_payi_duzeltildi', eventVersion: 1, sahipModul: 'bolum', aciklama: 'Arsa paylari toplu duzeltildi (KMK md. 3)' },
