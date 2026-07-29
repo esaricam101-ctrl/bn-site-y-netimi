@@ -28,6 +28,7 @@ import { DaireModule } from './modules/daire/daire.module';
 import { GiderTuruModule } from './modules/gider-turu/gider-turu.module';
 import { TahakkukModule } from './modules/tahakkuk/tahakkuk.module';
 import { AracModule } from './modules/arac/arac.module';
+import { SayacModule } from './modules/sayac/sayac.module';
 import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
 
 @Module({
@@ -61,6 +62,8 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     TahakkukModule,
     // Operasyonel varlıklar — dönemsel kayıtlar, silinmez.
     AracModule,
+    // Sayaç: TUKETIM paylaşım kuralının girdisi. Tahakkuk buradan okur.
+    SayacModule,
     // Denetim kaydı OKUMA ucu. Yazma tarafı common/audit içindedir.
     AuditSorguModule,
   ],

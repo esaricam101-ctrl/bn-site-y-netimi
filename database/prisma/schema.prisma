@@ -56,6 +56,8 @@ model Tenant {
   kullanicilar     Kullanici[]
   oturumDizini     OturumDizini[]
   araclar          Arac[]
+  sayaclar         Sayac[]
+  sayacOkumalari   SayacOkumasi[]
   apartmanlar      Apartman[]
   bloklar          Blok[]
   katlar           Kat[]
@@ -310,6 +312,7 @@ model BagimsizBolum {
   sakinler  Sakin[]
   borclar   Borc[]
   araclar   Arac[]
+  sayaclar  Sayac[]
 
   @@index([tenantId, blokId])
   @@index([tenantId, katId])
@@ -765,6 +768,93 @@ model Arac {
   @@index([tenantId, bolumId])
   @@index([tenantId, plaka])
   @@map("arac")
+}
+
+enum SayacTuru {
+  SU
+  SICAK_SU
+  ELEKTRIK
+  DOGALGAZ
+  /// Isı pay ölçer — radyatöre takılır, orantılı tüketim gösterir.
+  ISI_PAY_OLCER
+  /// Kalorimetre — doğrudan enerji ölçer (kWh/kcal).
+  KALORIMETRE
+}
+
+/// Bağımsız bölüme takılı sayaç.
+///
+/// DEĞERLER TAM SAYIDIR, ondalık değil: 12,345 m³ → `deger = 12345`,
+/// `olcekBasamak = 3`. Float kullanılsaydı yüz dairelik bir binada yuvarlama
+/// farkları birikip toplam tüketimden sapardı (ADR-0007).
+///
+/// SİLİNMEZ: sökülen sayaç `sokulmeTarihi` ile kapanır. Geçmiş dönemin
+/// TUKETIM dağıtımı bu sayacın okumalarına dayanır; kayıt kaybolursa
+/// dağıtımın dayanağı okunamaz hale gelir.
+model Sayac {
+  id       String    @id @db.Uuid
+  tenantId String    @map("tenant_id") @db.Uuid
+  bolumId  String    @map("bolum_id") @db.Uuid
+  tur      SayacTuru
+  seriNo   String    @map("seri_no") @db.VarChar(40)
+
+  /// Göstergenin basamak sayısı. Mekanik sayaç bu basamağı doldurunca başa
+  /// döner (99999 → 00001); devir hesabı bu değere dayanır.
+  basamak      Int
+  /// Okumadaki ondalık basamak sayısı.
+  olcekBasamak Int @default(0) @map("olcek_basamak")
+
+  takilmaTarihi DateTime  @map("takilma_tarihi") @db.Date
+  sokulmeTarihi DateTime? @map("sokulme_tarihi") @db.Date
+  /// Takıldığı andaki gösterge değeri. Kullanılmış sayaçta sıfır olmaz.
+  ilkDeger      BigInt    @default(0) @map("ilk_deger")
+
+  /// Bu sayaç hangi sayacın yerine takıldı. Değişim dönemi tüketimi İKİ
+  /// parçadan oluşur ve zincir olmadan eski sayacın son günleri sessizce
+  /// kaybolur.
+  oncekiSayacId String? @map("onceki_sayac_id") @db.Uuid
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  bolum        BagimsizBolum @relation(fields: [bolumId], references: [id])
+  oncekiSayac  Sayac?        @relation("SayacZinciri", fields: [oncekiSayacId], references: [id])
+  sonrakiSayac Sayac[]       @relation("SayacZinciri")
+  okumalar     SayacOkumasi[]
+
+  @@index([tenantId, bolumId, tur])
+  @@map("sayac")
+}
+
+/// Sayaç okuması ve o okumayla oluşan tüketim.
+///
+/// TÜKETİM SAKLANIR, sorgu anında yeniden hesaplanmaz. Bu bir SNAPSHOT'tır:
+/// bir okuma sonradan düzeltilirse geçmiş dönemlerin dağıtımı kendiliğinden
+/// değişmemelidir — tahsil edilmiş aidatla tutmaz.
+model SayacOkumasi {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  sayacId  String @map("sayac_id") @db.Uuid
+
+  tarih  DateTime @db.Date
+  deger  BigInt
+  /// Gösterge başa döndü mü — OPERATÖR ONAYIYLA gelir, tahmin edilmez.
+  devirMi Boolean @default(false) @map("devir_mi")
+
+  /// Bir önceki okumaya göre hesaplanan tüketim. `tuketimHesapla` çıktısıdır.
+  tuketim BigInt
+
+  /// Okumanın kaynağı — elle mi girildi, uzaktan mı okundu.
+  kaynak String @default("ELLE") @db.VarChar(16)
+  notu   String?
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  sayac  Sayac  @relation(fields: [sayacId], references: [id])
+
+  @@index([tenantId, sayacId, tarih])
+  @@map("sayac_okumasi")
 }
 
 // ===========================================================================

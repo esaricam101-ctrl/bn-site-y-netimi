@@ -81,6 +81,37 @@ export class TahakkukCalistirDto {
   @ValidateNested({ each: true }) @Type(() => BolumGirdisiDto)
   bolumGirdileri?: BolumGirdisiDto[];
 
+  /**
+   * Verilirse TUKETIM ağırlıkları sayaç okumalarından OTOMATİK doldurulur.
+   *
+   * Elle girilen `bolumGirdileri[].tuketim` değerlerinin yerini alır. Sayaç
+   * değişimi olan bölümlerde iki sayacın tüketimi toplanır.
+   *
+   * Okuması olmayan bölüm varsa tahakkuk REDDEDİLİR — sessizce sıfır tüketim
+   * yazmak o daireyi ısıtma giderinden tümüyle muaf tutar ve farkı diğer
+   * dairelere yükler.
+   */
+  @ApiPropertyOptional({
+    example: 'SU',
+    description: 'TUKETIM kuralında ağırlıkları bu türdeki sayaçlardan oku.',
+  })
+  @IsOptional() @IsString() @Length(2, 20)
+  sayacTuru?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-07-01',
+    description: 'Sayaç okuma aralığı başlangıcı. Verilmezse `donem` kullanılır.',
+  })
+  @IsOptional() @IsDateString()
+  okumaBaslangic?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-07-31',
+    description: 'Sayaç okuma aralığı bitişi. Verilmezse `vadeTarihi` kullanılır.',
+  })
+  @IsOptional() @IsDateString()
+  okumaBitis?: string;
+
   @ApiPropertyOptional({
     example: false,
     description:

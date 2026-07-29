@@ -35,6 +35,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { NumaraServisi } from '../../common/numbering/numara.service';
+import { SayacServisi } from '../sayac/sayac.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
 import type { BolumGirdisiDto, TahakkukCalistirDto } from './dto/tahakkuk.dto';
 
@@ -70,6 +71,8 @@ export class TahakkukCommandService {
     private readonly audit: AuditServisi,
     private readonly outbox: OutboxServisi,
     private readonly numara: NumaraServisi,
+    // TUKETIM kuralinda agirliklar sayac okumalarindan gelir.
+    private readonly sayac: SayacServisi,
   ) {}
 
   async calistir(dto: TahakkukCalistirDto, principal: Principal): Promise<TahakkukSonucu> {
@@ -168,6 +171,57 @@ export class TahakkukCommandService {
       const girdiHaritasi = new Map<string, BolumGirdisiDto>(
         (dto.bolumGirdileri ?? []).map((g) => [g.bolumId, g]),
       );
+
+      // --- 3b) TUKETIM ağırlıkları sayaçtan --------------------------------
+      //
+      // `sayacTuru` verilirse ölçüm elle girilmez, okumalardan gelir. Sayaç
+      // değişimi olan bölümlerde iki sayacın tüketimi toplanır.
+      //
+      // OKUMASI OLMAYAN BÖLÜM VARSA TAHAKKUK REDDEDİLİR. Sessizce sıfır
+      // tüketim yazmak o daireyi ısıtma giderinden tümüyle muaf tutar ve
+      // farkı diğer dairelere yükler — hata, faturalar dağıtıldıktan sonra
+      // ve ancak sakin itiraz ederse fark edilir.
+      if (dto.sayacTuru !== undefined) {
+        if (gider.paylasimKurali !== 'TUKETIM' && gider.paylasimKurali !== 'KARMA') {
+          throw new IsKuraliIhlali(
+            `'${gider.kod}' türünün paylaşım kuralı ${gider.paylasimKurali}; ` +
+              'sayaç okuması yalnızca TUKETIM (ya da TUKETIM bileşeni olan KARMA) ' +
+              'kuralında kullanılır.',
+            'Sayaç türünü kaldırın ya da gider türünün kuralını düzeltin.',
+          );
+        }
+
+        const tuketimler = await this.sayac.donemTuketimi(
+          principal,
+          dto.sayacTuru,
+          dto.okumaBaslangic ?? donem,
+          dto.okumaBitis ?? vade,
+        );
+
+        const kapsanan = new Set(bolumKayitlari.map((b) => b.id));
+        const eksikler = tuketimler
+          .filter((t) => kapsanan.has(t.bolumId) && t.okumaYokMu)
+          .map((t) => t.kapiNo);
+
+        if (eksikler.length > 0) {
+          throw new IsKuraliIhlali(
+            `${eksikler.length} bölümde ${dto.sayacTuru} okuması yok: ` +
+              `${eksikler.join(', ')}.`,
+            'Eksik okumaları girip tahakkuku tekrar çalıştırın. Okuması olmayan ' +
+              'bölüme sıfır tüketim yazmak, o dairenin payını diğerlerine yükler.',
+          );
+        }
+
+        for (const t of tuketimler) {
+          if (!kapsanan.has(t.bolumId)) continue;
+          const mevcut = girdiHaritasi.get(t.bolumId);
+          girdiHaritasi.set(t.bolumId, {
+            ...(mevcut ?? { bolumId: t.bolumId }),
+            bolumId: t.bolumId,
+            tuketim: t.tuketim,
+          });
+        }
+      }
 
       const bolumler = new Map<string, BagimsizBolum>();
       const girdiler: PaylasimGirdisi[] = [];
