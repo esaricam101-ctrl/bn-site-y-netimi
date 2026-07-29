@@ -16,8 +16,8 @@
  */
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
-  CreateBucketCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand,
-  PutObjectCommand, S3Client,
+  CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand,
+  HeadObjectCommand, PutObjectCommand, S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -97,6 +97,56 @@ export class NesneDeposuServisi implements OnModuleInit {
       new PutObjectCommand({ Bucket: this.kova, Key: anahtar, ContentType: icerikTipi }),
       { expiresIn: URL_OMRU_SN },
     );
+  }
+
+  /**
+   * ÖNİZLEME için tarayıcıda AÇILABİLİR içerik tipleri.
+   *
+   * HTML, SVG ve XML BİLEREK YOKTUR: bunlar betik taşıyabilir ve nesne
+   * deposunun alan adında çalıştırıldıklarında oradaki oturum/çerez
+   * bağlamına erişebilirler. Bir kiracının "sözleşme" diye yüklediği SVG,
+   * yöneticinin tarayıcısında betik çalıştırmamalıdır.
+   *
+   * Liste GENİŞLETİLİRKEN aynı soru sorulmalı: bu tip betik taşıyabilir mi?
+   */
+  private static readonly ONIZLENEBILIR = new Set([
+    'application/pdf',
+    'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+    'text/plain',
+  ]);
+
+  static onizlenebilirMi(icerikTipi: string): boolean {
+    return NesneDeposuServisi.ONIZLENEBILIR.has(icerikTipi.split(';')[0]?.trim() ?? '');
+  }
+
+  /**
+   * Tarayıcıda AÇMAK için önimzalı URL — yalnızca güvenli içerik tiplerinde.
+   *
+   * `inline` yerine indirme zorlanmadığı için içerik tipi burada AÇIKÇA
+   * sabitlenir: depoya yüklenirken bildirilen tipe güvenilmez, çağıran
+   * doğrulanmış tipi verir.
+   */
+  onizlemeUrl(anahtar: string, icerikTipi: string): Promise<string> {
+    return getSignedUrl(
+      this.istemci,
+      new GetObjectCommand({
+        Bucket: this.kova,
+        Key: anahtar,
+        ResponseContentDisposition: 'inline',
+        ResponseContentType: icerikTipi,
+      }),
+      { expiresIn: URL_OMRU_SN },
+    );
+  }
+
+  /**
+   * Nesneyi KALICI olarak siler — KVKK silme hakkı (md. 7).
+   *
+   * Geri alınamaz. Çağıran, saklama süresi ve finansal sınıf denetimlerini
+   * yapmış olmalıdır; bu katman yalnızca dosyayı kaldırır.
+   */
+  async nesneyiSil(anahtar: string): Promise<void> {
+    await this.istemci.send(new DeleteObjectCommand({ Bucket: this.kova, Key: anahtar }));
   }
 
   indirmeUrl(anahtar: string, dosyaAdi: string): Promise<string> {

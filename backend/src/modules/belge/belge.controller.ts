@@ -7,7 +7,8 @@ import {
   BelgeServisi, type BelgeSatiri, type PolitikaSatiri,
 } from './belge.service';
 import {
-  BelgeKaydetDto, BelgeSilDto, PolitikaGuncelleDto, YeniSurumDto, YuklemeIzniDto,
+  BelgeDuzeltDto, BelgeKaydetDto, BelgeSilDto, EtiketDto, KaliciSilDto,
+  PolitikaGuncelleDto, YeniSurumDto, YuklemeIzniDto,
 } from './dto/belge.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -70,13 +71,25 @@ export class BelgeController {
     @Query('kapsam') kapsam?: string,
     @Query('hedefId') hedefId?: string,
     @Query('tip') tip?: string,
+    @Query('kategori') kategori?: string,
+    @Query('etiket') etiket?: string,
+    @Query('arama') arama?: string,
+    @Query('tarihBaslangic') tarihBaslangic?: string,
+    @Query('tarihBitis') tarihBitis?: string,
     @Query('arsiviDahilEt') arsiviDahilEt?: string,
+    @Query('silinmisleriDahilEt') silinmisleriDahilEt?: string,
   ): Promise<readonly BelgeSatiri[]> {
     return this.servis.listele(principal, {
       ...(kapsam ? { kapsam } : {}),
       ...(hedefId ? { hedefId } : {}),
       ...(tip ? { tip } : {}),
+      ...(kategori ? { kategori } : {}),
+      ...(etiket ? { etiket } : {}),
+      ...(arama ? { arama } : {}),
+      ...(tarihBaslangic ? { tarihBaslangic } : {}),
+      ...(tarihBitis ? { tarihBitis } : {}),
       ...(arsiviDahilEt === 'true' ? { arsiviDahilEt: true } : {}),
+      ...(silinmisleriDahilEt === 'true' ? { silinmisleriDahilEt: true } : {}),
     });
   }
 
@@ -119,6 +132,86 @@ export class BelgeController {
     @AktifPrincipal() principal: Principal,
   ): Promise<KomutSonucu> {
     return this.servis.politikaGuncelle(tip, dto, principal);
+  }
+
+  @Get(':id/onizleme-izni')
+  @RequirePermission(IZINLER.BELGE_GORUNTULE)
+  @ApiOperation({
+    summary: 'Önizleme izni (tarayıcıda aç)',
+    description:
+      'Yalnızca betik TAŞIYAMAYAN içerik tiplerinde verilir: PDF, resim, düz ' +
+      'metin. HTML ve SVG asla önizlenmez — nesne deposunun alan adında ' +
+      'çalıştırılan bir betik oradaki oturum bağlamına erişebilir.',
+  })
+  onizlemeIzni(
+    @Param('id') id: string,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<{ readonly url: string; readonly omurSaniye: number }> {
+    return this.servis.onizlemeIzni(id, principal);
+  }
+
+  @Patch(':id')
+  @RequirePermission(IZINLER.BELGE_YUKLE)
+  @ApiOperation({
+    summary: 'Üstveri düzelt',
+    description:
+      'DOSYA DEĞİŞTİRİLEMEZ — dosya değişikliği yeni sürümdür. Gizlilik ' +
+      'yükseltilebilir, DÜŞÜRÜLEMEZ.',
+  })
+  duzelt(
+    @Param('id') id: string,
+    @Body() dto: BelgeDuzeltDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.servis.duzelt(id, dto, principal);
+  }
+
+  @Post(':id/etiketler')
+  @RequirePermission(IZINLER.BELGE_YUKLE)
+  @ApiOperation({
+    summary: 'Etiket ekle',
+    description:
+      'Türkçe duyarlı küçük harfe normalize edilir: "ACIL" ve "acil" aynı ' +
+      'etikettir. Var olan etiketi yeniden eklemek hata değildir.',
+  })
+  etiketEkle(
+    @Param('id') id: string,
+    @Body() dto: EtiketDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.servis.etiketEkle(id, dto.etiket, principal);
+  }
+
+  @Delete(':id/etiketler/:etiket')
+  @RequirePermission(IZINLER.BELGE_YUKLE)
+  @ApiOperation({ summary: 'Etiket kaldır' })
+  etiketKaldir(
+    @Param('id') id: string,
+    @Param('etiket') etiket: string,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.servis.etiketKaldir(id, etiket, principal);
+  }
+
+  @Post(':id/kalici-sil')
+  @RequirePermission(IZINLER.BELGE_YUKLE)
+  @ApiOperation({
+    summary: 'KVKK kalıcı silme — dosyayı imha et',
+    description:
+      'GERİ ALINAMAZ. Dosya nesne deposundan kaldırılır; ÜSTVERİ SATIRI KALIR ' +
+      've imha tarihiyle işaretlenir. Kayıt da silinseydi "bu belge şu tarihte, ' +
+      'şu gerekçeyle imha edildi" sorusunun cevabı kaybolur ve imha ' +
+      'kanıtlanamazdı — KVKK\'nın istediği verinin silinmesidir, silme ' +
+      'işleminin izsiz kalması değil.\n\n' +
+      'Üç ön koşul: belge önce normal yolla silinmiş olmalı, FİNANSAL sınıf ' +
+      'olmamalı ve çağıran "IMHA-ONAY" dizesini göndermeli.',
+  })
+  kaliciSil(
+    @Param('id') id: string,
+    @Body() dto: KaliciSilDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<KomutSonucu> {
+    return this.servis.kaliciSil(id, dto.gerekce, principal);
   }
 
   @Get(':id/indirme-izni')

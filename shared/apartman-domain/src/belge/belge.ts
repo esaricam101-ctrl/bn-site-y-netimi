@@ -24,11 +24,112 @@ export type BelgeTipi =
   | 'YAZISMA'
   | 'DIGER';
 
-/** Belgenin baglandigi varlik. Bolume, kisiye ya da tenant'in tamamina ait olabilir. */
-export type BelgeKapsami = 'TENANT' | 'APARTMAN' | 'BLOK' | 'BOLUM' | 'KISI';
+/**
+ * Belgenin baglanabilecegi varlik turleri.
+ *
+ * MALIK · KIRACI · SAKIN, KISI'den AYRIDIR ve bu bilinclidir: bir kira
+ * sozlesmesi kisiye degil, o kisinin O BOLUMDEKI kiracilik donemine aittir.
+ * Kisi baska daireye tasindiginda eski sozlesme eski doneme bagli kalir.
+ */
+export type BelgeVarlikTipi =
+  | 'TENANT' | 'APARTMAN' | 'BLOK' | 'KAT' | 'BOLUM'
+  | 'KISI' | 'MALIK' | 'KIRACI' | 'SAKIN';
+
+/** Geriye donuk ad. Yeni kodda `BelgeVarlikTipi` kullanilir. */
+export type BelgeKapsami = BelgeVarlikTipi;
+
+/**
+ * Kategori — turun USTUNDE dosyalama duzeyi.
+ *
+ * Kategori TURUN ozelligidir, belgenin degil: "Fatura" her zaman MALI'dir.
+ * Belge basina serbest birakilsaydi ayni tur farkli kategorilere duser ve
+ * kategori bazli arama guvenilmez olurdu.
+ */
+export type BelgeKategorisi = 'HUKUKI' | 'MALI' | 'TEKNIK' | 'KURUMSAL' | 'KISISEL';
+
+/**
+ * Gizlilik seviyesi — KVKK veri minimizasyonu (md. 4/1-c).
+ *
+ * Bir kiracinin kimlik fotokopisi butun yonetim kuruluna acik olmamalidir.
+ * Seviye IZIN kontrolunun USTUNE biner: izni olan bile kapsam disindaki
+ * KISIYE_OZEL belgeyi goremez.
+ */
+export type BelgeGizliligi = 'GENEL' | 'YONETIM' | 'KISIYE_OZEL';
+
+/** Gizlilik siralamasi — buyuk sayi daha kisitli demektir. */
+const GIZLILIK_DUZEYI: Readonly<Record<BelgeGizliligi, number>> = {
+  GENEL: 0,
+  YONETIM: 1,
+  KISIYE_OZEL: 2,
+};
+
+/**
+ * Gizlilik YUKSELTILEBILIR, DUSURULEMEZ.
+ *
+ * Turun varsayilani KISIYE_OZEL olan bir kimlik fotokopisi, belge kaydinda
+ * GENEL'e cekilebilseydi tek bir yanlis tikla butun sakinlere acilirdi.
+ * Dusurme ihtiyaci varsa tur politikasi degistirilir — o da denetime yazilir.
+ */
+export function gizliligiDogrula(
+  varsayilan: BelgeGizliligi,
+  istenen: BelgeGizliligi,
+): void {
+  if (GIZLILIK_DUZEYI[istenen] < GIZLILIK_DUZEYI[varsayilan]) {
+    throw new DogrulamaHatasi(
+      `Gizlilik dusurulemez: tur varsayilani '${varsayilan}', istenen '${istenen}'.`,
+      'Daha genis erisim gerekiyorsa once belge turunun politikasini degistirin.',
+    );
+  }
+}
+
+/**
+ * Etiket normalizasyonu — ASCII katlama.
+ *
+ * ETIKET BIR KIMLIKTIR, prose degil: "ACIL", "acil", "ACİL" ve "Acil"
+ * yazan kullanicilar AYNI etiketi kastediyor.
+ *
+ * TURKCE KATLAMA BURADA YANLIS SONUC VERIR ve bu sezgiye aykiridir:
+ * `'ACIL'.toLocaleLowerCase('tr')` -> 'acıl' cikar, cunku Turkcede noktasiz
+ * 'I' harfinin kucugu 'ı'dir. Dilbilgisel olarak dogru, pratikte yikici:
+ * caps lock ile "ACIL" yazan kullanicinin etiketi, "acil" yazanla
+ * eslesmezdi ve iki ayri etiket olusurdu.
+ *
+ * Bu yuzden once aksan ayristirilir, birlestirici isaretler atilir ve
+ * i/I/İ/ı ailesi tek harfe indirilir — `baslikNormalle` (CSV baslik
+ * eslestirme) ile AYNI yaklasim.
+ *
+ * Prose aramasinda (`ad`, `notlar`) Turkce katlama DOGRU olandir; ayrimi
+ * karistirmamak icin bu fonksiyon yalnizca etiket icin kullanilir.
+ */
+export function etiketNormalle(ham: string): string {
+  return ham
+    .trim()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/gu, '')
+    .replace(/[İI]/gu, 'i')
+    .replace(/ı/gu, 'i')
+    .toLowerCase()
+    .replace(/\s+/gu, '-');
+}
+
+/** Etiket bicim denetimi. Bos ve tek harfli etiket aramaya yaramaz. */
+export function etiketiDogrula(ham: string): string {
+  const normal = etiketNormalle(ham);
+  if (normal.length < 2 || normal.length > 40) {
+    throw new DogrulamaHatasi(
+      `Etiket 2-40 karakter olmalidir: '${ham}'.`,
+      'Daha aciklayici bir etiket girin.',
+    );
+  }
+  return normal;
+}
 
 export interface BelgeTipiPolitikasi {
   readonly tip: BelgeTipi;
+  /** Turun kategorisi — dosyalama duzeyi. */
+  readonly kategori?: BelgeKategorisi;
+  /** Bu turdeki belgelerin varsayilan gizliligi. */
+  readonly varsayilanGizlilik?: BelgeGizliligi;
   /** Yil cinsinden asgari saklama suresi. `null` ise SURESIZ saklanir. */
   readonly saklamaYili: number | null;
   /**
@@ -76,18 +177,18 @@ export interface Belge {
 export const VARSAYILAN_BELGE_POLITIKALARI: readonly BelgeTipiPolitikasi[] = [
   // Yonetim plani ve genel kurul kararlari SURESIZ saklanir: bir dairenin
   // aidat kuralinin dayanagi bunlardir ve on yil sonra da sorulabilir.
-  { tip: 'YONETIM_PLANI', saklamaYili: null, finansalMi: false, kaynakReferansi: 'KMK md. 28' },
-  { tip: 'GENEL_KURUL_KARARI', saklamaYili: null, finansalMi: true, kaynakReferansi: 'KMK md. 32 — karar defteri' },
-  { tip: 'TAPU', saklamaYili: null, finansalMi: false, kaynakReferansi: 'KMK md. 12' },
+  { tip: 'YONETIM_PLANI', kategori: 'HUKUKI', varsayilanGizlilik: 'GENEL', saklamaYili: null, finansalMi: false, kaynakReferansi: 'KMK md. 28' },
+  { tip: 'GENEL_KURUL_KARARI', kategori: 'HUKUKI', varsayilanGizlilik: 'GENEL', saklamaYili: null, finansalMi: true, kaynakReferansi: 'KMK md. 32 — karar defteri' },
+  { tip: 'TAPU', kategori: 'HUKUKI', varsayilanGizlilik: 'KISIYE_OZEL', saklamaYili: null, finansalMi: false, kaynakReferansi: 'KMK md. 12' },
   // Fatura ve makbuz FINANSAL: asla silinmez, duzeltme yeni surumle yapilir.
-  { tip: 'FATURA', saklamaYili: 10, finansalMi: true, kaynakReferansi: 'VUK md. 253' },
-  { tip: 'MAKBUZ', saklamaYili: 10, finansalMi: true, kaynakReferansi: 'VUK md. 253' },
-  { tip: 'KIRA_SOZLESMESI', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
-  { tip: 'SIGORTA_POLICESI', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
-  { tip: 'RUHSAT', saklamaYili: null, finansalMi: false, kaynakReferansi: null },
-  { tip: 'TEKNIK_RAPOR', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
-  { tip: 'YAZISMA', saklamaYili: 5, finansalMi: false, kaynakReferansi: null },
-  { tip: 'DIGER', saklamaYili: 5, finansalMi: false, kaynakReferansi: null },
+  { tip: 'FATURA', kategori: 'MALI', varsayilanGizlilik: 'YONETIM', saklamaYili: 10, finansalMi: true, kaynakReferansi: 'VUK md. 253' },
+  { tip: 'MAKBUZ', kategori: 'MALI', varsayilanGizlilik: 'YONETIM', saklamaYili: 10, finansalMi: true, kaynakReferansi: 'VUK md. 253' },
+  { tip: 'KIRA_SOZLESMESI', kategori: 'HUKUKI', varsayilanGizlilik: 'KISIYE_OZEL', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
+  { tip: 'SIGORTA_POLICESI', kategori: 'TEKNIK', varsayilanGizlilik: 'YONETIM', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
+  { tip: 'RUHSAT', kategori: 'TEKNIK', varsayilanGizlilik: 'YONETIM', saklamaYili: null, finansalMi: false, kaynakReferansi: null },
+  { tip: 'TEKNIK_RAPOR', kategori: 'TEKNIK', varsayilanGizlilik: 'YONETIM', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
+  { tip: 'YAZISMA', kategori: 'KURUMSAL', varsayilanGizlilik: 'YONETIM', saklamaYili: 5, finansalMi: false, kaynakReferansi: null },
+  { tip: 'DIGER', kategori: 'KURUMSAL', varsayilanGizlilik: 'YONETIM', saklamaYili: 5, finansalMi: false, kaynakReferansi: null },
 ];
 
 export function tipPolitikasi(

@@ -82,6 +82,13 @@ export class TenantCommandService {
         await tx.belgeTipiPolitikasi.create({
           data: {
             id: randomUUID(), tenantId: a.id, tip: p.tip,
+            // Kategori ve varsayılan gizlilik de TEK KAYNAKTAN gelir.
+            // Atlanırsa sütun varsayılanına düşer ve tapu/kira sözleşmesi
+            // KISIYE_OZEL olmaz — kişisel belge herkese açılır.
+            ...(p.kategori === undefined ? {} : { kategori: p.kategori }),
+            ...(p.varsayilanGizlilik === undefined
+              ? {}
+              : { varsayilanGizlilik: p.varsayilanGizlilik }),
             saklamaYili: p.saklamaYili,
             finansalMi: p.finansalMi,
             kaynakReferansi: p.kaynakReferansi,

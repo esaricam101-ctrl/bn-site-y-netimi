@@ -184,6 +184,13 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     await prisma.belgeTipiPolitikasi.create({
       data: {
         id: randomUUID(), tenantId, tip: p.tip,
+        // Kategori ve varsayılan gizlilik de TEK KAYNAKTAN gelir. Atlanırsa
+        // sütun varsayılanına düşer (KURUMSAL/YONETIM) ve tapu ile kira
+        // sözleşmesi KISIYE_OZEL olmaz — kişisel belge herkese açılır.
+        ...(p.kategori === undefined ? {} : { kategori: p.kategori }),
+        ...(p.varsayilanGizlilik === undefined
+          ? {}
+          : { varsayilanGizlilik: p.varsayilanGizlilik }),
         saklamaYili: p.saklamaYili,
         finansalMi: p.finansalMi,
         kaynakReferansi: p.kaynakReferansi,

@@ -1066,6 +1066,190 @@ export function mockGiderTuruSil(id: string): void {
   liste[i] = { ...(liste[i] as MockGiderTuru), aktifMi: false };
 }
 
+/* ---------------------------- Konut çalışanları ---------------------------- */
+
+export interface MockSertifika {
+  readonly id: string;
+  readonly ad: string;
+  readonly kurum: string | null;
+  readonly belgeNo: string | null;
+  readonly verilisTarihi: string;
+  readonly gecerlilikBitisi: string | null;
+  readonly suresiDolduMu: boolean;
+}
+
+export interface MockZimmet {
+  readonly id: string;
+  readonly ad: string;
+  readonly seriNo: string | null;
+  readonly adet: number;
+  readonly zimmetTarihi: string;
+  readonly iadeTarihi: string | null;
+  readonly acikMi: boolean;
+  readonly notlar: string | null;
+}
+
+/** Konut çalışanı satırı — gerçek uçla (`CalisanSatiri`) aynı şekil. */
+export interface MockKonutCalisani {
+  readonly id: string;
+  readonly apartmanId: string | null;
+  readonly apartmanAdi: string | null;
+  readonly ad: string;
+  readonly soyad: string;
+  readonly adSoyad: string;
+  readonly gorev: string;
+  readonly departman: string | null;
+  readonly telefon: string | null;
+  readonly eposta: string | null;
+  readonly tcKimlikNo: string | null;
+  readonly sgkNo: string | null;
+  readonly iseGirisTarihi: string;
+  readonly istenAyrilisTarihi: string | null;
+  readonly vardiya: string;
+  readonly durum: string;
+  readonly notlar: string | null;
+  readonly sertifikalar: readonly MockSertifika[];
+  readonly zimmetler: readonly MockZimmet[];
+  readonly acikZimmetSayisi: number;
+  readonly suresiDolanSertifikaSayisi: number;
+}
+
+const mockCalisanlarTaban: readonly MockKonutCalisani[] = [
+  {
+    id: 'kc-1', apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı',
+    ad: 'Ahmet', soyad: 'Yıldız', adSoyad: 'Ahmet Yıldız',
+    gorev: 'GUVENLIK', departman: 'Güvenlik Amirliği',
+    telefon: '05321112233', eposta: 'ahmet@site.test',
+    tcKimlikNo: null, sgkNo: '1234567890123',
+    iseGirisTarihi: '2025-03-01', istenAyrilisTarihi: null,
+    vardiya: 'GECE', durum: 'AKTIF', notlar: null,
+    sertifikalar: [
+      {
+        id: 'srt-1', ad: 'Özel Güvenlik Kimlik Kartı',
+        kurum: 'Emniyet Genel Müdürlüğü', belgeNo: 'OG-2021-4471',
+        verilisTarihi: '2021-04-01', gecerlilikBitisi: '2026-04-01',
+        // Süresi DOLMUŞ — ekranın uyarı gösterdiği doğrulanabilsin diye.
+        suresiDolduMu: true,
+      },
+    ],
+    zimmetler: [
+      {
+        id: 'zmt-1', ad: 'Telsiz', seriNo: 'TLS-0042', adet: 1,
+        zimmetTarihi: '2025-03-01', iadeTarihi: null, acikMi: true, notlar: null,
+      },
+    ],
+    acikZimmetSayisi: 1, suresiDolanSertifikaSayisi: 1,
+  },
+  {
+    id: 'kc-2', apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı',
+    ad: 'Fatma', soyad: 'Kaya', adSoyad: 'Fatma Kaya',
+    gorev: 'TEMIZLIK', departman: null,
+    telefon: '05334445566', eposta: null,
+    tcKimlikNo: null, sgkNo: null,
+    iseGirisTarihi: '2024-09-15', istenAyrilisTarihi: null,
+    vardiya: 'GUNDUZ', durum: 'AKTIF', notlar: null,
+    sertifikalar: [], zimmetler: [],
+    acikZimmetSayisi: 0, suresiDolanSertifikaSayisi: 0,
+  },
+  {
+    id: 'kc-3', apartmanId: null, apartmanAdi: null,
+    ad: 'Mehmet', soyad: 'Demir', adSoyad: 'Mehmet Demir',
+    gorev: 'SITE_MUDURU', departman: 'Yönetim',
+    telefon: '05327778899', eposta: 'mudur@site.test',
+    tcKimlikNo: null, sgkNo: '9876543210987',
+    iseGirisTarihi: '2023-01-02', istenAyrilisTarihi: '2026-06-30',
+    vardiya: 'TAM_GUN', durum: 'PASIF', notlar: 'İstifa etti',
+    sertifikalar: [], zimmetler: [],
+    acikZimmetSayisi: 0, suresiDolanSertifikaSayisi: 0,
+  },
+];
+
+let calisanOrtusu: MockKonutCalisani[] | null = null;
+
+export function mockCalisanlariOku(
+  suzgec: { gorev?: string; durum?: string; arama?: string } = {},
+): readonly MockKonutCalisani[] {
+  const liste = calisanOrtusu ?? mockCalisanlarTaban;
+  const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
+  return liste.filter(
+    (c) =>
+      (suzgec.gorev === undefined || c.gorev === suzgec.gorev) &&
+      (suzgec.durum === undefined || c.durum === suzgec.durum) &&
+      (q === '' ||
+        c.adSoyad.toLocaleLowerCase('tr').includes(q) ||
+        (c.departman ?? '').toLocaleLowerCase('tr').includes(q)),
+  );
+}
+
+function calisanListesi(): MockKonutCalisani[] {
+  return calisanOrtusu ?? (calisanOrtusu = [...mockCalisanlarTaban]);
+}
+
+export interface MockCalisanGirdisi {
+  readonly ad: string;
+  readonly soyad: string;
+  readonly gorev: string;
+  readonly departman?: string;
+  readonly telefon?: string;
+  readonly eposta?: string;
+  readonly tcKimlikNo?: string;
+  readonly sgkNo?: string;
+  readonly iseGirisTarihi: string;
+  readonly vardiya?: string;
+  readonly notlar?: string;
+}
+
+export function mockCalisanEkle(dto: MockCalisanGirdisi): void {
+  const liste = calisanListesi();
+  // Ayni TC ile AKTIF ikinci kayit bordroyu ikiye katlar — sunucu da reddeder.
+  if (dto.tcKimlikNo !== undefined && dto.tcKimlikNo !== '') {
+    const cakisan = liste.find(
+      (c) => c.tcKimlikNo === dto.tcKimlikNo && c.istenAyrilisTarihi === null,
+    );
+    if (cakisan) {
+      throw new Error(
+        `Bu TC kimlik numarasıyla aktif bir personel kaydı var: ${cakisan.adSoyad}.`,
+      );
+    }
+  }
+  liste.unshift({
+    id: `kc-yeni-${liste.length + 1}`,
+    apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı',
+    ad: dto.ad.trim(), soyad: dto.soyad.trim(),
+    adSoyad: `${dto.ad.trim()} ${dto.soyad.trim()}`,
+    gorev: dto.gorev,
+    departman: dto.departman?.trim() ?? null,
+    telefon: dto.telefon?.trim() ?? null,
+    eposta: dto.eposta?.trim() ?? null,
+    tcKimlikNo: dto.tcKimlikNo ?? null,
+    sgkNo: dto.sgkNo?.trim() ?? null,
+    iseGirisTarihi: dto.iseGirisTarihi,
+    istenAyrilisTarihi: null,
+    vardiya: dto.vardiya ?? 'GUNDUZ',
+    durum: 'AKTIF',
+    notlar: dto.notlar?.trim() ?? null,
+    sertifikalar: [], zimmetler: [],
+    acikZimmetSayisi: 0, suresiDolanSertifikaSayisi: 0,
+  });
+}
+
+/** İşten ayrılış — kayıt KAPANIR, silinmez. Durum aynı anda PASIF olur. */
+export function mockCalisanAyril(id: string, tarih: string): void {
+  const liste = calisanListesi();
+  const i = liste.findIndex((c) => c.id === id);
+  if (i < 0) throw new Error(`Personel bulunamadı: ${id}`);
+  const mevcut = liste[i] as MockKonutCalisani;
+  if (mevcut.istenAyrilisTarihi !== null) {
+    throw new Error(`${mevcut.adSoyad} ${mevcut.istenAyrilisTarihi} tarihinde zaten ayrılmış.`);
+  }
+  if (tarih < mevcut.iseGirisTarihi) {
+    throw new Error(
+      `Ayrılış (${tarih}) işe giriş tarihinden (${mevcut.iseGirisTarihi}) önce olamaz.`,
+    );
+  }
+  liste[i] = { ...mevcut, istenAyrilisTarihi: tarih, durum: 'PASIF' };
+}
+
 /** Arsa payı raporu — gerçek uçla (`ArsaPayiRaporu`) aynı şekil. */
 export interface MockArsaPayiRaporu {
   readonly gecerli: boolean;

@@ -60,6 +60,11 @@ model Tenant {
   sayacOkumalari   SayacOkumasi[]
   belgeler         Belge[]
   belgePolitikalari BelgeTipiPolitikasi[]
+  belgeIliskileri  BelgeIliskisi[]
+  belgeEtiketleri  BelgeEtiketi[]
+  konutCalisanlari KonutCalisani[]
+  personelSertifikalari PersonelSertifikasi[]
+  personelZimmetleri    PersonelZimmeti[]
   apartmanlar      Apartman[]
   bloklar          Blok[]
   katlar           Kat[]
@@ -213,6 +218,7 @@ model Apartman {
   tenant  Tenant @relation(fields: [tenantId], references: [id])
   bloklar Blok[]
 
+  calisanlar KonutCalisani[]
   @@index([tenantId])
   @@map("apartman")
 }
@@ -877,14 +883,53 @@ enum BelgeTipi {
   DIGER
 }
 
-/// Belgenin bağlandığı varlık. Bölüme, kişiye ya da tenant'ın tamamına ait
-/// olabilir.
-enum BelgeKapsami {
+/// Belgenin bağlanabileceği varlık türleri.
+///
+/// MALIK · KIRACI · SAKIN, KISI'den AYRIDIR ve bilinçlidir: bir kira
+/// sözleşmesi kişiye değil, o kişinin O BÖLÜMDEKİ kiracılık dönemine aittir.
+/// Kişi başka bir daireye taşındığında eski sözleşme eski döneme bağlı kalır.
+enum BelgeVarlikTipi {
   TENANT
   APARTMAN
   BLOK
+  KAT
   BOLUM
   KISI
+  MALIK
+  KIRACI
+  SAKIN
+}
+
+/// Belge kategorisi — türün üstünde, dosyalama düzeyi.
+///
+/// Kategori TÜRÜN özelliğidir, belgenin değil: "Fatura" her zaman MALI'dir.
+/// Belge başına serbest bırakılsaydı aynı tür farklı kategorilere düşer ve
+/// kategori bazlı arama güvenilmez olurdu.
+enum BelgeKategorisi {
+  /// Yönetim planı, genel kurul kararı, tapu, sözleşme.
+  HUKUKI
+  /// Fatura, makbuz, bütçe, denetim raporu.
+  MALI
+  /// Ruhsat, proje, teknik rapor, bakım kaydı.
+  TEKNIK
+  /// Yazışma, tutanak, duyuru.
+  KURUMSAL
+  /// Kimlik, ikametgâh — KVKK kapsamında özel dikkat gerektirir.
+  KISISEL
+}
+
+/// Gizlilik seviyesi — KVKK veri minimizasyonu (md. 4/1-ç).
+///
+/// Bir kiracının kimlik fotokopisi bütün yönetim kuruluna açık olmamalıdır.
+/// Seviye, İZİN kontrolünün ÜSTÜNE biner: izni olan bile kapsam dışındaki
+/// KISIYE_OZEL belgeyi göremez.
+enum BelgeGizliligi {
+  /// Tüm sakinler görebilir (yönetim planı, genel kurul kararı).
+  GENEL
+  /// Yalnızca yönetim yetkisi olanlar.
+  YONETIM
+  /// Yalnızca belgenin ilgilisi ve yönetim.
+  KISIYE_OZEL
 }
 
 /// Belge tipi saklama politikası — VERİ olarak, koda gömülmez.
@@ -896,6 +941,15 @@ model BelgeTipiPolitikasi {
   id       String    @id @db.Uuid
   tenantId String    @map("tenant_id") @db.Uuid
   tip      BelgeTipi
+
+  /// Türün kategorisi — dosyalama düzeyi. Belge başına DEĞİL tür başına
+  /// tanımlıdır: aynı tür farklı kategorilere düşerse arama güvenilmez olur.
+  kategori BelgeKategorisi @default(KURUMSAL)
+
+  /// Bu türdeki belgelerin VARSAYILAN gizlilik seviyesi. Belge kaydında
+  /// yükseltilebilir, DÜŞÜRÜLEMEZ — kimlik fotokopisi yanlışlıkla herkese
+  /// açılamamalıdır.
+  varsayilanGizlilik BelgeGizliligi @default(YONETIM) @map("varsayilan_gizlilik")
 
   /// Yıl cinsinden asgari saklama süresi. `null` ise SÜRESİZ saklanır.
   saklamaYili Int? @map("saklama_yili")
@@ -919,15 +973,22 @@ model BelgeTipiPolitikasi {
 /// etmez: "hangi yönetim planına göre karar verildi?" sorusunun cevabı eski
 /// sürümdedir.
 model Belge {
-  id       String       @id @db.Uuid
-  tenantId String       @map("tenant_id") @db.Uuid
+  id       String          @id @db.Uuid
+  tenantId String          @map("tenant_id") @db.Uuid
   tip      BelgeTipi
-  kapsam   BelgeKapsami
+  /// BİRİNCİL kapsam — belgenin "sahibi". Ek bağlantılar `iliskiler`dedir.
+  kapsam   BelgeVarlikTipi
   /// Kapsamın işaret ettiği kaydın kimliği. TENANT kapsamında `null`.
   ///
-  /// TİPLİ YABANCI ANAHTAR YOK: hedef beş ayrı tabloya işaret edebilir.
+  /// TİPLİ YABANCI ANAHTAR YOK: hedef dokuz ayrı tabloya işaret edebilir.
   /// Varlığı uygulama katmanında denetlenir (`hedefiDogrula`).
-  hedefId  String?      @map("hedef_id") @db.Uuid
+  hedefId  String?         @map("hedef_id") @db.Uuid
+
+  /// Gizlilik — türün varsayılanından YÜKSELTİLEBİLİR, düşürülemez.
+  gizlilik BelgeGizliligi @default(YONETIM)
+
+  /// Serbest not. Aramaya dahildir.
+  notlar String?
 
   ad     String @db.VarChar(200)
   /// Aynı belgenin kaçıncı sürümü. 1'den başlar.
@@ -963,13 +1024,207 @@ model Belge {
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
   guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
 
-  tenant        Tenant  @relation(fields: [tenantId], references: [id])
-  oncekiSurum   Belge?  @relation("BelgeSurumu", fields: [oncekiSurumId], references: [id])
-  sonrakiSurum  Belge[] @relation("BelgeSurumu")
+  /// KVKK kalıcı silme kaydı. Nesne deposundaki dosya SİLİNDİĞİNDE dolar;
+  /// üstveri satırı kanıt olarak KALIR ("bu belge şu tarihte imha edildi").
+  dosyaImhaTarihi DateTime? @map("dosya_imha_tarihi") @db.Timestamptz(6)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  oncekiSurum   Belge?           @relation("BelgeSurumu", fields: [oncekiSurumId], references: [id])
+  sonrakiSurum  Belge[]          @relation("BelgeSurumu")
+  iliskiler     BelgeIliskisi[]
+  etiketler     BelgeEtiketi[]
 
   @@index([tenantId, kapsam, hedefId])
   @@index([tenantId, tip, arsivMi])
   @@map("belge")
+}
+
+/// Belge ↔ varlık bağlantısı. Bir belge BİRDEN ÇOK kayda bağlanabilir.
+///
+/// Örnek: kira sözleşmesinin sahibi BÖLÜM'dür ama KİRACI ve MALİK ile de
+/// ilişkilidir. Tek alanla ifade edilseydi "bu kişinin belgeleri" sorgusu
+/// yapılamaz, belge yalnızca daire üzerinden bulunabilirdi.
+///
+/// BİRİNCİL ilişki `belge.kapsam`/`hedefId` ile AYNIDIR ve aynı işlemde
+/// buraya da yazılır; böylece sorgular tek tablodan çalışır ve iki kaynak
+/// arasında ayrışma olmaz.
+model BelgeIliskisi {
+  id       String          @id @db.Uuid
+  tenantId String          @map("tenant_id") @db.Uuid
+  belgeId  String          @map("belge_id") @db.Uuid
+  varlikTipi BelgeVarlikTipi @map("varlik_tipi")
+  /// TENANT tipinde `null`.
+  varlikId String?         @map("varlik_id") @db.Uuid
+  /// Belgenin "sahibi" olan ilişki. Belge başına EN FAZLA BİR tane.
+  birincilMi Boolean       @default(false) @map("birincil_mi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  belge  Belge  @relation(fields: [belgeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, varlikTipi, varlikId])
+  @@index([tenantId, belgeId])
+  @@map("belge_iliskisi")
+}
+
+/// Belge etiketi — serbest sınıflandırma.
+///
+/// Kategori ve tür KATALOGDUR, etiket serbesttir: "2026-genel-kurul",
+/// "acil", "avukatta". Normalize edilerek (küçük harf, Türkçe duyarlı)
+/// saklanır; "Acil" ve "acil" aynı etikettir.
+model BelgeEtiketi {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  belgeId  String @map("belge_id") @db.Uuid
+  etiket   String @db.VarChar(40)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  belge  Belge  @relation(fields: [belgeId], references: [id], onDelete: Cascade)
+
+  @@unique([belgeId, etiket])
+  @@index([tenantId, etiket])
+  @@map("belge_etiketi")
+}
+
+// ===========================================================================
+// KONUT ÇALIŞANI — sitede/apartmanda çalışan personel
+//
+// KİŞİ'DEN AYRI BİR TABLODUR ve bu bilinçlidir. `Kisi`, malik/kiracı/sakin
+// ilişkilerinin dayandığı kimlik kaydıdır; personel ise bir İSTİHDAM
+// kaydıdır ve kendi yaşam döngüsü vardır (işe giriş, vardiya, SGK, çıkış).
+// Aynı tabloya sıkıştırılsaydı, bir kapıcının aynı zamanda o binada kiracı
+// olması durumunda iki farklı kavram tek satıra binerdi.
+// ===========================================================================
+
+enum PersonelGorevi {
+  SITE_MUDURU
+  YONETICI
+  GUVENLIK
+  TEMIZLIK
+  TEKNIK
+  BAHCIVAN
+  VALE
+  RESEPSIYON
+  HAVUZ_GOREVLISI
+  DIGER
+}
+
+enum PersonelDurumu {
+  AKTIF
+  PASIF
+}
+
+enum Vardiya {
+  GUNDUZ
+  AKSAM
+  GECE
+  TAM_GUN
+  DONUSUMLU
+}
+
+model KonutCalisani {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Çalıştığı yerleşke. Tek apartmanlı tenant'ta tek apartman olur;
+  /// sitede personel belirli bir apartmana bağlı olabilir ya da site
+  /// genelinde çalışır (`null`).
+  apartmanId String? @map("apartman_id") @db.Uuid
+
+  ad    String @db.VarChar(60)
+  soyad String @db.VarChar(60)
+
+  gorev      PersonelGorevi
+  /// Serbest metin departman — "Teknik İşler", "Güvenlik Amirliği".
+  departman  String? @db.VarChar(80)
+
+  telefon String? @db.VarChar(32)
+  eposta  String? @db.VarChar(180)
+
+  /// KVKK: özel nitelikli olmayan ama kişisel veridir; anonimleştirmede
+  /// geri döndürülemez şekilde temizlenir.
+  tcKimlikNo String? @map("tc_kimlik_no") @db.VarChar(11)
+  /// SGK sicil numarası. Bordro ve denetim için tutulur.
+  sgkNo      String? @map("sgk_no") @db.VarChar(30)
+
+  iseGirisTarihi     DateTime  @map("ise_giris_tarihi") @db.Date
+  istenAyrilisTarihi DateTime? @map("isten_ayrilis_tarihi") @db.Date
+
+  vardiya Vardiya        @default(GUNDUZ)
+  durum   PersonelDurumu @default(AKTIF)
+
+  notlar String?
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id])
+  apartman   Apartman?             @relation(fields: [apartmanId], references: [id])
+  sertifikalar PersonelSertifikasi[]
+  zimmetler    PersonelZimmeti[]
+
+  @@index([tenantId, durum, gorev])
+  @@index([tenantId, apartmanId])
+  @@map("konut_calisani")
+}
+
+/// Personel sertifikası — güvenlik görevlisi kimlik kartı, ilkyardım,
+/// operatör belgesi gibi.
+///
+/// GEÇERLİLİK TARİHİ TAKİP EDİLİR: süresi dolmuş güvenlik sertifikasıyla
+/// çalıştırmak idari yaptırım sebebidir ve bu ancak takip edilirse görülür.
+model PersonelSertifikasi {
+  id         String @id @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  calisanId  String @map("calisan_id") @db.Uuid
+
+  ad         String    @db.VarChar(120)
+  kurum      String?   @db.VarChar(120)
+  belgeNo    String?   @map("belge_no") @db.VarChar(60)
+  verilisTarihi DateTime  @map("verilis_tarihi") @db.Date
+  gecerlilikBitisi DateTime? @map("gecerlilik_bitisi") @db.Date
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  calisan KonutCalisani @relation(fields: [calisanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, calisanId])
+  @@map("personel_sertifikasi")
+}
+
+/// Personele zimmetlenen demirbaş — telsiz, anahtar, üniforma, araç.
+///
+/// İADE TARİHİ ile kapanır, SİLİNMEZ: işten ayrılan bir personelin üzerinde
+/// kalan zimmet, ayrılıştan sonra sorulduğunda kayıtta görünmek zorundadır.
+model PersonelZimmeti {
+  id        String @id @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  calisanId String @map("calisan_id") @db.Uuid
+
+  ad       String  @db.VarChar(120)
+  seriNo   String? @map("seri_no") @db.VarChar(60)
+  adet     Int     @default(1)
+
+  zimmetTarihi DateTime  @map("zimmet_tarihi") @db.Date
+  iadeTarihi   DateTime? @map("iade_tarihi") @db.Date
+  notlar       String?
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  calisan KonutCalisani @relation(fields: [calisanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, calisanId])
+  @@map("personel_zimmeti")
 }
 
 // ===========================================================================
