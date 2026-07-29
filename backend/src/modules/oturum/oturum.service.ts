@@ -55,19 +55,40 @@ export class OturumServisi {
   async giris(dto: GirisDto): Promise<GirisYaniti> {
     const baglam = mevcutBaglam();
 
-    // Tenant seçimi ÖNCESİ okuma: kullanıcı tablosu RLS taşır, bu yüzden
-    // giriş sorgusu sistem işlemi olarak çalışır ve YALNIZCA e-posta eşleşmesi yapar.
-    const kullanici = await this.prisma.sistemIslemi((tx) =>
-      tx.kullanici.findFirst({
-        where: { eposta: dto.eposta.toLowerCase().trim(), aktif: true, silindiMi: false },
-        select: {
-          id: true, tenantId: true, sifreHash: true,
-          kisi: { select: { ad: true, soyad: true } },
-          roller: { select: { rolKodu: true } },
-          tenant: { select: { ad: true, durum: true } },
-        },
+    const eposta = dto.eposta.toLowerCase().trim();
+
+    // ADIM 1 — tenant çözümlemesi.
+    //
+    // `kullanici` RLS taşır ve tenant bağlamı kurulmadan OKUNAMAZ; `sistemIslemi`
+    // RLS'i atlamaz, yalnızca bağlam kurmaz. Bu yüzden tenant, RLS taşımayan
+    // `oturum_dizini` katalogundan çözülür (migration 0002 · BFS v1 §2.4).
+    const dizin = await this.prisma.sistemIslemi((tx) =>
+      tx.oturumDizini.findFirst({
+        where: { eposta: { equals: eposta, mode: 'insensitive' } },
+        select: { tenantId: true },
       }),
     );
+
+    // ADIM 2 — kullanıcı, ÇÖZÜLEN tenant bağlamında okunur.
+    //
+    // Dizin yoksa sorgu hiç yapılmaz ama akış DEVAM EDER: aşağıdaki kukla
+    // parola doğrulaması çalışır ve zamanlama farkı sızdırmaz.
+    const kullanici =
+      dizin === null
+        ? null
+        : await this.prisma.tenantIslemi(
+            (tx) =>
+              tx.kullanici.findFirst({
+                where: { eposta, aktif: true, silindiMi: false },
+                select: {
+                  id: true, tenantId: true, sifreHash: true,
+                  kisi: { select: { ad: true, soyad: true } },
+                  roller: { select: { rolKodu: true } },
+                  tenant: { select: { ad: true, durum: true } },
+                },
+              }),
+            tenantId(dizin.tenantId),
+          );
 
     // Kullanıcı yoksa da doğrulama çalışır — zamanlama farkı sızdırmaz.
     const gecerli = await this.sifre.dogrula(dto.sifre, kullanici?.sifreHash ?? KUKLA_OZET);
@@ -144,11 +165,15 @@ export class OturumServisi {
       throw new UnauthorizedException({ mesaj: 'Geçersiz yenileme belirteci.' });
     }
 
-    const kullanici = await this.prisma.sistemIslemi((tx) =>
-      tx.kullanici.findFirst({
-        where: { id: yuk.sub, aktif: true, silindiMi: false },
-        select: { id: true, tenantId: true, roller: { select: { rolKodu: true } } },
-      }),
+    // Yenilemede tenant çözümlemesi GEREKMEZ: `tid` yenileme belirtecindedir
+    // ve belirteç imzalıdır. Dizine bakmak gereksiz bir okuma olurdu.
+    const kullanici = await this.prisma.tenantIslemi(
+      (tx) =>
+        tx.kullanici.findFirst({
+          where: { id: yuk.sub, aktif: true, silindiMi: false },
+          select: { id: true, tenantId: true, roller: { select: { rolKodu: true } } },
+        }),
+      tenantId(yuk.tid),
     );
     if (!kullanici) {
       throw new UnauthorizedException({

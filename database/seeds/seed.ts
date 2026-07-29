@@ -45,6 +45,44 @@ const APARTMANLAR: ApartmanTohumu[] = [
   },
 ];
 
+/**
+ * KMK varsayılan gider türleri — 634 sayılı Kat Mülkiyeti Kanunu md. 20.
+ *
+ * KRİTİK: bu liste bir VARSAYILANDIR, kural değildir. Yönetim planı ya da
+ * genel kurul kararı her satırı değiştirebilir (KMK md. 20/son: "aksine
+ * sözleşme yoksa"). Bu yüzden `kural_kaynagi` alanı vardır ve override
+ * daima `kaynak_referansi` taşımak zorundadır — bir aidat kaleminin neden
+ * öyle hesaplandığı sorulduğunda cevap veritabanında bulunmalıdır.
+ *
+ * Hangi giderin kime ait olduğu KANUNÎ bir ayrımdır, teknik tercih değil:
+ *   - Anagayrimenkulün BAKIMI ve KORUNMASI → malike aittir (md. 20/b).
+ *   - KULLANMADAN doğan giderler (ısınma, su, asansör işletme) → kullanana.
+ * Yanlış atama, kiracıdan tahsil edilemeyecek bir borcu kiracıya yazar ya da
+ * malike ait bir gideri kiracıya yükler; ikisi de icra safhasında düşer.
+ */
+const GIDER_TURLERI: {
+  kod: string;
+  ad: string;
+  paylasimKurali: Prisma.GiderTuruCreateInput['paylasimKurali'];
+  sorumlulukTipi: Prisma.GiderTuruCreateInput['sorumlulukTipi'];
+}[] = [
+  // md. 20/a — kapıcı, kaloriferci, bahçıvan, bekçi giderleri: EŞİT olarak.
+  { kod: 'KAPICI', ad: 'Kapıcı gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
+  // md. 20/b — anagayrimenkulün sigortası, bakımı, korunması: ARSA PAYI oranında.
+  { kod: 'ANA_BAKIM', ad: 'Anagayrimenkul bakım ve onarım', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT' },
+  { kod: 'SIGORTA', ad: 'Bina sigortası', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT' },
+  // Yenileme fonu md. 72 — anagayrimenkule yapılan yatırımdır, malike aittir.
+  { kod: 'YENILEME_FONU', ad: 'Yenileme fonu', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT' },
+  // Isınma tüketime bağlıdır (5627 sayılı Enerji Verimliliği Kanunu md. 7/c);
+  // paylaşım kuralı TUKETIM'dir ve sayaç okuması olmadan hesaplanamaz.
+  { kod: 'ISITMA', ad: 'Isıtma gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT' },
+  { kod: 'SU', ad: 'Su gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT' },
+  { kod: 'ASANSOR_ISLETME', ad: 'Asansör işletme gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
+  { kod: 'ELEKTRIK_ORTAK', ad: 'Ortak alan elektriği', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
+  { kod: 'TEMIZLIK', ad: 'Temizlik gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
+  { kod: 'YONETIM', ad: 'Yönetim gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
+];
+
 /** KMK bağlamına sadeleştirilmiş hesap planı (ADR-0003 Koşul 3). */
 const HESAP_PLANI: { kod: string; ad: string; tip: Prisma.HesapCreateInput['tip'] }[] = [
   { kod: '100', ad: 'Kasa', tip: 'VARLIK' },
@@ -101,6 +139,48 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     },
   });
 
+  // --- Hiyerarşi: Apartman → Blok → Kat (ADR-0008) --------------------------
+  //
+  // Bölümler doğrudan tenant'a bağlanamaz. Hiyerarşi kurulmazsa apartman ve
+  // blok ekranları boş açılır ve `bagimsiz_bolum.blok_id` NULL kalır; kapı no
+  // tekilliği blok bazlı olduğu için mükerrer kapı numarası ENGELLENEMEZ.
+  const apartmanId = randomUUID();
+  await prisma.apartman.create({
+    data: { id: apartmanId, tenantId, ad: t.ad, adres: `${t.ad} — geliştirme adresi` },
+  });
+
+  const blokId = randomUUID();
+  await prisma.blok.create({
+    data: { id: blokId, tenantId, apartmanId, ad: 'A Blok' },
+  });
+
+  // Kat kayıtları bölümlerin kat numaralarından türetilir; elle liste tutmak
+  // bölüm eklendiğinde güncellenmeyi unutulur.
+  const katNolari = [...new Set(t.bolumler.map((b) => b.kat))].sort((a, b) => a - b);
+  const katHaritasi = new Map<number, string>();
+  for (const no of katNolari) {
+    const katId = randomUUID();
+    katHaritasi.set(no, katId);
+    await prisma.kat.create({
+      data: { id: katId, tenantId, blokId, no, ad: no === 0 ? 'Zemin' : null },
+    });
+  }
+
+  // --- Gider türleri: KMK varsayılanları ------------------------------------
+  //
+  // Kurallar VERİDİR, koda gömülmez. Buradakiler 634 sayılı KMK md. 20'nin
+  // varsayılanıdır; yönetim planı veya genel kurul kararı bunları DEĞİŞTİREBİLİR
+  // ve o durumda `kural_kaynagi` ile birlikte `kaynak_referansi` zorunlu olur.
+  for (const g of GIDER_TURLERI) {
+    await prisma.giderTuru.create({
+      data: {
+        id: randomUUID(), tenantId, kod: g.kod, ad: g.ad,
+        paylasimKurali: g.paylasimKurali, sorumlulukTipi: g.sorumlulukTipi,
+        kuralKaynagi: 'KMK_VARSAYILAN', malikPaylasimi: 'HISSE_ORANI',
+      },
+    });
+  }
+
   for (const b of t.bolumler) {
     const bolumId = randomUUID();
     const malikId = randomUUID();
@@ -115,11 +195,20 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
 
     await prisma.bagimsizBolum.create({
       data: {
-        id: bolumId, tenantId, blokId: null,
+        id: bolumId, tenantId, blokId, katId: katHaritasi.get(b.kat) ?? null,
         kapiNo: b.kapiNo, kat: b.kat, nitelik: 'MESKEN',
         brutM2: b.m2, netM2: Math.round(b.m2 * 0.85),
         arsaPayiPay: b.pay, arsaPayiPayda: 1_000_000n,
         aidatMuafiyeti: false,
+      },
+    });
+
+    // Malik kaydı — hisse TAM (1/1); tek malikli daire.
+    await prisma.malik.create({
+      data: {
+        id: randomUUID(), tenantId, bolumId, kisiId: malikId,
+        hissePay: 1n, hissePayda: 1n,
+        tapuTuru: 'KAT_MULKIYETI', tapuBaslangic: new Date('2024-01-01'),
       },
     });
 
@@ -131,7 +220,7 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     });
   }
 
-  console.log(`  ${t.ad}  (${t.bolumler.length} bağımsız bölüm)`);
+  console.log(`  ${t.ad}  (1 blok · ${katNolari.length} kat · ${t.bolumler.length} bağımsız bölüm)`);
   console.log(`     giriş: yonetici@${t.kod}.test / bnos1234`);
   return tenantId;
 }

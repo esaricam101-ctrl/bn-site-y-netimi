@@ -9,6 +9,7 @@
  */
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { tenantId } from '@bnos/kernel';
 import { PrismaService } from '../prisma/prisma.service';
 
 const AKIS = 'bnos:events';
@@ -34,9 +35,37 @@ export class OutboxYayincisi implements OnModuleInit, OnModuleDestroy {
     void this.redis.quit();
   }
 
+  /**
+   * Tenant döngüsü — RLS ATLANMAZ.
+   *
+   * `outbox_kayit` RLS taşır; tenant bağlamı kurulmadan tek satır bile
+   * okunamaz. Yayıncı bütün tenant'ların kayıtlarını işlemek zorunda
+   * olduğundan tenant listesi katalogdan (RLS'siz `tenant` tablosu) okunur
+   * ve her tenant için AYRI bağlam kurulur.
+   *
+   * Alternatifi BYPASSRLS'li bir rol olurdu; o rol ele geçirildiğinde
+   * izolasyon tümüyle kalkar. Döngü daha yavaştır ama garantiyi korur
+   * (ADR-0002 · BFS v1 §2.3).
+   */
   private async dongu(): Promise<void> {
+    let tenantlar: { id: string }[];
     try {
-      await this.prisma.sistemIslemi(async (tx) => {
+      tenantlar = await this.prisma.sistemIslemi((tx) =>
+        tx.tenant.findMany({ where: { durum: 'AKTIF' }, select: { id: true } }),
+      );
+    } catch (hata) {
+      this.logger.error(`Outbox tenant listesi okunamadi: ${(hata as Error).message}`);
+      return;
+    }
+
+    for (const t of tenantlar) {
+      await this.tenantDongusu(t.id);
+    }
+  }
+
+  private async tenantDongusu(tenantIdDegeri: string): Promise<void> {
+    try {
+      await this.prisma.tenantIslemi(async (tx) => {
         const bekleyenler = await tx.outboxKayit.findMany({
           where: { yayinlanmaTarihi: null, denemeSayisi: { lt: AZAMI_DENEME } },
           orderBy: { olusturulmaTarihi: 'asc' },
@@ -71,9 +100,11 @@ export class OutboxYayincisi implements OnModuleInit, OnModuleDestroy {
             }
           }
         }
-      });
+      }, tenantId(tenantIdDegeri));
     } catch (hata) {
-      this.logger.error(`Outbox döngüsü hatası: ${(hata as Error).message}`);
+      this.logger.error(
+        `Outbox döngüsü hatası (tenant ${tenantIdDegeri}): ${(hata as Error).message}`,
+      );
     }
   }
 }

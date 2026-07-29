@@ -32,20 +32,20 @@ export class IliskiQueryService {
     principal: Principal,
     tarihMetni?: string,
   ): Promise<readonly IliskiSatiri[]> {
-    const bolum = await this.prisma.bagimsizBolum.findFirst({
+    const bolum = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findFirst({
       where: { id: bolumId, tenantId: principal.tenantId },
       select: { id: true },
-    });
+    }), principal.tenantId);
     if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${bolumId}`);
 
-    const kayitlar = await this.prisma.bolumIliskisi.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.bolumIliskisi.findMany({
       where: { tenantId: principal.tenantId, bolumId },
       select: {
         id: true, kisiId: true, rol: true, baslangic: true, bitis: true,
         kisi: { select: { ad: true, soyad: true } },
       },
       orderBy: [{ baslangic: 'asc' }, { id: 'asc' }],
-    });
+    }), principal.tenantId);
 
     const zenginlestirilmis = kayitlar.map((k) => ({
       kayit: k,

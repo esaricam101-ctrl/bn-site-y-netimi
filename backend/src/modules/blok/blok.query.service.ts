@@ -21,9 +21,13 @@ export class BlokQueryService {
    * (tipik olarak 1–10). Cursor sayfalama burada gereksiz karmaşıklık olurdu.
    *
    * Soft delete filtresi Prisma uzantısı tarafından MERKEZÎ uygulanır.
+   *
+   * OKUMA DA TENANT İŞLEMİDİR: `blok` RLS taşır ve bağlam kurulmadan tek
+   * satır bile okunamaz. `where` içindeki `tenantId` koşulu KORUNUR — RLS
+   * son savunma hattıdır, tek savunma değil (BFS v1 §2.2).
    */
   async listele(principal: Principal, apartmanId?: string): Promise<readonly BlokSatiri[]> {
-    const kayitlar = await this.prisma.blok.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.blok.findMany({
       where: {
         tenantId: principal.tenantId,
         ...(apartmanId ? { apartmanId } : {}),
@@ -34,7 +38,7 @@ export class BlokQueryService {
         _count: { select: { bolumler: true, katlar: true } },
       },
       orderBy: [{ apartmanId: 'asc' }, { ad: 'asc' }],
-    });
+    }), principal.tenantId);
 
     return kayitlar.map((k) => ({
       id: k.id,
@@ -47,14 +51,14 @@ export class BlokQueryService {
   }
 
   async detay(id: string, principal: Principal): Promise<BlokSatiri> {
-    const k = await this.prisma.blok.findFirst({
+    const k = await this.prisma.tenantIslemi((tx) => tx.blok.findFirst({
       where: { id, tenantId: principal.tenantId },
       select: {
         id: true, ad: true, apartmanId: true,
         apartman: { select: { ad: true } },
         _count: { select: { bolumler: true, katlar: true } },
       },
-    });
+    }), principal.tenantId);
     if (!k) throw new KayitBulunamadi(`Blok bulunamadı: ${id}`);
 
     return {

@@ -16,20 +16,20 @@ export class KatQueryService {
 
   /** Bir bloktaki kat sayısı küçüktür; sayfalama gereksizdir. */
   async listele(blokId: string, principal: Principal): Promise<readonly KatSatiri[]> {
-    const blok = await this.prisma.blok.findFirst({
+    const blok = await this.prisma.tenantIslemi((tx) => tx.blok.findFirst({
       where: { id: blokId, tenantId: principal.tenantId },
       select: { id: true },
-    });
+    }), principal.tenantId);
     if (!blok) throw new KayitBulunamadi(`Blok bulunamadı: ${blokId}`);
 
-    const kayitlar = await this.prisma.kat.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.kat.findMany({
       where: { tenantId: principal.tenantId, blokId },
       select: {
         id: true, no: true, ad: true,
         _count: { select: { bolumler: true } },
       },
       orderBy: { no: 'asc' },
-    });
+    }), principal.tenantId);
 
     return kayitlar.map((k) => ({
       id: k.id,

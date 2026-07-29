@@ -34,13 +34,13 @@ export class SakinQueryService {
     principal: Principal,
     tarihMetni?: string,
   ): Promise<readonly SakinSatiri[]> {
-    const bolum = await this.prisma.bagimsizBolum.findFirst({
+    const bolum = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findFirst({
       where: { id: bolumId, tenantId: principal.tenantId },
       select: { id: true },
-    });
+    }), principal.tenantId);
     if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${bolumId}`);
 
-    const kayitlar = await this.prisma.sakin.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.sakin.findMany({
       where: { tenantId: principal.tenantId, bolumId },
       select: {
         id: true, kisiId: true, yakinlikDerecesi: true,
@@ -49,7 +49,7 @@ export class SakinQueryService {
         kisi: { select: { ad: true, soyad: true, eposta: true, telefon: true } },
       },
       orderBy: [{ girisTarihi: 'asc' }, { id: 'asc' }],
-    });
+    }), principal.tenantId);
 
     const tarih = tarihMetni === undefined ? null : takvimTarihi(tarihMetni);
 

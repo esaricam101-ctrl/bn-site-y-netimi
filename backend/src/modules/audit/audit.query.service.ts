@@ -58,7 +58,7 @@ export class AuditQueryService {
     imlec?: string,
     limit = 50,
   ): Promise<AuditSayfasi> {
-    const kayitlar = await this.prisma.auditKaydi.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.auditKaydi.findMany({
       where: {
         tenantId: principal.tenantId,
         ...(suzgec.varlik ? { varlik: suzgec.varlik } : {}),
@@ -74,7 +74,7 @@ export class AuditQueryService {
       orderBy: [{ olusmaAni: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       ...(imlec ? { cursor: { id: imlec }, skip: 1 } : {}),
-    });
+    }), principal.tenantId);
 
     const fazlaVar = kayitlar.length > limit;
     const sayfa = fazlaVar ? kayitlar.slice(0, limit) : kayitlar;

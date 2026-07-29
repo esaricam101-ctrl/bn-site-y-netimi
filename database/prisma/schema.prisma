@@ -54,6 +54,7 @@ model Tenant {
 
   kisiler          Kisi[]
   kullanicilar     Kullanici[]
+  oturumDizini     OturumDizini[]
   apartmanlar      Apartman[]
   bloklar          Blok[]
   katlar           Kat[]
@@ -132,6 +133,29 @@ model Kullanici {
   roller KullaniciRolu[]
 
   @@map("kullanici")
+}
+
+/// Oturum dizini — e-posta → tenant eşlemesi. RLS TAŞIMAZ.
+///
+/// Giriş, tenant'ı bilmeden kullanıcıyı bulmak zorundadır; `kullanici` tablosu
+/// RLS taşıdığı için tenant bağlamı kurulmadan okunamaz. Bu tablo `tenant` ile
+/// aynı gerekçeli istisnadır (BFS v1 §2.4).
+///
+/// PAROLA TUTMAZ. Parola doğrulaması tenant bağlamı kurulduktan SONRA
+/// `kullanici` üzerinde yapılır.
+///
+/// Senkronu veritabanı TRIGGER'ı tutar (`kullanici_oturum_dizini`), uygulama
+/// kodu değil: yeni bir kullanıcı oluşturma yolu eklendiğinde dizine yazmayı
+/// unutmak, o kullanıcının SESSİZCE giriş yapamaması demekti.
+model OturumDizini {
+  kullaniciId String @id @map("kullanici_id") @db.Uuid
+  eposta      String @db.VarChar(180)
+  tenantId    String @map("tenant_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("oturum_dizini")
 }
 
 model KullaniciRolu {

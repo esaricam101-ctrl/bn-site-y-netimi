@@ -31,14 +31,25 @@ export class TenantOkuyucu {
     const onbellekten = await this.onbellek.getir<UyelikBilgisi>(anahtar);
     if (onbellekten) return onbellekten;
 
-    const kayit = await this.prisma.kullanici.findFirst({
-      where: { id: kullaniciId, tenantId: tid, aktif: true },
-      select: {
-        kisiId: true,
-        roller: { select: { rolKodu: true } },
-        tenant: { select: { saatDilimi: true, durum: true } },
-      },
-    });
+    // TENANT İŞLEMİ ZORUNLUDUR. `kullanici` RLS taşır; bağlam kurulmadan
+    // yapılan sorgu "Tenant baglami kurulmadan..." ile düşer ve Kapı 2 her
+    // istekte 500 verir.
+    //
+    // Bağlam, TOKEN'DAKİ `tid` ile kurulur — istek gövdesinden değil. Sorgu
+    // ayrıca `tenantId: tid` koşulunu KORUR: RLS son savunma hattıdır,
+    // tek savunma değil (BFS v1 §2.2).
+    const kayit = await this.prisma.tenantIslemi(
+      (tx) =>
+        tx.kullanici.findFirst({
+          where: { id: kullaniciId, tenantId: tid, aktif: true },
+          select: {
+            kisiId: true,
+            roller: { select: { rolKodu: true } },
+            tenant: { select: { saatDilimi: true, durum: true } },
+          },
+        }),
+      tid,
+    );
 
     if (!kayit || kayit.tenant.durum === 'ARSIV') return null;
 

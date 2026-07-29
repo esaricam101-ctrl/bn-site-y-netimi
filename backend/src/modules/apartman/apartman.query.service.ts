@@ -51,14 +51,14 @@ export class ApartmanQueryService {
    * Soft delete filtresi Prisma uzantısı tarafından MERKEZÎ uygulanır.
    */
   async listele(principal: Principal): Promise<readonly ApartmanSatiri[]> {
-    const kayitlar = await this.prisma.apartman.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.apartman.findMany({
       where: { tenantId: principal.tenantId },
       select: {
         id: true, ad: true, adres: true, siteIciKod: true,
         _count: { select: { bloklar: true } },
       },
       orderBy: { ad: 'asc' },
-    });
+    }), principal.tenantId);
 
     return kayitlar.map((k) => ({
       id: k.id,
@@ -70,13 +70,13 @@ export class ApartmanQueryService {
   }
 
   async detay(id: string, principal: Principal): Promise<ApartmanSatiri> {
-    const k = await this.prisma.apartman.findFirst({
+    const k = await this.prisma.tenantIslemi((tx) => tx.apartman.findFirst({
       where: { id, tenantId: principal.tenantId },
       select: {
         id: true, ad: true, adres: true, siteIciKod: true,
         _count: { select: { bloklar: true } },
       },
-    });
+    }), principal.tenantId);
     if (!k) throw new KayitBulunamadi(`Apartman bulunamadı: ${id}`);
 
     return {
@@ -99,13 +99,13 @@ export class ApartmanQueryService {
    * fark edilmez. `hiyerarsi-denetimi` ucu bunları sorun olarak raporlar.
    */
   async hiyerarsi(apartmanId: string, principal: Principal): Promise<HiyerarsiAgaci> {
-    const apartman = await this.prisma.apartman.findFirst({
+    const apartman = await this.prisma.tenantIslemi((tx) => tx.apartman.findFirst({
       where: { id: apartmanId, tenantId: principal.tenantId },
       select: { id: true, ad: true },
-    });
+    }), principal.tenantId);
     if (!apartman) throw new KayitBulunamadi(`Apartman bulunamadı: ${apartmanId}`);
 
-    const bloklar = await this.prisma.blok.findMany({
+    const bloklar = await this.prisma.tenantIslemi((tx) => tx.blok.findMany({
       where: { tenantId: principal.tenantId, apartmanId },
       select: {
         id: true, ad: true,
@@ -115,14 +115,14 @@ export class ApartmanQueryService {
         },
       },
       orderBy: { ad: 'asc' },
-    });
+    }), principal.tenantId);
 
     // Bolumler tek sorguda cekilir; blok x kat kadar sorgu atmak N+1 olurdu.
-    const bolumler = await this.prisma.bagimsizBolum.findMany({
+    const bolumler = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findMany({
       where: { tenantId: principal.tenantId, blok: { apartmanId } },
       select: { id: true, kapiNo: true, nitelik: true, durum: true, blokId: true, katId: true },
       orderBy: { kapiNo: 'asc' },
-    });
+    }), principal.tenantId);
 
     const kataGore = new Map<string, HiyerarsiBolumu[]>();
     const blogaGoreKatsiz = new Map<string, HiyerarsiBolumu[]>();

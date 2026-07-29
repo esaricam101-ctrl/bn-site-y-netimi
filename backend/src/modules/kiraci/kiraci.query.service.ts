@@ -35,13 +35,13 @@ export class KiraciQueryService {
     principal: Principal,
     tarihMetni?: string,
   ): Promise<readonly KiraciSatiri[]> {
-    const bolum = await this.prisma.bagimsizBolum.findFirst({
+    const bolum = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findFirst({
       where: { id: bolumId, tenantId: principal.tenantId },
       select: { id: true },
-    });
+    }), principal.tenantId);
     if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${bolumId}`);
 
-    const kayitlar = await this.prisma.kiraci.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.kiraci.findMany({
       where: { tenantId: principal.tenantId, bolumId },
       select: {
         id: true, kisiId: true, baslangic: true, bitis: true,
@@ -51,7 +51,7 @@ export class KiraciQueryService {
         kisi: { select: { ad: true, soyad: true } },
       },
       orderBy: [{ baslangic: 'asc' }, { id: 'asc' }],
-    });
+    }), principal.tenantId);
 
     const tarih = tarihMetni === undefined ? null : takvimTarihi(tarihMetni);
 

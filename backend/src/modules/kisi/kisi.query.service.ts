@@ -51,13 +51,13 @@ export class KisiQueryService {
     imlec: string | undefined,
     limit: number,
   ): Promise<SayfaliSonuc<KisiSatiri>> {
-    const kayitlar = await this.prisma.kisi.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.kisi.findMany({
       where: { tenantId: principal.tenantId },
       select: { id: true, ad: true, soyad: true, eposta: true },
       orderBy: { id: 'asc' },
       take: limit + 1,
       ...(imlec ? { cursor: { id: imlec }, skip: 1 } : {}),
-    });
+    }), principal.tenantId);
 
     const fazlaVar = kayitlar.length > limit;
     const sayfa = fazlaVar ? kayitlar.slice(0, limit) : kayitlar;
@@ -81,10 +81,10 @@ export class KisiQueryService {
    * tek bir "rol" alanına indirgenmez.
    */
   async bolumIliskileri(kisiId: string, principal: Principal): Promise<KisiIliskiOzeti> {
-    const kisi = await this.prisma.kisi.findFirst({
+    const kisi = await this.prisma.tenantIslemi((tx) => tx.kisi.findFirst({
       where: { id: kisiId, tenantId: principal.tenantId },
       select: { id: true, ad: true, soyad: true },
-    });
+    }), principal.tenantId);
     if (!kisi) throw new KayitBulunamadi(`Kişi bulunamadı: ${kisiId}`);
 
     const bolumSecimi = {
@@ -95,27 +95,27 @@ export class KisiQueryService {
     } as const;
 
     const [malikler, kiracilar, sakinler] = await Promise.all([
-      this.prisma.malik.findMany({
+      this.prisma.tenantIslemi((tx) => tx.malik.findMany({
         where: { tenantId: principal.tenantId, kisiId },
         select: {
           bolumId: true, hissePay: true, hissePayda: true,
           tapuBaslangic: true, tapuBitis: true, bolum: bolumSecimi,
         },
         orderBy: { tapuBaslangic: 'asc' },
-      }),
-      this.prisma.kiraci.findMany({
+      }), principal.tenantId),
+      this.prisma.tenantIslemi((tx) => tx.kiraci.findMany({
         where: { tenantId: principal.tenantId, kisiId },
         select: { bolumId: true, baslangic: true, bitis: true, bolum: bolumSecimi },
         orderBy: { baslangic: 'asc' },
-      }),
-      this.prisma.sakin.findMany({
+      }), principal.tenantId),
+      this.prisma.tenantIslemi((tx) => tx.sakin.findMany({
         where: { tenantId: principal.tenantId, kisiId },
         select: {
           bolumId: true, yakinlikDerecesi: true, girisTarihi: true, cikisTarihi: true,
           bolum: bolumSecimi,
         },
         orderBy: { girisTarihi: 'asc' },
-      }),
+      }), principal.tenantId),
     ]);
 
     const konum = (b: { blok: { ad: string; apartman: { ad: string } } | null }) => ({

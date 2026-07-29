@@ -44,6 +44,7 @@ const ADIMLAR = [
   { ad: 'Test derlemesi (framework bagimsiz moduller)', komut: tsc.komut, argv: [...tsc.on, '-p', 'tests/tsconfig.json'] },
   { ad: 'Paket siniri (ADR v1.1 §40)', komut: 'node', argv: [join(BURASI, 'boundary.mjs')] },
   { ad: 'Onbellek anahtari (ADR-0005 · §37)', komut: 'node', argv: [join(BURASI, 'cache-key-scan.mjs')] },
+  { ad: 'RLS tenant baglami (ADR-0002)', komut: 'node', argv: [join(BURASI, 'rls-scan.mjs')] },
   { ad: 'Yapilandirma tutarliligi', komut: 'node', argv: [join(BURASI, 'config-check.mjs')] },
   { ad: 'Birim testleri (node:test)', komut: 'node', argv: ['--test', ...testDosyalari()] },
 ];

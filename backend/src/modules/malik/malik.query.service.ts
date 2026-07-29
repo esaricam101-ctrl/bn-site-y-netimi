@@ -37,10 +37,10 @@ export class MalikQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async bolumuZorunluKil(bolumId: string, principal: Principal): Promise<void> {
-    const bolum = await this.prisma.bagimsizBolum.findFirst({
+    const bolum = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findFirst({
       where: { id: bolumId, tenantId: principal.tenantId },
       select: { id: true },
-    });
+    }), principal.tenantId);
     if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${bolumId}`);
   }
 
@@ -48,10 +48,10 @@ export class MalikQueryService {
     bolumId: string,
     principal: Principal,
   ): Promise<readonly MalikHissesi[]> {
-    const kayitlar = await this.prisma.malik.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.malik.findMany({
       where: { tenantId: principal.tenantId, bolumId },
       select: { kisiId: true, hissePay: true, hissePayda: true, tapuBaslangic: true, tapuBitis: true },
-    });
+    }), principal.tenantId);
     return kayitlar.map((m) => ({
       kisiId: m.kisiId,
       hissePay: m.hissePay,
@@ -75,7 +75,7 @@ export class MalikQueryService {
   ): Promise<readonly MalikSatiri[]> {
     await this.bolumuZorunluKil(bolumId, principal);
 
-    const kayitlar = await this.prisma.malik.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.malik.findMany({
       where: { tenantId: principal.tenantId, bolumId },
       select: {
         id: true, kisiId: true, hissePay: true, hissePayda: true,
@@ -85,7 +85,7 @@ export class MalikQueryService {
         vekil: { select: { ad: true, soyad: true } },
       },
       orderBy: [{ tapuBaslangic: 'asc' }, { id: 'asc' }],
-    });
+    }), principal.tenantId);
 
     const tarih = tarihMetni === undefined ? null : takvimTarihi(tarihMetni);
 

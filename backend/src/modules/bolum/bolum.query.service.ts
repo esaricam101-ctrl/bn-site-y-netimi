@@ -142,7 +142,7 @@ export class BolumQueryService {
     limit: number,
     suzgec: BolumSuzgeci = {},
   ): Promise<SayfaliSonuc<BolumSatiri>> {
-    const kayitlar = await this.prisma.bagimsizBolum.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findMany({
       where: {
         tenantId: principal.tenantId,
         ...(suzgec.blokId ? { blokId: suzgec.blokId } : {}),
@@ -162,7 +162,7 @@ export class BolumQueryService {
       orderBy: { id: 'asc' },
       take: limit + 1,
       ...(imlec ? { cursor: { id: imlec }, skip: 1 } : {}),
-    });
+    }), principal.tenantId);
 
     const fazlaVar = kayitlar.length > limit;
     const sayfa = fazlaVar ? kayitlar.slice(0, limit) : kayitlar;
@@ -197,7 +197,7 @@ export class BolumQueryService {
   }
 
   async detay(id: string, principal: Principal): Promise<BolumSatiri> {
-    const k = await this.prisma.bagimsizBolum.findFirst({
+    const k = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findFirst({
       where: { id, tenantId: principal.tenantId },
       select: {
         id: true, kapiNo: true, icKapiNo: true, kat: true, katId: true,
@@ -207,7 +207,7 @@ export class BolumQueryService {
         tapuAda: true, tapuParsel: true, tapuPafta: true,
         tapuBagimsizBolumNo: true, tapuCilt: true, tapuSahife: true,
       },
-    });
+    }), principal.tenantId);
     if (!k) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${id}`);
 
     return {
@@ -249,7 +249,7 @@ export class BolumQueryService {
     const tarih =
       tarihMetni === undefined ? takvimTarihiniOku(new Date()) : takvimTarihi(tarihMetni);
 
-    const bolumler = await this.prisma.bagimsizBolum.findMany({
+    const bolumler = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findMany({
       where: { tenantId: principal.tenantId },
       select: {
         id: true, kapiNo: true,
@@ -258,7 +258,7 @@ export class BolumQueryService {
         },
       },
       orderBy: { kapiNo: 'asc' },
-    });
+    }), principal.tenantId);
 
     const sorunlular: HisseDenetimSatiri[] = [];
 
@@ -303,7 +303,7 @@ export class BolumQueryService {
     const tarih =
       tarihMetni === undefined ? takvimTarihiniOku(new Date()) : takvimTarihi(tarihMetni);
 
-    const bolumler = await this.prisma.bagimsizBolum.findMany({
+    const bolumler = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findMany({
       where: { tenantId: principal.tenantId },
       select: {
         id: true, kapiNo: true, kat: true, durum: true,
@@ -315,7 +315,7 @@ export class BolumQueryService {
         sakinler: { select: { girisTarihi: true, cikisTarihi: true } },
       },
       orderBy: [{ kat: 'asc' }, { kapiNo: 'asc' }],
-    });
+    }), principal.tenantId);
 
     const satirlar: YerlesimSatiri[] = bolumler.map((b) => {
       const hisseler: MalikHissesi[] = b.malikler.map((m) => ({
@@ -380,14 +380,14 @@ export class BolumQueryService {
    * ve yönetici onayı gerektirir.
    */
   async hiyerarsiDenetimi(principal: Principal): Promise<HiyerarsiDenetimi> {
-    const kayitlar = await this.prisma.bagimsizBolum.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findMany({
       where: { tenantId: principal.tenantId },
       select: {
         id: true, kapiNo: true, kat: true, blokId: true, katId: true,
         katKaydi: { select: { id: true, no: true, blokId: true } },
       },
       orderBy: { kapiNo: 'asc' },
-    });
+    }), principal.tenantId);
 
     const sorunlar: HiyerarsiSorunu[] = [];
 
@@ -454,7 +454,7 @@ export class BolumQueryService {
    * Ağırlık aritmetiği domain'e bırakılır; burada tekrarlanmaz.
    */
   async arsaPayiDurumu(principal: Principal): Promise<ArsaPayiRaporu> {
-    const kayitlar = await this.prisma.bagimsizBolum.findMany({
+    const kayitlar = await this.prisma.tenantIslemi((tx) => tx.bagimsizBolum.findMany({
       where: { tenantId: principal.tenantId },
       select: {
         id: true, kapiNo: true, icKapiNo: true, kat: true, katId: true,
@@ -464,7 +464,7 @@ export class BolumQueryService {
         tapuAda: true, tapuParsel: true, tapuPafta: true,
         tapuBagimsizBolumNo: true, tapuCilt: true, tapuSahife: true,
       },
-    });
+    }), principal.tenantId);
 
     const bolumler: BagimsizBolum[] = [];
     const okunamayanBolumler: string[] = [];

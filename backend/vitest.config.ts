@@ -14,6 +14,8 @@ export default defineConfig({
     // Sözleşme testleri paylaşılan bir veritabanı kullanır; sıralı çalışır.
     fileParallelism: false,
     testTimeout: 30_000,
+    // Kök `.env` yüklenir; olmadan her test yapılandırma hatasıyla düşer.
+    setupFiles: [paket('./test/setup.ts')],
   },
   resolve: {
     alias: {
