@@ -1,4 +1,4 @@
-# Oturum Özeti — 29 Temmuz 2026 (Docker + yedi modül)
+# Oturum Özeti — 29-30 Temmuz 2026 (Docker + dokuz modül + hızlı kayıt)
 
 Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 [`DEVLOG.md`](DEVLOG.md) içindedir; burada yalnızca *nerede kaldık* ve
@@ -25,10 +25,69 @@ tip denetiminden geçiyordu.
 | `3985c4c` | Belge modülü + migration 0006 + nesne deposu (MinIO) |
 | `58ae032` | Belge profesyonel seviye (0007) + Daire Görevlileri (0008) |
 | `a9d4071` | Devir notu — kritik soft-delete bulgusu |
-| _bu commit_ | Modül adı düzeltmesi: Konut Çalışanları → **Daire Görevlileri** (0009) |
+| `b869940` | Modül adı düzeltmesi: Konut Çalışanları → Daire Görevlileri (0009) |
+| _bu commit_ | **Site Personeli / Daire Görevlisi ayrımı** (0010) + **tek ekran hızlı kayıt** (0011-0013) + Misafir modülü |
 
 Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
 `b4759d3` · `ec76035` · `89a56df` · `666c918`.
+
+### Bu commit'te yapılan — iki kavram ayrıldı, kayıt akışı tek ekrana indi
+
+**1. İKİ AYRI KAVRAM TEK TABLODA BİRLEŞTİRİLMİŞTİ.** 0009'da yapılan
+adlandırma düzeltmesi hatalıydı: yönetimin kadrosu ile malikin ücretli
+çalıştırdığı ev hizmetleri görevlisi aynı tabloya konmuştu. 0010 ile ayrıldı:
+
+| | **Site Personeli** | **Daire Görevlisi** |
+|---|---|---|
+| İşveren | **Yönetim** | **Malik / Kiracı / Sakin** |
+| Örnek | Site müdürü, güvenlik, temizlik, teknik, bahçıvan, vale | Çocuk bakıcısı, hasta bakıcısı, ev yardımcısı, aşçı, şoför |
+| Ücret | İşletme projesinden | Daire sahibi öder |
+| SGK · departman · vardiya · zimmet | **Var** | **YOK** — yönetimin yükümlülüğü değil |
+| Kapsam | Site geneli ya da apartman (`apartmanId` opsiyonel) | **Zorunlu tek bağımsız bölüm** |
+| Aynı TC tekilliği | Tenant geneli (mükerrer kayıt bordroyu ikiye katlar) | **Bölüm başına** (aynı temizlikçi üç dairede çalışabilir) |
+| KVKK veri sorumlusu | Yönetim | Onu çalıştıran malik |
+| Uç | `/site-personeli` | `/daire-gorevlileri` |
+
+**2. KİŞİ SEÇME ZORUNLULUĞU KALKTI (0011).** Malik/kiracı/sakin eklemek için
+önce "Kişiler"e gidip kayıt açmak, sonra o kişiyi seçmek gerekiyordu; bu,
+sahada tek işlem olan bir şeyi ikiye bölüyordu. Artık `kisiId` isteğe bağlı;
+form içinde ad, soyad, TC, telefon, e-posta, doğum tarihi, cinsiyet, adres,
+not ve **çoklu araç plakası** girilebiliyor.
+
+> **Mükerrer kimlik kaydı TC ve E-POSTA üzerinden önleniyor.** `kisiId`
+> zorunluluğunun asıl işlevi buydu. Aynı kişi iki `Kisi` satırına bölünürse
+> borç geçmişi, tahakkuk sorumluluğu ve KVKK silme talebi iki kayda dağılır.
+> `kisiyiCoz` sırası: `kisiId` → TC eşleşmesi → e-posta eşleşmesi → yeni kayıt.
+> Mevcut kişi bulunduğunda YALNIZCA BOŞ alanlar doldurulur; dolu alanın
+> üzerine yazmak kiracı eklerken malikin telefonunu değiştirmek olurdu.
+
+**3. MİSAFİR MODÜLÜ (0011).** Misafir **hak sahibi değildir**: borç sorumlusu
+olmaz, tahakkuka girmez, arsa payı taşımaz. Bu yüzden `Kisi` kaydı AÇILMAZ —
+verisi kısa ömürlüdür ve kalıcı kimlik kaydı, ziyaretten aylar sonra silinmesi
+gereken veriyi malik kayıtlarıyla aynı ömre bağlardı (KVKK md. 4/1-ç).
+Çıkış tarihi boşsa misafir **hâlen içeridedir**; `/misafirler/iceride` güvenlik
+ve tahliye listesidir.
+
+**4. KEFİL (0012).** Kiracıya kefil alanları eklendi ve **ayrı `Kisi` kaydı
+açılmıyor**: yönetimin ortak gider alacağı malike (KMK md. 20) ve kiracıya
+(md. 22, kira bedeli kadar müteselsil) yönelir, **kefile yönelmez** — kefalet
+kira sözleşmesinin tarafıdır, yönetim planının değil.
+
+**5. TEK PLAKA KÜTÜĞÜ, DÖRT SAHİP TİPİ + KAPSAM (0011-0013).** Otopark
+kapasitesi malik aracıyla bakıcının aracını ayırt etmez; ikisi de yer kaplar.
+`arac` tek kütük kaldı, sahip alanı dörde açıldı (`arac_tek_sahip` tam olarak
+birini zorlar) ve **kapsam** ayrıldı (`arac_kapsam`):
+
+- Malik · kiracı · sakin · **daire görevlisi** · **misafir** aracı →
+  **ilgili bağımsız bölüme** (`bolum_id` dolu)
+- **Site personeli aracı → YÖNETİME** (`bolum_id` boş)
+
+> Personel aracını bir daireye yazmak o dairenin otopark hakkını tüketmiş
+> gösterir ve KULLANIM_BAZLI dağıtımda ona fazla pay çıkarır.
+
+Görevli/misafir/personel kaydı kapandığında **açık araç kayıtları da aynı
+tarihte kapanır**; kapanmasaydı işi bitmiş kişinin aracı otopark sayımında yer
+kaplamaya devam ederdi.
 
 ### Bulunan ve düzeltilen hatalar
 
@@ -84,7 +143,8 @@ tip denetiminden geçiyordu.
 ## 2. Şu anki durum
 
 **Doğrulama:** 9/9 build · ESLint 0 · verify **8/8** · sözleşme testleri
-**24/24** · migration **9/9 uygulandı** · 14 web rotası.
+**24/24** · migration **13/13 uygulandı** · 16 web rotası · hızlı kayıt canlı
+testi **40/40**.
 
 Çalışma ağacı temiz, `origin/master` ile senkron.
 
@@ -110,10 +170,13 @@ Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
 | **Araç** | ✅ API + migration 0004. Plaka normalizasyonu; dönemsel kayıt; otopark aşım raporu |
 | **Sayaç** | ✅ API + migration 0005. Okuma · devir · değişim · dönem tüketimi · geçmiş |
 | **Belge** | ✅ API + migration 0006/0007 + MinIO. Versiyonlama · kategori · çoklu ilişki · etiket · arama · gizlilik · önizleme · KVKK imha |
-| **Daire Görevlileri** | ✅ API + UI + migration 0008/0009. On görev · vardiya · SGK · sertifika · zimmet · ayrılış |
+| **Site Personeli** | ✅ API + UI + migration 0008/0009/0010. İşveren YÖNETİM. On görev · vardiya · SGK · sertifika · zimmet · ayrılış · plaka (yönetim kapsamı) |
+| **Daire Görevlisi** | ✅ API + UI + migration 0010. İşveren MALİK/KİRACI/SAKİN. Ev hizmetleri; bölüm zorunlu; plaka; çalışma sonlandırma |
+| **Misafir** | ✅ API + UI + migration 0011. `Kisi` kaydı açmaz; giriş/çıkış; "hâlen içeride" listesi; plaka |
+| **Hızlı kayıt** | ✅ Malik · Kiracı · Sakin · Misafir · Daire Görevlisi tek ekrandan. Kişi seçimi isteğe bağlı; TC/e-posta ile tekilleştirme; çoklu plaka |
 
-Kullanıcının istediği beş modül + Belge profesyonel seviye + Daire
-Görevlileri tamamlandı.
+Kullanıcının istediği beş modül + Belge profesyonel seviye + Site Personeli +
+Daire Görevlisi + Misafir + tek ekran hızlı kayıt tamamlandı.
 
 ### Sayaç — kritik kurallar (canlı doğrulandı)
 
@@ -150,22 +213,71 @@ Görevlileri tamamlandı.
   tarihte, şu gerekçeyle imha edildi" cevabı kaybolur ve imha kanıtlanamazdı.
   Nesne, veritabanı işlemi KAPANDIKTAN SONRA silinir.
 
-### Daire Görevlileri — kritik kurallar (canlı doğrulandı)
+### Site Personeli — kritik kurallar (canlı doğrulandı)
 
 - **`kisi` tablosundan AYRI tablo.** `Kisi` malik/kiracı/sakin ilişkilerinin
-  dayandığı KİMLİK kaydı; görevli bir İSTİHDAM kaydı. Aynı tabloda olsaydı
+  dayandığı KİMLİK kaydı; personel bir İSTİHDAM kaydı. Aynı tabloda olsaydı
   bir kapıcının o binada kiracı olması durumunda "işten ayrıldı" işareti
   kiracılık kaydını da etkilerdi.
 - Aynı TC ile **AKTİF** ikinci kayıt reddedilir (bordroyu ikiye katlar);
   ayrılmış kayıt engellemez — aynı kişi tekrar işe alınabilir.
-- **Ayrılmış görevli AKTİF olamaz** (veritabanı kısıtı). Ayrı bırakılsaydı
-  "aktif görevli" listesi ayrılmış kişileri gösterir ve vardiya planlaması
+- **Ayrılmış personel AKTİF olamaz** (veritabanı kısıtı). Ayrı bırakılsaydı
+  "aktif personel" listesi ayrılmış kişileri gösterir ve vardiya planlaması
   yanlış yapılırdı.
 - **Açık zimmet ayrılışı ENGELLEMEZ, UYARIR.** Teslim edilmemiş telsiz, kaydı
   kapatmamak için sebep değildir; görünür olması yeter.
 - Zimmet **iade ile kapanır**, silinmez — teslim geçmişi kanıttır.
+- **Aracı YÖNETİM kapsamındadır** (`bolum_id` boş). Ayrılışta araç da kapanır.
 - **TC kimlik no denetim gövdesine YAZILMAZ.** Audit kaydı değiştirilemezdir;
   oraya giren kişisel veri bir daha silinemez.
+
+### Daire Görevlisi — kritik kurallar (canlı doğrulandı)
+
+- **İşveren YÖNETİM DEĞİLDİR**, malik/kiracı/sakindir. Bu yüzden SGK ·
+  departman · vardiya · zimmet alanları **yoktur**: bunları yönetimin
+  kütüğünde tutmak, yönetimi hukuken işveren gibi gösterirdi (5510 s.K.
+  yükümlülüğü işvereninkidir).
+- **`Kisi` kaydı AÇILMAZ.** Görevli hak sahibi değildir; `Kisi`ye yazılsaydı
+  malik/kiracı listelerine karışır ve borç sorumluluğu sorgularında görünürdü.
+  `isverenKisiId` yalnızca ONU ÇALIŞTIRAN kişiyi gösterir.
+- **`bolumId` ZORUNLU** — "site genelinde görevli" hâli yoktur.
+- Aynı TC tekilliği **BÖLÜM BAŞINADIR**: bir temizlik görevlisinin sitede üç
+  ayrı dairede çalışması olağandır ve her biri ayrı hizmet ilişkisidir.
+  Personeldeki kısıt tenant genelindedir, çünkü orada mükerrer kayıt bordro
+  hatasıdır.
+- Çalışma sonlandırıldığında **açık araç kayıtları da kapanır**.
+
+### Misafir — kritik kurallar (canlı doğrulandı)
+
+- **HAK SAHİBİ DEĞİLDİR**: borç sorumlusu olmaz, tahakkuka girmez, arsa payı
+  taşımaz, genel kurulda oy kullanmaz.
+- **`Kisi` kaydı AÇILMAZ.** KVKK: misafir verisi kısa ömürlüdür; kalıcı kimlik
+  kaydı, ziyaretten aylar sonra silinmesi gereken veriyi malik/kiracı
+  kayıtlarıyla aynı ömre bağlardı.
+- **Çıkış tarihi boşsa misafir hâlen içeridedir** — `/misafirler/iceride`
+  güvenlik ve tahliye listesidir; kısmî index bu sorguya hizmet eder.
+- Çıkışta **aracı da kapanır**; kapanmasaydı çıkmış misafirin aracı otopark
+  sayımında yer kaplamaya devam ederdi.
+
+### Hızlı kayıt — kritik kurallar (canlı doğrulandı, 40/40)
+
+- **Kişi seçimi isteğe bağlı.** `kisiId` verilirse mevcut kişi kullanılır ve
+  form alanları YOK SAYILIR — var olan kimlik kaydını yan kapıdan güncellemek,
+  kiracı eklerken malikin adını değiştirmek gibi sonuçlar üretirdi.
+- **Tekilleştirme sırası:** `kisiId` → TC eşleşmesi → **e-posta eşleşmesi** →
+  yeni kayıt. E-posta da bir kimlik anahtarıdır: `kisi_eposta_uq` tenant
+  genelinde tekildir.
+- Mevcut kişi bulunduğunda **yalnızca BOŞ alanlar doldurulur**.
+- E-posta doldurulacaksa **sahibi denetlenir**; başka kişiye kayıtlıysa
+  anlaşılır bir 422 döner. Denetim yoksa veritabanı kısıtı **500** olarak
+  dönüyordu (bu oturumda bulundu ve düzeltildi).
+- Yanıtta `kisiOlusturulduMu` ve `tcIleEslestiMi` döner: kullanıcı yeni kişi
+  girdiğini sanırken mevcut bir kayda bağlanmış olabilir; görmezse mükerrer
+  sandığı kaydı silmeye çalışır.
+- **Plakalar aynı işlemde yazılır.** Hata verirse ana kayıt da geri alınır;
+  yarım kayıt "plakayı da girdim" sanan kullanıcı için sessiz veri kaybıdır.
+- **Mükerrer plaka reddedilir** — hem veritabanındaki kayıtlara hem AYNI
+  FORMDA iki kez yazılan plakaya karşı; tekillik **tenant genelindedir**.
 
 ---
 
@@ -173,8 +285,8 @@ Görevlileri tamamlandı.
 
 ### A. Arayüzü olmayan hazır API'ler — en yüksek değer burada
 
-Backend'de beş modül tamam ama **dördünün ekranı yok**. Kullanıcı bunları
-yalnızca Swagger'dan görebiliyor.
+Backend'de dokuz modül tamam ama **dördünün ekranı yok** (Tahakkuk · Sayaç ·
+Belge · Araç). Kullanıcı bunları yalnızca Swagger'dan görebiliyor.
 
 1. **Tahakkuk ekranı.** API önizlemeli (`onizleme: true`), yani bir sihirbaz
    için hazır: yönetici dağıtımı görüp onaylayarak uygular. Sayaç türü
@@ -244,6 +356,26 @@ yalnızca Swagger'dan görebiliyor.
    yazılı: hedef tabloların FORCE'u yalnızca o işlem boyunca kaldırılır,
    hemen geri verilir.
 
+   ⚠️ **0011'de öğrenilen ek:** hedef tablo YETMEZ, **KAYNAK tablo da**
+   FORCE'suz olmalıdır. Doğrulama taraması
+   `SELECT fk.x FROM ONLY kaynak fk LEFT JOIN hedef pk ON …` koşar, yani
+   kaynağı DA okur. 0004 ve 0008'de kaynak tablo yeni ve RLS'siz olduğu için
+   fark edilmemişti; `arac`a FK eklerken `arac` üzerinde FORCE açık olduğundan
+   migration `app_tenant_id()` hatasıyla düştü.
+
+3. **Prisma isteğe bağlı ilişkide `onDelete: SetNull` VARSAYAR.** SQL'de
+   `ON DELETE RESTRICT` yazılıp şemada belirtilmezse `migrate diff` kalıcı
+   sapma gösterir. Daha kötüsü: `arac`ta SetNull, sahibi silinen satırın sahip
+   alanını boşaltıp `arac_tek_sahip` kısıtını **silme anında** ihlal ederdi.
+   Yeni isteğe bağlı ilişkilerde `onDelete` **açıkça yazılmalıdır**.
+
+**Bilinen kalıcı `migrate diff` sapmaları** (beklenen, düzeltilmemeli):
+elle yazılmış kısmî unique index'ler (`arac_plaka_donem_uq`,
+`belge_iliskisi_tekil_uq`, `borc_tahakkuk_no_uq`, `kiraci_kisi_donem_uq`,
+`malik_kisi_donem_uq`, `sakin_kisi_donem_uq`, `sayac_okumasi_tarih_uq`,
+`yevmiye_fis_no_uq`), kısmî `misafir_tenant_id_cikis_tarihi_idx` ve
+`arac_tenant_id_yonetim_idx`, `oturum_dizini` index adı.
+
 ### D. Kütüphane kararı bekleyenler
 
 7. **PDF / XLSX çıktısı.** Yazdırma stil sayfası yazıldı (`@media print`);
@@ -264,7 +396,7 @@ yalnızca Swagger'dan görebiliyor.
 pnpm db:up && pnpm db:status && pnpm verify && pnpm test:contract
 ```
 
-Beklenen: `9 migrations found` · `Database schema is up to date` ·
+Beklenen: `13 migrations found` · `Database schema is up to date` ·
 `Tum kontroller yesil` · `24 passed`.
 
 Docker Desktop kapalıysa önce başlatılmalı:
@@ -273,7 +405,8 @@ Docker Desktop kapalıysa önce başlatılmalı:
 ### İlk görev
 
 **Tahakkuk Sihirbazı ve motor genişletmesi.** Kullanıcı bu işi tarif etti ama
-bütçe Belge + Daire Görevlileri'na gitti; **hiç başlanmadı**.
+bütçe Belge + Site Personeli / Daire Görevlisi ayrımı + hızlı kayıta gitti;
+**hiç başlanmadı**.
 
 Talep edilen kapsam (kullanıcının kendi sözleriyle: *"ticari muhasebe
 mantığıyla değil, Kat Mülkiyeti Kanunu ve profesyonel site yönetimi
@@ -341,6 +474,11 @@ Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
 | **Personel `kisi` tablosuna KONULMADI** | `Kisi` malik/kiracı/sakin ilişkilerinin dayandığı kimlik kaydı; personel bir istihdam kaydı. Aynı tabloda olsaydı bir kapıcının o binada kiracı olması durumunda "işten ayrıldı" işareti kiracılık kaydını da etkilerdi. Kullanıcı "Malik/Kiracı/Sakin'e dokunma" dedi; ayrı tablo bunu garanti eder. | `migrations/0008` |
 | **`kisi` API'si KALDIRILMADI, yalnızca menü girdisi kaldırıldı** | `POST /kisiler`, bir malik/kiracı/sakin eklemenin TEK yoludur (hepsi var olan `kisiId` ister). Kaldırılsaydı kullanıcının korunmasını istediği üç modül çalışamaz hale gelirdi. Menüdeki "Kişiler" girdisi zaten var olmayan bir rotayı gösteriyordu; o kaldırıldı. | `uygulama-kabugu.tsx` |
 | **Etiket ASCII katlanır, Türkçe katlanmaz** | Etiket bir KİMLİKTİR. `'ACIL'.toLocaleLowerCase('tr')` → `'acıl'` verir (noktasız I'nın küçüğü ı'dır); dilbilgisel olarak doğru ama caps lock ile yazan kullanıcının etiketi "acil" ile eşleşmezdi. Prose aramasında (ad/notlar) Türkçe katlama doğru olandır — ayrım korunmalı. | `shared/apartman-domain/src/belge/belge.ts` |
+| **Site Personeli ile Daire Görevlisi AYRI tablolara ayrıldı** | 0009'da ikisi tek tabloda birleştirilmişti; bu hataydı. İşveren farklıdır (yönetim ↔ malik/kiracı), dolayısıyla SGK/vardiya/zimmet yükümlülüğü, KVKK veri sorumlusu ve TC tekillik kapsamı da farklıdır. Tek tabloda tutmak yönetimi, olmadığı bir ilişkide işveren gibi gösterirdi. 0008 uygulanmış olduğu için **düzenlenmedi**, 0010 ile taşındı. | `migrations/0010_site_personeli_ayrimi` |
+| **Misafir ve daire görevlisi `Kisi` kaydı AÇMAZ** | İkisi de hak sahibi değildir: borç sorumlusu olmaz, tahakkuka girmez, arsa payı taşımaz. `Kisi`ye yazılsalardı malik/kiracı listelerine karışır ve borç sorumluluğu sorgularında görünürlerdi. Misafirde ayrıca KVKK: verisi kısa ömürlüdür, kalıcı kimlik kaydı yanlış ömre bağlardı. | `migrations/0011` · `misafir.service.ts` |
+| **Kefil ayrı `Kisi` DEĞİL, sözleşme üzerinde inline** | Yönetimin ortak gider alacağı malike (KMK md. 20) ve kiracıya (md. 22, kira bedeli kadar müteselsil) yönelir; **kefile yönelmez** — kefalet kira sözleşmesinin tarafıdır, yönetim planının değil. Ayrı kimlik kaydı borç sorumluluğu sorgularında görünürdü. | `migrations/0012_kiraci_kefil` |
+| **Tek araç kütüğü + kapsam ayrımı** | Otopark kapasitesi malik aracıyla bakıcının/güvenliğin aracını ayırt etmez; ayrı tablolar sayımı bölerdi. Ama **personel aracı yönetime**, diğerleri **ilgili bölüme** kayıtlıdır: personel aracını daireye yazmak o dairenin otopark hakkını tüketmiş gösterir ve KULLANIM_BAZLI dağıtımda ona fazla pay çıkarır. | `migrations/0011` · `0013_arac_kapsami` |
+| **`kisiId` zorunluluğu kalktı; tekilleştirme TC + e-postaya devredildi** | Zorunluluğun asıl işlevi mükerrer kimlik kaydını engellemekti. Kaldırırken bu koruma bırakılsaydı aynı kişi iki `Kisi` satırına bölünür ve borç geçmişi, tahakkuk sorumluluğu, KVKK silme talebi iki kayda dağılırdı. `kisi_eposta_uq` tenant genelinde tekil olduğu için e-posta da kimlik anahtarı sayıldı. | `common/kayit/hizli-kayit.ts` |
 
 ---
 
@@ -373,6 +511,22 @@ Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
   `lib/kesir.ts` yalnızca tip denetimi ve derleme ile korunuyor.
 - **Enum kodları iki yerde aynalı:** `frontend/web/lib/kodlar.ts` ve
   `messages/tr.json`. Domain'e yeni kod eklenirse ikisine de eklenmelidir.
+- **SİTE PERSONELİ ≠ DAİRE GÖREVLİSİ.** İşveren farklıdır ve bu, alan listesini
+  belirler: SGK · departman · vardiya · zimmet YALNIZCA site personelinde
+  bulunur. Yeni bir alan eklerken "bu yükümlülük kimin?" sorusu sorulmalıdır.
+  İki ekran birbirine gönderme yapan bir uyarı satırı taşır; kaldırılmamalı.
+- **i18n anahtarları toptan arama-değiştirme ile YENİDEN ADLANDIRILAMAZ.**
+  0009'da blanket bir `Personel → Görevli` değişimi `yeniPersonel`
+  ANAHTARINI `yeniGörevli` yapıp Next.js'i `MISSING_MESSAGE` ile patlatmıştı.
+  Bu oturumda `tr.json` **programatik olarak** (JSON düzeyinde) ayrıldı.
+- **Kabuk üzerinden node betiği yazarken şablon dizgi kullanmayın.** `bash -c`
+  içindeki `\`${...}\`` ve `\"` kaçışları sessizce yeniyor: bu oturumda bir
+  Prisma modelinin bütün `@map("...")` tırnakları kayboldu ve şema geçersiz
+  hale geldi; başka bir seferde Malik ile Kiracı modellerine yanlış alan
+  bloğu yazıldı. Betikler **dosyaya yazılıp** `node dosya.mjs` ile koşulmalı.
+- **Git Bash `/api/v1` gibi env değerlerini Windows yoluna çevirir.** Backend'i
+  elle başlatırken `MSYS_NO_PATHCONV=1` verilmezse API öneki
+  `C:/Program Files/Git/api/v1` olur ve bütün uçlar 404 döner.
 - **Yetki modeli kararı:** `tenant.setup` Apartman Yöneticisi'nden alınıp
   Yönetim Şirketi'ne verildi (yeni yerleşke açmak bir onboarding işlemidir).
   Belgelerde yetki matrisi yok; farklı isteniyorsa tek yerden değişir:

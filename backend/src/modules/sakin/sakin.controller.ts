@@ -7,6 +7,7 @@ import { SakinCommandService } from './sakin.command.service';
 import { SakinQueryService, type SakinSatiri } from './sakin.query.service';
 import { SakinCikisDto, SakinDuzeltDto, SakinEkleDto } from './dto/sakin.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
+import type { HizliKayitSonucu } from '../../common/kayit/hizli-kayit';
 
 @ApiTags('Sakin')
 @ApiBearerAuth()
@@ -30,7 +31,7 @@ export class SakinController {
     @Param('bolumId') bolumId: string,
     @Body() dto: SakinEkleDto,
     @AktifPrincipal() principal: Principal,
-  ): Promise<KomutSonucu> {
+  ): Promise<HizliKayitSonucu> {
     return this.command.ekle(bolumId, dto, principal);
   }
 

@@ -14,6 +14,10 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
+import {
+  KisiBilgileriBolumu, bosKisiFormu, kisiFormunuDogrula, kisiGirdisineCevir,
+  type KisiFormDurumu,
+} from '@/components/kisi/kisi-bilgileri-bolumu';
 import { servis, type Sakin } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
@@ -36,13 +40,13 @@ export function SakinEkleFormu({
 }) {
   const t = useTranslations('sakinYonetim');
   const td = useTranslations('daire');
+  const tk = useTranslations('kisiBilgileri');
   const tg = useTranslations('genel');
   const bildirim = useBildirim();
 
-  const [kisiAdi, setKisiAdi] = useState('');
+  const [kisi, setKisi] = useState<KisiFormDurumu>(bosKisiFormu());
   const [yakinlik, setYakinlik] = useState<string>('KENDISI');
   const [girisTarihi, setGirisTarihi] = useState('');
-  const [telefon, setTelefon] = useState('');
   const [acilAd, setAcilAd] = useState('');
   const [acilTel, setAcilTel] = useState('');
   const [hatalar, setHatalar] = useState<Readonly<Record<string, string>>>({});
@@ -50,21 +54,24 @@ export function SakinEkleFormu({
 
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const h: Record<string, string> = {};
-    if (kisiAdi.trim().length < 3) h['kisiAdi'] = t('hataAd');
+    const h: Record<string, string> = { ...kisiFormunuDogrula(kisi, tk) };
     if (!TARIH_BICIMI.test(girisTarihi)) h['girisTarihi'] = t('hataTarih');
     setHatalar(h);
     if (Object.keys(h).length > 0) return;
 
+    const kisiGirdisi = kisiGirdisineCevir(kisi);
+
     setGonderiliyor(true);
     try {
       await servis.sakinEkle(bolumId, {
-        kisiAdi: kisiAdi.trim(), yakinlikDerecesi: yakinlik, girisTarihi,
-        ...(telefon.trim() === '' ? {} : { telefon: telefon.trim() }),
+        ...kisiGirdisi,
+        yakinlikDerecesi: yakinlik, girisTarihi,
         ...(acilAd.trim() === '' ? {} : { acilDurumKisiAdi: acilAd.trim() }),
         ...(acilTel.trim() === '' ? {} : { acilDurumTelefon: acilTel.trim() }),
       });
       bildirim.basari(t('eklendi'));
+      const plakaSayisi = kisiGirdisi.kisi?.plakalar?.length ?? 0;
+      if (plakaSayisi > 0) bildirim.basari(tk('plakaEklendi', { sayi: plakaSayisi }));
       onEklendi();
     } catch (hata) {
       bildirim.hata(hata instanceof ApiHatasi ? hata.problem.detail : t('eklenemedi'));
@@ -83,15 +90,10 @@ export function SakinEkleFormu({
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
       <h3 className="font-semibold">{t('yeniSakin')}</h3>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('kisiAdi')}</span>
-          <input className={girdiSinifi} value={kisiAdi} required
-                 aria-invalid={hatalar['kisiAdi'] !== undefined}
-                 onChange={(e) => setKisiAdi(e.target.value)} />
-          <Hata ad="kisiAdi" />
-        </label>
+      {/* Formun İLK bölümü kişi bilgileridir; beş modülde aynı bileşen. */}
+      <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar} />
 
+      <div className="grid gap-3 sm:grid-cols-2 border-t border-[color:var(--line)] pt-3">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-[color:var(--muted-2)]">{t('yakinlik')}</span>
           <select className={girdiSinifi} value={yakinlik}
@@ -108,12 +110,6 @@ export function SakinEkleFormu({
                  aria-invalid={hatalar['girisTarihi'] !== undefined}
                  onChange={(e) => setGirisTarihi(e.target.value)} />
           <Hata ad="girisTarihi" />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{td('telefon')}</span>
-          <input className={girdiSinifi} value={telefon} inputMode="tel"
-                 onChange={(e) => setTelefon(e.target.value)} />
         </label>
 
         <label className="flex flex-col gap-1">

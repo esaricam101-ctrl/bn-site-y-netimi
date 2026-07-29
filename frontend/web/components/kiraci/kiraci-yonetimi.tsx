@@ -16,6 +16,10 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
+import {
+  KisiBilgileriBolumu, bosKisiFormu, kisiFormunuDogrula, kisiGirdisineCevir,
+  type KisiFormDurumu,
+} from '@/components/kisi/kisi-bilgileri-bolumu';
 import { servis, type Kiraci } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
@@ -33,37 +37,67 @@ export function KiraciEkleFormu({
   readonly onIptal: () => void;
 }) {
   const t = useTranslations('kiraci');
+  const tk = useTranslations('kisiBilgileri');
   const tg = useTranslations('genel');
   const bildirim = useBildirim();
 
-  const [kisiAdi, setKisiAdi] = useState('');
+  const [kisi, setKisi] = useState<KisiFormDurumu>(bosKisiFormu());
   const [baslangic, setBaslangic] = useState('');
   const [bitis, setBitis] = useState('');
   const [sozlesmeNo, setSozlesmeNo] = useState('');
   const [depozito, setDepozito] = useState('');
+  const [kefilAdSoyad, setKefilAdSoyad] = useState('');
+  const [kefilTc, setKefilTc] = useState('');
+  const [kefilTelefon, setKefilTelefon] = useState('');
+  const [kefilAdres, setKefilAdres] = useState('');
   const [hatalar, setHatalar] = useState<Readonly<Record<string, string>>>({});
   const [gonderiliyor, setGonderiliyor] = useState(false);
 
+  // Kefil bilgisinden HERHANGİ BİRİ girildiyse ad soyad zorunludur: adı olmayan
+  // ama telefonu olan bir kefil kaydı, icra takibinde kime başvurulacağını
+  // belirsiz bırakır. Aynı kısıt veritabanında da CHECK olarak durur.
+  const kefilDolu =
+    kefilAdSoyad.trim() !== '' || kefilTc.trim() !== '' ||
+    kefilTelefon.trim() !== '' || kefilAdres.trim() !== '';
+
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const h: Record<string, string> = {};
-    if (kisiAdi.trim().length < 3) h['kisiAdi'] = t('hataAd');
+    const h: Record<string, string> = { ...kisiFormunuDogrula(kisi, tk) };
     if (!TARIH_BICIMI.test(baslangic)) h['baslangic'] = t('hataTarih');
     if (bitis !== '' && bitis < baslangic) h['bitis'] = t('hataBitisOnce');
     if (depozito !== '' && !PARA_BICIMI.test(depozito)) h['depozito'] = t('hataDepozito');
+    if (kefilDolu && kefilAdSoyad.trim().length < 3) h['kefilAdSoyad'] = t('kefilHataAd');
+    if (kefilTc.trim() !== '' && !/^[0-9]{11}$/u.test(kefilTc.trim())) {
+      h['kefilTc'] = tk('hataTc');
+    }
     setHatalar(h);
     if (Object.keys(h).length > 0) return;
+
+    const kisiGirdisi = kisiGirdisineCevir(kisi);
 
     setGonderiliyor(true);
     try {
       await servis.kiraciEkle(bolumId, {
-        kisiAdi: kisiAdi.trim(), baslangic,
+        ...kisiGirdisi,
+        baslangic,
         ...(bitis === '' ? {} : { bitis }),
         ...(sozlesmeNo.trim() === '' ? {} : { sozlesmeNo: sozlesmeNo.trim() }),
         // Para METIN olarak gonderilir; virgul noktaya cevrilir.
         ...(depozito === '' ? {} : { depozito: depozito.replace(',', '.') }),
+        ...(kefilDolu
+          ? {
+              kefil: {
+                adSoyad: kefilAdSoyad.trim(),
+                ...(kefilTc.trim() === '' ? {} : { tcKimlikNo: kefilTc.trim() }),
+                ...(kefilTelefon.trim() === '' ? {} : { telefon: kefilTelefon.trim() }),
+                ...(kefilAdres.trim() === '' ? {} : { adres: kefilAdres.trim() }),
+              },
+            }
+          : {}),
       });
       bildirim.basari(t('eklendi'));
+      const plakaSayisi = kisiGirdisi.kisi?.plakalar?.length ?? 0;
+      if (plakaSayisi > 0) bildirim.basari(tk('plakaEklendi', { sayi: plakaSayisi }));
       onEklendi();
     } catch (hata) {
       bildirim.hata(hata instanceof ApiHatasi ? hata.problem.detail
@@ -83,15 +117,10 @@ export function KiraciEkleFormu({
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
       <h3 className="font-semibold">{t('yeniSozlesme')}</h3>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('kisiAdi')}</span>
-          <input className={girdiSinifi} value={kisiAdi} required
-                 aria-invalid={hatalar['kisiAdi'] !== undefined}
-                 onChange={(e) => setKisiAdi(e.target.value)} />
-          <Hata ad="kisiAdi" />
-        </label>
+      {/* Formun İLK bölümü kişi bilgileridir; beş modülde aynı bileşen. */}
+      <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar} />
 
+      <div className="grid gap-3 sm:grid-cols-2 border-t border-[color:var(--line)] pt-3">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-[color:var(--muted-2)]">{t('sozlesmeNo')}</span>
           <input className={girdiSinifi} value={sozlesmeNo}
@@ -124,6 +153,48 @@ export function KiraciEkleFormu({
       </div>
 
       <p className="text-xs text-[color:var(--muted)]">{t('bitisIpucu')}</p>
+
+      {/*
+        KEFİL — ayrı bir kişi kaydı AÇILMAZ. Yönetimin ortak gider alacağı
+        malike (KMK md. 20) ve kiracıya (md. 22) yönelir, kefile yönelmez;
+        `Kisi` kaydı açılsaydı kefil borç sorumluluğu sorgularında görünürdü.
+      */}
+      <fieldset className="flex flex-col gap-3 border-t border-[color:var(--line)] pt-3">
+        <legend className="text-sm font-semibold px-1">{t('kefilBaslik')}</legend>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilAdSoyad')}</span>
+            <input className={girdiSinifi} value={kefilAdSoyad}
+                   aria-invalid={hatalar['kefilAdSoyad'] !== undefined}
+                   onChange={(e) => setKefilAdSoyad(e.target.value)} />
+            <Hata ad="kefilAdSoyad" />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilTc')}</span>
+            <input className={`${girdiSinifi} num`} value={kefilTc}
+                   inputMode="numeric" maxLength={11}
+                   aria-invalid={hatalar['kefilTc'] !== undefined}
+                   onChange={(e) => setKefilTc(e.target.value)} />
+            <Hata ad="kefilTc" />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilTelefon')}</span>
+            <input className={girdiSinifi} value={kefilTelefon} inputMode="tel"
+                   onChange={(e) => setKefilTelefon(e.target.value)} />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilAdres')}</span>
+            <input className={girdiSinifi} value={kefilAdres}
+                   onChange={(e) => setKefilAdres(e.target.value)} />
+          </label>
+        </div>
+
+        <p className="text-xs text-[color:var(--muted)]">{t('kefilIpucu')}</p>
+      </fieldset>
 
       <div className="flex gap-2">
         <button type="submit" disabled={gonderiliyor}

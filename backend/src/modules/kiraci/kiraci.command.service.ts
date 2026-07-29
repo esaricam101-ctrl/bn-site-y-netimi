@@ -23,6 +23,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
+import {
+  kisiyiCoz, plakalariYaz, type HizliKayitSonucu,
+} from '../../common/kayit/hizli-kayit';
 import type { KiraciDuzeltDto, KiraciEkleDto, KiraciTahliyeDto } from './dto/kiraci.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -34,7 +37,9 @@ export class KiraciCommandService {
     private readonly outbox: OutboxServisi,
   ) {}
 
-  async ekle(bolumId: string, dto: KiraciEkleDto, principal: Principal): Promise<KomutSonucu> {
+  async ekle(
+    bolumId: string, dto: KiraciEkleDto, principal: Principal,
+  ): Promise<HizliKayitSonucu> {
     const baglam = mevcutBaglamiZorunluKil('kiraci.ekle');
     const id = randomUUID();
 
@@ -48,10 +53,13 @@ export class KiraciCommandService {
       });
       if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${bolumId}`);
 
-      const kisi = await tx.kisi.findFirst({
-        where: { id: dto.kisiId, tenantId: principal.tenantId }, select: { id: true },
+      // Kişi ya seçilir ya bu bilgilerden oluşturulur. `kisiyiCoz` tenant
+      // aidiyetini de doğrular — FK kontrolü RLS'i baypas eder.
+      const cozum = await kisiyiCoz(tx, principal.tenantId, {
+        ...(dto.kisi ?? {}),
+        ...(dto.kisiId === undefined ? {} : { kisiId: dto.kisiId }),
       });
-      if (!kisi) throw new KayitBulunamadi(`Kişi bulunamadı: ${dto.kisiId}`);
+      const kisiId = cozum.kisiId;
 
       // Cakisma kontrolu domain'e aittir; kiraci tekilligi orada tanimli.
       const mevcutKayitlar = await tx.kiraci.findMany({
@@ -66,13 +74,11 @@ export class KiraciCommandService {
         bitis: takvimTarihiniOkuVeyaNull(k.bitis),
       }));
 
-      iliskiyiDogrula(mevcut, {
-        kisiId: dto.kisiId, rol: 'KIRACI', baslangic, bitis,
-      });
+      iliskiyiDogrula(mevcut, { kisiId, rol: 'KIRACI', baslangic, bitis });
 
       await tx.kiraci.create({
         data: {
-          id, tenantId: principal.tenantId, bolumId, kisiId: dto.kisiId,
+          id, tenantId: principal.tenantId, bolumId, kisiId,
           baslangic: takvimTarihiniYaz(baslangic),
           bitis: bitis === null ? null : takvimTarihiniYaz(bitis),
           sozlesmeNo: dto.sozlesmeNo ?? null,
@@ -81,16 +87,37 @@ export class KiraciCommandService {
               ? null
               : takvimTarihiniYaz(takvimTarihi(dto.sozlesmeTarihi)),
           depozito: dto.depozito ?? null,
+          // Kefil `Kisi` DEĞİLDİR: yönetimin alacağı malike ve kiracıya
+          // yönelir (KMK md. 20 · md. 22), kefile yönelmez. Ayrı kimlik
+          // kaydı açılsaydı borç sorumluluğu sorgularında görünürdü.
+          kefilAdSoyad: dto.kefil?.adSoyad.trim() ?? null,
+          kefilTcKimlikNo: dto.kefil?.tcKimlikNo ?? null,
+          kefilTelefon: dto.kefil?.telefon?.trim() ?? null,
+          kefilAdres: dto.kefil?.adres?.trim() ?? null,
         },
+      });
+
+      // Plakalar AYNI İŞLEMDE yazılır: hata verirse kiracı kaydı da geri alınır.
+      const plakalar = await plakalariYaz(tx, principal.tenantId, {
+        bolumId,
+        sahip: { kisiId },
+        baslangic,
+        bitis,
+        plakalar: dto.kisi?.plakalar ?? [],
       });
 
       await this.audit.yaz(tx, {
         tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
         varlik: 'Kiraci', varlikId: id,
         sonrakiDeger: {
-          bolumId, kapiNo: bolum.kapiNo, kisiId: dto.kisiId,
+          bolumId, kapiNo: bolum.kapiNo, kisiId,
+          kisiOlusturulduMu: cozum.olusturulduMu,
           baslangic, bitis, sozlesmeNo: dto.sozlesmeNo ?? null,
           depozito: dto.depozito ?? null,
+          // KVKK: kefilin TC'si denetim gövdesine YAZILMAZ; audit kaydı
+          // değiştirilemezdir, oraya giren kişisel veri bir daha silinemez.
+          kefilVarMi: dto.kefil !== undefined,
+          plakaSayisi: plakalar.length,
         },
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
@@ -100,10 +127,17 @@ export class KiraciCommandService {
         eventType: 'apartman.kiraci.eklendi', eventVersion: 1,
         tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
         aggregate: { tip: 'Kiraci', id, version: 1 },
-        payload: { bolumId, kisiId: dto.kisiId, baslangic },
+        payload: { bolumId, kisiId, baslangic },
       });
 
-      return { id, durum: 'AKTIF' };
+      return {
+        id,
+        durum: 'AKTIF',
+        kisiId,
+        kisiOlusturulduMu: cozum.olusturulduMu,
+        tcIleEslestiMi: cozum.tcIleEslestiMi,
+        plakaSayisi: plakalar.length,
+      };
     });
   }
 
@@ -176,6 +210,16 @@ export class KiraciCommandService {
             : { sozlesmeTarihi: takvimTarihiniYaz(takvimTarihi(dto.sozlesmeTarihi)) }),
           ...(dto.depozito === undefined ? {} : { depozito: dto.depozito }),
           ...(yeniBitis === undefined ? {} : { bitis: takvimTarihiniYaz(yeniBitis) }),
+          // Kefil bilgisi TÜMÜYLE değişir: yarım güncelleme, eski kefilin
+          // telefonunu yeni kefilin adının yanında bırakır.
+          ...(dto.kefil === undefined
+            ? {}
+            : {
+                kefilAdSoyad: dto.kefil.adSoyad.trim(),
+                kefilTcKimlikNo: dto.kefil.tcKimlikNo ?? null,
+                kefilTelefon: dto.kefil.telefon?.trim() ?? null,
+                kefilAdres: dto.kefil.adres?.trim() ?? null,
+              }),
         },
       });
 

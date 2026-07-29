@@ -1,7 +1,13 @@
 'use client';
 
 /**
- * Malik ekleme formu.
+ * Malik ekleme formu — TEK EKRANDAN HIZLI KAYIT.
+ *
+ * KİŞİ SEÇME ZORUNLU DEĞİLDİR. İlk bölüm "Kişi Bilgileri"dir (paylaşılan
+ * bileşen: ad, soyad, TC, telefon, e-posta, doğum tarihi, cinsiyet, adres,
+ * not, araç plakaları) ve ardından tapuya özel alanlar gelir. Eskiden önce
+ * "Kişiler" ekranında kayıt açmak gerekiyordu; bu, sahada tek işlem olan bir
+ * şeyi ikiye bölüyordu.
  *
  * Hisse pay/payda AYRI iki alandır ve METİN taşınır. Tek bir "yüzde" alanı
  * olsaydı üç eşit hisse (1/3) 33,33 girilir ve toplam asla %100 etmezdi;
@@ -13,6 +19,10 @@
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
+import {
+  KisiBilgileriBolumu, bosKisiFormu, kisiFormunuDogrula, kisiGirdisineCevir,
+  type KisiFormDurumu,
+} from '@/components/kisi/kisi-bilgileri-bolumu';
 import { servis, type MalikEkleGirdisi } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
@@ -31,11 +41,12 @@ export function MalikEkleFormu({
 }) {
   const t = useTranslations('malik');
   const td = useTranslations('daire');
+  const tk = useTranslations('kisiBilgileri');
   const tg = useTranslations('genel');
   const bildirim = useBildirim();
   const formId = useId();
 
-  const [kisiAdi, setKisiAdi] = useState('');
+  const [kisi, setKisi] = useState<KisiFormDurumu>(bosKisiFormu());
   const [hissePay, setHissePay] = useState('1');
   const [hissePayda, setHissePayda] = useState('1');
   const [tapuTuru, setTapuTuru] = useState<string>('KAT_MULKIYETI');
@@ -46,8 +57,9 @@ export function MalikEkleFormu({
   const [gonderiliyor, setGonderiliyor] = useState(false);
 
   const dogrula = (): Readonly<Record<string, string>> => {
-    const h: Record<string, string> = {};
-    if (kisiAdi.trim().length < 3) h['kisiAdi'] = t('hataAd');
+    // Kişi bölümünün doğrulaması PAYLAŞILAN: beş formda aynı kural geçerli
+    // olmalı, yoksa biri TC biçimini denetlerken öteki denetlemez.
+    const h: Record<string, string> = { ...kisiFormunuDogrula(kisi, tk) };
 
     const pay = Number(hissePay);
     const payda = Number(hissePayda);
@@ -68,7 +80,7 @@ export function MalikEkleFormu({
     if (Object.keys(h).length > 0) return;
 
     const girdi: MalikEkleGirdisi = {
-      kisiAdi: kisiAdi.trim(),
+      ...kisiGirdisineCevir(kisi),
       hissePay, hissePayda, tapuTuru, tapuBaslangic,
       ...(yevmiyeNo.trim() === '' ? {} : { tapuYevmiyeNo: yevmiyeNo.trim() }),
     };
@@ -77,6 +89,8 @@ export function MalikEkleFormu({
     try {
       await servis.malikEkle(bolumId, girdi);
       bildirim.basari(t('eklendi'));
+      const plakaSayisi = girdi.kisi?.plakalar?.length ?? 0;
+      if (plakaSayisi > 0) bildirim.basari(tk('plakaEklendi', { sayi: plakaSayisi }));
       onEklendi();
     } catch (hata) {
       // Sunucu is kurali ihlali dondurmus olabilir (ornegin hisse toplami 1'i
@@ -121,16 +135,10 @@ export function MalikEkleFormu({
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
       <h3 className="font-semibold">{t('yeniMalik')}</h3>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Alan ad="kisiAdi" etiket={t('kisiAdi')}>
-          {(id, hataId) => (
-            <input id={id} className={girdiSinifi} value={kisiAdi}
-                   onChange={(e) => setKisiAdi(e.target.value)}
-                   aria-invalid={hataId !== undefined}
-                   aria-describedby={hataId} required />
-          )}
-        </Alan>
+      {/* Formun İLK bölümü kişi bilgileridir; beş modülde aynı bileşen. */}
+      <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar} />
 
+      <div className="grid gap-3 sm:grid-cols-2 border-t border-[color:var(--line)] pt-3">
         <Alan ad="tapuTuru" etiket={td('tapuTuru')}>
           {(id) => (
             <select id={id} className={girdiSinifi} value={tapuTuru}

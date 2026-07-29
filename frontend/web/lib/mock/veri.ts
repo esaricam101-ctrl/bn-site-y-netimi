@@ -340,8 +340,44 @@ function malikleriAl(bolumId: string, varsayilan: readonly MockMalik[]): MockMal
   return kopya;
 }
 
+export interface MockKisiGirdisi {
+  readonly ad: string;
+  readonly soyad: string;
+  readonly tcKimlikNo?: string;
+  readonly telefon?: string;
+  readonly eposta?: string;
+  readonly dogumTarihi?: string;
+  readonly cinsiyet?: string;
+  readonly adres?: string;
+  readonly notlar?: string;
+  readonly plakalar?: readonly MockPlakaGirdisi[];
+}
+
+export interface MockPlakaGirdisi {
+  readonly plaka: string;
+  readonly tur?: string;
+  readonly marka?: string;
+  readonly model?: string;
+  readonly renk?: string;
+  readonly otoparkYeri?: string;
+}
+
+/**
+ * Gosterilecek ad. Mock tarafinda mevcut kisi katalogu YOKTUR; bu yuzden
+ * `kisiId` verildiginde adi cozemeyiz ve kimligi gosteririz. Gercek uc kisiyi
+ * veritabanindan okur — bu sinir bilinclidir.
+ */
+export function mockKisiAdiCoz(
+  dto: { readonly kisiId?: string; readonly kisi?: MockKisiGirdisi },
+): string {
+  if (dto.kisi !== undefined) return `${dto.kisi.ad.trim()} ${dto.kisi.soyad.trim()}`;
+  if (dto.kisiId !== undefined && dto.kisiId !== '') return `(kisi ${dto.kisiId})`;
+  throw new Error('Kisi secilmediyse ad ve soyad zorunludur.');
+}
+
 export interface MockMalikEkle {
-  readonly kisiAdi: string;
+  readonly kisiId?: string;
+  readonly kisi?: MockKisiGirdisi;
   readonly hissePay: string;
   readonly hissePayda: string;
   readonly tapuTuru: string;
@@ -357,7 +393,7 @@ export function mockMalikEkle(bolumId: string, dto: MockMalikEkle): MockMalik {
   const yeni: MockMalik = {
     id: `malik-${bolumId}-${liste.length}-${liste.length + 1}`,
     kisiId: `kisi-yeni-${liste.length}`,
-    kisiAdi: dto.kisiAdi,
+    kisiAdi: mockKisiAdiCoz(dto),
     hisse: `${dto.hissePay}/${dto.hissePayda}`,
     tapuTuru: dto.tapuTuru,
     tapuBaslangic: dto.tapuBaslangic,
@@ -430,7 +466,8 @@ function sakinleriAl(bolumId: string, varsayilan: readonly MockSakin[]): MockSak
 }
 
 export interface MockKiraciEkle {
-  readonly kisiAdi: string;
+  readonly kisiId?: string;
+  readonly kisi?: MockKisiGirdisi;
   readonly baslangic: string;
   readonly bitis?: string;
   readonly sozlesmeNo?: string;
@@ -450,7 +487,7 @@ export function mockKiraciEkle(bolumId: string, dto: MockKiraciEkle): void {
   liste.push({
     id: `kiraci-${bolumId}-${liste.length}`,
     kisiId: `kisi-k-yeni-${liste.length}`,
-    kisiAdi: dto.kisiAdi,
+    kisiAdi: mockKisiAdiCoz(dto),
     baslangic: dto.baslangic,
     bitis: dto.bitis ?? null,
     sozlesmeNo: dto.sozlesmeNo ?? null,
@@ -539,7 +576,8 @@ export function mockSakinDuzelt(
 }
 
 export interface MockSakinEkle {
-  readonly kisiAdi: string;
+  readonly kisiId?: string;
+  readonly kisi?: MockKisiGirdisi;
   readonly yakinlikDerecesi: string;
   readonly girisTarihi: string;
   readonly telefon?: string;
@@ -553,9 +591,9 @@ export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
   liste.push({
     id: `sakin-${bolumId}-${liste.length}`,
     kisiId: `kisi-s-yeni-${liste.length}`,
-    kisiAdi: dto.kisiAdi,
+    kisiAdi: mockKisiAdiCoz(dto),
     eposta: null,
-    telefon: dto.telefon ?? null,
+    telefon: dto.kisi?.telefon ?? null,
     yakinlikDerecesi: dto.yakinlikDerecesi,
     girisTarihi: dto.girisTarihi,
     cikisTarihi: null,
@@ -1090,7 +1128,7 @@ export interface MockZimmet {
 }
 
 /** Konut çalışanı satırı — gerçek uçla (`CalisanSatiri`) aynı şekil. */
-export interface MockDaireGorevlisi {
+export interface MockSitePersoneli {
   readonly id: string;
   readonly apartmanId: string | null;
   readonly apartmanAdi: string | null;
@@ -1114,7 +1152,7 @@ export interface MockDaireGorevlisi {
   readonly suresiDolanSertifikaSayisi: number;
 }
 
-const mockGorevlilerTaban: readonly MockDaireGorevlisi[] = [
+const mockPersonellerTaban: readonly MockSitePersoneli[] = [
   {
     id: 'kc-1', apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı',
     ad: 'Ahmet', soyad: 'Yıldız', adSoyad: 'Ahmet Yıldız',
@@ -1164,12 +1202,12 @@ const mockGorevlilerTaban: readonly MockDaireGorevlisi[] = [
   },
 ];
 
-let gorevliOrtusu: MockDaireGorevlisi[] | null = null;
+let personelOrtusu: MockSitePersoneli[] | null = null;
 
-export function mockGorevlileriOku(
+export function mockPersonelleriOku(
   suzgec: { gorev?: string; durum?: string; arama?: string } = {},
-): readonly MockDaireGorevlisi[] {
-  const liste = gorevliOrtusu ?? mockGorevlilerTaban;
+): readonly MockSitePersoneli[] {
+  const liste = personelOrtusu ?? mockPersonellerTaban;
   const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
   return liste.filter(
     (c) =>
@@ -1181,11 +1219,11 @@ export function mockGorevlileriOku(
   );
 }
 
-function gorevliListesi(): MockDaireGorevlisi[] {
-  return gorevliOrtusu ?? (gorevliOrtusu = [...mockGorevlilerTaban]);
+function personelListesi(): MockSitePersoneli[] {
+  return personelOrtusu ?? (personelOrtusu = [...mockPersonellerTaban]);
 }
 
-export interface MockGorevliGirdisi {
+export interface MockPersonelGirdisi {
   readonly ad: string;
   readonly soyad: string;
   readonly gorev: string;
@@ -1199,8 +1237,8 @@ export interface MockGorevliGirdisi {
   readonly notlar?: string;
 }
 
-export function mockGorevliEkle(dto: MockGorevliGirdisi): void {
-  const liste = gorevliListesi();
+export function mockPersonelEkle(dto: MockPersonelGirdisi): void {
+  const liste = personelListesi();
   // Ayni TC ile AKTIF ikinci kayit bordroyu ikiye katlar — sunucu da reddeder.
   if (dto.tcKimlikNo !== undefined && dto.tcKimlikNo !== '') {
     const cakisan = liste.find(
@@ -1234,11 +1272,11 @@ export function mockGorevliEkle(dto: MockGorevliGirdisi): void {
 }
 
 /** İşten ayrılış — kayıt KAPANIR, silinmez. Durum aynı anda PASIF olur. */
-export function mockGorevliAyril(id: string, tarih: string): void {
-  const liste = gorevliListesi();
+export function mockPersonelAyril(id: string, tarih: string): void {
+  const liste = personelListesi();
   const i = liste.findIndex((c) => c.id === id);
   if (i < 0) throw new Error(`Görevli bulunamadı: ${id}`);
-  const mevcut = liste[i] as MockDaireGorevlisi;
+  const mevcut = liste[i] as MockSitePersoneli;
   if (mevcut.istenAyrilisTarihi !== null) {
     throw new Error(`${mevcut.adSoyad} ${mevcut.istenAyrilisTarihi} tarihinde zaten ayrılmış.`);
   }
@@ -1351,3 +1389,333 @@ export const mockYerlesim: MockYerlesimOzeti = {
   bos: yerlesimSatirlari.filter((s) => s.bosMu).length,
   satirlar: yerlesimSatirlari,
 };
+
+
+// ===========================================================================
+// DAİRE GÖREVLİSİ — işvereni MALİK / KİRACI / SAKİN olan ev hizmetleri
+//
+// SİTE PERSONELİ İLE KARIŞTIRILMAMALIDIR (`MockSitePersoneli`): orada işveren
+// yönetimdir ve SGK · departman · vardiya · zimmet alanları vardır.
+// ===========================================================================
+
+export interface MockGorevliAraci {
+  readonly id: string;
+  readonly plaka: string;
+  readonly tur: string;
+  readonly otoparkYeri: string | null;
+}
+
+/** Gerçek uçla (`DaireGorevlisiSatiri`) aynı şekil. */
+export interface MockDaireGorevlisi {
+  readonly id: string;
+  readonly bolumId: string;
+  readonly kapiNo: string;
+  readonly ad: string;
+  readonly soyad: string;
+  readonly adSoyad: string;
+  readonly gorev: string;
+  readonly isvereniTipi: string;
+  readonly isverenKisiId: string | null;
+  readonly isverenAdSoyad: string | null;
+  readonly tcKimlikNo: string | null;
+  readonly telefon: string | null;
+  readonly eposta: string | null;
+  readonly dogumTarihi: string | null;
+  readonly cinsiyet: string;
+  readonly adres: string | null;
+  readonly calismaBaslangic: string;
+  readonly calismaBitis: string | null;
+  readonly aciklama: string | null;
+  readonly notlar: string | null;
+  readonly durum: string;
+  readonly araclari: readonly MockGorevliAraci[];
+}
+
+const mockDaireGorevlileriTaban: readonly MockDaireGorevlisi[] = [
+  {
+    id: 'dg-1', bolumId: 'bolum-1', kapiNo: 'A11',
+    ad: 'Elif', soyad: 'Demir', adSoyad: 'Elif Demir',
+    gorev: 'COCUK_BAKICISI', isvereniTipi: 'MALIK',
+    isverenKisiId: null, isverenAdSoyad: 'Ayşe Yılmaz',
+    tcKimlikNo: null, telefon: '05321110099', eposta: null,
+    dogumTarihi: '1990-06-02', cinsiyet: 'KADIN', adres: null,
+    calismaBaslangic: '2026-02-01', calismaBitis: null,
+    aciklama: 'İki çocuğa bakıyor, site giriş kartı verildi',
+    notlar: null, durum: 'AKTIF',
+    araclari: [],
+  },
+  {
+    id: 'dg-2', bolumId: 'bolum-2', kapiNo: 'A12',
+    ad: 'Hasan', soyad: 'Öztürk', adSoyad: 'Hasan Öztürk',
+    gorev: 'SOFOR', isvereniTipi: 'KIRACI',
+    isverenKisiId: null, isverenAdSoyad: null,
+    tcKimlikNo: null, telefon: '05334442211', eposta: null,
+    dogumTarihi: null, cinsiyet: 'ERKEK', adres: null,
+    calismaBaslangic: '2025-11-15', calismaBitis: null,
+    aciklama: null, notlar: null, durum: 'AKTIF',
+    araclari: [
+      { id: 'arac-dg-2', plaka: '34ABC123', tur: 'OTOMOBIL', otoparkYeri: null },
+    ],
+  },
+  {
+    id: 'dg-3', bolumId: 'bolum-1', kapiNo: 'A11',
+    ad: 'Sevgi', soyad: 'Arslan', adSoyad: 'Sevgi Arslan',
+    gorev: 'TEMIZLIK', isvereniTipi: 'MALIK',
+    isverenKisiId: null, isverenAdSoyad: 'Ayşe Yılmaz',
+    tcKimlikNo: null, telefon: null, eposta: null,
+    dogumTarihi: null, cinsiyet: 'KADIN', adres: null,
+    calismaBaslangic: '2025-01-10', calismaBitis: '2026-03-31',
+    aciklama: null, notlar: 'Haftada bir geliyordu', durum: 'PASIF',
+    araclari: [],
+  },
+];
+
+let daireGorevlisiOrtusu: MockDaireGorevlisi[] | null = null;
+
+export function mockDaireGorevlileriniOku(
+  suzgec: { bolumId?: string; gorev?: string; durum?: string; arama?: string } = {},
+): readonly MockDaireGorevlisi[] {
+  const liste = daireGorevlisiOrtusu ?? mockDaireGorevlileriTaban;
+  const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
+  return liste.filter(
+    (g) =>
+      (suzgec.bolumId === undefined || g.bolumId === suzgec.bolumId) &&
+      (suzgec.gorev === undefined || g.gorev === suzgec.gorev) &&
+      (suzgec.durum === undefined || g.durum === suzgec.durum) &&
+      (q === '' || g.adSoyad.toLocaleLowerCase('tr').includes(q)),
+  );
+}
+
+function daireGorevlisiListesi(): MockDaireGorevlisi[] {
+  return daireGorevlisiOrtusu ?? (daireGorevlisiOrtusu = [...mockDaireGorevlileriTaban]);
+}
+
+export interface MockDaireGorevlisiGirdisi {
+  readonly bolumId: string;
+  readonly isvereniTipi: string;
+  readonly isverenKisiId?: string;
+  readonly ad: string;
+  readonly soyad: string;
+  readonly tcKimlikNo?: string;
+  readonly telefon?: string;
+  readonly eposta?: string;
+  readonly dogumTarihi?: string;
+  readonly cinsiyet?: string;
+  readonly adres?: string;
+  readonly notlar?: string;
+  readonly plakalar?: readonly MockPlakaGirdisi[];
+  readonly gorev: string;
+  readonly calismaBaslangic: string;
+  readonly calismaBitis?: string;
+  readonly aciklama?: string;
+}
+
+export function mockDaireGorevlisiEkle(dto: MockDaireGorevlisiGirdisi): void {
+  const liste = daireGorevlisiListesi();
+
+  // Tekillik BÖLÜM BAŞINADIR: aynı temizlik görevlisinin üç ayrı dairede
+  // çalışması olağandır. Sunucu da aynı kuralı uygular.
+  if (dto.tcKimlikNo !== undefined && dto.tcKimlikNo !== '') {
+    const cakisan = liste.find(
+      (g) =>
+        g.tcKimlikNo === dto.tcKimlikNo &&
+        g.bolumId === dto.bolumId &&
+        g.calismaBitis === null,
+    );
+    if (cakisan) {
+      throw new Error(
+        `${cakisan.kapiNo} numaralı bölümde bu TC kimlik numarasıyla süren bir ` +
+          `görevli kaydı var: ${cakisan.adSoyad}.`,
+      );
+    }
+  }
+
+  const bolum = mockBolumleriOku().find((b) => b.id === dto.bolumId);
+  const bitis = dto.calismaBitis ?? null;
+
+  liste.unshift({
+    id: `dg-yeni-${String(liste.length + 1)}`,
+    bolumId: dto.bolumId,
+    kapiNo: bolum?.kapiNo ?? dto.bolumId,
+    ad: dto.ad.trim(), soyad: dto.soyad.trim(),
+    adSoyad: `${dto.ad.trim()} ${dto.soyad.trim()}`,
+    gorev: dto.gorev,
+    isvereniTipi: dto.isvereniTipi,
+    isverenKisiId: dto.isverenKisiId ?? null,
+    isverenAdSoyad: null,
+    tcKimlikNo: dto.tcKimlikNo ?? null,
+    telefon: dto.telefon?.trim() ?? null,
+    eposta: dto.eposta?.trim() ?? null,
+    dogumTarihi: dto.dogumTarihi ?? null,
+    cinsiyet: dto.cinsiyet ?? 'BELIRTILMEMIS',
+    adres: dto.adres?.trim() ?? null,
+    calismaBaslangic: dto.calismaBaslangic,
+    calismaBitis: bitis,
+    aciklama: dto.aciklama?.trim() ?? null,
+    notlar: dto.notlar?.trim() ?? null,
+    // Bitiş girildiyse kayıt PASİF açılır; sunucudaki kısıt da bunu zorlar.
+    durum: bitis === null ? 'AKTIF' : 'PASIF',
+    araclari: (dto.plakalar ?? []).map((p, i) => ({
+      id: `arac-dg-yeni-${String(i)}`,
+      plaka: p.plaka.toUpperCase().replace(/[\s-]/gu, ''),
+      tur: p.tur ?? 'OTOMOBIL',
+      otoparkYeri: p.otoparkYeri ?? null,
+    })),
+  });
+}
+
+/** Çalışma sonlandırma — kayıt KAPANIR, silinmez. Araçları da kapanır. */
+export function mockDaireGorevlisiAyril(id: string, tarih: string): void {
+  const liste = daireGorevlisiListesi();
+  const i = liste.findIndex((g) => g.id === id);
+  if (i < 0) throw new Error(`Daire görevlisi bulunamadı: ${id}`);
+  const mevcut = liste[i] as MockDaireGorevlisi;
+  if (mevcut.calismaBitis !== null) {
+    throw new Error(
+      `${mevcut.adSoyad} için çalışma ${mevcut.calismaBitis} tarihinde zaten sonlandırılmış.`,
+    );
+  }
+  if (tarih < mevcut.calismaBaslangic) {
+    throw new Error(
+      `Bitiş (${tarih}) çalışma başlangıcından (${mevcut.calismaBaslangic}) önce olamaz.`,
+    );
+  }
+  liste[i] = { ...mevcut, calismaBitis: tarih, durum: 'PASIF' };
+}
+
+// ===========================================================================
+// MİSAFİR — hak sahibi DEĞİLDİR; `kisi` kaydı açılmaz (KVKK: kısa ömürlü veri)
+// ===========================================================================
+
+export interface MockMisafir {
+  readonly id: string;
+  readonly bolumId: string;
+  readonly kapiNo: string;
+  readonly ad: string;
+  readonly soyad: string;
+  readonly adSoyad: string;
+  readonly tcKimlikNo: string | null;
+  readonly telefon: string | null;
+  readonly eposta: string | null;
+  readonly dogumTarihi: string | null;
+  readonly cinsiyet: string;
+  readonly adres: string | null;
+  readonly notlar: string | null;
+  readonly girisTarihi: string;
+  readonly cikisTarihi: string | null;
+  readonly ziyaretNedeni: string | null;
+  readonly icerideMi: boolean;
+  readonly araclari: readonly MockGorevliAraci[];
+}
+
+const mockMisafirlerTaban: readonly MockMisafir[] = [
+  {
+    id: 'ms-1', bolumId: 'bolum-1', kapiNo: 'A11',
+    ad: 'Kemal', soyad: 'Aksoy', adSoyad: 'Kemal Aksoy',
+    tcKimlikNo: null, telefon: '05329998877', eposta: null,
+    dogumTarihi: null, cinsiyet: 'ERKEK', adres: 'Ankara Çankaya', notlar: null,
+    girisTarihi: '2026-07-28', cikisTarihi: null,
+    ziyaretNedeni: 'Aile ziyareti', icerideMi: true,
+    araclari: [
+      { id: 'arac-ms-1', plaka: '06XYZ45', tur: 'OTOMOBIL', otoparkYeri: 'M-2' },
+    ],
+  },
+  {
+    id: 'ms-2', bolumId: 'bolum-2', kapiNo: 'A12',
+    ad: 'Zeynep', soyad: 'Ak', adSoyad: 'Zeynep Ak',
+    tcKimlikNo: null, telefon: null, eposta: null,
+    dogumTarihi: null, cinsiyet: 'KADIN', adres: null, notlar: null,
+    girisTarihi: '2026-07-10', cikisTarihi: '2026-07-14',
+    ziyaretNedeni: 'Tatil', icerideMi: false,
+    araclari: [],
+  },
+];
+
+let misafirOrtusu: MockMisafir[] | null = null;
+
+export function mockMisafirleriOku(
+  suzgec: { bolumId?: string; icerideMi?: boolean; arama?: string } = {},
+): readonly MockMisafir[] {
+  const liste = misafirOrtusu ?? mockMisafirlerTaban;
+  const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
+  return liste.filter(
+    (m) =>
+      (suzgec.bolumId === undefined || m.bolumId === suzgec.bolumId) &&
+      (suzgec.icerideMi === undefined || m.icerideMi === suzgec.icerideMi) &&
+      (q === '' ||
+        m.adSoyad.toLocaleLowerCase('tr').includes(q) ||
+        (m.ziyaretNedeni ?? '').toLocaleLowerCase('tr').includes(q)),
+  );
+}
+
+function misafirListesi(): MockMisafir[] {
+  return misafirOrtusu ?? (misafirOrtusu = [...mockMisafirlerTaban]);
+}
+
+export interface MockMisafirGirdisi {
+  readonly bolumId: string;
+  readonly ad: string;
+  readonly soyad: string;
+  readonly tcKimlikNo?: string;
+  readonly telefon?: string;
+  readonly eposta?: string;
+  readonly dogumTarihi?: string;
+  readonly cinsiyet?: string;
+  readonly adres?: string;
+  readonly notlar?: string;
+  readonly plakalar?: readonly MockPlakaGirdisi[];
+  readonly girisTarihi: string;
+  readonly cikisTarihi?: string;
+  readonly ziyaretNedeni?: string;
+}
+
+export function mockMisafirEkle(dto: MockMisafirGirdisi): void {
+  const liste = misafirListesi();
+  const cikis = dto.cikisTarihi ?? null;
+  if (cikis !== null && cikis < dto.girisTarihi) {
+    throw new Error(`Çıkış (${cikis}) giriş tarihinden (${dto.girisTarihi}) önce olamaz.`);
+  }
+  const bolum = mockBolumleriOku().find((b) => b.id === dto.bolumId);
+
+  liste.unshift({
+    id: `ms-yeni-${String(liste.length + 1)}`,
+    bolumId: dto.bolumId,
+    kapiNo: bolum?.kapiNo ?? dto.bolumId,
+    ad: dto.ad.trim(), soyad: dto.soyad.trim(),
+    adSoyad: `${dto.ad.trim()} ${dto.soyad.trim()}`,
+    tcKimlikNo: dto.tcKimlikNo ?? null,
+    telefon: dto.telefon?.trim() ?? null,
+    eposta: dto.eposta?.trim() ?? null,
+    dogumTarihi: dto.dogumTarihi ?? null,
+    cinsiyet: dto.cinsiyet ?? 'BELIRTILMEMIS',
+    adres: dto.adres?.trim() ?? null,
+    notlar: dto.notlar?.trim() ?? null,
+    girisTarihi: dto.girisTarihi,
+    cikisTarihi: cikis,
+    ziyaretNedeni: dto.ziyaretNedeni?.trim() ?? null,
+    icerideMi: cikis === null,
+    araclari: (dto.plakalar ?? []).map((p, i) => ({
+      id: `arac-ms-yeni-${String(i)}`,
+      plaka: p.plaka.toUpperCase().replace(/[\s-]/gu, ''),
+      tur: p.tur ?? 'OTOMOBIL',
+      otoparkYeri: p.otoparkYeri ?? null,
+    })),
+  });
+}
+
+/** Çıkış — misafirin açık araç kayıtları da aynı tarihte kapanır. */
+export function mockMisafirCikis(id: string, tarih: string): void {
+  const liste = misafirListesi();
+  const i = liste.findIndex((m) => m.id === id);
+  if (i < 0) throw new Error(`Misafir bulunamadı: ${id}`);
+  const mevcut = liste[i] as MockMisafir;
+  if (mevcut.cikisTarihi !== null) {
+    throw new Error(`${mevcut.adSoyad} ${mevcut.cikisTarihi} tarihinde zaten çıkış yapmış.`);
+  }
+  if (tarih < mevcut.girisTarihi) {
+    throw new Error(
+      `Çıkış (${tarih}) giriş tarihinden (${mevcut.girisTarihi}) önce olamaz.`,
+    );
+  }
+  liste[i] = { ...mevcut, cikisTarihi: tarih, icerideMi: false };
+}

@@ -15,8 +15,11 @@ import {
   mockAuditKayitlari, mockBolumleriOku, mockDaireKarti, mockYerlesim,
   mockArsaPayiDuzelt, mockBolumTasi, mockBolumTopluOlustur,
   mockGiderTuruEkle, mockGiderTuruGuncelle, mockGiderTurleriniOku, mockGiderTuruSil,
-  mockGorevliAyril, mockGorevliEkle, mockGorevlileriOku,
-  type MockGorevliGirdisi, type MockDaireGorevlisi,
+  mockPersonelAyril, mockPersonelEkle, mockPersonelleriOku,
+  type MockPersonelGirdisi, type MockSitePersoneli,
+  mockDaireGorevlileriniOku, mockDaireGorevlisiAyril, mockDaireGorevlisiEkle,
+  mockMisafirCikis, mockMisafirEkle, mockMisafirleriOku,
+  type MockDaireGorevlisi, type MockMisafir,
   type MockArsaPayiRaporu, type MockArsaPayiSatiri, type MockTopluBolumSatiri,
   type MockGiderTuru, type MockGiderTuruGirdisi,
   mockApartmanEkle, mockApartmanGuncelle, mockApartmanlariOku, mockApartmanSil,
@@ -120,8 +123,53 @@ export interface ApartmanGirdisi {
   readonly siteIciKod?: string;
 }
 
+/** Kişi bilgileriyle birlikte girilen araç plakası. */
+export interface PlakaGirdisi {
+  readonly plaka: string;
+  readonly tur?: string;
+  readonly marka?: string;
+  readonly model?: string;
+  readonly renk?: string;
+  readonly otoparkYeri?: string;
+}
+
+/**
+ * Formun "Kişi Bilgileri" bölümü — sunucudaki `KisiGirdisiDto` ile aynı şekil.
+ *
+ * `kisiId` verilirse bu nesne GÖNDERİLMEZ. TC kimlik no verilirse sunucu aynı
+ * numaralı mevcut kişiyi kullanır ve MÜKERRER KAYIT AÇMAZ.
+ */
+export interface KisiGirdisi {
+  readonly ad: string;
+  readonly soyad: string;
+  readonly tcKimlikNo?: string;
+  readonly telefon?: string;
+  readonly eposta?: string;
+  readonly dogumTarihi?: string;
+  readonly cinsiyet?: string;
+  readonly adres?: string;
+  readonly notlar?: string;
+  readonly plakalar?: readonly PlakaGirdisi[];
+}
+
+/**
+ * Hızlı kayıt yanıtı. `kisiOlusturulduMu` ve `tcIleEslestiMi` kullanıcıya
+ * gösterilir: yeni kişi girdiğini sanırken TC eşleşmesi yüzünden mevcut bir
+ * kayda bağlanmış olabilir ve hangi kayda bağlandığını görmesi gerekir.
+ */
+export interface HizliKayitSonucu {
+  readonly id: string;
+  readonly durum: string;
+  readonly kisiId: string;
+  readonly kisiOlusturulduMu: boolean;
+  readonly tcIleEslestiMi: boolean;
+  readonly plakaSayisi: number;
+}
+
 export interface MalikEkleGirdisi {
-  readonly kisiAdi: string;
+  /** Mevcut kişi. Verilmezse `kisi` bölümünden oluşturulur. */
+  readonly kisiId?: string;
+  readonly kisi?: KisiGirdisi;
   readonly hissePay: string;
   readonly hissePayda: string;
   readonly tapuTuru: string;
@@ -134,13 +182,26 @@ export interface MalikDuzeltGirdisi {
   readonly tapuYevmiyeNo?: string;
 }
 
+/**
+ * Kefil bilgisi. AYRI BİR KİŞİ KAYDI AÇILMAZ: yönetimin ortak gider alacağı
+ * malike (KMK md. 20) ve kiracıya (md. 22) yönelir, kefile yönelmez.
+ */
+export interface KefilGirdisi {
+  readonly adSoyad: string;
+  readonly tcKimlikNo?: string;
+  readonly telefon?: string;
+  readonly adres?: string;
+}
+
 export interface KiraciEkleGirdisi {
-  readonly kisiAdi: string;
+  readonly kisiId?: string;
+  readonly kisi?: KisiGirdisi;
   readonly baslangic: string;
   readonly bitis?: string;
   readonly sozlesmeNo?: string;
   /** Para METİN taşınır — JSON number float'tır (BFS v1 §11). */
   readonly depozito?: string;
+  readonly kefil?: KefilGirdisi;
 }
 
 export interface KiraciDuzeltGirdisi {
@@ -158,12 +219,50 @@ export interface SakinDuzeltGirdisi {
 }
 
 export interface SakinEkleGirdisi {
-  readonly kisiAdi: string;
+  readonly kisiId?: string;
+  readonly kisi?: KisiGirdisi;
   readonly yakinlikDerecesi: string;
   readonly girisTarihi: string;
-  readonly telefon?: string;
   readonly acilDurumKisiAdi?: string;
   readonly acilDurumTelefon?: string;
+}
+
+/** Daire görevlisi — işvereni MALİK/KİRACI/SAKİN olan ev hizmetleri görevlisi. */
+export interface DaireGorevlisiGirdisi {
+  readonly bolumId: string;
+  readonly isvereniTipi: string;
+  readonly isverenKisiId?: string;
+  readonly ad: string;
+  readonly soyad: string;
+  readonly tcKimlikNo?: string;
+  readonly telefon?: string;
+  readonly eposta?: string;
+  readonly dogumTarihi?: string;
+  readonly cinsiyet?: string;
+  readonly adres?: string;
+  readonly notlar?: string;
+  readonly plakalar?: readonly PlakaGirdisi[];
+  readonly gorev: string;
+  readonly calismaBaslangic: string;
+  readonly calismaBitis?: string;
+  readonly aciklama?: string;
+}
+
+export interface MisafirGirdisi {
+  readonly bolumId: string;
+  readonly ad: string;
+  readonly soyad: string;
+  readonly tcKimlikNo?: string;
+  readonly telefon?: string;
+  readonly eposta?: string;
+  readonly dogumTarihi?: string;
+  readonly cinsiyet?: string;
+  readonly adres?: string;
+  readonly notlar?: string;
+  readonly plakalar?: readonly PlakaGirdisi[];
+  readonly girisTarihi: string;
+  readonly cikisTarihi?: string;
+  readonly ziyaretNedeni?: string;
 }
 
 export const servis = {
@@ -271,33 +370,96 @@ export const servis = {
       () => { mockBolumTopluOlustur(blokId, katId, kat, bolumler); },
     ),
 
-  // --- Daire görevlileri (görevli) ---
+  // --- Site personeli (işveren YÖNETİM) ---
+  //
+  // ⚠️  Daire görevlisi ile KARIŞTIRILMAMALIDIR (aşağıda ayrı uç): orada
+  //     işveren malik/kiracıdır ve SGK · vardiya · zimmet alanı yoktur.
 
-  daireGorevlileri: (
+  sitePersonelleri: (
     suzgec: { gorev?: string; durum?: string; arama?: string } = {},
-  ): Promise<readonly MockDaireGorevlisi[]> => {
+  ): Promise<readonly MockSitePersoneli[]> => {
     const p = new URLSearchParams();
     if (suzgec.gorev !== undefined) p.set('gorev', suzgec.gorev);
     if (suzgec.durum !== undefined) p.set('durum', suzgec.durum);
     if (suzgec.arama !== undefined) p.set('arama', suzgec.arama);
     const sorgu = p.toString();
     return getir(
-      `/daire-gorevlileri${sorgu === '' ? '' : `?${sorgu}`}`,
-      mockGorevlileriOku(suzgec),
+      `/site-personeli${sorgu === '' ? '' : `?${sorgu}`}`,
+      mockPersonelleriOku(suzgec),
     );
   },
 
-  gorevliEkle: (dto: MockGorevliGirdisi): Promise<void> =>
-    gonder('/daire-gorevlileri', 'POST', dto, () => { mockGorevliEkle(dto); }),
+  personelEkle: (dto: MockPersonelGirdisi): Promise<void> =>
+    gonder('/site-personeli', 'POST', dto, () => { mockPersonelEkle(dto); }),
 
   /** İşten ayrılış — kayıt KAPANIR, silinmez. */
-  gorevliAyril: (
+  personelAyril: (
     id: string, istenAyrilisTarihi: string, gerekce: string,
   ): Promise<void> =>
     gonder(
-      `/daire-gorevlileri/${id}/ayril`, 'PATCH',
+      `/site-personeli/${id}/ayril`, 'PATCH',
       { istenAyrilisTarihi, gerekce },
-      () => { mockGorevliAyril(id, istenAyrilisTarihi); },
+      () => { mockPersonelAyril(id, istenAyrilisTarihi); },
+    ),
+
+  // --- Daire görevlileri (işveren MALİK / KİRACI / SAKİN) ---
+  //
+  // Çocuk bakıcısı · ev yardımcısı · şoför · temizlikçi. Yönetim bu kişilerin
+  // İŞVERENİ DEĞİLDİR; kayıt site giriş ve güvenlik kütüğüdür. Bu yüzden
+  // SGK · departman · vardiya · zimmet alanı YOKTUR.
+
+  daireGorevlileri: (
+    suzgec: { bolumId?: string; gorev?: string; durum?: string; arama?: string } = {},
+  ): Promise<readonly MockDaireGorevlisi[]> => {
+    const p = new URLSearchParams();
+    if (suzgec.bolumId !== undefined) p.set('bolumId', suzgec.bolumId);
+    if (suzgec.gorev !== undefined) p.set('gorev', suzgec.gorev);
+    if (suzgec.durum !== undefined) p.set('durum', suzgec.durum);
+    if (suzgec.arama !== undefined) p.set('arama', suzgec.arama);
+    const sorgu = p.toString();
+    return getir(
+      `/daire-gorevlileri${sorgu === '' ? '' : `?${sorgu}`}`,
+      mockDaireGorevlileriniOku(suzgec),
+    );
+  },
+
+  daireGorevlisiEkle: (dto: DaireGorevlisiGirdisi): Promise<void> =>
+    gonder('/daire-gorevlileri', 'POST', dto, () => { mockDaireGorevlisiEkle(dto); }),
+
+  /** Hizmet ilişkisi sonlandırma — kayıt KAPANIR, araçları da kapanır. */
+  daireGorevlisiAyril: (
+    id: string, calismaBitis: string, gerekce: string,
+  ): Promise<void> =>
+    gonder(
+      `/daire-gorevlileri/${id}/ayril`, 'PATCH',
+      { calismaBitis, gerekce },
+      () => { mockDaireGorevlisiAyril(id, calismaBitis); },
+    ),
+
+  // --- Misafirler (hak sahibi DEĞİL — `kisi` kaydı açılmaz) ---
+
+  misafirler: (
+    suzgec: { bolumId?: string; icerideMi?: boolean; arama?: string } = {},
+  ): Promise<readonly MockMisafir[]> => {
+    const p = new URLSearchParams();
+    if (suzgec.bolumId !== undefined) p.set('bolumId', suzgec.bolumId);
+    if (suzgec.icerideMi !== undefined) p.set('icerideMi', String(suzgec.icerideMi));
+    if (suzgec.arama !== undefined) p.set('arama', suzgec.arama);
+    const sorgu = p.toString();
+    return getir(
+      `/misafirler${sorgu === '' ? '' : `?${sorgu}`}`,
+      mockMisafirleriOku(suzgec),
+    );
+  },
+
+  misafirEkle: (dto: MisafirGirdisi): Promise<void> =>
+    gonder('/misafirler', 'POST', dto, () => { mockMisafirEkle(dto); }),
+
+  /** Çıkış — misafirin açık araç kayıtları da aynı tarihte kapanır. */
+  misafirCikis: (id: string, cikisTarihi: string): Promise<void> =>
+    gonder(
+      `/misafirler/${id}/cikis`, 'PATCH', { cikisTarihi },
+      () => { mockMisafirCikis(id, cikisTarihi); },
     ),
 
   // --- Gider türleri (aidat kuralları — KMK md. 20) ---
@@ -475,8 +637,10 @@ export type {
   MockDaireKarti as DaireKarti,
   MockGiderTuru as GiderTuru,
   MockGiderTuruGirdisi as GiderTuruGirdisi,
+  MockSitePersoneli as SitePersoneli,
+  MockPersonelGirdisi as PersonelGirdisi,
   MockDaireGorevlisi as DaireGorevlisi,
-  MockGorevliGirdisi as GorevliGirdisi,
+  MockMisafir as Misafir,
   MockHisseRaporu as HisseRaporu,
   MockKat as Kat,
   MockKiraci as Kiraci,

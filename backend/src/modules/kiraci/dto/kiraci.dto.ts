@@ -1,13 +1,64 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID, Length, Matches, MinLength } from 'class-validator';
+import {
+  IsOptional, IsString, IsUUID, Length, Matches, MinLength, ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { KisiGirdisiDto } from '../../../common/kayit/kisi-girdisi.dto';
 
 const TAKVIM_TARIHI = /^\d{4}-\d{2}-\d{2}$/;
 const TARIH_MESAJI = 'Tarih YYYY-MM-DD biçiminde olmalıdır (saat bilgisi taşıyamaz).';
 
+/**
+ * Kefil bilgisi.
+ *
+ * KEFİL AYRI BİR `Kisi` KAYDI OLARAK AÇILMAZ. Yönetimin ortak gider alacağı
+ * malike (KMK md. 20) ve kiracıya (md. 22, kira bedeli kadar müteselsil)
+ * yönelir; KEFİLE YÖNELMEZ — kefalet, malik ile kiracı arasındaki kira
+ * sözleşmesinin tarafıdır, yönetim planının değil. `Kisi` kaydı açılsaydı
+ * kefil borç sorumluluğu sorgularında görünürdü.
+ */
+export class KefilDto {
+  @ApiProperty({ example: 'Mehmet Yılmaz' })
+  @IsString() @Length(3, 120)
+  adSoyad!: string;
+
+  @ApiPropertyOptional({ example: '12345678901' })
+  @IsOptional()
+  @Matches(/^[0-9]{11}$/u, { message: 'TC kimlik no 11 haneli ve yalnızca rakam olmalıdır.' })
+  tcKimlikNo?: string;
+
+  @ApiPropertyOptional({ example: '05321234567' })
+  @IsOptional() @IsString() @Length(7, 32)
+  telefon?: string;
+
+  @ApiPropertyOptional({ example: 'Kadıköy / İstanbul' })
+  @IsOptional() @IsString() @Length(5, 500)
+  adres?: string;
+}
+
 export class KiraciEkleDto {
-  @ApiProperty({ description: 'Kira sözleşmesinin tarafı. Şirket de kiracı olabilir.' })
-  @IsUUID()
-  kisiId!: string;
+  /**
+   * KİŞİ SEÇME ZORUNLU DEĞİLDİR. `kisiId` verilirse mevcut kişi kullanılır;
+   * verilmezse `kisi` bölümündeki bilgilerden oluşturulur.
+   */
+  @ApiPropertyOptional({
+    description: 'Mevcut kira sözleşmesi tarafı. Şirket de kiracı olabilir.',
+  })
+  @IsOptional() @IsUUID()
+  kisiId?: string;
+
+  @ApiPropertyOptional({
+    type: KisiGirdisiDto,
+    description:
+      'Formun "Kişi Bilgileri" bölümü. TC kimlik no verilirse aynı numaralı ' +
+      'mevcut kişi kullanılır — mükerrer kimlik kaydı açılmaz.',
+  })
+  @IsOptional() @ValidateNested() @Type(() => KisiGirdisiDto)
+  kisi?: KisiGirdisiDto;
+
+  @ApiPropertyOptional({ type: KefilDto })
+  @IsOptional() @ValidateNested() @Type(() => KefilDto)
+  kefil?: KefilDto;
 
   @ApiProperty({ example: '2026-01-01' })
   @Matches(TAKVIM_TARIHI, { message: TARIH_MESAJI })
@@ -63,6 +114,10 @@ export class KiraciDuzeltDto {
   })
   @IsOptional() @Matches(TAKVIM_TARIHI, { message: TARIH_MESAJI })
   bitis?: string;
+
+  @ApiPropertyOptional({ type: KefilDto, description: 'Kefil bilgisi düzeltmesi.' })
+  @IsOptional() @ValidateNested() @Type(() => KefilDto)
+  kefil?: KefilDto;
 }
 
 export class KiraciTahliyeDto {

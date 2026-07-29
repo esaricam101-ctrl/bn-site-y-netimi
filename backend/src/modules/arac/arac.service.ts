@@ -21,14 +21,33 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
+import type { AracSahipTipi } from '@bnos/apartman-domain';
 import type { AracDuzeltDto, AracEkleDto, AracSonlandirDto } from './dto/arac.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
 export interface AracSatiri {
   readonly id: string;
-  readonly bolumId: string;
-  readonly kapiNo: string;
-  readonly kisiId: string;
+  /**
+   * KAPSAM: site personeli aracı YÖNETİME kayıtlıdır ve bu alan boştur;
+   * diğer bütün sahip tipleri bir bağımsız bölüme bağlıdır (`arac_kapsam`).
+   */
+  readonly bolumId: string | null;
+  readonly kapiNo: string | null;
+  /** `BOLUM` ya da `YONETIM` — listede araçların hangi hakka sayıldığı. */
+  readonly kapsam: 'BOLUM' | 'YONETIM';
+  /**
+   * Aracın sahibi. Hak sahibi kişi (malik/kiracı/sakin) DIŞINDA daire
+   * görevlisi, site personeli ve misafir de araç sahibi olabilir; bu yüzden
+   * `kisiId` boş kalabilir ve sahip `sahipTipi` ile ayırt edilir.
+   *
+   * Otopark kapasitesi bu tipleri AYIRT ETMEZ — hepsi yer kaplar — ama
+   * listede sahibi görünmeyen plaka, "bu araç kimin?" sorusunu cevapsız
+   * bırakır.
+   */
+  readonly kisiId: string | null;
+  readonly sahipTipi: AracSahipTipi;
+  readonly sahipAdi: string;
+  /** Geriye dönük uyumluluk: `sahipAdi` ile aynı değeri taşır. */
   readonly kisiAdi: string;
   readonly plaka: string;
   readonly tur: string;
@@ -73,6 +92,9 @@ export class AracServisi {
             baslangic: true, bitis: true,
             bolum: { select: { kapiNo: true } },
             kisi: { select: { ad: true, soyad: true } },
+            gorevli: { select: { ad: true, soyad: true } },
+            personel: { select: { ad: true, soyad: true } },
+            misafir: { select: { ad: true, soyad: true } },
           },
           orderBy: [{ bitis: 'asc' }, { plaka: 'asc' }],
         }),
@@ -83,12 +105,31 @@ export class AracServisi {
     const satirlar = kayitlar.map((a) => {
       const baslangic = gun(a.baslangic);
       const bitis = a.bitis === null ? null : gun(a.bitis);
+
+      // Dört sahip tipinden hangisi doluysa o gösterilir. Veritabanı kısıtı
+      // (`arac_tek_sahip`) tam olarak birini garanti eder; yine de son
+      // dalda 'KISI' varsayılıp boş ad basmak yerine açıkça yazılır ki
+      // yeni bir sahip tipi eklenip burası güncellenmezse fark edilsin.
+      const sahip: { tipi: AracSahipTipi; adi: string } =
+        a.kisi !== null
+          ? { tipi: 'KISI', adi: `${a.kisi.ad} ${a.kisi.soyad}` }
+          : a.gorevli !== null
+            ? { tipi: 'DAIRE_GOREVLISI', adi: `${a.gorevli.ad} ${a.gorevli.soyad}` }
+            : a.personel !== null
+              ? { tipi: 'SITE_PERSONELI', adi: `${a.personel.ad} ${a.personel.soyad}` }
+              : a.misafir !== null
+                ? { tipi: 'MISAFIR', adi: `${a.misafir.ad} ${a.misafir.soyad}` }
+                : { tipi: 'KISI', adi: '(sahip kaydı yok)' };
+
       return {
         id: a.id,
         bolumId: a.bolumId,
-        kapiNo: a.bolum.kapiNo,
+        kapiNo: a.bolum?.kapiNo ?? null,
+        kapsam: a.bolumId === null ? ('YONETIM' as const) : ('BOLUM' as const),
         kisiId: a.kisiId,
-        kisiAdi: `${a.kisi.ad} ${a.kisi.soyad}`,
+        sahipTipi: sahip.tipi,
+        sahipAdi: sahip.adi,
+        kisiAdi: sahip.adi,
         plaka: a.plaka,
         tur: a.tur,
         marka: a.marka,

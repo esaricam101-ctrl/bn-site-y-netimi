@@ -52,11 +52,39 @@ export function plakayiDogrula(ham: string): string {
   return normal;
 }
 
+/**
+ * Aracin sahip tipi.
+ *
+ * Otopark kapasitesi malik aracini bakicinin ya da guvenlik gorevlisinin
+ * aracindan AYIRT ETMEZ: hepsi yer kaplar. Bu yuzden tek plaka kutugu
+ * kullanilir ve sahip alani dorde acilir.
+ */
+export type AracSahipTipi = 'KISI' | 'DAIRE_GOREVLISI' | 'SITE_PERSONELI' | 'MISAFIR';
+
 export interface Arac {
   readonly id: string;
-  readonly bolumId: string;
-  /** Aracin sahibi ya da kullanicisi — malik, kiraci veya sakin olabilir. */
-  readonly kisiId: string;
+  /**
+   * KAPSAM (`arac_kapsam` kisiti):
+   *   · Malik · kiraci · sakin · daire gorevlisi · misafir araci → BOLUME
+   *     kayitlidir, bu alan doludur.
+   *   · Site personeli araci → YONETIME kayitlidir, bu alan BOSTUR.
+   *
+   * Personel aracini bir daireye yazmak, o dairenin otopark hakkini tuketmis
+   * gosterir ve KULLANIM_BAZLI dagitimda ona fazla pay cikarir.
+   */
+  readonly bolumId: string | null;
+  /**
+   * SAHIP — TAM OLARAK BIRI dolu olur (`arac_tek_sahip` kisiti).
+   *
+   * `kisiId`: malik · kiraci · sakin (hak sahibi kisi kaydi).
+   * `gorevliId`: daire gorevlisi (isvereni malik/kiraci olan kisi).
+   * `personelId`: site personeli (isvereni yonetim olan kadro).
+   * `misafirId`: misafir.
+   */
+  readonly kisiId: string | null;
+  readonly gorevliId?: string | null;
+  readonly personelId?: string | null;
+  readonly misafirId?: string | null;
   readonly plaka: string;
   readonly tur: AracTuru;
   readonly marka: string | null;

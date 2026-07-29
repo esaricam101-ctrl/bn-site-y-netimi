@@ -1,5 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, IsUUID, Length, Matches } from 'class-validator';
+import {
+  IsIn, IsOptional, IsString, IsUUID, Length, Matches, ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { KisiGirdisiDto } from '../../../common/kayit/kisi-girdisi.dto';
 
 export const YAKINLIK_DERECELERI = [
   'KENDISI', 'ES', 'COCUK', 'ANNE_BABA', 'KARDES', 'AKRABA',
@@ -10,9 +14,22 @@ const TAKVIM_TARIHI = /^\d{4}-\d{2}-\d{2}$/;
 const TARIH_MESAJI = 'Tarih YYYY-MM-DD biçiminde olmalıdır (saat bilgisi taşıyamaz).';
 
 export class SakinEkleDto {
-  @ApiProperty({ description: 'Fiilen oturan kişi.' })
-  @IsUUID()
-  kisiId!: string;
+  /**
+   * KİŞİ SEÇME ZORUNLU DEĞİLDİR. `kisiId` verilirse mevcut kişi kullanılır;
+   * verilmezse `kisi` bölümündeki bilgilerden oluşturulur.
+   */
+  @ApiPropertyOptional({ description: 'Fiilen oturan mevcut kişi.' })
+  @IsOptional() @IsUUID()
+  kisiId?: string;
+
+  @ApiPropertyOptional({
+    type: KisiGirdisiDto,
+    description:
+      'Formun "Kişi Bilgileri" bölümü. TC kimlik no verilirse aynı numaralı ' +
+      'mevcut kişi kullanılır — mükerrer kimlik kaydı açılmaz.',
+  })
+  @IsOptional() @ValidateNested() @Type(() => KisiGirdisiDto)
+  kisi?: KisiGirdisiDto;
 
   @ApiPropertyOptional({
     enum: YAKINLIK_DERECELERI, example: 'ES',

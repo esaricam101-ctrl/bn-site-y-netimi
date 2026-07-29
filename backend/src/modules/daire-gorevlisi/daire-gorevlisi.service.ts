@@ -1,16 +1,20 @@
 /**
- * Daire Görevlisi servisi — sitede/apartmanda görev yapan görevli.
+ * Daire Görevlisi servisi — İŞVERENİ MALİK / KİRACI / SAKİN olan kişi.
  *
- * `Kisi` TABLOSUNDAN AYRIDIR ve bu bilinçlidir:
- *   - `Kisi`, malik/kiracı/sakin ilişkilerinin dayandığı KİMLİK kaydıdır.
- *   - Görevli bir İSTİHDAM kaydıdır; kendi yaşam döngüsü vardır (işe giriş ·
- *     vardiya · SGK · çıkış · zimmet).
- * Aynı tabloya sıkıştırılsaydı, bir kapıcının aynı zamanda o binada kiracı
- * olması durumunda iki kavram tek satıra biner ve "işten ayrıldı" işareti
- * kiracılık kaydını da etkilerdi.
+ * Çocuk bakıcısı · hasta bakıcısı · ev yardımcısı · temizlikçi · aşçı ·
+ * şoför · özel güvenlik · özel öğretmen. Ücretini daire sahibi öder.
  *
- * KAYIT SİLİNMEZ, KAPANIR. İşten ayrılan görevlinin kaydı `istenAyrilisTarihi`
- * ile kapatılır: geçmiş bordro, zimmet ve sertifika sorguları o kayda dayanır.
+ * ⚠️  YÖNETİM BU KİŞİNİN İŞVERENİ DEĞİLDİR. Kayıt, yönetimin site giriş ve
+ *     güvenlik kütüğü olarak tuttuğu bilgidir. Bu yüzden SGK · departman ·
+ *     vardiya · zimmet YOKTUR; bunlar `site-personeli` modülündedir.
+ *
+ * ⚠️  `Kisi` KAYDI AÇILMAZ. Görevli bir hak sahibi değildir: borç sorumlusu
+ *     olmaz, tahakkuka girmez, arsa payı taşımaz. `Kisi`ye yazılsaydı
+ *     malik/kiracı listelerine karışır ve borç sorumluluğu sorgularında
+ *     görünürdü. `isverenKisiId` yalnızca ONU ÇALIŞTIRAN kişiyi gösterir.
+ *
+ * KAYIT SİLİNMEZ, KAPANIR: hizmet ilişkisi `calismaBitis` ile sonlandırılır.
+ * Geçmişe dönük "o tarihte siteye kim giriyordu" sorusu bu kayda dayanır.
  */
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
@@ -19,66 +23,46 @@ import { IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
+import { plakalariYaz } from '../../common/kayit/hizli-kayit';
 import type {
-  GorevliAyrilDto, GorevliDuzeltDto, GorevliEkleDto,
-  SertifikaEkleDto, ZimmetEkleDto, ZimmetIadeDto,
+  DaireGorevlisiAyrilDto, DaireGorevlisiDuzeltDto, DaireGorevlisiEkleDto,
 } from './dto/daire-gorevlisi.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
-export interface SertifikaSatiri {
+export interface GorevliAraciSatiri {
   readonly id: string;
-  readonly ad: string;
-  readonly kurum: string | null;
-  readonly belgeNo: string | null;
-  readonly verilisTarihi: string;
-  readonly gecerlilikBitisi: string | null;
-  /** Bugün itibarıyla süresi dolmuş mu — idari yaptırım riski. */
-  readonly suresiDolduMu: boolean;
+  readonly plaka: string;
+  readonly tur: string;
+  readonly otoparkYeri: string | null;
 }
 
-export interface ZimmetSatiri {
+export interface DaireGorevlisiSatiri {
   readonly id: string;
-  readonly ad: string;
-  readonly seriNo: string | null;
-  readonly adet: number;
-  readonly zimmetTarihi: string;
-  readonly iadeTarihi: string | null;
-  readonly acikMi: boolean;
-  readonly notlar: string | null;
-}
-
-export interface GorevliSatiri {
-  readonly id: string;
-  readonly apartmanId: string | null;
-  readonly apartmanAdi: string | null;
+  readonly bolumId: string;
+  readonly kapiNo: string;
   readonly ad: string;
   readonly soyad: string;
   readonly adSoyad: string;
   readonly gorev: string;
-  readonly departman: string | null;
+  readonly isvereniTipi: string;
+  readonly isverenKisiId: string | null;
+  readonly isverenAdSoyad: string | null;
+  readonly tcKimlikNo: string | null;
   readonly telefon: string | null;
   readonly eposta: string | null;
-  readonly tcKimlikNo: string | null;
-  readonly sgkNo: string | null;
-  readonly iseGirisTarihi: string;
-  readonly istenAyrilisTarihi: string | null;
-  readonly vardiya: string;
-  readonly durum: string;
+  readonly dogumTarihi: string | null;
+  readonly cinsiyet: string;
+  readonly adres: string | null;
+  readonly calismaBaslangic: string;
+  readonly calismaBitis: string | null;
+  readonly aciklama: string | null;
   readonly notlar: string | null;
-  readonly sertifikalar: readonly SertifikaSatiri[];
-  readonly zimmetler: readonly ZimmetSatiri[];
-  /** Üzerinde iade edilmemiş zimmet sayısı — ayrılışta uyarı üretir. */
-  readonly acikZimmetSayisi: number;
-  /** Süresi dolmuş sertifika sayısı. */
-  readonly suresiDolanSertifikaSayisi: number;
+  readonly durum: string;
+  readonly araclari: readonly GorevliAraciSatiri[];
 }
 
 function gun(d: Date): TakvimTarihi {
   return takvimTarihi(d.toISOString().slice(0, 10));
-}
-
-function bugun(): TakvimTarihi {
-  return takvimTarihi(new Date().toISOString().slice(0, 10));
 }
 
 @Injectable()
@@ -93,10 +77,10 @@ export class DaireGorevlisiServisi {
   async listele(
     principal: Principal,
     suzgec: {
-      readonly gorev?: string; readonly durum?: string;
-      readonly apartmanId?: string; readonly arama?: string;
+      readonly bolumId?: string; readonly gorev?: string;
+      readonly durum?: string; readonly arama?: string;
     } = {},
-  ): Promise<readonly GorevliSatiri[]> {
+  ): Promise<readonly DaireGorevlisiSatiri[]> {
     const aramaMetni = suzgec.arama?.trim();
 
     const kayitlar = await this.prisma.tenantIslemi(
@@ -104,150 +88,165 @@ export class DaireGorevlisiServisi {
         tx.daireGorevlisi.findMany({
           where: {
             tenantId: principal.tenantId,
+            // Soft delete uzantısı istemciye bağlı değil; açıkça süzülür.
+            silinmeTarihi: null,
+            ...(suzgec.bolumId ? { bolumId: suzgec.bolumId } : {}),
             ...(suzgec.gorev ? { gorev: suzgec.gorev as never } : {}),
             ...(suzgec.durum ? { durum: suzgec.durum as never } : {}),
-            ...(suzgec.apartmanId ? { apartmanId: suzgec.apartmanId } : {}),
             ...(aramaMetni
               ? {
                   OR: [
                     { ad: { contains: aramaMetni, mode: 'insensitive' as const } },
                     { soyad: { contains: aramaMetni, mode: 'insensitive' as const } },
-                    { departman: { contains: aramaMetni, mode: 'insensitive' as const } },
                   ],
                 }
               : {}),
           },
           include: {
-            apartman: { select: { ad: true } },
-            sertifikalar: { orderBy: { verilisTarihi: 'desc' } },
-            zimmetler: { orderBy: [{ iadeTarihi: 'asc' }, { zimmetTarihi: 'desc' }] },
+            bolum: { select: { kapiNo: true } },
+            isverenKisi: { select: { ad: true, soyad: true } },
+            araclari: {
+              select: { id: true, plaka: true, tur: true, otoparkYeri: true },
+              orderBy: { plaka: 'asc' },
+            },
           },
           orderBy: [{ durum: 'asc' }, { soyad: 'asc' }, { ad: 'asc' }],
         }),
       principal.tenantId,
     );
 
-    const simdi = bugun();
-    return kayitlar.map((c) => {
-      const sertifikalar = c.sertifikalar.map((s) => {
-        const bitis = s.gecerlilikBitisi === null ? null : gun(s.gecerlilikBitisi);
-        return {
-          id: s.id,
-          ad: s.ad,
-          kurum: s.kurum,
-          belgeNo: s.belgeNo,
-          verilisTarihi: gun(s.verilisTarihi),
-          gecerlilikBitisi: bitis,
-          suresiDolduMu: bitis !== null && bitis < simdi,
-        };
-      });
-      const zimmetler = c.zimmetler.map((z) => ({
-        id: z.id,
-        ad: z.ad,
-        seriNo: z.seriNo,
-        adet: z.adet,
-        zimmetTarihi: gun(z.zimmetTarihi),
-        iadeTarihi: z.iadeTarihi === null ? null : gun(z.iadeTarihi),
-        acikMi: z.iadeTarihi === null,
-        notlar: z.notlar,
-      }));
-
-      return {
-        id: c.id,
-        apartmanId: c.apartmanId,
-        apartmanAdi: c.apartman?.ad ?? null,
-        ad: c.ad,
-        soyad: c.soyad,
-        adSoyad: `${c.ad} ${c.soyad}`,
-        gorev: c.gorev,
-        departman: c.departman,
-        telefon: c.telefon,
-        eposta: c.eposta,
-        tcKimlikNo: c.tcKimlikNo,
-        sgkNo: c.sgkNo,
-        iseGirisTarihi: gun(c.iseGirisTarihi),
-        istenAyrilisTarihi: c.istenAyrilisTarihi === null ? null : gun(c.istenAyrilisTarihi),
-        vardiya: c.vardiya,
-        durum: c.durum,
-        notlar: c.notlar,
-        sertifikalar,
-        zimmetler,
-        acikZimmetSayisi: zimmetler.filter((z) => z.acikMi).length,
-        suresiDolanSertifikaSayisi: sertifikalar.filter((s) => s.suresiDolduMu).length,
-      };
-    });
+    return kayitlar.map((g) => ({
+      id: g.id,
+      bolumId: g.bolumId,
+      kapiNo: g.bolum.kapiNo,
+      ad: g.ad,
+      soyad: g.soyad,
+      adSoyad: `${g.ad} ${g.soyad}`,
+      gorev: g.gorev,
+      isvereniTipi: g.isvereniTipi,
+      isverenKisiId: g.isverenKisiId,
+      isverenAdSoyad:
+        g.isverenKisi === null ? null : `${g.isverenKisi.ad} ${g.isverenKisi.soyad}`,
+      tcKimlikNo: g.tcKimlikNo,
+      telefon: g.telefon,
+      eposta: g.eposta,
+      dogumTarihi: g.dogumTarihi === null ? null : gun(g.dogumTarihi),
+      cinsiyet: g.cinsiyet,
+      adres: g.adres,
+      calismaBaslangic: gun(g.calismaBaslangic),
+      calismaBitis: g.calismaBitis === null ? null : gun(g.calismaBitis),
+      aciklama: g.aciklama,
+      notlar: g.notlar,
+      durum: g.durum,
+      araclari: g.araclari.map((a) => ({
+        id: a.id, plaka: a.plaka, tur: a.tur, otoparkYeri: a.otoparkYeri,
+      })),
+    }));
   }
 
-  async detay(id: string, principal: Principal): Promise<GorevliSatiri> {
+  async detay(id: string, principal: Principal): Promise<DaireGorevlisiSatiri> {
     const hepsi = await this.listele(principal);
-    const kayit = hepsi.find((c) => c.id === id);
-    if (kayit === undefined) throw new KayitBulunamadi(`Görevli bulunamadı: ${id}`);
+    const kayit = hepsi.find((g) => g.id === id);
+    if (kayit === undefined) throw new KayitBulunamadi(`Daire görevlisi bulunamadı: ${id}`);
     return kayit;
-  }
-
-  /**
-   * Süresi dolmuş sertifikası olan AKTİF görevli.
-   *
-   * Süresi geçmiş güvenlik sertifikasıyla çalıştırmak idari yaptırım
-   * sebebidir; bu ancak takip edilirse görülür.
-   */
-  async sertifikasiDolanlar(principal: Principal): Promise<readonly GorevliSatiri[]> {
-    const hepsi = await this.listele(principal, { durum: 'AKTIF' });
-    return hepsi.filter((c) => c.suresiDolanSertifikaSayisi > 0);
   }
 
   // ---------------------------------------------------------------- yazma
 
-  async ekle(dto: GorevliEkleDto, principal: Principal): Promise<KomutSonucu> {
+  /**
+   * Tek ekrandan hızlı kayıt: kişi bilgileri, görev bilgileri ve plakalar
+   * AYNI İŞLEMDE yazılır.
+   *
+   * Plaka yazımı hata verirse görevli kaydı da geri alınır: yarım kayıt,
+   * "plakayı da girdim" sanan kullanıcı için sessiz veri kaybıdır.
+   */
+  async ekle(
+    dto: DaireGorevlisiEkleDto, principal: Principal,
+  ): Promise<KomutSonucu & { readonly plakaSayisi: number }> {
     const baglam = mevcutBaglamiZorunluKil('daire-gorevlisi.ekle');
     const id = randomUUID();
-    const giris = takvimTarihi(dto.iseGirisTarihi);
+    const baslangic = takvimTarihi(dto.calismaBaslangic);
+    const bitis = dto.calismaBitis === undefined ? null : takvimTarihi(dto.calismaBitis);
+
+    if (bitis !== null && bitis < baslangic) {
+      throw new IsKuraliIhlali(
+        `Çalışma bitişi (${bitis}) başlangıçtan (${baslangic}) önce olamaz.`,
+        'Tarihleri düzeltin.',
+      );
+    }
 
     return this.prisma.tenantIslemi(async (tx) => {
-      if (dto.apartmanId !== undefined) {
-        const apartman = await tx.apartman.findFirst({
-          where: { id: dto.apartmanId, tenantId: principal.tenantId },
+      const bolum = await tx.bagimsizBolum.findFirst({
+        where: { id: dto.bolumId, tenantId: principal.tenantId, silinmeTarihi: null },
+        select: { id: true, kapiNo: true },
+      });
+      if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${dto.bolumId}`);
+
+      if (dto.isverenKisiId !== undefined) {
+        const isveren = await tx.kisi.findFirst({
+          where: { id: dto.isverenKisiId, tenantId: principal.tenantId, silinmeTarihi: null },
           select: { id: true },
         });
-        if (!apartman) throw new KayitBulunamadi(`Apartman bulunamadı: ${dto.apartmanId}`);
+        if (!isveren) throw new KayitBulunamadi(`İşveren kişi bulunamadı: ${dto.isverenKisiId}`);
       }
 
-      // Aynı TC ile AKTİF ikinci kayıt bordroyu ikiye katlar. Ayrılmış kayıt
-      // engellemez: aynı kişi tekrar işe alınabilir.
+      // Aynı TC ile AYNI BÖLÜMDE ikinci aktif kayıt açılamaz. Tekillik BÖLÜM
+      // BAŞINADIR: bir temizlik görevlisinin sitede üç ayrı dairede çalışması
+      // olağandır ve her biri ayrı bir hizmet ilişkisidir.
       if (dto.tcKimlikNo !== undefined) {
         const mevcut = await tx.daireGorevlisi.findFirst({
           where: {
             tenantId: principal.tenantId,
+            bolumId: dto.bolumId,
             tcKimlikNo: dto.tcKimlikNo,
-            istenAyrilisTarihi: null,
+            calismaBitis: null,
+            silinmeTarihi: null,
           },
-          select: { id: true, ad: true, soyad: true },
+          select: { ad: true, soyad: true },
         });
         if (mevcut) {
           throw new IsKuraliIhlali(
-            `Bu TC kimlik numarasıyla aktif bir görevli kaydı var: ` +
-              `${mevcut.ad} ${mevcut.soyad}.`,
-            'Önce mevcut kaydı kapatın ya da bilgileri düzeltin.',
+            `${bolum.kapiNo} numaralı bölümde bu TC kimlik numarasıyla süren bir ` +
+              `görevli kaydı var: ${mevcut.ad} ${mevcut.soyad}.`,
+            'Önce mevcut kaydı sonlandırın ya da bilgileri düzeltin.',
           );
         }
       }
 
       await tx.daireGorevlisi.create({
         data: {
-          id, tenantId: principal.tenantId,
-          apartmanId: dto.apartmanId ?? null,
-          ad: dto.ad.trim(), soyad: dto.soyad.trim(),
-          gorev: dto.gorev,
-          departman: dto.departman?.trim() ?? null,
+          id,
+          tenantId: principal.tenantId,
+          bolumId: dto.bolumId,
+          isvereniTipi: dto.isvereniTipi,
+          isverenKisiId: dto.isverenKisiId ?? null,
+          ad: dto.ad.trim(),
+          soyad: dto.soyad.trim(),
+          tcKimlikNo: dto.tcKimlikNo ?? null,
           telefon: dto.telefon?.trim() ?? null,
           eposta: dto.eposta?.trim().toLowerCase() ?? null,
-          tcKimlikNo: dto.tcKimlikNo ?? null,
-          sgkNo: dto.sgkNo?.trim() ?? null,
-          iseGirisTarihi: new Date(giris),
-          vardiya: dto.vardiya ?? 'GUNDUZ',
-          durum: 'AKTIF',
+          dogumTarihi:
+            dto.dogumTarihi === undefined
+              ? null
+              : new Date(takvimTarihi(dto.dogumTarihi)),
+          cinsiyet: dto.cinsiyet ?? 'BELIRTILMEMIS',
+          adres: dto.adres?.trim() ?? null,
+          gorev: dto.gorev,
+          calismaBaslangic: new Date(baslangic),
+          calismaBitis: bitis === null ? null : new Date(bitis),
+          aciklama: dto.aciklama?.trim() ?? null,
           notlar: dto.notlar?.trim() ?? null,
+          // Bitiş girildiyse kayıt PASİF açılır; kısıt aksini reddeder.
+          durum: bitis === null ? 'AKTIF' : 'PASIF',
         },
+      });
+
+      const plakalar = await plakalariYaz(tx, principal.tenantId, {
+        bolumId: dto.bolumId,
+        sahip: { gorevliId: id },
+        baslangic,
+        bitis,
+        plakalar: dto.plakalar ?? [],
       });
 
       await this.audit.yaz(tx, {
@@ -256,48 +255,56 @@ export class DaireGorevlisiServisi {
         // KVKK: TC kimlik no denetim gövdesine YAZILMAZ. Audit kaydı
         // değiştirilemezdir; oraya giren kişisel veri bir daha silinemez.
         sonrakiDeger: {
+          bolumId: dto.bolumId, kapiNo: bolum.kapiNo,
           ad: dto.ad, soyad: dto.soyad, gorev: dto.gorev,
-          departman: dto.departman ?? null, iseGirisTarihi: giris,
+          isvereniTipi: dto.isvereniTipi,
+          calismaBaslangic: baslangic, calismaBitis: bitis,
+          plakaSayisi: plakalar.length,
         },
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
       });
 
-      return { id, durum: 'AKTIF' };
+      return {
+        id,
+        durum: bitis === null ? 'AKTIF' : 'PASIF',
+        plakaSayisi: plakalar.length,
+      };
     });
   }
 
   async duzelt(
-    id: string, dto: GorevliDuzeltDto, principal: Principal,
+    id: string, dto: DaireGorevlisiDuzeltDto, principal: Principal,
   ): Promise<KomutSonucu> {
     const baglam = mevcutBaglamiZorunluKil('daire-gorevlisi.duzelt');
 
     return this.prisma.tenantIslemi(async (tx) => {
       const kayit = await tx.daireGorevlisi.findFirst({
-        where: { id, tenantId: principal.tenantId },
+        where: { id, tenantId: principal.tenantId, silinmeTarihi: null },
       });
-      if (!kayit) throw new KayitBulunamadi(`Görevli bulunamadı: ${id}`);
+      if (!kayit) throw new KayitBulunamadi(`Daire görevlisi bulunamadı: ${id}`);
 
-      if (dto.apartmanId !== undefined) {
-        const apartman = await tx.apartman.findFirst({
-          where: { id: dto.apartmanId, tenantId: principal.tenantId },
+      if (dto.isverenKisiId !== undefined) {
+        const isveren = await tx.kisi.findFirst({
+          where: { id: dto.isverenKisiId, tenantId: principal.tenantId, silinmeTarihi: null },
           select: { id: true },
         });
-        if (!apartman) throw new KayitBulunamadi(`Apartman bulunamadı: ${dto.apartmanId}`);
+        if (!isveren) throw new KayitBulunamadi(`İşveren kişi bulunamadı: ${dto.isverenKisiId}`);
       }
 
       await tx.daireGorevlisi.update({
         where: { id },
         data: {
-          ...(dto.apartmanId === undefined ? {} : { apartmanId: dto.apartmanId }),
           ...(dto.ad === undefined ? {} : { ad: dto.ad.trim() }),
           ...(dto.soyad === undefined ? {} : { soyad: dto.soyad.trim() }),
-          ...(dto.gorev === undefined ? {} : { gorev: dto.gorev }),
-          ...(dto.departman === undefined ? {} : { departman: dto.departman.trim() }),
           ...(dto.telefon === undefined ? {} : { telefon: dto.telefon.trim() }),
           ...(dto.eposta === undefined ? {} : { eposta: dto.eposta.trim().toLowerCase() }),
-          ...(dto.sgkNo === undefined ? {} : { sgkNo: dto.sgkNo.trim() }),
-          ...(dto.vardiya === undefined ? {} : { vardiya: dto.vardiya }),
+          ...(dto.cinsiyet === undefined ? {} : { cinsiyet: dto.cinsiyet }),
+          ...(dto.adres === undefined ? {} : { adres: dto.adres.trim() }),
+          ...(dto.gorev === undefined ? {} : { gorev: dto.gorev }),
+          ...(dto.isvereniTipi === undefined ? {} : { isvereniTipi: dto.isvereniTipi }),
+          ...(dto.isverenKisiId === undefined ? {} : { isverenKisiId: dto.isverenKisiId }),
+          ...(dto.aciklama === undefined ? {} : { aciklama: dto.aciklama.trim() }),
           ...(dto.notlar === undefined ? {} : { notlar: dto.notlar.trim() }),
         },
       });
@@ -307,13 +314,12 @@ export class DaireGorevlisiServisi {
         varlik: 'DaireGorevlisi', varlikId: id,
         oncekiDeger: {
           ad: kayit.ad, soyad: kayit.soyad, gorev: kayit.gorev,
-          departman: kayit.departman, vardiya: kayit.vardiya,
+          isvereniTipi: kayit.isvereniTipi,
         },
         sonrakiDeger: {
           ad: dto.ad ?? kayit.ad, soyad: dto.soyad ?? kayit.soyad,
           gorev: dto.gorev ?? kayit.gorev,
-          departman: dto.departman ?? kayit.departman,
-          vardiya: dto.vardiya ?? kayit.vardiya,
+          isvereniTipi: dto.isvereniTipi ?? kayit.isvereniTipi,
         },
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
@@ -324,66 +330,66 @@ export class DaireGorevlisiServisi {
   }
 
   /**
-   * İşten ayrılış — kayıt KAPANIR, silinmez.
+   * Hizmet ilişkisini sonlandırır — kayıt KAPANIR, silinmez.
    *
    * Durum aynı işlemde PASIF'e çekilir: veritabanı kısıtı
-   * (`daire_gorevlisi_durum_tutarlilik`) ayrılmış görevlinin AKTİF kalmasını
-   * reddeder. Ayrı bırakılsaydı "aktif görevli" listesi işten ayrılmış
-   * kişileri gösterir ve vardiya planlaması yanlış yapılırdı.
+   * (`daire_gorevlisi_durum_tutarlilik`) bitmiş çalışmanın AKTİF kalmasını
+   * reddeder. Ayrı bırakılsaydı "dairede çalışan görevliler" listesi kartı
+   * iptal edilmiş kişileri gösterir ve site giriş yetkisi açık kalırdı.
    *
-   * AÇIK ZİMMET ENGELLEMEZ, UYARIR: telsiz teslim edilmeden ayrılan bir
-   * görevlinin kaydı kapatılabilmelidir, ama zimmet açık kaldığı görünür
-   * olmalıdır. Engellemek, kaydı hiç kapatmamaya ve listenin bozulmasına
-   * yol açardı.
+   * GÖREVLİNİN ARAÇLARI DA AYNI TARİHTE KAPANIR: işi bitmiş görevlinin aracı
+   * otopark sayımında yer kaplamaya devam ederse kapasite yanlış görünür.
    */
   async ayril(
-    id: string, dto: GorevliAyrilDto, principal: Principal,
-  ): Promise<KomutSonucu & { readonly acikZimmetSayisi: number }> {
+    id: string, dto: DaireGorevlisiAyrilDto, principal: Principal,
+  ): Promise<KomutSonucu & { readonly kapatilanAracSayisi: number }> {
     const baglam = mevcutBaglamiZorunluKil('daire-gorevlisi.ayril');
-    const ayrilis = takvimTarihi(dto.istenAyrilisTarihi);
+    const bitis = takvimTarihi(dto.calismaBitis);
 
     return this.prisma.tenantIslemi(async (tx) => {
       const kayit = await tx.daireGorevlisi.findFirst({
-        where: { id, tenantId: principal.tenantId },
+        where: { id, tenantId: principal.tenantId, silinmeTarihi: null },
       });
-      if (!kayit) throw new KayitBulunamadi(`Görevli bulunamadı: ${id}`);
+      if (!kayit) throw new KayitBulunamadi(`Daire görevlisi bulunamadı: ${id}`);
 
-      if (kayit.istenAyrilisTarihi !== null) {
+      if (kayit.calismaBitis !== null) {
         throw new IsKuraliIhlali(
-          `${kayit.ad} ${kayit.soyad} ${gun(kayit.istenAyrilisTarihi)} tarihinde ` +
-            'zaten işten ayrılmış.',
-          'Yeniden işe alım için yeni kayıt açın.',
+          `${kayit.ad} ${kayit.soyad} için çalışma ${gun(kayit.calismaBitis)} ` +
+            'tarihinde zaten sonlandırılmış.',
+          'Yeniden başlıyorsa yeni kayıt açın.',
         );
       }
-      if (ayrilis < gun(kayit.iseGirisTarihi)) {
+      if (bitis < gun(kayit.calismaBaslangic)) {
         throw new IsKuraliIhlali(
-          `Ayrılış (${ayrilis}) işe giriş tarihinden (${gun(kayit.iseGirisTarihi)}) önce olamaz.`,
+          `Bitiş (${bitis}) çalışma başlangıcından ` +
+            `(${gun(kayit.calismaBaslangic)}) önce olamaz.`,
           'Tarihi düzeltin.',
         );
       }
 
-      const acikZimmet = await tx.gorevliZimmeti.count({
-        where: { tenantId: principal.tenantId, gorevliId: id, iadeTarihi: null },
-      });
-
       await tx.daireGorevlisi.update({
         where: { id },
-        data: { istenAyrilisTarihi: new Date(ayrilis), durum: 'PASIF' },
+        data: { calismaBitis: new Date(bitis), durum: 'PASIF' },
+      });
+
+      const arac = await tx.arac.updateMany({
+        where: { tenantId: principal.tenantId, gorevliId: id, bitis: null },
+        data: { bitis: new Date(bitis) },
       });
 
       await this.audit.yaz(tx, {
         tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
         varlik: 'DaireGorevlisi', varlikId: id,
-        oncekiDeger: { durum: kayit.durum, istenAyrilisTarihi: null },
+        oncekiDeger: { durum: kayit.durum, calismaBitis: null },
         sonrakiDeger: {
-          durum: 'PASIF', istenAyrilisTarihi: ayrilis, acikZimmetSayisi: acikZimmet,
+          durum: 'PASIF', calismaBitis: bitis, kapatilanAracSayisi: arac.count,
         },
         gerekce: dto.gerekce,
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
       });
 
-      return { id, durum: 'AYRILDI', acikZimmetSayisi: acikZimmet };
+      return { id, durum: 'SONLANDIRILDI', kapatilanAracSayisi: arac.count };
     });
   }
 
@@ -392,13 +398,30 @@ export class DaireGorevlisiServisi {
 
     return this.prisma.tenantIslemi(async (tx) => {
       const kayit = await tx.daireGorevlisi.findFirst({
-        where: { id, tenantId: principal.tenantId },
-        select: { id: true, ad: true, soyad: true },
+        where: { id, tenantId: principal.tenantId, silinmeTarihi: null },
+        select: { id: true },
       });
-      if (!kayit) throw new KayitBulunamadi(`Görevli bulunamadı: ${id}`);
+      if (!kayit) throw new KayitBulunamadi(`Daire görevlisi bulunamadı: ${id}`);
 
+      // Araç kaydı `ON DELETE RESTRICT` ile bağlıdır; soft delete onu
+      // düşürmez ama otopark listesinde sahibi arşivlenmiş araç kalmamalı.
+      const acikArac = await tx.arac.count({
+        where: { tenantId: principal.tenantId, gorevliId: id, bitis: null },
+      });
       silmeyiDogrula(
-        { varlik: 'DaireGorevlisi', sinif: 'ANA_VERI', engelleyenBagimliliklar: [] },
+        {
+          varlik: 'DaireGorevlisi',
+          sinif: 'ANA_VERI',
+          engelleyenBagimliliklar:
+            acikArac === 0
+              ? []
+              : [
+                  {
+                    aciklama: `${acikArac} açık araç kaydı var.`,
+                    kontrol: 'DAIRE_GOREVLISI_ACIK_ARAC',
+                  },
+                ],
+        },
         gerekce,
       );
 
@@ -419,133 +442,6 @@ export class DaireGorevlisiServisi {
       });
 
       return { id, durum: 'SILINDI' };
-    });
-  }
-
-  // ----------------------------------------------------- sertifika · zimmet
-
-  async sertifikaEkle(
-    gorevliId: string, dto: SertifikaEkleDto, principal: Principal,
-  ): Promise<KomutSonucu> {
-    const baglam = mevcutBaglamiZorunluKil('daire-gorevlisi.sertifika');
-    const id = randomUUID();
-
-    return this.prisma.tenantIslemi(async (tx) => {
-      const calisan = await tx.daireGorevlisi.findFirst({
-        where: { id: gorevliId, tenantId: principal.tenantId }, select: { id: true },
-      });
-      if (!calisan) throw new KayitBulunamadi(`Görevli bulunamadı: ${gorevliId}`);
-
-      await tx.gorevliSertifikasi.create({
-        data: {
-          id, tenantId: principal.tenantId, gorevliId,
-          ad: dto.ad.trim(),
-          kurum: dto.kurum?.trim() ?? null,
-          belgeNo: dto.belgeNo?.trim() ?? null,
-          verilisTarihi: new Date(takvimTarihi(dto.verilisTarihi)),
-          gecerlilikBitisi:
-            dto.gecerlilikBitisi === undefined
-              ? null
-              : new Date(takvimTarihi(dto.gecerlilikBitisi)),
-        },
-      });
-
-      await this.audit.yaz(tx, {
-        tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
-        varlik: 'GorevliSertifikasi', varlikId: id,
-        sonrakiDeger: { gorevliId, ad: dto.ad, gecerlilikBitisi: dto.gecerlilikBitisi ?? null },
-        correlationId: baglam.correlationId,
-        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
-      });
-
-      return { id, durum: 'AKTIF' };
-    });
-  }
-
-  async zimmetEkle(
-    gorevliId: string, dto: ZimmetEkleDto, principal: Principal,
-  ): Promise<KomutSonucu> {
-    const baglam = mevcutBaglamiZorunluKil('daire-gorevlisi.zimmet');
-    const id = randomUUID();
-
-    return this.prisma.tenantIslemi(async (tx) => {
-      const calisan = await tx.daireGorevlisi.findFirst({
-        where: { id: gorevliId, tenantId: principal.tenantId },
-        select: { id: true, istenAyrilisTarihi: true },
-      });
-      if (!calisan) throw new KayitBulunamadi(`Görevli bulunamadı: ${gorevliId}`);
-      if (calisan.istenAyrilisTarihi !== null) {
-        throw new IsKuraliIhlali(
-          'İşten ayrılmış görevlie yeni zimmet verilemez.',
-          'Görevli yeniden işe alındıysa yeni kayıt açın.',
-        );
-      }
-
-      await tx.gorevliZimmeti.create({
-        data: {
-          id, tenantId: principal.tenantId, gorevliId,
-          ad: dto.ad.trim(),
-          seriNo: dto.seriNo?.trim() ?? null,
-          adet: dto.adet ?? 1,
-          zimmetTarihi: new Date(takvimTarihi(dto.zimmetTarihi)),
-          notlar: dto.notlar?.trim() ?? null,
-        },
-      });
-
-      await this.audit.yaz(tx, {
-        tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
-        varlik: 'GorevliZimmeti', varlikId: id,
-        sonrakiDeger: { gorevliId, ad: dto.ad, adet: dto.adet ?? 1 },
-        correlationId: baglam.correlationId,
-        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
-      });
-
-      return { id, durum: 'AKTIF' };
-    });
-  }
-
-  /** Zimmet İADE ile kapanır, silinmez — teslim geçmişi kanıttır. */
-  async zimmetIade(
-    zimmetId: string, dto: ZimmetIadeDto, principal: Principal,
-  ): Promise<KomutSonucu> {
-    const baglam = mevcutBaglamiZorunluKil('daire-gorevlisi.zimmetIade');
-    const iade = takvimTarihi(dto.iadeTarihi);
-
-    return this.prisma.tenantIslemi(async (tx) => {
-      const kayit = await tx.gorevliZimmeti.findFirst({
-        where: { id: zimmetId, tenantId: principal.tenantId },
-      });
-      if (!kayit) throw new KayitBulunamadi(`Zimmet kaydı bulunamadı: ${zimmetId}`);
-      if (kayit.iadeTarihi !== null) {
-        throw new IsKuraliIhlali(
-          `'${kayit.ad}' ${gun(kayit.iadeTarihi)} tarihinde zaten iade edilmiş.`,
-          'İşlem tekrarlanmaz.',
-        );
-      }
-      if (iade < gun(kayit.zimmetTarihi)) {
-        throw new IsKuraliIhlali(
-          `İade (${iade}) zimmet tarihinden (${gun(kayit.zimmetTarihi)}) önce olamaz.`,
-          'Tarihi düzeltin.',
-        );
-      }
-
-      await tx.gorevliZimmeti.update({
-        where: { id: zimmetId },
-        data: {
-          iadeTarihi: new Date(iade),
-          ...(dto.notlar === undefined ? {} : { notlar: dto.notlar.trim() }),
-        },
-      });
-
-      await this.audit.yaz(tx, {
-        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
-        varlik: 'GorevliZimmeti', varlikId: zimmetId,
-        oncekiDeger: { iadeTarihi: null }, sonrakiDeger: { iadeTarihi: iade },
-        correlationId: baglam.correlationId,
-        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
-      });
-
-      return { id: zimmetId, durum: 'IADE_EDILDI' };
     });
   }
 }

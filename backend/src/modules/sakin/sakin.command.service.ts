@@ -27,6 +27,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
+import {
+  kisiyiCoz, plakalariYaz, type HizliKayitSonucu,
+} from '../../common/kayit/hizli-kayit';
 import type { SakinDuzeltDto, SakinEkleDto } from './dto/sakin.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -38,7 +41,9 @@ export class SakinCommandService {
     private readonly outbox: OutboxServisi,
   ) {}
 
-  async ekle(bolumId: string, dto: SakinEkleDto, principal: Principal): Promise<KomutSonucu> {
+  async ekle(
+    bolumId: string, dto: SakinEkleDto, principal: Principal,
+  ): Promise<HizliKayitSonucu> {
     const baglam = mevcutBaglamiZorunluKil('sakin.ekle');
     const id = randomUUID();
 
@@ -58,16 +63,19 @@ export class SakinCommandService {
       });
       if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${bolumId}`);
 
-      const kisi = await tx.kisi.findFirst({
-        where: { id: dto.kisiId, tenantId: principal.tenantId }, select: { id: true },
+      // Kişi ya seçilir ya bu bilgilerden oluşturulur. `kisiyiCoz` tenant
+      // aidiyetini de doğrular — FK kontrolü RLS'i baypas eder.
+      const cozum = await kisiyiCoz(tx, principal.tenantId, {
+        ...(dto.kisi ?? {}),
+        ...(dto.kisiId === undefined ? {} : { kisiId: dto.kisiId }),
       });
-      if (!kisi) throw new KayitBulunamadi(`Kişi bulunamadı: ${dto.kisiId}`);
+      const kisiId = cozum.kisiId;
 
       // Coklu sakin serbesttir; yalnizca AYNI kisinin ayni bolumde acik bir
       // kaydinin iki kez olusmasi engellenir — bu bir veri girisi hatasidir.
       const acikKayit = await tx.sakin.findFirst({
         where: {
-          tenantId: principal.tenantId, bolumId, kisiId: dto.kisiId, cikisTarihi: null,
+          tenantId: principal.tenantId, bolumId, kisiId, cikisTarihi: null,
         },
         select: { id: true },
       });
@@ -80,7 +88,7 @@ export class SakinCommandService {
 
       await tx.sakin.create({
         data: {
-          id, tenantId: principal.tenantId, bolumId, kisiId: dto.kisiId,
+          id, tenantId: principal.tenantId, bolumId, kisiId,
           yakinlikDerecesi: dto.yakinlikDerecesi ?? 'KENDISI',
           girisTarihi: takvimTarihiniYaz(girisTarihi),
           cikisTarihi: cikisTarihi === null ? null : takvimTarihiniYaz(cikisTarihi),
@@ -89,13 +97,24 @@ export class SakinCommandService {
         },
       });
 
+      // Plakalar AYNI İŞLEMDE yazılır: hata verirse sakin kaydı da geri alınır.
+      const plakalar = await plakalariYaz(tx, principal.tenantId, {
+        bolumId,
+        sahip: { kisiId },
+        baslangic: girisTarihi,
+        bitis: cikisTarihi,
+        plakalar: dto.kisi?.plakalar ?? [],
+      });
+
       await this.audit.yaz(tx, {
         tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
         varlik: 'Sakin', varlikId: id,
         sonrakiDeger: {
-          bolumId, kapiNo: bolum.kapiNo, kisiId: dto.kisiId,
+          bolumId, kapiNo: bolum.kapiNo, kisiId,
+          kisiOlusturulduMu: cozum.olusturulduMu,
           yakinlikDerecesi: dto.yakinlikDerecesi ?? 'KENDISI',
           girisTarihi, cikisTarihi,
+          plakaSayisi: plakalar.length,
         },
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
@@ -105,10 +124,17 @@ export class SakinCommandService {
         eventType: 'apartman.sakin.eklendi', eventVersion: 1,
         tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
         aggregate: { tip: 'Sakin', id, version: 1 },
-        payload: { bolumId, kisiId: dto.kisiId, girisTarihi },
+        payload: { bolumId, kisiId, girisTarihi },
       });
 
-      return { id, durum: 'AKTIF' };
+      return {
+        id,
+        durum: 'AKTIF',
+        kisiId,
+        kisiOlusturulduMu: cozum.olusturulduMu,
+        tcIleEslestiMi: cozum.tcIleEslestiMi,
+        plakaSayisi: plakalar.length,
+      };
     });
   }
 

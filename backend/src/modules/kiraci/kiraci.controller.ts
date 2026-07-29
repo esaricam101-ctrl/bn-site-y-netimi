@@ -7,6 +7,7 @@ import { KiraciCommandService } from './kiraci.command.service';
 import { KiraciQueryService, type KiraciSatiri } from './kiraci.query.service';
 import { KiraciDuzeltDto, KiraciEkleDto, KiraciTahliyeDto } from './dto/kiraci.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
+import type { HizliKayitSonucu } from '../../common/kayit/hizli-kayit';
 
 @ApiTags('Kiracı')
 @ApiBearerAuth()
@@ -29,7 +30,7 @@ export class KiraciController {
     @Param('bolumId') bolumId: string,
     @Body() dto: KiraciEkleDto,
     @AktifPrincipal() principal: Principal,
-  ): Promise<KomutSonucu> {
+  ): Promise<HizliKayitSonucu> {
     return this.command.ekle(bolumId, dto, principal);
   }
 

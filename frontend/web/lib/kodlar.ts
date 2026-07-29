@@ -61,7 +61,11 @@ export const KURAL_KAYNAKLARI = [
 
 export const MALIK_PAYLASIMLARI = ['ESIT', 'HISSE_ORANI', 'MANUEL'] as const;
 
-/* --------------------------- Daire görevlileri --------------------------- */
+/* ---------------------------- Site personeli ----------------------------- */
+/*
+ * İŞVEREN YÖNETİMDİR. Ücreti işletme projesinden ödenir, SGK'sı yönetim
+ * tarafından yapılır, vardiyası yönetim planlar, zimmeti yönetimin malıdır.
+ */
 
 export const GOREV_TURLERI = [
   'SITE_MUDURU', 'YONETICI', 'GUVENLIK', 'TEMIZLIK', 'TEKNIK',
@@ -71,3 +75,16 @@ export const GOREV_TURLERI = [
 export const GOREVLI_DURUMLARI = ['AKTIF', 'PASIF'] as const;
 
 export const VARDIYALAR = ['GUNDUZ', 'AKSAM', 'GECE', 'TAM_GUN', 'DONUSUMLU'] as const;
+
+/* --------------------------- Daire görevlileri --------------------------- */
+/*
+ * İŞVEREN MALİK / KİRACI / SAKİNDİR. Bağımsız bölüme hizmet eden ücretli
+ * kişiler; yönetimin kadrosu DEĞİLDİR (bkz. yukarıdaki site personeli).
+ */
+
+export const DAIRE_GOREVLERI = [
+  'COCUK_BAKICISI', 'HASTA_BAKICISI', 'YASLI_BAKICISI', 'EV_YARDIMCISI',
+  'TEMIZLIK', 'ASCI', 'SOFOR', 'OZEL_GUVENLIK', 'OZEL_OGRETMEN', 'DIGER',
+] as const;
+
+export const ISVEREN_TIPLERI = ['MALIK', 'KIRACI', 'SAKIN'] as const;

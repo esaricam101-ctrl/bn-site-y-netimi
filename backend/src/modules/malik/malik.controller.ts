@@ -7,6 +7,7 @@ import { MalikCommandService } from './malik.command.service';
 import { MalikQueryService, type HisseRaporu, type MalikSatiri } from './malik.query.service';
 import { MalikDevretDto, MalikDuzeltDto, MalikEkleDto } from './dto/malik.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
+import type { HizliKayitSonucu } from '../../common/kayit/hizli-kayit';
 
 @ApiTags('Malik')
 @ApiBearerAuth()
@@ -31,7 +32,7 @@ export class MalikController {
     @Param('bolumId') bolumId: string,
     @Body() dto: MalikEkleDto,
     @AktifPrincipal() principal: Principal,
-  ): Promise<KomutSonucu> {
+  ): Promise<HizliKayitSonucu> {
     return this.command.ekle(bolumId, dto, principal);
   }
 

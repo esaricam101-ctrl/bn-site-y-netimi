@@ -24,6 +24,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
+import {
+  kisiyiCoz, plakalariYaz, type HizliKayitSonucu,
+} from '../../common/kayit/hizli-kayit';
 import type { MalikDuzeltDto, MalikEkleDto } from './dto/malik.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -35,7 +38,9 @@ export class MalikCommandService {
     private readonly outbox: OutboxServisi,
   ) {}
 
-  async ekle(bolumId: string, dto: MalikEkleDto, principal: Principal): Promise<KomutSonucu> {
+  async ekle(
+    bolumId: string, dto: MalikEkleDto, principal: Principal,
+  ): Promise<HizliKayitSonucu> {
     const baglam = mevcutBaglamiZorunluKil('malik.ekle');
     const id = randomUUID();
 
@@ -74,11 +79,13 @@ export class MalikCommandService {
       });
       if (!bolum) throw new KayitBulunamadi(`Bağımsız bölüm bulunamadı: ${bolumId}`);
 
-      // Kisi ve vekil tenant'a ait olmalidir — FK kontrolu RLS'i baypas eder.
-      const kisi = await tx.kisi.findFirst({
-        where: { id: dto.kisiId, tenantId: principal.tenantId }, select: { id: true },
+      // Kişi ya seçilir ya bu bilgilerden oluşturulur. `kisiyiCoz` tenant
+      // aidiyetini de doğrular — FK kontrolü RLS'i baypas eder.
+      const cozum = await kisiyiCoz(tx, principal.tenantId, {
+        ...(dto.kisi ?? {}),
+        ...(dto.kisiId === undefined ? {} : { kisiId: dto.kisiId }),
       });
-      if (!kisi) throw new KayitBulunamadi(`Kişi bulunamadı: ${dto.kisiId}`);
+      const kisiId = cozum.kisiId;
 
       if (dto.vekilKisiId !== undefined) {
         const vekil = await tx.kisi.findFirst({
@@ -100,7 +107,7 @@ export class MalikCommandService {
         bitis: takvimTarihiniOkuVeyaNull(m.tapuBitis),
       }));
 
-      const yeni: MalikHissesi = { kisiId: dto.kisiId, hissePay, hissePayda, baslangic, bitis };
+      const yeni: MalikHissesi = { kisiId, hissePay, hissePayda, baslangic, bitis };
 
       // Toplamin 1'i ASMASI her zaman hatadir. Baslangic gununde bakmak yeterli:
       // cakisma varsa o gun zaten gorunur.
@@ -118,7 +125,7 @@ export class MalikCommandService {
 
       await tx.malik.create({
         data: {
-          id, tenantId: principal.tenantId, bolumId, kisiId: dto.kisiId,
+          id, tenantId: principal.tenantId, bolumId, kisiId,
           hissePay, hissePayda,
           tapuTuru: dto.tapuTuru ?? 'KAT_MULKIYETI',
           tapuBaslangic: takvimTarihiniYaz(baslangic),
@@ -133,14 +140,27 @@ export class MalikCommandService {
         },
       });
 
+      // Plakalar AYNI İŞLEMDE yazılır: hata verirse malik kaydı da geri
+      // alınır. Yarım kayıt, "plakayı da girdim" sanan kullanıcı için
+      // sessiz veri kaybıdır.
+      const plakalar = await plakalariYaz(tx, principal.tenantId, {
+        bolumId,
+        sahip: { kisiId },
+        baslangic,
+        bitis,
+        plakalar: dto.kisi?.plakalar ?? [],
+      });
+
       await this.audit.yaz(tx, {
         tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',
         varlik: 'Malik', varlikId: id,
         sonrakiDeger: {
-          bolumId, kapiNo: bolum.kapiNo, kisiId: dto.kisiId,
+          bolumId, kapiNo: bolum.kapiNo, kisiId,
+          kisiOlusturulduMu: cozum.olusturulduMu,
           // BigInt JSON'a serilestirilemez; denetim kaydinda metin tutulur.
           hisse: `${hissePay}/${hissePayda}`,
           tapuBaslangic: baslangic, tapuBitis: bitis,
+          plakaSayisi: plakalar.length,
         },
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
@@ -150,10 +170,17 @@ export class MalikCommandService {
         eventType: 'apartman.malik.eklendi', eventVersion: 1,
         tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
         aggregate: { tip: 'Malik', id, version: 1 },
-        payload: { bolumId, kisiId: dto.kisiId, hisse: `${hissePay}/${hissePayda}` },
+        payload: { bolumId, kisiId, hisse: `${hissePay}/${hissePayda}` },
       });
 
-      return { id, durum: 'AKTIF' };
+      return {
+        id,
+        durum: 'AKTIF',
+        kisiId,
+        kisiOlusturulduMu: cozum.olusturulduMu,
+        tcIleEslestiMi: cozum.tcIleEslestiMi,
+        plakaSayisi: plakalar.length,
+      };
     });
   }
 

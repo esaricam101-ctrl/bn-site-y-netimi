@@ -29,7 +29,11 @@ const MENU: readonly MenuOgesi[] = [
   { yol: '/bloklar', anahtar: 'bloklar', simge: '▤' },
   { yol: '/katlar', anahtar: 'katlar', simge: '▥' },
   { yol: '/bolumler', anahtar: 'bolumler', simge: '▦' },
+  // İki AYRI modül: işvereni yönetim olan kadro ile malik/kiracının ücretli
+  // çalıştırdığı ev hizmetleri görevlisi karıştırılmamalıdır.
+  { yol: '/site-personeli', anahtar: 'sitePersoneli', simge: '◍' },
   { yol: '/daire-gorevlileri', anahtar: 'daireGorevlileri', simge: '◎' },
+  { yol: '/misafirler', anahtar: 'misafirler', simge: '◐' },
   { yol: '/gider-turleri', anahtar: 'giderTurleri', simge: '₺' },
   { yol: '/belgeler', anahtar: 'belgeler', simge: '▧' },
 ];

@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNumberString, IsOptional, IsString, IsUUID, Length, Matches } from 'class-validator';
+import {
+  IsIn, IsNumberString, IsOptional, IsString, IsUUID, Length, Matches,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { KisiGirdisiDto } from '../../../common/kayit/kisi-girdisi.dto';
 
 export const TAPU_TURLERI = [
   'KAT_MULKIYETI', 'KAT_IRTIFAKI', 'ARSA_PAYLI', 'MIRAS_ISTIRAK', 'DIGER',
@@ -9,9 +14,25 @@ const TAKVIM_TARIHI = /^\d{4}-\d{2}-\d{2}$/;
 const TARIH_MESAJI = 'Tarih YYYY-MM-DD biçiminde olmalıdır (saat bilgisi taşıyamaz).';
 
 export class MalikEkleDto {
-  @ApiProperty({ description: 'Tapu sahibi kişi.' })
-  @IsUUID()
-  kisiId!: string;
+  /**
+   * KİŞİ SEÇME ZORUNLU DEĞİLDİR. `kisiId` verilirse mevcut kişi kullanılır;
+   * verilmezse `kisi` bölümündeki bilgilerden kişi oluşturulur. İkisi de
+   * boşsa istek reddedilir — malik kaydı bir kişiye bağlı olmak zorundadır
+   * (borç sorumluluğu ve arsa payı ona yazılır).
+   */
+  @ApiPropertyOptional({ description: 'Mevcut tapu sahibi kişi.' })
+  @IsOptional() @IsUUID()
+  kisiId?: string;
+
+  @ApiPropertyOptional({
+    type: KisiGirdisiDto,
+    description:
+      'Formun "Kişi Bilgileri" bölümü. `kisiId` verilmediğinde kişi buradan ' +
+      'oluşturulur. TC kimlik no verilirse aynı numaralı mevcut kişi ' +
+      'kullanılır — mükerrer kimlik kaydı açılmaz.',
+  })
+  @IsOptional() @ValidateNested() @Type(() => KisiGirdisiDto)
+  kisi?: KisiGirdisiDto;
 
   /**
    * Hisse pay/payda olarak METİN taşınır. JSON `number` çift duyarlıklı
