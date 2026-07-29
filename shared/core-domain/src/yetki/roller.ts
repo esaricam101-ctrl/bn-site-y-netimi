@@ -34,7 +34,11 @@ export const ROLLER: readonly RolTanimi[] = [
     kod: 'APARTMAN_YONETICISI', ad: 'Apartman Yöneticisi', varsayilanPanel: '/yonetim',
     yalnizcaKendiVerisi: false,
     izinler: [
-      I.TENANT_GORUNTULE, I.TENANT_YONET, I.TENANT_KURULUM,
+      // TENANT_KURULUM BİLEREK YOK. Apartman yöneticisi TEK bir yerleşkeyi
+      // yönetir; sisteme yeni yerleşke açmak bir onboarding işlemidir ve
+      // yönetim şirketine aittir. Bu izin burada dururken, bir apartmanın
+      // yöneticisi platforma sınırsız yeni tenant açabiliyordu.
+      I.TENANT_GORUNTULE, I.TENANT_YONET,
       I.KISI_GORUNTULE, I.KISI_YONET, I.BOLUM_GORUNTULE, I.BOLUM_YONET,
       I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK, I.FINANS_TAHSILAT,
       I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_AYAR,
@@ -46,7 +50,10 @@ export const ROLLER: readonly RolTanimi[] = [
     kod: 'YONETIM_SIRKETI', ad: 'Yönetim Şirketi', varsayilanPanel: '/yonetim',
     yalnizcaKendiVerisi: false,
     izinler: [
-      I.TENANT_GORUNTULE, I.TENANT_YONET,
+      // TENANT_KURULUM buraya taşındı: yeni yerleşkeyi sisteme açan taraf
+      // yönetim şirketidir. Hiçbir rolde olmasaydı `POST /tenants` ucu
+      // erişilemez kalırdı.
+      I.TENANT_GORUNTULE, I.TENANT_YONET, I.TENANT_KURULUM,
       I.KISI_GORUNTULE, I.KISI_YONET, I.BOLUM_GORUNTULE, I.BOLUM_YONET,
       I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK, I.FINANS_TAHSILAT,
       I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_YEVMIYE_GIRIS,

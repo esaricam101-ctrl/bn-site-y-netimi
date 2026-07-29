@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import swc from 'unplugin-swc';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -7,7 +8,20 @@ import { fileURLToPath } from 'node:url';
  */
 const paket = (yol: string): string => fileURLToPath(new URL(yol, import.meta.url));
 
+/**
+ * SWC ZORUNLUDUR — esbuild değil.
+ *
+ * Vitest varsayılan olarak esbuild ile derler; esbuild `emitDecoratorMetadata`
+ * DESTEKLEMEZ. NestJS bağımlılık enjeksiyonu bu metaveriye dayanır: metaveri
+ * yoksa `constructor(private reflector: Reflector)` çözülemez ve guard
+ * çalışma anında `this.reflector` = undefined görür.
+ *
+ * Belirtisi yanıltıcıdır: uygulama `nest build` (tsc) ile SORUNSUZ çalışır,
+ * yalnızca testlerde her istek 500 döner. Testin kırıldığı yer sınadığı
+ * davranışla ilgisizdir, bu yüzden hata "testler bozuk" diye atlanabilir.
+ */
 export default defineConfig({
+  plugins: [swc.vite({ module: { type: 'es6' } })],
   test: {
     globals: false,
     environment: 'node',
