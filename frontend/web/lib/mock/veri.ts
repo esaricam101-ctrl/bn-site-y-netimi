@@ -566,6 +566,117 @@ export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
   sakinOrtusu.set(bolumId, liste);
 }
 
+// --- Apartman ve Blok yazma örtüleri ---
+
+let apartmanOrtusu: MockApartman[] | null = null;
+let blokOrtusu: MockBlok[] | null = null;
+
+export function mockApartmanlariOku(): readonly MockApartman[] {
+  apartmanOrtusu ??= [...mockApartmanlar];
+  return apartmanOrtusu;
+}
+
+export function mockBloklariOku(apartmanId?: string): readonly MockBlok[] {
+  blokOrtusu ??= [...mockBloklar];
+  return apartmanId === undefined
+    ? blokOrtusu
+    : blokOrtusu.filter((b) => b.apartmanId === apartmanId);
+}
+
+export function mockApartmanEkle(ad: string, adres?: string, siteIciKod?: string): void {
+  const liste = apartmanOrtusu ?? (apartmanOrtusu = [...mockApartmanlar]);
+  if (liste.some((a) => a.ad === ad)) {
+    throw new Error(`'${ad}' adında bir apartman bu yerleşkede zaten var.`);
+  }
+  liste.push({
+    id: `ap-yeni-${liste.length}`,
+    ad,
+    adres: adres ?? null,
+    siteIciKod: siteIciKod ?? null,
+    blokSayisi: 0,
+  });
+}
+
+export function mockApartmanGuncelle(
+  id: string,
+  dto: { readonly ad?: string; readonly adres?: string; readonly siteIciKod?: string },
+): void {
+  const liste = apartmanOrtusu ?? (apartmanOrtusu = [...mockApartmanlar]);
+  const i = liste.findIndex((a) => a.id === id);
+  if (i < 0) throw new Error(`Apartman bulunamadı: ${id}`);
+  if (dto.ad !== undefined && liste.some((a) => a.id !== id && a.ad === dto.ad)) {
+    throw new Error(`'${dto.ad}' adında bir apartman bu yerleşkede zaten var.`);
+  }
+  liste[i] = {
+    ...(liste[i] as MockApartman),
+    ...(dto.ad === undefined ? {} : { ad: dto.ad }),
+    ...(dto.adres === undefined ? {} : { adres: dto.adres }),
+    ...(dto.siteIciKod === undefined ? {} : { siteIciKod: dto.siteIciKod }),
+  };
+}
+
+export function mockApartmanSil(id: string): void {
+  const liste = apartmanOrtusu ?? (apartmanOrtusu = [...mockApartmanlar]);
+  const a = liste.find((x) => x.id === id);
+  if (a === undefined) throw new Error(`Apartman bulunamadı: ${id}`);
+  // Referans butunlugu: bloklu apartman silinirse bloklar sahipsiz kalir.
+  if (a.blokSayisi > 0) {
+    throw new Error(`'${a.ad}' apartmanında ${a.blokSayisi} blok var; apartman silinemez.`);
+  }
+  apartmanOrtusu = liste.filter((x) => x.id !== id);
+}
+
+export function mockBlokEkle(apartmanId: string, ad: string): void {
+  const apartmanlar = apartmanOrtusu ?? (apartmanOrtusu = [...mockApartmanlar]);
+  const apartman = apartmanlar.find((a) => a.id === apartmanId);
+  if (apartman === undefined) throw new Error(`Apartman bulunamadı: ${apartmanId}`);
+
+  const liste = blokOrtusu ?? (blokOrtusu = [...mockBloklar]);
+  // Blok adi APARTMAN ICINDE tekildir; sitede iki apartmanin da "A Blok"u olabilir.
+  if (liste.some((b) => b.apartmanId === apartmanId && b.ad === ad)) {
+    throw new Error(`'${apartman.ad}' apartmanında '${ad}' adında bir blok zaten var.`);
+  }
+  liste.push({
+    id: `blok-yeni-${liste.length}`,
+    ad,
+    apartmanId,
+    apartmanAdi: apartman.ad,
+    katSayisi: 0,
+    bolumSayisi: 0,
+  });
+  const ai = apartmanlar.findIndex((a) => a.id === apartmanId);
+  apartmanlar[ai] = { ...apartman, blokSayisi: apartman.blokSayisi + 1 };
+}
+
+export function mockBlokGuncelle(id: string, ad: string): void {
+  const liste = blokOrtusu ?? (blokOrtusu = [...mockBloklar]);
+  const i = liste.findIndex((b) => b.id === id);
+  if (i < 0) throw new Error(`Blok bulunamadı: ${id}`);
+  const mevcut = liste[i] as MockBlok;
+  if (liste.some((b) => b.id !== id && b.apartmanId === mevcut.apartmanId && b.ad === ad)) {
+    throw new Error(`Bu apartmanda '${ad}' adında bir blok zaten var.`);
+  }
+  // Blok BASKA APARTMANA TASINMAZ; yalnizca ad degisir.
+  liste[i] = { ...mevcut, ad };
+}
+
+export function mockBlokSil(id: string): void {
+  const liste = blokOrtusu ?? (blokOrtusu = [...mockBloklar]);
+  const b = liste.find((x) => x.id === id);
+  if (b === undefined) throw new Error(`Blok bulunamadı: ${id}`);
+  if (b.bolumSayisi > 0) {
+    throw new Error(`'${b.ad}' bloğunda ${b.bolumSayisi} bağımsız bölüm var; blok silinemez.`);
+  }
+  blokOrtusu = liste.filter((x) => x.id !== id);
+
+  const apartmanlar = apartmanOrtusu ?? (apartmanOrtusu = [...mockApartmanlar]);
+  const ai = apartmanlar.findIndex((a) => a.id === b.apartmanId);
+  if (ai >= 0) {
+    const a = apartmanlar[ai] as MockApartman;
+    apartmanlar[ai] = { ...a, blokSayisi: Math.max(0, a.blokSayisi - 1) };
+  }
+}
+
 // --- Kat yazma örtüsü ---
 
 const katOrtusu = new Map<string, MockKat[]>();

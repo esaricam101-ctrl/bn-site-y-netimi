@@ -44,9 +44,9 @@ Teslim edilen commit zinciri:
 4. **Kaydedilebilir filtreler.** Görünüm profili kaydetme var; filtre
    kaydetme yok.
 5. **CSV içe aktarma sihirbazı** ve **toplu düzenleme** akışları.
-6. **Apartman ve Blok için yazma arayüzü.** Her ikisinin de listesi var ama
-   ekleme/düzeltme/silme formu yok; backend uçları hazır
-   (`POST`/`PATCH`/`DELETE` — `apartmanlar`, `bloklar`).
+6. ~~**Apartman ve Blok için yazma arayüzü.**~~ ✅ Ekleme · düzeltme · soft
+   delete; bloğu olan apartman ve bölümü olan blok silinemez (düğme devre
+   dışı + neden), blok başka apartmana taşınmaz.
 
 ### B. Kütüphane kararı gerektirenler
 

@@ -11,8 +11,9 @@
  */
 import { api } from './api';
 import {
-  mockApartmanlar, mockAuditKayitlari, mockBloklar, mockBolumler,
-  mockDaireKarti, mockYerlesim,
+  mockAuditKayitlari, mockBolumler, mockDaireKarti, mockYerlesim,
+  mockApartmanEkle, mockApartmanGuncelle, mockApartmanlariOku, mockApartmanSil,
+  mockBlokEkle, mockBlokGuncelle, mockBloklariOku, mockBlokSil,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
   mockKiraciDuzelt, mockKiraciEkle, mockKiraciTahliye,
   mockSakinCikis, mockSakinDuzelt, mockSakinEkle,
@@ -84,6 +85,13 @@ async function sil(yol: string, govde: unknown, mockEtki: () => void): Promise<v
   await api<unknown>(yol, { method: 'DELETE', govde, ...(token ? { token } : {}) });
 }
 
+export interface ApartmanGirdisi {
+  readonly ad: string;
+  readonly adres?: string;
+  /** Site içindeki kısa kod. Site dışı tenant'ta boş bırakılır. */
+  readonly siteIciKod?: string;
+}
+
 export interface MalikEkleGirdisi {
   readonly kisiAdi: string;
   readonly hissePay: string;
@@ -132,15 +140,40 @@ export interface SakinEkleGirdisi {
 
 export const servis = {
   apartmanlar: (): Promise<readonly MockApartman[]> =>
-    getir('/apartmanlar', mockApartmanlar),
+    getir('/apartmanlar', mockApartmanlariOku()),
+
+  apartmanEkle: (dto: ApartmanGirdisi): Promise<void> =>
+    gonder('/apartmanlar', 'POST', dto, () => {
+      mockApartmanEkle(dto.ad, dto.adres, dto.siteIciKod);
+    }),
+
+  apartmanGuncelle: (id: string, dto: ApartmanGirdisi): Promise<void> =>
+    gonder(`/apartmanlar/${id}`, 'PATCH', dto, () => {
+      mockApartmanGuncelle(id, dto);
+    }),
+
+  /** Soft delete — bloğu olan apartman silinemez. */
+  apartmanSil: (id: string, gerekce: string): Promise<void> =>
+    sil(`/apartmanlar/${id}`, { gerekce }, () => { mockApartmanSil(id); }),
 
   bloklar: (apartmanId?: string): Promise<readonly MockBlok[]> =>
     getir(
       `/bloklar${apartmanId === undefined ? '' : `?apartmanId=${apartmanId}`}`,
-      apartmanId === undefined
-        ? mockBloklar
-        : mockBloklar.filter((b) => b.apartmanId === apartmanId),
+      mockBloklariOku(apartmanId),
     ),
+
+  blokEkle: (apartmanId: string, ad: string): Promise<void> =>
+    gonder('/bloklar', 'POST', { apartmanId, ad }, () => {
+      mockBlokEkle(apartmanId, ad);
+    }),
+
+  /** Blok BAŞKA APARTMANA TAŞINMAZ — hiyerarşi sabittir; yalnızca ad değişir. */
+  blokGuncelle: (id: string, ad: string): Promise<void> =>
+    gonder(`/bloklar/${id}`, 'PATCH', { ad }, () => { mockBlokGuncelle(id, ad); }),
+
+  /** Soft delete — bağımsız bölümü olan blok silinemez. */
+  blokSil: (id: string, gerekce: string): Promise<void> =>
+    sil(`/bloklar/${id}`, { gerekce }, () => { mockBlokSil(id); }),
 
   katlar: (blokId: string): Promise<readonly MockKat[]> =>
     getir(`/katlar?blokId=${blokId}`, mockKatlariOku(blokId)),
