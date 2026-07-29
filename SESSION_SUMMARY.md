@@ -39,10 +39,13 @@ Teslim edilen commit zinciri:
    bildirim altyapısı tamam.
 2. ~~**Kat ekranı (bağımsız).**~~ ✅ `c529be2`. Ekleme · düzeltme · soft delete;
    bölümü olan katta numara kilitli.
-3. **Arama ve filtreleme ekranı** (öncelik listesi #15) — veri tablosunda
-   hızlı arama var, gelişmiş filtre paneli yok.
-4. **Kaydedilebilir filtreler.** Görünüm profili kaydetme var; filtre
-   kaydetme yok.
+3. ~~**Arama ve filtreleme ekranı**~~ ✅ Kolon bazında işleçli filtre paneli
+   (`components/tablo/filtre.ts` motor · `filtre-paneli.tsx` arayüz).
+   **Bilinen boşluk:** motorun çalışma zamanı birim testi yok — `tests/unit`
+   yalnızca `shared/*/dist` ve `backend/src/common` derlemesini koşabiliyor,
+   web paketi için test altyapısı kurulu değil.
+4. ~~**Kaydedilebilir filtreler.**~~ ✅ Adlandırılmış filtreler
+   `localStorage`'da (`bnos.filtre.<ekran>`); görünüm profilinden ayrıdır.
 5. **CSV içe aktarma sihirbazı** ve **toplu düzenleme** akışları.
 6. ~~**Apartman ve Blok için yazma arayüzü.**~~ ✅ Ekleme · düzeltme · soft
    delete; bloğu olan apartman ve bölümü olan blok silinemez (düğme devre

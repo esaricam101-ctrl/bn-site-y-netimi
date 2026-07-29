@@ -19,7 +19,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { csvIndir } from './disa-aktar';
-import type { GorunumProfili, Kolon, SiralamaDurumu } from './tablo-tipleri';
+import { filtreleriUygula, kosulEtkinMi } from './filtre';
+import { FiltrePaneli } from './filtre-paneli';
+import type {
+  FiltreBaglaci, FiltreKosulu, GorunumProfili, Kolon, SiralamaDurumu,
+} from './tablo-tipleri';
 
 const SUNUCU_ESIGI = 2000;
 
@@ -63,6 +67,7 @@ export function VeriTablosu<T>({
 }: VeriTablosuOzellikleri<T>) {
   const t = useTranslations('tablo');
   const tg = useTranslations('genel');
+  const tf = useTranslations('filtre');
   const aramaId = useId();
 
   const varsayilan: Tercihler = useMemo(
@@ -79,6 +84,9 @@ export function VeriTablosu<T>({
   const [arama, setArama] = useState('');
   const [secili, setSecili] = useState<readonly string[]>([]);
   const [ayarAcik, setAyarAcik] = useState(false);
+  const [filtreAcik, setFiltreAcik] = useState(false);
+  const [kosullar, setKosullar] = useState<readonly FiltreKosulu[]>([]);
+  const [baglac, setBaglac] = useState<FiltreBaglaci>('VE');
   const surukleneKolon = useRef<string | null>(null);
 
   // Tercih okumasi effect'te; sunucu ve ilk istemci render'i ayni kalir.
@@ -109,14 +117,23 @@ export function VeriTablosu<T>({
   }, [kolonlar, tercih.sira, tercih.gizli]);
 
   const suzulmus = useMemo(() => {
+    // Once kolon bazli filtre, sonra hizli arama: ikisi VE ile birlesir.
+    // Sira onemlidir yalnizca performans acisindan — filtre genelde daha
+    // cok satir eler, arama daha pahalidir (tum kolonlari gezer).
+    const filtreli = filtreleriUygula(satirlar, kolonlar, kosullar, baglac);
     const q = arama.trim().toLocaleLowerCase('tr');
-    if (q === '') return satirlar;
+    if (q === '') return filtreli;
     // Arama TUM kolonlarda yapilir, yalnizca gorunurlerde degil: kullanici
     // gizledigi bir kolondaki degeri arayabilir.
-    return satirlar.filter((s) =>
+    return filtreli.filter((s) =>
       kolonlar.some((k) => String(k.ham(s) ?? '').toLocaleLowerCase('tr').includes(q)),
     );
-  }, [satirlar, kolonlar, arama]);
+  }, [satirlar, kolonlar, arama, kosullar, baglac]);
+
+  const etkinKosulSayisi = useMemo(
+    () => kosullar.filter(kosulEtkinMi).length,
+    [kosullar],
+  );
 
   const siralanmis = useMemo(() => {
     if (tercih.siralama.length === 0) return suzulmus;
@@ -198,6 +215,23 @@ export function VeriTablosu<T>({
           className="px-3 h-[var(--rowh)] rounded-[var(--rs)] border border-[color:var(--line)] bg-transparent min-w-0 flex-1 sm:flex-none sm:w-64"
         />
 
+        <button type="button" onClick={() => setFiltreAcik((a) => !a)}
+                aria-expanded={filtreAcik}
+                className="px-3 h-[var(--rowh)] text-sm rounded-[var(--rs)] border inline-flex items-center gap-2"
+                style={{
+                  borderColor: etkinKosulSayisi > 0 ? 'var(--primary)' : 'var(--line)',
+                }}>
+          {tf('baslik')}
+          {/* Etkin filtre sayisi GORUNUR olmali: kapali panelde suzulmus bir
+              listeye bakip "kayitlar kayboldu" sanmak en sik hatadir. */}
+          {etkinKosulSayisi > 0 && (
+            <span className="num text-xs px-1.5 rounded-full text-white"
+                  style={{ background: 'var(--primary)' }}>
+              {etkinKosulSayisi}
+            </span>
+          )}
+        </button>
+
         <button type="button" onClick={() => setAyarAcik((a) => !a)}
                 aria-expanded={ayarAcik}
                 className="px-3 h-[var(--rowh)] text-sm rounded-[var(--rs)] border border-[color:var(--line)]">
@@ -219,10 +253,31 @@ export function VeriTablosu<T>({
           {t('gorunumuKaydet')}
         </button>
 
+        {/* Suzme varken TOPLAM da yazilir; aksi halde eksik liste tam liste
+            sanilir ve eksik kayit "kaybolmus" diye aranir. */}
         <span aria-live="polite" className="text-xs text-[color:var(--muted)] ml-auto num">
-          {t('satirSayisi', { sayi: siralanmis.length })}
+          {siralanmis.length === satirlar.length
+            ? t('satirSayisi', { sayi: siralanmis.length })
+            : t('satirSayisiSuzulmus', { sayi: siralanmis.length, toplam: satirlar.length })}
         </span>
       </div>
+
+      {/* Gelismis filtre */}
+      {filtreAcik && (
+        <FiltrePaneli
+          kolonlar={kolonlar}
+          kosullar={kosullar}
+          baglac={baglac}
+          profilAnahtari={profilAnahtari}
+          onDegisti={(yeniKosullar, yeniBaglac) => {
+            setKosullar(yeniKosullar);
+            setBaglac(yeniBaglac);
+            // Suzgec degisince secim TEMIZLENIR: gorunmeyen satirlar secili
+            // kalirsa toplu islem, kullanicinin gormedigi kayitlara uygulanir.
+            seciliDegistir([]);
+          }}
+        />
+      )}
 
       {/* Kolon yonetimi */}
       {ayarAcik && (
