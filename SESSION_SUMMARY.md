@@ -23,6 +23,7 @@ tip denetiminden geçiyordu.
 | `5322afe` | Araç modülü + migration 0004 |
 | `0b8609c` | Sayaç modülü + migration 0005 + tahakkuk entegrasyonu |
 | `3985c4c` | Belge modülü + migration 0006 + nesne deposu (MinIO) |
+| `58ae032` | Belge profesyonel seviye (0007) + Konut Çalışanları (0008) |
 
 Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
 `b4759d3` · `ec76035` · `89a56df` · `666c918`.
@@ -106,7 +107,8 @@ Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
 | **Tahakkuk** | ✅ API. Dağıtım → sorumluluk → malik bölüşümü; snapshot; boşluksuz numara; önizleme; **sayaçtan tüketim** |
 | **Araç** | ✅ API + migration 0004. Plaka normalizasyonu; dönemsel kayıt; otopark aşım raporu |
 | **Sayaç** | ✅ API + migration 0005. Okuma · devir · değişim · dönem tüketimi · geçmiş |
-| **Belge** | ✅ API + migration 0006 + MinIO. Versiyonlama · saklama politikası · önimzalı URL |
+| **Belge** | ✅ API + migration 0006/0007 + MinIO. Versiyonlama · kategori · çoklu ilişki · etiket · arama · gizlilik · önizleme · KVKK imha |
+| **Konut Çalışanları** | ✅ API + UI + migration 0008. On görev · vardiya · SGK · sertifika · zimmet · ayrılış |
 
 Kullanıcının istediği **beş modülün beşi de** tamamlandı.
 
@@ -133,6 +135,34 @@ Kullanıcının istediği **beş modülün beşi de** tamamlandı.
   önce nesnenin gerçekten yüklendiği `HeadObject` ile doğrulanır.
 - Nesne anahtarı tenant önekli; kayıtta önek denetlenir. İndirme
   `attachment` olarak zorlanır (HTML/SVG betik çalıştırmasın), URL ömrü 5 dk.
+- **Kategori TÜRÜN özelliğidir**, belgenin değil: "Fatura" her zaman MALI.
+  Belge başına serbest bırakılsaydı aynı tür farklı kategorilere düşer ve
+  kategori bazlı arama güvenilmez olurdu.
+- **Gizlilik yükseltilebilir, DÜŞÜRÜLEMEZ.** Tapu ve kira sözleşmesinin
+  varsayılanı KISIYE_OZEL'dir; tek yanlış tıkla herkese açılamamalı.
+- **Önizleme yalnızca betik taşıyamayan tiplerde** (PDF · resim · düz metin).
+  HTML/SVG asla — depo alan adında çalışan betik oradaki oturum bağlamına
+  erişebilir.
+- **KVKK kalıcı silmede üstveri KALIR.** Kayıt da silinseydi "bu belge şu
+  tarihte, şu gerekçeyle imha edildi" cevabı kaybolur ve imha kanıtlanamazdı.
+  Nesne, veritabanı işlemi KAPANDIKTAN SONRA silinir.
+
+### Konut Çalışanları — kritik kurallar (canlı doğrulandı)
+
+- **`kisi` tablosundan AYRI tablo.** `Kisi` malik/kiracı/sakin ilişkilerinin
+  dayandığı KİMLİK kaydı; personel bir İSTİHDAM kaydı. Aynı tabloda olsaydı
+  bir kapıcının o binada kiracı olması durumunda "işten ayrıldı" işareti
+  kiracılık kaydını da etkilerdi.
+- Aynı TC ile **AKTİF** ikinci kayıt reddedilir (bordroyu ikiye katlar);
+  ayrılmış kayıt engellemez — aynı kişi tekrar işe alınabilir.
+- **Ayrılmış personel AKTİF olamaz** (veritabanı kısıtı). Ayrı bırakılsaydı
+  "aktif personel" listesi ayrılmış kişileri gösterir ve vardiya planlaması
+  yanlış yapılırdı.
+- **Açık zimmet ayrılışı ENGELLEMEZ, UYARIR.** Teslim edilmemiş telsiz, kaydı
+  kapatmamak için sebep değildir; görünür olması yeter.
+- Zimmet **iade ile kapanır**, silinmez — teslim geçmişi kanıttır.
+- **TC kimlik no denetim gövdesine YAZILMAZ.** Audit kaydı değiştirilemezdir;
+  oraya giren kişisel veri bir daha silinemez.
 
 ---
 
@@ -154,6 +184,39 @@ yalnızca Swagger'dan görebiliyor.
 4. **Araç ekranı.**
 
 ### B. Bilinen sorunlar
+
+0. 🔴 **SOFT DELETE UZANTISI BAĞLI DEĞİL — silinmiş kayıtlar her listede
+   görünüyor.**
+
+   `PrismaService` yapıcısında:
+   ```ts
+   this.$extends(softDeleteUzantisi());   // dönüş değeri ATILIYOR
+   ```
+   `$extends` **yeni bir istemci döndürür**, `this`'i değiştirmez. Uzantı
+   hiçbir zaman devreye girmiyor. Sonuçları:
+   - Soft-delete edilmiş kayıtlar **bütün liste uçlarında dönüyor**.
+   - Birçok sorgu servisinin yorumunda yazan *"soft delete filtresi Prisma
+     uzantısı tarafından MERKEZÎ uygulanır"* ifadesi **YANLIŞ**.
+   - `__silinmisleriDahilEt` sihirli bayrağı Prisma'ya bilinmeyen alan olarak
+     gider ve `PrismaClientValidationError` verir (belge modülünde bu 500 ile
+     yakalandı; orada açık `silinmeTarihi` koşuluna çevrildi).
+
+   **Neden bu oturumda düzeltilmedi:** düzeltmek çapraz kesen bir değişiklik.
+   Şu an silinmiş kayıtları gösteren her uç birden göstermemeye başlar; 24
+   sözleşme testinin ve mevcut ekranların davranışı değişir. Düşük kalan
+   bütçeyle riskli bulundu ve **bilinçli olarak devredildi**.
+
+   **Nasıl düzeltilir (üç seçenek):**
+   - `$use` middleware — `extends PrismaClient` ile yerinde çalışır, Prisma
+     5'te kullanımdan kaldırılmış ama işlevsel. En küçük değişiklik.
+   - `PrismaService` genişletilmiş istemciyi tutup delege etsin — temiz ama
+     geniş refactor.
+   - Uzantıyı bırakıp her sorguda koşulu AÇIKÇA yazmak — belge modülünde
+     şimdilik bu yapıldı.
+
+   Hangisi seçilirse `scripts/` altına bir tarayıcı eklenmeli: RLS
+   tarayıcısı gibi, soft delete taşıyan modele koşulsuz sorgu atan yeri
+   yakalasın.
 
 5. **Sözleşme testleri tenant sızdırıyor.** `numaralandirma` ve
    `rls-izolasyon` testleri her koşuda yeni tenant açıyor ve temizlemiyor;
@@ -206,25 +269,56 @@ Docker Desktop kapalıysa önce başlatılmalı:
 
 ### İlk görev
 
-**Tahakkuk ekranı** (bekleyen liste A-1). Neden bu: backend'de beş modül
-tamam ama tahakkuk — sistemin para üreten tek akışı — yalnızca Swagger'dan
-çalıştırılabiliyor. Bir yönetici ekran olmadan aidat kesemez.
+**Tahakkuk Sihirbazı ve motor genişletmesi.** Kullanıcı bu işi tarif etti ama
+bütçe Belge + Konut Çalışanları'na gitti; **hiç başlanmadı**.
 
-API bir sihirbaz için hazır:
+Talep edilen kapsam (kullanıcının kendi sözleriyle: *"ticari muhasebe
+mantığıyla değil, Kat Mülkiyeti Kanunu ve profesyonel site yönetimi
+mantığıyla"*):
 
-| Adım | Uç |
+**1. Motorun desteklemesi gereken tahakkuk türleri.** Bugün `PaylasimKurali`
+ekseni var (ESIT · ARSA_PAYI · BRUT_M2 · NET_M2 · TUKETIM · SABIT_TUTAR ·
+KULLANIM_BAZLI · BLOK_BAZLI · MANUEL · KARMA) ama bunlar *nasıl dağıtılacağı*.
+Eksik olan *ne olduğu*: **aidat · avans · ek bütçe · demirbaş · gecikme
+tazminatı**. Bunlar yeni bir eksen (`TahakkukTuru`) ister; paylaşım kuralıyla
+karıştırılmamalı:
+   - **Avans** ileriki döneme mahsuptur; ödendiğinde borç kapatmaz, alacak
+     doğurur (KMK md. 20 işletme projesi avansı).
+   - **Ek bütçe** genel kurul kararı ister — `kaynakReferansi` zorunlu olmalı.
+   - **Demirbaş** MALİKE aittir (KMK md. 20/b), kiracıya yansıtılamaz.
+   - **Gecikme tazminatı** KMK md. 20/son: aylık **%5**'i geçemez ve ANA
+     BORÇTAN AYRI bir kalemdir; ana borca eklenip üzerine yeniden faiz
+     işletilirse bileşik faize dönüşür ve talep edilemez hale gelir.
+
+**2. Önizlemede denetim listesi.** Bugün önizleme dağıtımı gösteriyor.
+Eklenmesi istenen kontroller: borçlular · paylaşım kuralları · **muafiyetler**
+· **yönetim planı istisnaları** · **genel kurul kararları** · **geçmiş
+tahakkuklar**. Bunların bir kısmı için veri kaynağı henüz yok (yönetim planı
+istisnası ve genel kurul kararı yalnızca `kaynakReferansi` metni olarak var) —
+**önce o eksik netleştirilmeli**, uydurma alan eklenmemeli.
+
+**3. Geriye dönük değişmezlik ve düzeltme akışları.** Bugün tahakkuk yazıldıktan
+sonra değiştirilemiyor (iyi) ama düzeltme YOLU YOK. Gereken üç kayıt tipi:
+   - **İptal** (ters kayıt / storno) — borç sıfırlanır, iki kayıt da durur.
+   - **Mahsup** — fazla tahsilat sonraki döneme sayılır.
+   - **Devir** — kapanmayan borç sonraki döneme taşınır.
+   `borc` tablosu FINANSAL sınıftır ve silinmez; bu üçü yeni satır olarak
+   yazılmalı ve orijinale referans vermeli (`ters_kayit_id` gibi).
+
+Hazır olan altyapı: `POST /tahakkuk/calistir` önizlemeli çalışıyor,
+`satirlar[].sorumlular` her bölüm için borcun kime yazılacağını
+(malik/kiracı/sakin · ASIL/İKİNCİL) gösteriyor — **onay ekranının asıl değeri
+budur**, yönetici parayı kimden isteyeceğini uygulamadan ÖNCE görür. Sayaç
+entegrasyonu da hazır: eksik okuma varsa uç 422 döner ve eksik kapı
+numaralarını yazar.
+
+| Sihirbaz adımı | Uç |
 |---|---|
 | 1. Gider türü seç | `GET /gider-turleri?yalnizcaAktif=true` |
-| 2. Tutar · dönem · vade gir | — |
-| 3. TUKETIM ise sayaç türü seç | `GET /sayaclar/tuketim/donem` ile önizleme |
-| 4. Dağıtımı gör | `POST /tahakkuk/calistir` + `onizleme: true` |
+| 2. Tutar · dönem · vade | — |
+| 3. TUKETIM ise sayaç türü | `GET /sayaclar/tuketim/donem` |
+| 4. Dağıtımı ve borçluları gör | `POST /tahakkuk/calistir` + `onizleme: true` |
 | 5. Onayla ve uygula | aynı uç, `onizleme` olmadan |
-
-Dikkat: 4. adımda dönen `satirlar[].sorumlular` her bölüm için borcun kime
-yazılacağını gösterir (malik/kiracı/sakin, ASIL/İKİNCİL). Bu **onay ekranının
-asıl değeridir** — yönetici parayı kimden isteyeceğini uygulamadan ÖNCE görür.
-Eksik sayaç okuması varsa uç 422 döner ve eksik kapı numaralarını yazar;
-ekran bunu satır satır göstermelidir.
 
 ---
 
@@ -241,6 +335,9 @@ Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
 | **`prisma migrate diff` çıktısı elle süzülür** | Diff, şemada karşılığı olmayan elle yazılmış kısmi index'leri düşürmek ister; uygulanırsa mükerrer tahakkuk numarası sessizce mümkün olur. Migration'lar elle yazılıyor. | `migrations/0004` · `0005` · `0006` |
 | **Dosya API'den geçmez (önimzalı URL)** | 50 MB'lık bir belgeyi Node üzerinden akıtmak olay döngüsünü tıkar; içerik hiç uygulama belleğine girmez. Bedeli: dosyasız kayıt riski — `HeadObject` ile kapatıldı. | `common/storage/nesne-deposu.service.ts` |
 | **Yeni bağımlılıklar: `@aws-sdk/client-s3`, `unplugin-swc`** | S3 imzalama elle yazılamayacak kadar güvenlik-kritik. `unplugin-swc` olmadan sözleşme testleri hiç koşamıyordu (esbuild `emitDecoratorMetadata` desteklemez). | `backend/package.json` |
+| **Personel `kisi` tablosuna KONULMADI** | `Kisi` malik/kiracı/sakin ilişkilerinin dayandığı kimlik kaydı; personel bir istihdam kaydı. Aynı tabloda olsaydı bir kapıcının o binada kiracı olması durumunda "işten ayrıldı" işareti kiracılık kaydını da etkilerdi. Kullanıcı "Malik/Kiracı/Sakin'e dokunma" dedi; ayrı tablo bunu garanti eder. | `migrations/0008` |
+| **`kisi` API'si KALDIRILMADI, yalnızca menü girdisi kaldırıldı** | `POST /kisiler`, bir malik/kiracı/sakin eklemenin TEK yoludur (hepsi var olan `kisiId` ister). Kaldırılsaydı kullanıcının korunmasını istediği üç modül çalışamaz hale gelirdi. Menüdeki "Kişiler" girdisi zaten var olmayan bir rotayı gösteriyordu; o kaldırıldı. | `uygulama-kabugu.tsx` |
+| **Etiket ASCII katlanır, Türkçe katlanmaz** | Etiket bir KİMLİKTİR. `'ACIL'.toLocaleLowerCase('tr')` → `'acıl'` verir (noktasız I'nın küçüğü ı'dır); dilbilgisel olarak doğru ama caps lock ile yazan kullanıcının etiketi "acil" ile eşleşmezdi. Prose aramasında (ad/notlar) Türkçe katlama doğru olandır — ayrım korunmalı. | `shared/apartman-domain/src/belge/belge.ts` |
 
 ---
 
