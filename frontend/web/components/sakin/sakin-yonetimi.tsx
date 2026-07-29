@@ -146,6 +146,110 @@ export function SakinEkleFormu({
   );
 }
 
+/**
+ * Sakin bilgisi düzeltme. KİŞİ alanı YOKTUR — kaydın kimliğidir.
+ * Yanlış kişi girildiyse çıkış verilip doğru kişiyle yeni kayıt açılır.
+ */
+function SakinDuzeltFormu({
+  bolumId, sakin, kapat, onDegisti,
+}: {
+  readonly bolumId: string;
+  readonly sakin: Sakin;
+  readonly kapat: () => void;
+  readonly onDegisti: () => void;
+}) {
+  const t = useTranslations('sakinYonetim');
+  const td = useTranslations('daire');
+  const tg = useTranslations('genel');
+  const bildirim = useBildirim();
+
+  const [yakinlik, setYakinlik] = useState(sakin.yakinlikDerecesi);
+  const [giris, setGiris] = useState(sakin.girisTarihi);
+  const [acilAd, setAcilAd] = useState(sakin.acilDurumKisiAdi ?? '');
+  const [acilTel, setAcilTel] = useState(sakin.acilDurumTelefon ?? '');
+  const [hata, setHata] = useState<string | null>(null);
+  const [gonderiliyor, setGonderiliyor] = useState(false);
+
+  const gonder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!TARIH_BICIMI.test(giris)) { setHata(t('hataTarih')); return; }
+    if (sakin.cikisTarihi !== null && sakin.cikisTarihi < giris) {
+      setHata(t('hataGirisSonra', { cikis: sakin.cikisTarihi }));
+      return;
+    }
+    setHata(null);
+    setGonderiliyor(true);
+    try {
+      await servis.sakinDuzelt(bolumId, sakin.id, {
+        yakinlikDerecesi: yakinlik,
+        girisTarihi: giris,
+        acilDurumKisiAdi: acilAd.trim(),
+        acilDurumTelefon: acilTel.trim(),
+      });
+      bildirim.basari(t('duzeltildi'));
+      kapat();
+      onDegisti();
+    } catch (h) {
+      bildirim.hata(
+        h instanceof ApiHatasi ? h.problem.detail
+          : h instanceof Error ? h.message : t('duzeltilemedi'),
+      );
+    } finally {
+      setGonderiliyor(false);
+    }
+  };
+
+  return (
+    <form onSubmit={(e) => { void gonder(e); }} className="flex flex-col gap-3">
+      <p className="text-sm font-semibold">{t('duzelt')}</p>
+      <p className="text-xs p-2 rounded-[var(--rs)]"
+         style={{ background: 'var(--glass-bg)', color: 'var(--muted)' }}>
+        {t('kisiDegistirilemez')}
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-[color:var(--muted-2)]">{t('yakinlik')}</span>
+          <select className={girdiSinifi} value={yakinlik}
+                  onChange={(e) => setYakinlik(e.target.value)}>
+            {YAKINLIKLAR.map((y) => (
+              <option key={y} value={y}>{td(`yakinlik_${y}`)}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-[color:var(--muted-2)]">{td('girisTarihi')}</span>
+          <input type="date" className={girdiSinifi} value={giris} required
+                 onChange={(e) => setGiris(e.target.value)} />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-[color:var(--muted-2)]">{t('acilKisi')}</span>
+          <input className={girdiSinifi} value={acilAd}
+                 onChange={(e) => setAcilAd(e.target.value)} />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-[color:var(--muted-2)]">{t('acilTelefon')}</span>
+          <input className={girdiSinifi} value={acilTel} inputMode="tel"
+                 onChange={(e) => setAcilTel(e.target.value)} />
+        </label>
+      </div>
+
+      {hata !== null && (
+        <p role="alert" className="text-xs" style={{ color: 'var(--crit)' }}>{hata}</p>
+      )}
+
+      <button type="submit" disabled={gonderiliyor}
+              className="self-start px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold disabled:opacity-60"
+              style={{ backgroundImage: 'var(--grad)' }}>
+        {gonderiliyor ? tg('yukleniyor') : tg('kaydet')}
+      </button>
+    </form>
+  );
+}
+
 export function SakinCikisEylemi({
   bolumId, sakin, onDegisti,
 }: {
@@ -158,6 +262,7 @@ export function SakinCikisEylemi({
   const bildirim = useBildirim();
 
   const [acik, setAcik] = useState(false);
+  const [duzeltAcik, setDuzeltAcik] = useState(false);
   const [tarih, setTarih] = useState('');
   const [hata, setHata] = useState<string | null>(null);
   const [gonderiliyor, setGonderiliyor] = useState(false);
@@ -187,12 +292,29 @@ export function SakinCikisEylemi({
 
   return (
     <div className="mt-3 pt-3 border-t border-[color:var(--line)]">
-      {!acik ? (
-        <button type="button" onClick={() => setAcik(true)}
-                className="px-3 py-1.5 text-sm rounded-[var(--rs)] border border-[color:var(--line)]">
-          {t('cikisVer')}
-        </button>
-      ) : (
+      {duzeltAcik && (
+        <>
+          <SakinDuzeltFormu bolumId={bolumId} sakin={sakin}
+                            kapat={() => setDuzeltAcik(false)} onDegisti={onDegisti} />
+          <button type="button" onClick={() => setDuzeltAcik(false)}
+                  className="mt-2 text-sm underline text-[color:var(--muted)]">
+            {tg('iptal')}
+          </button>
+        </>
+      )}
+
+      {!acik && !duzeltAcik ? (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setDuzeltAcik(true)}
+                  className="px-3 py-1.5 text-sm rounded-[var(--rs)] border border-[color:var(--line)]">
+            {t('duzelt')}
+          </button>
+          <button type="button" onClick={() => setAcik(true)}
+                  className="px-3 py-1.5 text-sm rounded-[var(--rs)] border border-[color:var(--line)]">
+            {t('cikisVer')}
+          </button>
+        </div>
+      ) : acik ? (
         <form onSubmit={(e) => { void gonder(e); }} className="flex flex-col gap-3">
           <p className="text-xs p-2 rounded-[var(--rs)]"
              style={{ background: 'var(--glass-bg)', color: 'var(--muted)' }}>
@@ -221,7 +343,7 @@ export function SakinCikisEylemi({
             </button>
           </div>
         </form>
-      )}
+      ) : null}
     </div>
   );
 }

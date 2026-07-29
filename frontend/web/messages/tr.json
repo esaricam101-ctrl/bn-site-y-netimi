@@ -117,7 +117,12 @@
     "hataBitisOnce": "Bitiş, başlangıçtan önce olamaz.",
     "hataDepozito": "Depozito en fazla 2 ondalık basamaklı pozitif sayı olmalıdır.",
     "hataTahliyeOnce": "Tahliye tarihi sözleşme başlangıcından ({baslangic}) önce olamaz.",
-    "hataGerekce": "Tahliye gerekçesi en az 5 karakter olmalıdır."
+    "hataGerekce": "Tahliye gerekçesi en az 5 karakter olmalıdır.",
+    "duzelt": "Düzelt",
+    "duzeltildi": "Sözleşme bilgisi güncellendi.",
+    "duzeltilemedi": "Sözleşme bilgisi güncellenemedi.",
+    "kimlikDegistirilemez": "Kiracı ve başlangıç tarihi burada değiştirilemez — ikisi de sözleşmenin kimliğidir. Yanlış kişiye açılmış bir sözleşme düzeltilmez; tahliye edilip yenisi açılır.",
+    "bitisKilitli": "Tahliye edilmiş sözleşmenin bitişi değiştirilemez."
   },
   "sakinYonetim": {
     "yeniSakin": "Yeni sakin ekle",
@@ -135,7 +140,12 @@
     "cikisVerilemedi": "Çıkış işlemi tamamlanamadı.",
     "hataAd": "Sakin adı en az 3 karakter olmalıdır.",
     "hataTarih": "Tarih seçilmelidir.",
-    "hataCikisOnce": "Çıkış tarihi giriş tarihinden ({giris}) önce olamaz."
+    "hataCikisOnce": "Çıkış tarihi giriş tarihinden ({giris}) önce olamaz.",
+    "duzelt": "Düzelt",
+    "duzeltildi": "Sakin bilgisi güncellendi.",
+    "duzeltilemedi": "Sakin bilgisi güncellenemedi.",
+    "kisiDegistirilemez": "Kişi burada değiştirilemez — kaydın kimliğidir. Yanlış kişi girildiyse çıkış verip doğru kişiyle yeni kayıt açın.",
+    "hataGirisSonra": "Giriş tarihi mevcut çıkış tarihinden ({cikis}) sonra olamaz."
   },
   "daire": {
     "baslik": "Daire Kartı",

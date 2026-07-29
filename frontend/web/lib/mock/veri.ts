@@ -479,6 +479,65 @@ export function mockKiraciTahliye(
   };
 }
 
+export function mockKiraciDuzelt(
+  bolumId: string,
+  kiraciId: string,
+  dto: { readonly sozlesmeNo?: string; readonly depozito?: string; readonly bitis?: string },
+): void {
+  const liste = kiraciOrtusu.get(bolumId) ?? [];
+  const i = liste.findIndex((k) => k.id === kiraciId);
+  if (i < 0) throw new Error(`Kiracı kaydı bulunamadı: ${kiraciId}`);
+  const mevcut = liste[i] as MockKiraci;
+
+  if (mevcut.tahliyeTarihi !== null && dto.bitis !== undefined) {
+    throw new Error('Tahliye edilmiş bir sözleşmenin bitiş tarihi değiştirilemez.');
+  }
+  if (dto.bitis !== undefined && dto.bitis < mevcut.baslangic) {
+    throw new Error(`Sözleşme bitişi başlangıçtan (${mevcut.baslangic}) önce olamaz.`);
+  }
+
+  liste[i] = {
+    ...mevcut,
+    ...(dto.sozlesmeNo === undefined ? {} : { sozlesmeNo: dto.sozlesmeNo }),
+    ...(dto.depozito === undefined ? {} : { depozito: dto.depozito }),
+    ...(dto.bitis === undefined ? {} : { bitis: dto.bitis }),
+  };
+}
+
+export function mockSakinDuzelt(
+  bolumId: string,
+  sakinId: string,
+  dto: {
+    readonly yakinlikDerecesi?: string;
+    readonly girisTarihi?: string;
+    readonly acilDurumKisiAdi?: string;
+    readonly acilDurumTelefon?: string;
+  },
+): void {
+  const liste = sakinOrtusu.get(bolumId) ?? [];
+  const i = liste.findIndex((s) => s.id === sakinId);
+  if (i < 0) throw new Error(`Sakin kaydı bulunamadı: ${sakinId}`);
+  const mevcut = liste[i] as MockSakin;
+
+  if (
+    dto.girisTarihi !== undefined &&
+    mevcut.cikisTarihi !== null &&
+    mevcut.cikisTarihi < dto.girisTarihi
+  ) {
+    throw new Error(
+      `Giriş tarihi mevcut çıkış tarihinden (${mevcut.cikisTarihi}) sonra olamaz.`,
+    );
+  }
+
+  liste[i] = {
+    ...mevcut,
+    ...(dto.yakinlikDerecesi === undefined ? {} : { yakinlikDerecesi: dto.yakinlikDerecesi }),
+    ...(dto.girisTarihi === undefined ? {} : { girisTarihi: dto.girisTarihi }),
+    ...(dto.acilDurumKisiAdi === undefined ? {} : { acilDurumKisiAdi: dto.acilDurumKisiAdi }),
+    ...(dto.acilDurumTelefon === undefined ? {} : { acilDurumTelefon: dto.acilDurumTelefon }),
+  };
+}
+
 export interface MockSakinEkle {
   readonly kisiAdi: string;
   readonly yakinlikDerecesi: string;

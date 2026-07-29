@@ -14,7 +14,8 @@ import {
   mockApartmanlar, mockAuditKayitlari, mockBloklar, mockBolumler,
   mockDaireKarti, mockYerlesim,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
-  mockKiraciEkle, mockKiraciTahliye, mockSakinCikis, mockSakinEkle,
+  mockKiraciDuzelt, mockKiraciEkle, mockKiraciTahliye,
+  mockSakinCikis, mockSakinDuzelt, mockSakinEkle,
   mockKatEkle, mockKatGuncelle, mockKatlariOku, mockKatSil,
   type MockApartman, type MockAuditSatiri, type MockBlok, type MockBolum,
   type MockDaireKarti, type MockHisseRaporu, type MockKat, type MockKiraci,
@@ -104,6 +105,20 @@ export interface KiraciEkleGirdisi {
   readonly sozlesmeNo?: string;
   /** Para METİN taşınır — JSON number float'tır (BFS v1 §11). */
   readonly depozito?: string;
+}
+
+export interface KiraciDuzeltGirdisi {
+  readonly sozlesmeNo?: string;
+  readonly depozito?: string;
+  /** Uzatma/kısaltma. Tahliye edilmiş sözleşmede değiştirilemez. */
+  readonly bitis?: string;
+}
+
+export interface SakinDuzeltGirdisi {
+  readonly yakinlikDerecesi?: string;
+  readonly girisTarihi?: string;
+  readonly acilDurumKisiAdi?: string;
+  readonly acilDurumTelefon?: string;
 }
 
 export interface SakinEkleGirdisi {
@@ -240,6 +255,19 @@ export const servis = {
       mockKiraciEkle(bolumId, dto);
     }),
 
+  /**
+   * Sözleşme bilgisi düzeltme / uzatma.
+   *
+   * KİŞİ ve BAŞLANGIÇ değiştirilemez — ikisi de sözleşmenin kimliğidir.
+   * Yanlış kişiye açılmış sözleşme düzeltilmez; tahliye edilip yenisi açılır.
+   */
+  kiraciDuzelt: (
+    bolumId: string, kiraciId: string, dto: KiraciDuzeltGirdisi,
+  ): Promise<void> =>
+    gonder(`/bolumler/${bolumId}/kiracilar/${kiraciId}`, 'PATCH', dto, () => {
+      mockKiraciDuzelt(bolumId, kiraciId, dto);
+    }),
+
   /** Tahliye — sözleşme kapanır, kayıt SİLİNMEZ. */
   kiraciTahliye: (
     bolumId: string, kiraciId: string, tahliyeTarihi: string, tahliyeGerekcesi: string,
@@ -255,6 +283,14 @@ export const servis = {
   sakinEkle: (bolumId: string, dto: SakinEkleGirdisi): Promise<void> =>
     gonder(`/bolumler/${bolumId}/sakinler`, 'POST', dto, () => {
       mockSakinEkle(bolumId, dto);
+    }),
+
+  /** Sakin bilgisi düzeltme. KİŞİ değiştirilemez — kaydın kimliğidir. */
+  sakinDuzelt: (
+    bolumId: string, sakinId: string, dto: SakinDuzeltGirdisi,
+  ): Promise<void> =>
+    gonder(`/bolumler/${bolumId}/sakinler/${sakinId}`, 'PATCH', dto, () => {
+      mockSakinDuzelt(bolumId, sakinId, dto);
     }),
 
   /** Çıkış — dönem kapanır, kayıt SİLİNMEZ. */
