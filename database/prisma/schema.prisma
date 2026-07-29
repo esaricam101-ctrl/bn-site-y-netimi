@@ -62,9 +62,9 @@ model Tenant {
   belgePolitikalari BelgeTipiPolitikasi[]
   belgeIliskileri  BelgeIliskisi[]
   belgeEtiketleri  BelgeEtiketi[]
-  konutCalisanlari KonutCalisani[]
-  personelSertifikalari PersonelSertifikasi[]
-  personelZimmetleri    PersonelZimmeti[]
+  daireGorevlileri DaireGorevlisi[]
+  gorevliSertifikalari GorevliSertifikasi[]
+  gorevliZimmetleri    GorevliZimmeti[]
   apartmanlar      Apartman[]
   bloklar          Blok[]
   katlar           Kat[]
@@ -218,7 +218,7 @@ model Apartman {
   tenant  Tenant @relation(fields: [tenantId], references: [id])
   bloklar Blok[]
 
-  calisanlar KonutCalisani[]
+  gorevliler DaireGorevlisi[]
   @@index([tenantId])
   @@map("apartman")
 }
@@ -1090,7 +1090,7 @@ model BelgeEtiketi {
 }
 
 // ===========================================================================
-// KONUT ÇALIŞANI — sitede/apartmanda çalışan personel
+// DAİRE GÖREVLİSİ — sitede/apartmanda görev yapan personel
 //
 // KİŞİ'DEN AYRI BİR TABLODUR ve bu bilinçlidir. `Kisi`, malik/kiracı/sakin
 // ilişkilerinin dayandığı kimlik kaydıdır; personel ise bir İSTİHDAM
@@ -1099,7 +1099,7 @@ model BelgeEtiketi {
 // olması durumunda iki farklı kavram tek satıra binerdi.
 // ===========================================================================
 
-enum PersonelGorevi {
+enum GorevTuru {
   SITE_MUDURU
   YONETICI
   GUVENLIK
@@ -1112,7 +1112,7 @@ enum PersonelGorevi {
   DIGER
 }
 
-enum PersonelDurumu {
+enum GorevliDurumu {
   AKTIF
   PASIF
 }
@@ -1125,7 +1125,7 @@ enum Vardiya {
   DONUSUMLU
 }
 
-model KonutCalisani {
+model DaireGorevlisi {
   id       String @id @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
 
@@ -1137,7 +1137,7 @@ model KonutCalisani {
   ad    String @db.VarChar(60)
   soyad String @db.VarChar(60)
 
-  gorev      PersonelGorevi
+  gorev      GorevTuru
   /// Serbest metin departman — "Teknik İşler", "Güvenlik Amirliği".
   departman  String? @db.VarChar(80)
 
@@ -1154,7 +1154,7 @@ model KonutCalisani {
   istenAyrilisTarihi DateTime? @map("isten_ayrilis_tarihi") @db.Date
 
   vardiya Vardiya        @default(GUNDUZ)
-  durum   PersonelDurumu @default(AKTIF)
+  durum   GorevliDurumu @default(AKTIF)
 
   notlar String?
 
@@ -1168,23 +1168,23 @@ model KonutCalisani {
 
   tenant     Tenant                @relation(fields: [tenantId], references: [id])
   apartman   Apartman?             @relation(fields: [apartmanId], references: [id])
-  sertifikalar PersonelSertifikasi[]
-  zimmetler    PersonelZimmeti[]
+  sertifikalar GorevliSertifikasi[]
+  zimmetler    GorevliZimmeti[]
 
   @@index([tenantId, durum, gorev])
   @@index([tenantId, apartmanId])
-  @@map("konut_calisani")
+  @@map("daire_gorevlisi")
 }
 
-/// Personel sertifikası — güvenlik görevlisi kimlik kartı, ilkyardım,
+/// Görevli sertifikası — güvenlik görevlisi kimlik kartı, ilkyardım,
 /// operatör belgesi gibi.
 ///
 /// GEÇERLİLİK TARİHİ TAKİP EDİLİR: süresi dolmuş güvenlik sertifikasıyla
 /// çalıştırmak idari yaptırım sebebidir ve bu ancak takip edilirse görülür.
-model PersonelSertifikasi {
+model GorevliSertifikasi {
   id         String @id @db.Uuid
   tenantId   String @map("tenant_id") @db.Uuid
-  calisanId  String @map("calisan_id") @db.Uuid
+  gorevliId  String @map("gorevli_id") @db.Uuid
 
   ad         String    @db.VarChar(120)
   kurum      String?   @db.VarChar(120)
@@ -1195,20 +1195,20 @@ model PersonelSertifikasi {
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
 
   tenant  Tenant        @relation(fields: [tenantId], references: [id])
-  calisan KonutCalisani @relation(fields: [calisanId], references: [id], onDelete: Cascade)
+  gorevli DaireGorevlisi @relation(fields: [gorevliId], references: [id], onDelete: Cascade)
 
-  @@index([tenantId, calisanId])
-  @@map("personel_sertifikasi")
+  @@index([tenantId, gorevliId])
+  @@map("gorevli_sertifikasi")
 }
 
-/// Personele zimmetlenen demirbaş — telsiz, anahtar, üniforma, araç.
+/// Görevliye zimmetlenen demirbaş — telsiz, anahtar, üniforma, araç.
 ///
-/// İADE TARİHİ ile kapanır, SİLİNMEZ: işten ayrılan bir personelin üzerinde
+/// İADE TARİHİ ile kapanır, SİLİNMEZ: işten ayrılan bir görevlinin üzerinde
 /// kalan zimmet, ayrılıştan sonra sorulduğunda kayıtta görünmek zorundadır.
-model PersonelZimmeti {
+model GorevliZimmeti {
   id        String @id @db.Uuid
   tenantId  String @map("tenant_id") @db.Uuid
-  calisanId String @map("calisan_id") @db.Uuid
+  gorevliId String @map("gorevli_id") @db.Uuid
 
   ad       String  @db.VarChar(120)
   seriNo   String? @map("seri_no") @db.VarChar(60)
@@ -1221,10 +1221,10 @@ model PersonelZimmeti {
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
 
   tenant  Tenant        @relation(fields: [tenantId], references: [id])
-  calisan KonutCalisani @relation(fields: [calisanId], references: [id], onDelete: Cascade)
+  gorevli DaireGorevlisi @relation(fields: [gorevliId], references: [id], onDelete: Cascade)
 
-  @@index([tenantId, calisanId])
-  @@map("personel_zimmeti")
+  @@index([tenantId, gorevliId])
+  @@map("gorevli_zimmeti")
 }
 
 // ===========================================================================

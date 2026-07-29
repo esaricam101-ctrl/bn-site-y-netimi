@@ -1,4 +1,4 @@
-# Oturum Özeti — 29 Temmuz 2026 (Docker + beş modül)
+# Oturum Özeti — 29 Temmuz 2026 (Docker + yedi modül)
 
 Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 [`DEVLOG.md`](DEVLOG.md) içindedir; burada yalnızca *nerede kaldık* ve
@@ -23,7 +23,9 @@ tip denetiminden geçiyordu.
 | `5322afe` | Araç modülü + migration 0004 |
 | `0b8609c` | Sayaç modülü + migration 0005 + tahakkuk entegrasyonu |
 | `3985c4c` | Belge modülü + migration 0006 + nesne deposu (MinIO) |
-| `58ae032` | Belge profesyonel seviye (0007) + Konut Çalışanları (0008) |
+| `58ae032` | Belge profesyonel seviye (0007) + Daire Görevlileri (0008) |
+| `a9d4071` | Devir notu — kritik soft-delete bulgusu |
+| _bu commit_ | Modül adı düzeltmesi: Konut Çalışanları → **Daire Görevlileri** (0009) |
 
 Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
 `b4759d3` · `ec76035` · `89a56df` · `666c918`.
@@ -82,7 +84,7 @@ tip denetiminden geçiyordu.
 ## 2. Şu anki durum
 
 **Doğrulama:** 9/9 build · ESLint 0 · verify **8/8** · sözleşme testleri
-**24/24** · migration **6/6 uygulandı** · 14 web rotası.
+**24/24** · migration **9/9 uygulandı** · 14 web rotası.
 
 Çalışma ağacı temiz, `origin/master` ile senkron.
 
@@ -108,9 +110,10 @@ Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
 | **Araç** | ✅ API + migration 0004. Plaka normalizasyonu; dönemsel kayıt; otopark aşım raporu |
 | **Sayaç** | ✅ API + migration 0005. Okuma · devir · değişim · dönem tüketimi · geçmiş |
 | **Belge** | ✅ API + migration 0006/0007 + MinIO. Versiyonlama · kategori · çoklu ilişki · etiket · arama · gizlilik · önizleme · KVKK imha |
-| **Konut Çalışanları** | ✅ API + UI + migration 0008. On görev · vardiya · SGK · sertifika · zimmet · ayrılış |
+| **Daire Görevlileri** | ✅ API + UI + migration 0008/0009. On görev · vardiya · SGK · sertifika · zimmet · ayrılış |
 
-Kullanıcının istediği **beş modülün beşi de** tamamlandı.
+Kullanıcının istediği beş modül + Belge profesyonel seviye + Daire
+Görevlileri tamamlandı.
 
 ### Sayaç — kritik kurallar (canlı doğrulandı)
 
@@ -147,16 +150,16 @@ Kullanıcının istediği **beş modülün beşi de** tamamlandı.
   tarihte, şu gerekçeyle imha edildi" cevabı kaybolur ve imha kanıtlanamazdı.
   Nesne, veritabanı işlemi KAPANDIKTAN SONRA silinir.
 
-### Konut Çalışanları — kritik kurallar (canlı doğrulandı)
+### Daire Görevlileri — kritik kurallar (canlı doğrulandı)
 
 - **`kisi` tablosundan AYRI tablo.** `Kisi` malik/kiracı/sakin ilişkilerinin
-  dayandığı KİMLİK kaydı; personel bir İSTİHDAM kaydı. Aynı tabloda olsaydı
+  dayandığı KİMLİK kaydı; görevli bir İSTİHDAM kaydı. Aynı tabloda olsaydı
   bir kapıcının o binada kiracı olması durumunda "işten ayrıldı" işareti
   kiracılık kaydını da etkilerdi.
 - Aynı TC ile **AKTİF** ikinci kayıt reddedilir (bordroyu ikiye katlar);
   ayrılmış kayıt engellemez — aynı kişi tekrar işe alınabilir.
-- **Ayrılmış personel AKTİF olamaz** (veritabanı kısıtı). Ayrı bırakılsaydı
-  "aktif personel" listesi ayrılmış kişileri gösterir ve vardiya planlaması
+- **Ayrılmış görevli AKTİF olamaz** (veritabanı kısıtı). Ayrı bırakılsaydı
+  "aktif görevli" listesi ayrılmış kişileri gösterir ve vardiya planlaması
   yanlış yapılırdı.
 - **Açık zimmet ayrılışı ENGELLEMEZ, UYARIR.** Teslim edilmemiş telsiz, kaydı
   kapatmamak için sebep değildir; görünür olması yeter.
@@ -261,7 +264,7 @@ yalnızca Swagger'dan görebiliyor.
 pnpm db:up && pnpm db:status && pnpm verify && pnpm test:contract
 ```
 
-Beklenen: `6 migrations found` · `Database schema is up to date` ·
+Beklenen: `9 migrations found` · `Database schema is up to date` ·
 `Tum kontroller yesil` · `24 passed`.
 
 Docker Desktop kapalıysa önce başlatılmalı:
@@ -270,7 +273,7 @@ Docker Desktop kapalıysa önce başlatılmalı:
 ### İlk görev
 
 **Tahakkuk Sihirbazı ve motor genişletmesi.** Kullanıcı bu işi tarif etti ama
-bütçe Belge + Konut Çalışanları'na gitti; **hiç başlanmadı**.
+bütçe Belge + Daire Görevlileri'na gitti; **hiç başlanmadı**.
 
 Talep edilen kapsam (kullanıcının kendi sözleriyle: *"ticari muhasebe
 mantığıyla değil, Kat Mülkiyeti Kanunu ve profesyonel site yönetimi

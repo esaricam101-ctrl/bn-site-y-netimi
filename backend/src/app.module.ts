@@ -31,7 +31,7 @@ import { AracModule } from './modules/arac/arac.module';
 import { SayacModule } from './modules/sayac/sayac.module';
 import { StorageModule } from './common/storage/storage.module';
 import { BelgeModule } from './modules/belge/belge.module';
-import { KonutCalisaniModule } from './modules/konut-calisani/konut-calisani.module';
+import { DaireGorevlisiModule } from './modules/daire-gorevlisi/daire-gorevlisi.module';
 import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
 
 @Module({
@@ -70,9 +70,9 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     // Belge: versiyonlanır, silinmez. Dosya nesne deposundadır.
     StorageModule,
     BelgeModule,
-    // Konut çalışanları — sitede çalışan personel. Malik/Kiracı/Sakin
+    // Daire görevlileri — sitede görev yapan personel. Malik/Kiracı/Sakin
     // modüllerinden AYRIDIR ve onlara dokunmaz.
-    KonutCalisaniModule,
+    DaireGorevlisiModule,
     // Denetim kaydı OKUMA ucu. Yazma tarafı common/audit içindedir.
     AuditSorguModule,
   ],

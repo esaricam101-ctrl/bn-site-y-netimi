@@ -4,19 +4,19 @@ import {
   Min, MinLength,
 } from 'class-validator';
 
-export const PERSONEL_GOREVLERI = [
+export const GOREV_TURLERI = [
   'SITE_MUDURU', 'YONETICI', 'GUVENLIK', 'TEMIZLIK', 'TEKNIK',
   'BAHCIVAN', 'VALE', 'RESEPSIYON', 'HAVUZ_GOREVLISI', 'DIGER',
 ] as const;
 
-export const PERSONEL_DURUMLARI = ['AKTIF', 'PASIF'] as const;
+export const GOREVLI_DURUMLARI = ['AKTIF', 'PASIF'] as const;
 
 export const VARDIYALAR = ['GUNDUZ', 'AKSAM', 'GECE', 'TAM_GUN', 'DONUSUMLU'] as const;
 
-export class CalisanEkleDto {
+export class GorevliEkleDto {
   @ApiPropertyOptional({
     description:
-      'Çalıştığı apartman. Site genelinde çalışan personelde boş bırakılır.',
+      'Çalıştığı apartman. Site genelinde çalışan görevlide boş bırakılır.',
   })
   @IsOptional() @IsUUID()
   apartmanId?: string;
@@ -29,9 +29,9 @@ export class CalisanEkleDto {
   @IsString() @Length(2, 60)
   soyad!: string;
 
-  @ApiProperty({ enum: PERSONEL_GOREVLERI, example: 'GUVENLIK' })
-  @IsIn(PERSONEL_GOREVLERI)
-  gorev!: (typeof PERSONEL_GOREVLERI)[number];
+  @ApiProperty({ enum: GOREV_TURLERI, example: 'GUVENLIK' })
+  @IsIn(GOREV_TURLERI)
+  gorev!: (typeof GOREV_TURLERI)[number];
 
   @ApiPropertyOptional({ example: 'Güvenlik Amirliği' })
   @IsOptional() @IsString() @Length(2, 80)
@@ -82,7 +82,7 @@ export class CalisanEkleDto {
  * `istenAyrilisTarihi` de burada DEĞİŞTİRİLEMEZ; ayrılış ayrı bir uçtur
  * (`/ayril`) çünkü durum geçişi ve zimmet denetimi gerektirir.
  */
-export class CalisanDuzeltDto {
+export class GorevliDuzeltDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID()
   apartmanId?: string;
 
@@ -92,9 +92,9 @@ export class CalisanDuzeltDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(2, 60)
   soyad?: string;
 
-  @ApiPropertyOptional({ enum: PERSONEL_GOREVLERI })
-  @IsOptional() @IsIn(PERSONEL_GOREVLERI)
-  gorev?: (typeof PERSONEL_GOREVLERI)[number];
+  @ApiPropertyOptional({ enum: GOREV_TURLERI })
+  @IsOptional() @IsIn(GOREV_TURLERI)
+  gorev?: (typeof GOREV_TURLERI)[number];
 
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(2, 80)
   departman?: string;
@@ -116,7 +116,7 @@ export class CalisanDuzeltDto {
   notlar?: string;
 }
 
-export class CalisanAyrilDto {
+export class GorevliAyrilDto {
   @ApiProperty({ example: '2026-08-31' })
   @IsDateString({}, { message: 'Ayrılış tarihi YYYY-MM-DD biçiminde olmalıdır.' })
   istenAyrilisTarihi!: string;
@@ -126,7 +126,7 @@ export class CalisanAyrilDto {
   gerekce!: string;
 }
 
-export class CalisanSilDto {
+export class GorevliSilDto {
   @ApiProperty({
     example: 'Mükerrer kayıt; doğru kayıt aynı gün açıldı',
     description: 'Soft delete gerekçesi zorunludur (BFS v1 §5.2).',

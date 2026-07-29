@@ -61,13 +61,13 @@ export const KURAL_KAYNAKLARI = [
 
 export const MALIK_PAYLASIMLARI = ['ESIT', 'HISSE_ORANI', 'MANUEL'] as const;
 
-/* --------------------------- Konut çalışanları --------------------------- */
+/* --------------------------- Daire görevlileri --------------------------- */
 
-export const PERSONEL_GOREVLERI = [
+export const GOREV_TURLERI = [
   'SITE_MUDURU', 'YONETICI', 'GUVENLIK', 'TEMIZLIK', 'TEKNIK',
   'BAHCIVAN', 'VALE', 'RESEPSIYON', 'HAVUZ_GOREVLISI', 'DIGER',
 ] as const;
 
-export const PERSONEL_DURUMLARI = ['AKTIF', 'PASIF'] as const;
+export const GOREVLI_DURUMLARI = ['AKTIF', 'PASIF'] as const;
 
 export const VARDIYALAR = ['GUNDUZ', 'AKSAM', 'GECE', 'TAM_GUN', 'DONUSUMLU'] as const;

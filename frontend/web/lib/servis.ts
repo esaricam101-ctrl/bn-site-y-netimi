@@ -15,8 +15,8 @@ import {
   mockAuditKayitlari, mockBolumleriOku, mockDaireKarti, mockYerlesim,
   mockArsaPayiDuzelt, mockBolumTasi, mockBolumTopluOlustur,
   mockGiderTuruEkle, mockGiderTuruGuncelle, mockGiderTurleriniOku, mockGiderTuruSil,
-  mockCalisanAyril, mockCalisanEkle, mockCalisanlariOku,
-  type MockCalisanGirdisi, type MockKonutCalisani,
+  mockGorevliAyril, mockGorevliEkle, mockGorevlileriOku,
+  type MockGorevliGirdisi, type MockDaireGorevlisi,
   type MockArsaPayiRaporu, type MockArsaPayiSatiri, type MockTopluBolumSatiri,
   type MockGiderTuru, type MockGiderTuruGirdisi,
   mockApartmanEkle, mockApartmanGuncelle, mockApartmanlariOku, mockApartmanSil,
@@ -271,33 +271,33 @@ export const servis = {
       () => { mockBolumTopluOlustur(blokId, katId, kat, bolumler); },
     ),
 
-  // --- Konut çalışanları (personel) ---
+  // --- Daire görevlileri (görevli) ---
 
-  konutCalisanlari: (
+  daireGorevlileri: (
     suzgec: { gorev?: string; durum?: string; arama?: string } = {},
-  ): Promise<readonly MockKonutCalisani[]> => {
+  ): Promise<readonly MockDaireGorevlisi[]> => {
     const p = new URLSearchParams();
     if (suzgec.gorev !== undefined) p.set('gorev', suzgec.gorev);
     if (suzgec.durum !== undefined) p.set('durum', suzgec.durum);
     if (suzgec.arama !== undefined) p.set('arama', suzgec.arama);
     const sorgu = p.toString();
     return getir(
-      `/konut-calisanlari${sorgu === '' ? '' : `?${sorgu}`}`,
-      mockCalisanlariOku(suzgec),
+      `/daire-gorevlileri${sorgu === '' ? '' : `?${sorgu}`}`,
+      mockGorevlileriOku(suzgec),
     );
   },
 
-  calisanEkle: (dto: MockCalisanGirdisi): Promise<void> =>
-    gonder('/konut-calisanlari', 'POST', dto, () => { mockCalisanEkle(dto); }),
+  gorevliEkle: (dto: MockGorevliGirdisi): Promise<void> =>
+    gonder('/daire-gorevlileri', 'POST', dto, () => { mockGorevliEkle(dto); }),
 
   /** İşten ayrılış — kayıt KAPANIR, silinmez. */
-  calisanAyril: (
+  gorevliAyril: (
     id: string, istenAyrilisTarihi: string, gerekce: string,
   ): Promise<void> =>
     gonder(
-      `/konut-calisanlari/${id}/ayril`, 'PATCH',
+      `/daire-gorevlileri/${id}/ayril`, 'PATCH',
       { istenAyrilisTarihi, gerekce },
-      () => { mockCalisanAyril(id, istenAyrilisTarihi); },
+      () => { mockGorevliAyril(id, istenAyrilisTarihi); },
     ),
 
   // --- Gider türleri (aidat kuralları — KMK md. 20) ---
@@ -475,8 +475,8 @@ export type {
   MockDaireKarti as DaireKarti,
   MockGiderTuru as GiderTuru,
   MockGiderTuruGirdisi as GiderTuruGirdisi,
-  MockKonutCalisani as KonutCalisani,
-  MockCalisanGirdisi as CalisanGirdisi,
+  MockDaireGorevlisi as DaireGorevlisi,
+  MockGorevliGirdisi as GorevliGirdisi,
   MockHisseRaporu as HisseRaporu,
   MockKat as Kat,
   MockKiraci as Kiraci,

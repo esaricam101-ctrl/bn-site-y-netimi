@@ -1066,7 +1066,7 @@ export function mockGiderTuruSil(id: string): void {
   liste[i] = { ...(liste[i] as MockGiderTuru), aktifMi: false };
 }
 
-/* ---------------------------- Konut çalışanları ---------------------------- */
+/* ---------------------------- Daire görevlileri ---------------------------- */
 
 export interface MockSertifika {
   readonly id: string;
@@ -1090,7 +1090,7 @@ export interface MockZimmet {
 }
 
 /** Konut çalışanı satırı — gerçek uçla (`CalisanSatiri`) aynı şekil. */
-export interface MockKonutCalisani {
+export interface MockDaireGorevlisi {
   readonly id: string;
   readonly apartmanId: string | null;
   readonly apartmanAdi: string | null;
@@ -1114,7 +1114,7 @@ export interface MockKonutCalisani {
   readonly suresiDolanSertifikaSayisi: number;
 }
 
-const mockCalisanlarTaban: readonly MockKonutCalisani[] = [
+const mockGorevlilerTaban: readonly MockDaireGorevlisi[] = [
   {
     id: 'kc-1', apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı',
     ad: 'Ahmet', soyad: 'Yıldız', adSoyad: 'Ahmet Yıldız',
@@ -1164,12 +1164,12 @@ const mockCalisanlarTaban: readonly MockKonutCalisani[] = [
   },
 ];
 
-let calisanOrtusu: MockKonutCalisani[] | null = null;
+let gorevliOrtusu: MockDaireGorevlisi[] | null = null;
 
-export function mockCalisanlariOku(
+export function mockGorevlileriOku(
   suzgec: { gorev?: string; durum?: string; arama?: string } = {},
-): readonly MockKonutCalisani[] {
-  const liste = calisanOrtusu ?? mockCalisanlarTaban;
+): readonly MockDaireGorevlisi[] {
+  const liste = gorevliOrtusu ?? mockGorevlilerTaban;
   const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
   return liste.filter(
     (c) =>
@@ -1181,11 +1181,11 @@ export function mockCalisanlariOku(
   );
 }
 
-function calisanListesi(): MockKonutCalisani[] {
-  return calisanOrtusu ?? (calisanOrtusu = [...mockCalisanlarTaban]);
+function gorevliListesi(): MockDaireGorevlisi[] {
+  return gorevliOrtusu ?? (gorevliOrtusu = [...mockGorevlilerTaban]);
 }
 
-export interface MockCalisanGirdisi {
+export interface MockGorevliGirdisi {
   readonly ad: string;
   readonly soyad: string;
   readonly gorev: string;
@@ -1199,8 +1199,8 @@ export interface MockCalisanGirdisi {
   readonly notlar?: string;
 }
 
-export function mockCalisanEkle(dto: MockCalisanGirdisi): void {
-  const liste = calisanListesi();
+export function mockGorevliEkle(dto: MockGorevliGirdisi): void {
+  const liste = gorevliListesi();
   // Ayni TC ile AKTIF ikinci kayit bordroyu ikiye katlar — sunucu da reddeder.
   if (dto.tcKimlikNo !== undefined && dto.tcKimlikNo !== '') {
     const cakisan = liste.find(
@@ -1208,7 +1208,7 @@ export function mockCalisanEkle(dto: MockCalisanGirdisi): void {
     );
     if (cakisan) {
       throw new Error(
-        `Bu TC kimlik numarasıyla aktif bir personel kaydı var: ${cakisan.adSoyad}.`,
+        `Bu TC kimlik numarasıyla aktif bir görevli kaydı var: ${cakisan.adSoyad}.`,
       );
     }
   }
@@ -1234,11 +1234,11 @@ export function mockCalisanEkle(dto: MockCalisanGirdisi): void {
 }
 
 /** İşten ayrılış — kayıt KAPANIR, silinmez. Durum aynı anda PASIF olur. */
-export function mockCalisanAyril(id: string, tarih: string): void {
-  const liste = calisanListesi();
+export function mockGorevliAyril(id: string, tarih: string): void {
+  const liste = gorevliListesi();
   const i = liste.findIndex((c) => c.id === id);
-  if (i < 0) throw new Error(`Personel bulunamadı: ${id}`);
-  const mevcut = liste[i] as MockKonutCalisani;
+  if (i < 0) throw new Error(`Görevli bulunamadı: ${id}`);
+  const mevcut = liste[i] as MockDaireGorevlisi;
   if (mevcut.istenAyrilisTarihi !== null) {
     throw new Error(`${mevcut.adSoyad} ${mevcut.istenAyrilisTarihi} tarihinde zaten ayrılmış.`);
   }

@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * Konut çalışanları — sitede/apartmanda çalışan personel.
+ * Daire görevlileri — sitede/apartmanda çalışan görevli.
  *
- * MALİK · KİRACI · SAKİN ekranlarından tümüyle AYRIDIR: personel bir istihdam
+ * MALİK · KİRACI · SAKİN ekranlarından tümüyle AYRIDIR: görevli bir istihdam
  * kaydıdır, ötekiler bağımsız bölüme bağlı hak sahipliği kayıtlarıdır.
  *
  * İKİ UYARI HER ZAMAN ÜSTTE:
  *   1. Süresi dolmuş sertifika — süresi geçmiş güvenlik kartıyla çalıştırmak
  *      idari yaptırım sebebidir ve ancak takip edilirse görülür.
- *   2. Açık zimmet — işten ayrılan personelin üzerinde kalan telsiz/anahtar.
+ *   2. Açık zimmet — işten ayrılan görevlinin üzerinde kalan telsiz/anahtar.
  * İkisi de listede gizlenmez; sayıları başlıkta durur.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,8 +17,8 @@ import { useTranslations } from 'next-intl';
 import { UygulamaKabugu } from '@/components/uygulama-kabugu';
 import { BosDurum, HataDurumu, Yukleniyor } from '@/components/durumlar';
 import { useBildirim } from '@/components/bildirim';
-import { PERSONEL_GOREVLERI, PERSONEL_DURUMLARI, VARDIYALAR } from '@/lib/kodlar';
-import { servis, type KonutCalisani } from '@/lib/servis';
+import { GOREV_TURLERI, GOREVLI_DURUMLARI, VARDIYALAR } from '@/lib/kodlar';
+import { servis, type DaireGorevlisi } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
 const alanSinifi =
@@ -30,11 +30,11 @@ function hataMetni(h: unknown, varsayilan: string): string {
   return varsayilan;
 }
 
-export default function KonutCalisanlariSayfasi() {
-  const t = useTranslations('personel');
+export default function DaireGorevlileriSayfasi() {
+  const t = useTranslations('gorevli');
   const tn = useTranslations('navigasyon');
 
-  const [satirlar, setSatirlar] = useState<readonly KonutCalisani[]>([]);
+  const [satirlar, setSatirlar] = useState<readonly DaireGorevlisi[]>([]);
   const [hata, setHata] = useState<unknown>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [formAcik, setFormAcik] = useState(false);
@@ -47,7 +47,7 @@ export default function KonutCalisanlariSayfasi() {
     setYukleniyor(true);
     setHata(null);
     servis
-      .konutCalisanlari({
+      .daireGorevlileri({
         ...(gorev === '' ? {} : { gorev }),
         ...(durum === '' ? {} : { durum }),
         ...(arama.trim() === '' ? {} : { arama: arama.trim() }),
@@ -73,7 +73,7 @@ export default function KonutCalisanlariSayfasi() {
       baslik={t('baslik')}
       kirintilar={[
         { etiket: tn('genelBakis'), yol: '/yonetim' },
-        { etiket: tn('konutCalisanlari') },
+        { etiket: tn('daireGorevlileri') },
       ]}
     >
       <div className="flex flex-col gap-4">
@@ -104,7 +104,7 @@ export default function KonutCalisanlariSayfasi() {
             <select className={`${alanSinifi} w-48`} value={gorev}
                     onChange={(e) => setGorev(e.target.value)}>
               <option value="">{t('tumGorevler')}</option>
-              {PERSONEL_GOREVLERI.map((g) => (
+              {GOREV_TURLERI.map((g) => (
                 <option key={g} value={g}>{t(`gorev_${g}`)}</option>
               ))}
             </select>
@@ -115,7 +115,7 @@ export default function KonutCalisanlariSayfasi() {
             <select className={`${alanSinifi} w-40`} value={durum}
                     onChange={(e) => setDurum(e.target.value)}>
               <option value="">{t('tumDurumlar')}</option>
-              {PERSONEL_DURUMLARI.map((d) => (
+              {GOREVLI_DURUMLARI.map((d) => (
                 <option key={d} value={d}>{t(`durum_${d}`)}</option>
               ))}
             </select>
@@ -132,13 +132,13 @@ export default function KonutCalisanlariSayfasi() {
             <button type="button" onClick={() => setFormAcik(true)}
                     className="px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold"
                     style={{ backgroundImage: 'var(--grad)' }}>
-              {t('yeniPersonel')}
+              {t('yeniGorevli')}
             </button>
           )}
         </div>
 
         {formAcik && (
-          <PersonelFormu
+          <GorevliFormu
             onKaydedildi={() => { setFormAcik(false); yukle(); }}
             onIptal={() => setFormAcik(false)}
           />
@@ -153,7 +153,7 @@ export default function KonutCalisanlariSayfasi() {
         {!yukleniyor && hata === null && satirlar.length > 0 && (
           <div className="grid gap-3 lg:grid-cols-2">
             {satirlar.map((c) => (
-              <PersonelKarti key={c.id} calisan={c} onDegisti={yukle} />
+              <GorevliKarti key={c.id} calisan={c} onDegisti={yukle} />
             ))}
           </div>
         )}
@@ -162,13 +162,13 @@ export default function KonutCalisanlariSayfasi() {
   );
 }
 
-function PersonelKarti({
+function GorevliKarti({
   calisan, onDegisti,
 }: {
-  readonly calisan: KonutCalisani;
+  readonly calisan: DaireGorevlisi;
   readonly onDegisti: () => void;
 }) {
-  const t = useTranslations('personel');
+  const t = useTranslations('gorevli');
   const tg = useTranslations('genel');
   const bildirim = useBildirim();
 
@@ -184,7 +184,7 @@ function PersonelKarti({
     if (gerekce.trim().length < 5) { bildirim.hata(t('hataGerekce')); return; }
     setGonderiliyor(true);
     try {
-      await servis.calisanAyril(calisan.id, tarih, gerekce.trim());
+      await servis.gorevliAyril(calisan.id, tarih, gerekce.trim());
       bildirim.basari(t('ayrildi'));
       setAyrilAcik(false);
       onDegisti();
@@ -307,13 +307,13 @@ function PersonelKarti({
   );
 }
 
-function PersonelFormu({
+function GorevliFormu({
   onKaydedildi, onIptal,
 }: {
   readonly onKaydedildi: () => void;
   readonly onIptal: () => void;
 }) {
-  const t = useTranslations('personel');
+  const t = useTranslations('gorevli');
   const tg = useTranslations('genel');
   const bildirim = useBildirim();
 
@@ -344,7 +344,7 @@ function PersonelFormu({
     if (engel !== null) { bildirim.hata(engel); return; }
     setGonderiliyor(true);
     try {
-      await servis.calisanEkle({
+      await servis.gorevliEkle({
         ad: ad.trim(), soyad: soyad.trim(), gorev,
         ...(departman.trim() === '' ? {} : { departman: departman.trim() }),
         ...(telefon.trim() === '' ? {} : { telefon: telefon.trim() }),
@@ -366,7 +366,7 @@ function PersonelFormu({
   return (
     <form onSubmit={(e) => { void gonder(e); }}
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
-      <h2 className="font-semibold">{t('yeniPersonel')}</h2>
+      <h2 className="font-semibold">{t('yeniGorevli')}</h2>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="flex flex-col gap-1">
@@ -383,7 +383,7 @@ function PersonelFormu({
           <span className="text-xs text-[color:var(--muted-2)]">{t('gorev')}</span>
           <select className={alanSinifi} value={gorev}
                   onChange={(e) => setGorev(e.target.value)}>
-            {PERSONEL_GOREVLERI.map((g) => (
+            {GOREV_TURLERI.map((g) => (
               <option key={g} value={g}>{t(`gorev_${g}`)}</option>
             ))}
           </select>
