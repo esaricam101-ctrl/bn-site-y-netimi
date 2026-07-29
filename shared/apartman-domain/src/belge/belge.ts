@@ -60,6 +60,36 @@ export interface Belge {
   readonly arsivMi: boolean;
 }
 
+/**
+ * Varsayilan saklama politikalari — TEK KAYNAK.
+ *
+ * Hem tohum verisi hem de yeni tenant olusturma bu listeyi kullanir. Iki ayri
+ * yerde yazilsaydi biri guncellenip digeri unutulur ve bazi tenant'lar yanlis
+ * politikayla acilirdi.
+ *
+ * KRITIK: politikasi OLMAYAN bir tip icin `tipPolitikasi` guvenli gorunen bir
+ * varsayilan doner (`finansalMi: false`). Fatura ve makbuz icin bu YANLISTIR:
+ * finansal isareti dusunce belge arsivlendiginde silinebilir hale gelir ve
+ * mali denetim izi kaybolur. Bu yuzden her tenant acilirken politikalar
+ * yazilmali, varsayilana BIRAKILMAMALIDIR.
+ */
+export const VARSAYILAN_BELGE_POLITIKALARI: readonly BelgeTipiPolitikasi[] = [
+  // Yonetim plani ve genel kurul kararlari SURESIZ saklanir: bir dairenin
+  // aidat kuralinin dayanagi bunlardir ve on yil sonra da sorulabilir.
+  { tip: 'YONETIM_PLANI', saklamaYili: null, finansalMi: false, kaynakReferansi: 'KMK md. 28' },
+  { tip: 'GENEL_KURUL_KARARI', saklamaYili: null, finansalMi: true, kaynakReferansi: 'KMK md. 32 — karar defteri' },
+  { tip: 'TAPU', saklamaYili: null, finansalMi: false, kaynakReferansi: 'KMK md. 12' },
+  // Fatura ve makbuz FINANSAL: asla silinmez, duzeltme yeni surumle yapilir.
+  { tip: 'FATURA', saklamaYili: 10, finansalMi: true, kaynakReferansi: 'VUK md. 253' },
+  { tip: 'MAKBUZ', saklamaYili: 10, finansalMi: true, kaynakReferansi: 'VUK md. 253' },
+  { tip: 'KIRA_SOZLESMESI', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
+  { tip: 'SIGORTA_POLICESI', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
+  { tip: 'RUHSAT', saklamaYili: null, finansalMi: false, kaynakReferansi: null },
+  { tip: 'TEKNIK_RAPOR', saklamaYili: 10, finansalMi: false, kaynakReferansi: null },
+  { tip: 'YAZISMA', saklamaYili: 5, finansalMi: false, kaynakReferansi: null },
+  { tip: 'DIGER', saklamaYili: 5, finansalMi: false, kaynakReferansi: null },
+];
+
 export function tipPolitikasi(
   politikalar: readonly BelgeTipiPolitikasi[],
   tip: BelgeTipi,

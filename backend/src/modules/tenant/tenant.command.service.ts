@@ -10,6 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { tenantId, type Principal } from '@bnos/kernel';
 import { Tenant, CakismaHatasi, KayitBulunamadi } from '@bnos/core-domain';
+import { VARSAYILAN_BELGE_POLITIKALARI } from '@bnos/apartman-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
@@ -55,14 +56,6 @@ export class TenantCommandService {
         );
       }
 
-      const mevcutKod = await tx.tenant.findUnique({ where: { kod: dto.kod } });
-      if (mevcutKod) {
-        throw new CakismaHatasi(
-          `'${dto.kod}' kodu başka bir apartman tarafından kullanılıyor.`,
-          'Farklı bir kod seçin.',
-        );
-      }
-
       const a = tenant.anlik();
       await tx.tenant.create({
         data: {
@@ -70,6 +63,31 @@ export class TenantCommandService {
           saatDilimi: a.saatDilimi, paraBirimi: a.paraBirimi, lisansKodu: a.lisansKodu,
         },
       });
+
+      // --- Belge saklama politikaları — AYNI İŞLEMDE ---------------------
+      //
+      // Politikasız bir tenant'ta `tipPolitikasi` güvenli GÖRÜNEN bir
+      // varsayılana düşer (`finansalMi: false`) ve fatura arşivlendiğinde
+      // silinebilir hale gelir; mali denetim izi sessizce kaybolur.
+      //
+      // Tenant ve politikaları aynı transaction'da yazılır: ayrı olsaydı
+      // araya düşen bir hata, politikasız bir tenant bırakırdı.
+      //
+      // `belge_tipi_politikasi` RLS taşır ve bu blok `sistemIslemi` içinde
+      // koşar (tenant tablosu tenant seçiminden ÖNCE okunur). Bağlam bu
+      // yüzden burada elle kurulur — `tenantIslemi` ayrı bir transaction
+      // açardı ve atomikliği bozardı.
+      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${a.id}::text, true)`;
+      for (const p of VARSAYILAN_BELGE_POLITIKALARI) {
+        await tx.belgeTipiPolitikasi.create({
+          data: {
+            id: randomUUID(), tenantId: a.id, tip: p.tip,
+            saklamaYili: p.saklamaYili,
+            finansalMi: p.finansalMi,
+            kaynakReferansi: p.kaynakReferansi,
+          },
+        });
+      }
 
       await this.audit.yaz(tx, {
         tenantId: a.id, principal, eylem: 'OLUSTUR',

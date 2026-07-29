@@ -6,6 +6,9 @@
  */
 import { randomUUID } from 'node:crypto';
 import { PrismaClient, type Prisma } from '@prisma/client';
+// Belge saklama politikaları TEK KAYNAKTAN gelir: domain katmanı. Burada
+// tekrar yazılsaydı biri güncellenip diğeri unutulurdu.
+import { VARSAYILAN_BELGE_POLITIKALARI as BELGE_POLITIKALARI } from '@bnos/apartman-domain';
 
 const prisma = new PrismaClient();
 
@@ -171,6 +174,23 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
   // Kurallar VERİDİR, koda gömülmez. Buradakiler 634 sayılı KMK md. 20'nin
   // varsayılanıdır; yönetim planı veya genel kurul kararı bunları DEĞİŞTİREBİLİR
   // ve o durumda `kural_kaynagi` ile birlikte `kaynak_referansi` zorunlu olur.
+  // --- Belge saklama politikaları ------------------------------------------
+  //
+  // Politikasız bir tenant'ta `tipPolitikasi` güvenli GÖRÜNEN bir varsayılana
+  // düşer (`finansalMi: false`) ve fatura arşivlendiğinde silinebilir hale
+  // gelir. Mali denetim izi sessizce kaybolur; bu yüzden her tenant açılırken
+  // yazılır.
+  for (const p of BELGE_POLITIKALARI) {
+    await prisma.belgeTipiPolitikasi.create({
+      data: {
+        id: randomUUID(), tenantId, tip: p.tip,
+        saklamaYili: p.saklamaYili,
+        finansalMi: p.finansalMi,
+        kaynakReferansi: p.kaynakReferansi,
+      },
+    });
+  }
+
   for (const g of GIDER_TURLERI) {
     await prisma.giderTuru.create({
       data: {

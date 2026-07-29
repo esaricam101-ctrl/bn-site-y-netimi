@@ -22,6 +22,27 @@ function metinVeyaYok(deger: unknown): string | undefined {
   return typeof deger === 'string' && deger.length > 0 ? deger : undefined;
 }
 
+/**
+ * `ValidationPipe` hata gövdesinde `message` bir DİZİDİR, metin değil:
+ *   { statusCode: 400, message: ['plaka en az 5 karakter', ...], error: '...' }
+ *
+ * Yalnızca metin kabul edilseydi (ki edilmiyordu) dizi sessizce düşer ve
+ * istemciye "Bad Request Exception" gider — hangi alanın neden reddedildiği
+ * KAYBOLUR. Bu, `String(unknown)` tuzağının kardeşidir: ikisi de tip
+ * uyuşmazlığını hataya değil, BOŞ BİLGİYE çevirir.
+ *
+ * Alanlar tek satırda birleştirilir; RFC 7807 `detail` tek metindir.
+ */
+function metinVeyaDizi(deger: unknown): string | undefined {
+  const tek = metinVeyaYok(deger);
+  if (tek !== undefined) return tek;
+  if (Array.isArray(deger)) {
+    const satirlar = deger.filter((d): d is string => typeof d === 'string' && d.length > 0);
+    if (satirlar.length > 0) return satirlar.join(' · ');
+  }
+  return undefined;
+}
+
 interface ProblemDetails {
   type: string;
   title: string;
@@ -98,7 +119,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         type: 'https://bnos.local/hatalar/http',
         title: hata.name,
         status: hata.getStatus(),
-        detail: metinVeyaYok(govde['mesaj']) ?? metinVeyaYok(govde['message']) ?? hata.message,
+        detail:
+          metinVeyaYok(govde['mesaj']) ??
+          metinVeyaDizi(govde['message']) ??
+          hata.message,
         ...(sonrakiEylem ? { sonrakiEylem } : {}),
         ...(govde['gerekenIzinler'] ? { gerekenIzinler: govde['gerekenIzinler'] } : {}),
       };

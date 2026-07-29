@@ -58,6 +58,8 @@ model Tenant {
   araclar          Arac[]
   sayaclar         Sayac[]
   sayacOkumalari   SayacOkumasi[]
+  belgeler         Belge[]
+  belgePolitikalari BelgeTipiPolitikasi[]
   apartmanlar      Apartman[]
   bloklar          Blok[]
   katlar           Kat[]
@@ -855,6 +857,119 @@ model SayacOkumasi {
 
   @@index([tenantId, sayacId, tarih])
   @@map("sayac_okumasi")
+}
+
+// ===========================================================================
+// BELGE — versiyonlanır, SİLİNMEZ (BFS v1 §5.3 kural 3)
+// ===========================================================================
+
+enum BelgeTipi {
+  YONETIM_PLANI
+  GENEL_KURUL_KARARI
+  TAPU
+  KIRA_SOZLESMESI
+  FATURA
+  MAKBUZ
+  SIGORTA_POLICESI
+  RUHSAT
+  TEKNIK_RAPOR
+  YAZISMA
+  DIGER
+}
+
+/// Belgenin bağlandığı varlık. Bölüme, kişiye ya da tenant'ın tamamına ait
+/// olabilir.
+enum BelgeKapsami {
+  TENANT
+  APARTMAN
+  BLOK
+  BOLUM
+  KISI
+}
+
+/// Belge tipi saklama politikası — VERİ olarak, koda gömülmez.
+///
+/// Saklama süresi mevzuata ve yönetim kararına bağlıdır; ikisi de değişir.
+/// Tenant başına tutulur: bir yönetim şirketi kendi arşiv politikasını
+/// uygulayabilir.
+model BelgeTipiPolitikasi {
+  id       String    @id @db.Uuid
+  tenantId String    @map("tenant_id") @db.Uuid
+  tip      BelgeTipi
+
+  /// Yıl cinsinden asgari saklama süresi. `null` ise SÜRESİZ saklanır.
+  saklamaYili Int? @map("saklama_yili")
+  /// FİNANSAL sınıf — asla silinmez, yalnızca versiyonlanır (BFS v1 §5.1).
+  finansalMi  Boolean @default(false) @map("finansal_mi")
+  kaynakReferansi String? @map("kaynak_referansi") @db.VarChar(200)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, tip])
+  @@map("belge_tipi_politikasi")
+}
+
+/// Belge kaydı. Dosyanın kendisi nesne deposundadır (MinIO/S3);
+/// burada YALNIZCA üstveri ve nesne anahtarı tutulur.
+///
+/// SİLİNMEZ, VERSİYONLANIR. Yeni sürüm eskisini geçersiz kılar ama yok
+/// etmez: "hangi yönetim planına göre karar verildi?" sorusunun cevabı eski
+/// sürümdedir.
+model Belge {
+  id       String       @id @db.Uuid
+  tenantId String       @map("tenant_id") @db.Uuid
+  tip      BelgeTipi
+  kapsam   BelgeKapsami
+  /// Kapsamın işaret ettiği kaydın kimliği. TENANT kapsamında `null`.
+  ///
+  /// TİPLİ YABANCI ANAHTAR YOK: hedef beş ayrı tabloya işaret edebilir.
+  /// Varlığı uygulama katmanında denetlenir (`hedefiDogrula`).
+  hedefId  String?      @map("hedef_id") @db.Uuid
+
+  ad     String @db.VarChar(200)
+  /// Aynı belgenin kaçıncı sürümü. 1'den başlar.
+  surum  Int    @default(1)
+  /// Bu sürümün geçersiz kıldığı önceki sürüm. İlk sürümde `null`.
+  oncekiSurumId String? @map("onceki_surum_id") @db.Uuid
+
+  belgeTarihi      DateTime  @map("belge_tarihi") @db.Date
+  /// Geçerlilik bitişi — poliçe, ruhsat gibi belgelerde anlamlıdır.
+  gecerlilikBitisi DateTime? @map("gecerlilik_bitisi") @db.Date
+
+  /// Nesne deposundaki anahtar. Tenant kimliğiyle önekli — bir tenant'ın
+  /// anahtarı diğerininkini tahmin etmeye yaramaz.
+  dosyaAnahtari String @map("dosya_anahtari") @db.VarChar(300)
+  dosyaBoyutu   Int    @map("dosya_boyutu")
+  icerikTipi    String @map("icerik_tipi") @db.VarChar(120)
+  /// Dosyanın SHA-256 özeti — nesne deposundaki içeriğin değişmediğini
+  /// kanıtlar. Belge bir delildir; içeriği sessizce değişmemelidir.
+  dosyaOzeti    String? @map("dosya_ozeti") @db.VarChar(64)
+
+  /// Yeni sürüm yayınlandığında eskisi arşivlenir; SİLİNMEZ.
+  arsivMi Boolean @default(false) @map("arsiv_mi")
+
+  yukleyenKullanici String? @map("yukleyen_kullanici") @db.Uuid
+
+  /// Saklama süresi dolmuş ve arşivdeki BELGE DIŞI kayıtlar silinebilir;
+  /// finansal belgeler asla. Silme yine soft delete'tir.
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant        Tenant  @relation(fields: [tenantId], references: [id])
+  oncekiSurum   Belge?  @relation("BelgeSurumu", fields: [oncekiSurumId], references: [id])
+  sonrakiSurum  Belge[] @relation("BelgeSurumu")
+
+  @@index([tenantId, kapsam, hedefId])
+  @@index([tenantId, tip, arsivMi])
+  @@map("belge")
 }
 
 // ===========================================================================
