@@ -402,7 +402,69 @@ Beklenen: `13 migrations found` · `Database schema is up to date` ·
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
 
-### İlk görev
+### İlk görev — referans mimariyle boşluk analizi (v23 · v24)
+
+Kullanıcının kapanış talimatı. **Önce oku, sonra yaz.**
+
+Referans dosyalar (Canva AI ile hazırlanmış mimari dokümanları):
+
+- [`docs/reference/roadmap/01-v23.html`](docs/reference/roadmap/01-v23.html)
+- [`docs/reference/roadmap/02-v24.html`](docs/reference/roadmap/02-v24.html)
+- ayrıca [`02-v23-v25.html`](docs/reference/roadmap/02-v23-v25.html) —
+  v23 ile v24'ü birlikte özetliyor, çelişki halinde tekil dosyalar esastır.
+
+**Kurallar (kullanıcının kendi sözleriyle):**
+
+1. v23 ve v24 **referans mimaridir**.
+2. Mevcut yapıyı **bozma**.
+3. Mevcut ekranları **yeniden tasarlama**.
+4. Eksik modül · sekme · alt sekme · form · iş akışını referansa göre
+   **tamamla**.
+5. İsimlendirme ve hiyerarşiyi mevcut projeyle uyumlu tut.
+6. **Yeni mimari oluşturma** — referanstaki tasarımı mevcut yapıyla birleştir.
+
+**Özellikle denetlenecek iş süreçleri:**
+
+*Yönetim yapısı*
+
+- Yönetim Firması (ayrı modül)
+- Site / Apartman Yönetimi (ayrı modül)
+- Bir yönetim firmasının **birden fazla** site/apartman projesi yönetmesi
+- Her proje için bağımsız yönetim bilgileri
+- Çoklu proje desteği (Multi Project)
+
+> Bugünkü durum: `tenant` tipi `APARTMAN | SITE` taşıyor ve `TenantTipi` içinde
+> `YONETIM_SIRKETI` rolü var (`tenant.setup` izni oraya taşındı) ama **yönetim
+> firması ile proje arasında bir üst-alt ilişki YOK**: her tenant bağımsızdır.
+> Çoklu proje bu ilişkiyi gerektirir; şema etkisi olduğu için **önce referansta
+> ne dendiği okunmalı**, tahminle tablo eklenmemeli.
+
+*Personel yönetimi — görev yürütme akışı*
+
+Personel kartı · görev tanımları · **günlük görev planı** · **haftalık görev
+planı** · vardiya · devam durumu · Göreve Başla · görev öncesi fotoğraf · görev
+sırasında not · Mola Başlat · Molayı Bitir · Göreve Devam Et · Görev Sonlandır ·
+görev sonrası fotoğraf · açıklama · **GPS konumu (altyapı)** · **QR/NFC ile
+görev doğrulama (altyapı)** · yapılan işler · yapılmayan işler · yönetici onayı.
+
+> Bugünkü durum: `site_personeli` **kadro kaydıdır** (kimlik · SGK · vardiya ·
+> sertifika · zimmet · ayrılış). Yukarıdaki liste bir **görev yürütme** akışıdır
+> ve karşılığı **hiç yok**: görev tanımı, plan, vardiya çizelgesi, görev
+> oturumu (başla/mola/bitir), fotoğraf, GPS, QR/NFC, onay — hepsi yeni.
+> Fotoğraf için nesne deposu hazır (`nesne-deposu.service.ts`, önimzalı URL).
+
+*Genel kontrol*
+
+v23/v24'te olup projede olmayan sekme · alt sekme · kart · panel · iş akışı ·
+veri giriş ekranı · rapor · filtre · dashboard bileşeni **tek tek tespit
+edilecek** ve mevcut mimari bozulmadan eklenecek.
+
+**Önerilen sıra:** (a) iki HTML'i baştan sona oku, (b) mevcut rotalar/uçlarla
+karşılaştıran bir **boşluk listesi** yaz ve kullanıcıya raporla, (c) sonra
+kodla. Şema değiştiren maddeler (çoklu proje, görev oturumu) migration ister;
+`0004`-`0013` tuzakları için §3.C okunmalı.
+
+### İkinci görev
 
 **Tahakkuk Sihirbazı ve motor genişletmesi.** Kullanıcı bu işi tarif etti ama
 bütçe Belge + Site Personeli / Daire Görevlisi ayrımı + hızlı kayıta gitti;
