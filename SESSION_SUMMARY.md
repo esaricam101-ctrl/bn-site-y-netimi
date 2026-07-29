@@ -1,4 +1,4 @@
-# Oturum Özeti — 28 Temmuz 2026
+# Oturum Özeti — 29 Temmuz 2026
 
 Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 [`DEVLOG.md`](DEVLOG.md) içindedir; burada yalnızca *nerede kaldık* ve
@@ -8,23 +8,23 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ## 1. Son tamamlanan iş
 
-**Commit `1bc1d6a`** — Kiracı/Sakin düzeltme arayüzleri (A-1 tamamen kapandı).
+**Commit `ec76035`** — Arsa payı toplu düzeltme arayüzü.
+**A listesi (migration gerektirmeyenler) tamamen kapandı.**
 
-Teslim edilen commit zinciri:
+Bu oturumda teslim edilenler:
 
 | Commit | İş |
 |---|---|
-| `1ef7d5b` | Tema sistemi (koyu/açık) + uygulama kabuğu (nav · breadcrumb · yoğunluk) |
-| `bf31046` | Mock servis katmanı + veri tablosu + Bağımsız Bölümler ekranı |
-| `572617c` | 360° Daire Kartı + denetim kaydı sorgu ucu (`GET /audit`) |
-| `dd624ce` | Dashboard + Apartman + Blok/Kat ekranları |
-| `494abd8` | Malik yönetim arayüzü + bildirim (toast) altyapısı |
-| `299e486` | Kiracı + Sakin yönetim arayüzleri (ekleme · tahliye · çıkış) |
-| `c529be2` | Kat yönetim ekranı |
-| `1bc1d6a` | Kiracı/Sakin düzeltme (PATCH) arayüzleri |
+| `8bca955` | Apartman ve Blok yazma arayüzleri (A-6) |
+| `66bd2a5` | Gelişmiş filtre paneli + kaydedilebilir filtreler (A-3 · A-4) |
+| `b4759d3` | CSV içe aktarma sihirbazı + toplu taşıma (A-5) |
+| `ec76035` | Arsa payı toplu düzeltme (KMK md. 3) |
+
+Önceki oturumların zinciri: `1ef7d5b` · `bf31046` · `572617c` · `dd624ce` ·
+`494abd8` · `299e486` · `c529be2` · `1bc1d6a`.
 
 **Doğrulama (son commit itibarıyla):** build 9/9 · ESLint 0 · verify 7/7 ·
-137 birim testi · belge lint 0 · 57 backend ucu · **10 web rotası**.
+belge lint 0 · 57 backend ucu · **13 web rotası**.
 
 Çalışma ağacı **temiz**, `origin/master` ile **senkron**.
 
@@ -103,29 +103,27 @@ Negatif testler `bash` `PATH`'te olmadığı için şu komutla koşulur:
 TSC="$PWD/node_modules/.bin/tsc" bash scripts/negative-tests.sh
 ```
 
-### İlk görev
+### İlk görev — **karar gerekiyor**
 
-**Apartman ve Blok için yazma arayüzü** (bekleyen liste A-6).
+**A listesinde iş kalmadı.** Migration gerektirmeyen ve backend'i hazır olan
+her akış yazıldı. Kalan üç yolun ikisi bloke, biri kullanıcı kararı bekliyor:
 
-Neden bu: hiyerarşinin en üst iki seviyesi hâlâ **salt okunur**. Kat ve
-Bağımsız Bölüm ekranlarında ekleme/düzeltme/silme var; apartman ve blok
-yalnızca listeleniyor. Backend hazır:
+| Yol | Durum | Ne gerekiyor |
+|---|---|---|
+| **B — PDF / XLSX çıktısı** | Kütüphane kararı bekliyor | Kullanıcı onayı: bağımlılık eklenecek mi? |
+| **C — araç · sayaç · evcil · belge · not** | **Docker bloke** | PostgreSQL kurulumu; domain katmanları zaten yazılı ve testli |
+| **D — genel kurul / tahakkuk** | Hukuki görüş bekliyor | C-4 raporu (teknik değil) |
 
-| Uç | İşlev |
-|---|---|
-| `POST /apartmanlar` · `PATCH /:id` · `DELETE /:id` | Apartman CRUD |
-| `POST /bloklar` · `PATCH /:id` · `DELETE /:id` | Blok CRUD |
+**Öneri:** oturuma başlarken kullanıcıya B için sorulmalı. PDF/XLSX'in şu anki
+karşılığı CSV + tarayıcı yazdırmadır ve ikisi de çalışıyor; asıl eksik,
+**resmî görünümlü işletme defteri / borç bildirimi çıktısı**. Bu, kütüphane
+seçilmeden yapılamaz (`@react-pdf/renderer`, `pdfmake` ya da sunucu tarafı
+üretim — üçünün de lisans ve boyut etkisi farklıdır).
 
-Dikkat edilecek kurallar:
-
-- **Bloğu olan apartman silinemez**, **bölümü olan blok silinemez** — kat
-  ekranındaki gibi düğme devre dışı + neden yazılmalı.
-- **Blok başka apartmana taşınmaz**; `PATCH /bloklar/:id` yalnızca `ad` alır.
-- Blok adı **apartman içinde** tekildir (sitede iki apartmanın da "A Blok"u
-  olabilir) — hata mesajı bunu yansıtmalı.
-
-Desen hazır: [`app/katlar/page.tsx`](frontend/web/app/katlar/page.tsx) birebir
-şablon olarak kullanılabilir (kart + satır içi form + soft delete gerekçesi).
+Kullanıcı bağımlılık istemiyorsa yapılabilecek migration'sız iş:
+**yazdırma stil sayfası** (`@media print`) — mevcut ekranlardan düzgün A4
+çıktısı almak. Bu bağımlılık gerektirmez ve bugünkü `window.print()`
+çağrısını kullanılabilir hale getirir.
 
 ---
 
@@ -141,6 +139,16 @@ Desen hazır: [`app/katlar/page.tsx`](frontend/web/app/katlar/page.tsx) birebir
   içinde bir i18n anahtarıdır. Bu oturumda build iki kez bu yüzden kırıldı.
 - `useSearchParams` kullanan sayfalar `<Suspense>` sınırı ister (Next.js App
   Router); sınır olmadan prerender aşamasında patlar.
+- **Para ve pay hiçbir yerde ondalık tutulmaz.** Arsa payı ve hisse kesirdir
+  (`lib/kesir.ts` · `shared/apartman-domain/src/kesir.ts`); 1/3 ondalığa
+  çevrilince toplam asla tamı etmez ve ekran doğru veriyi hatalı gösterir.
+- **Web paketinin birim testi yok.** `tests/unit` yalnızca `shared/*/dist` ve
+  `backend/src/common` derlemesini koşar; `filtre.ts`, `csv-oku.ts` ve
+  `lib/kesir.ts` yalnızca tip denetimi ve derleme ile korunuyor. Web için
+  test altyapısı kurulacaksa bu üç modül ilk adaydır.
+- **Enum kodları iki yerde aynalı:** `frontend/web/lib/kodlar.ts` ve
+  `messages/tr.json`. Domain'e yeni kod eklenirse ikisine de eklenmelidir;
+  eklenmezse kayıt listede doğru görünür ama filtrede seçenek çıkmaz.
 - **Docker hâlâ kurulu değil.** Migration üretilemez, sözleşme testleri
   koşulamaz, RLS'in çalışma zamanı kanıtı alınamaz (DEVLOG TODO-3).
 
