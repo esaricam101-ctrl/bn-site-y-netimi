@@ -203,8 +203,8 @@ export function VeriTablosu<T>({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Arac cubugu */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Arac cubugu — kagida basilmaz (arama kutusu, dugmeler). */}
+      <div className="flex flex-wrap items-center gap-2 baski-gizle">
         <label htmlFor={aramaId} className="sr">{t('ara')}</label>
         <input
           id={aramaId}
@@ -281,7 +281,7 @@ export function VeriTablosu<T>({
 
       {/* Kolon yonetimi */}
       {ayarAcik && (
-        <div className="glass p-[var(--cardpad)] flex flex-wrap gap-3">
+        <div className="glass p-[var(--cardpad)] flex flex-wrap gap-3 baski-gizle">
           {kolonlar.map((k) => (
             <label key={k.anahtar} className="flex items-center gap-2 text-sm">
               <input
@@ -305,7 +305,7 @@ export function VeriTablosu<T>({
       {/* Toplu islem cubugu — yalnizca secim varken gorunur. */}
       {secimAktif && secili.length > 0 && (
         <div role="region" aria-label={t('topluIslem')}
-             className="glass p-[var(--cardpad)] flex flex-wrap items-center gap-2">
+             className="glass p-[var(--cardpad)] flex flex-wrap items-center gap-2 baski-gizle">
           <span className="text-sm num">{t('seciliSayisi', { sayi: secili.length })}</span>
           {topluEylemler?.(secili)}
           <button type="button" onClick={() => seciliDegistir([])}
@@ -322,7 +322,9 @@ export function VeriTablosu<T>({
           <thead>
             <tr>
               {secimAktif && (
-                <th scope="col" className="p-2 w-10">
+                /* Secim kolonu KAGIDA BASILMAZ; basilirsa bos bir sutun
+                   kalir ve tablo hizasi kayar. */
+                <th scope="col" className="p-2 w-10 baski-gizle">
                   <input
                     type="checkbox"
                     checked={tumuSecili}
@@ -398,7 +400,7 @@ export function VeriTablosu<T>({
                   style={{ height: 'var(--rowh)' }}
                 >
                   {secimAktif && (
-                    <td className="p-2">
+                    <td className="p-2 baski-gizle">
                       <input
                         type="checkbox"
                         checked={isaretli}

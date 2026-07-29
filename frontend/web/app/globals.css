@@ -99,3 +99,88 @@ body {
     transition-duration: .01ms !important;
   }
 }
+
+/*
+ * BASKI — `window.print()` cagrisi ve tarayici yazdirmasi icin.
+ *
+ * Ekran tasarimi koyu zeminlidir; oldugu gibi basilirsa hem okunmaz hem de
+ * bir sayfalik listede kartus dolusu toner harcar. Baskida zemin daima
+ * BEYAZ, metin daima SIYAHTIR — tema secimi baskiyi etkilemez.
+ *
+ * Basilan cikti bir BELGEDIR: yonetim kuruluna sunulur, dosyalanir, tebligat
+ * ekine konur. Bu yuzden hangi ekranin, hangi tarihte basildigi kagitta
+ * yazmalidir (`.baski-basligi`); ekranda gorunmez, yalnizca baskida cikar.
+ *
+ * NOT: bu, PDF URETIMI DEGILDIR. Resmi gorunumlu isletme defteri / borc
+ * bildirimi ciktisi ayri bir istir ve kutuphane karari bekler (SESSION_SUMMARY B).
+ */
+@page {
+  margin: 14mm 12mm;
+}
+
+.baski-basligi { display: none; }
+
+@media print {
+  /* Zemin ve metin: tema ne olursa olsun kagit beyaz, murekkep siyah. */
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 10pt;
+  }
+
+  /*
+   * Gezinme, tema anahtarlari ve arac cubugu kagida basilmaz.
+   *
+   * `.baski-gizle` ACIK bir isarettir; "butun dugmeleri gizle" gibi genis bir
+   * kural yazmak, kagitta gorunmesi gereken bir icerigi ileride sessizce
+   * yutar. Gizlenecek her sey isaretlenerek gizlenir.
+   */
+  nav[aria-label], header button, .baski-gizle {
+    display: none !important;
+  }
+
+  /* Cam yuzeyler duz cerceveye doner; blur ve golge baskida kirli cikar. */
+  .glass {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: 1px solid #999 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  header {
+    background: transparent !important;
+    border-bottom: 1px solid #000 !important;
+  }
+
+  .baski-basligi {
+    display: block;
+    border-bottom: 2px solid #000;
+    margin-bottom: 6mm;
+    padding-bottom: 2mm;
+  }
+
+  /*
+   * Tablo basligi HER SAYFADA tekrarlanir. Uc sayfalik bir bolum listesinde
+   * ikinci sayfada kolon adlari olmazsa sutunlarin hangisi oldugu bilinmez.
+   */
+  thead { display: table-header-group; }
+  tr, img { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    border-bottom: 1px solid #bbb !important;
+    color: #000 !important;
+    padding: 2mm 1.5mm !important;
+    height: auto !important;
+  }
+
+  /* Yatay kaydirma kagitta yoktur; tasan icerik kirpilmak yerine sarilir. */
+  .overflow-x-auto { overflow: visible !important; }
+
+  /* Bagimsiz renkler koyulastirilir: acik gri metin kagitta okunmaz. */
+  [style*='var(--muted)'], [style*='var(--muted-2)'] { color: #333 !important; }
+
+  a { text-decoration: none !important; color: #000 !important; }
+}

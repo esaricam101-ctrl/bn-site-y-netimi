@@ -33,6 +33,37 @@ const MENU: readonly MenuOgesi[] = [
   { yol: '/belgeler', anahtar: 'belgeler', simge: '▧' },
 ];
 
+/**
+ * Yalnızca BASKIDA görünen başlık — ekranda yer kaplamaz (`.baski-basligi`).
+ *
+ * Basılan çıktı bir belgedir: yönetim kuruluna sunulur, dosyalanır, tebligat
+ * ekine konur. Kâğıtta hangi ekranın, hangi tarihte basıldığı yazmazsa çıktı
+ * altı ay sonra kime ait olduğu bilinmeyen bir liste olur.
+ *
+ * Tarih `useEffect` içinde yazılır: sunucuda üretilen HTML'e tarih koymak
+ * hidrasyon uyuşmazlığı doğurur (sunucu ile istemcinin saati aynı anı
+ * göstermez).
+ */
+function BaskiBasligi({ baslik }: { readonly baslik?: string }) {
+  const tg = useTranslations('genel');
+  const [tarih, setTarih] = useState('');
+
+  useEffect(() => {
+    setTarih(new Date().toLocaleString('tr-TR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    }));
+  }, []);
+
+  return (
+    <div className="baski-basligi">
+      <div className="font-bold">{tg('uygulamaAdi')}</div>
+      {baslik !== undefined && <div>{baslik}</div>}
+      {tarih !== '' && <div className="num text-xs">{tarih}</div>}
+    </div>
+  );
+}
+
 export function UygulamaKabugu({
   children,
   kirintilar = [],
@@ -130,14 +161,17 @@ export function UygulamaKabugu({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 baski-gizle">
             {eylemler}
             <YogunlukAnahtari />
             <TemaAnahtari />
           </div>
         </header>
 
-        <main className="flex-1 p-[var(--pad)] min-w-0">{children}</main>
+        <main className="flex-1 p-[var(--pad)] min-w-0">
+          <BaskiBasligi baslik={baslik} />
+          {children}
+        </main>
       </div>
     </div>
   );

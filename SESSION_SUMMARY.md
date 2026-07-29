@@ -57,8 +57,11 @@ belge lint 0 · 57 backend ucu · **13 web rotası**.
 
 ### B. Kütüphane kararı gerektirenler
 
-6. **PDF çıktısı ve XLSX aktarımı.** Şu an yalnızca CSV ve yazdırma var.
-   Harici kütüphane seçimi gerekir.
+6. **PDF çıktısı ve XLSX aktarımı.** Şu an CSV ve yazdırma var; **yazdırma
+   stil sayfası yazıldı** (`globals.css` · `@media print`) — koyu tema
+   basılmaz, tablo başlığı her sayfada tekrarlanır, araç çubuğu ve seçim
+   kolonu kâğıda çıkmaz, çıktıya ekran adı ve tarih basılır. **Resmî görünümlü
+   belge (işletme defteri · borç bildirimi) hâlâ kütüphane kararı bekliyor.**
 7. **Grafikler.** Basit oran çubuğu elde yazıldı; zaman serisi ya da çoklu
    eksen gerekirse kütüphane değerlendirilmeli.
 
