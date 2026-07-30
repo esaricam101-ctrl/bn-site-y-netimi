@@ -186,6 +186,8 @@
   "sakinYonetim": {
     "dayanak": "Bağlı olduğu malik / kiracı",
     "dayanakSeciniz": "Seçiniz…",
+    "yakinlikSeciniz": "Seçiniz…",
+    "hataYakinlik": "Yakınlık derecesi seçilmelidir.",
     "dayanakYok": "Bu dairede kayıtlı malik ya da kiracı yok. Sakin eklemeden önce malik veya kiracı kaydı oluşturun: sakin mutlaka birine bağlanmalıdır.",
     "hataDayanak": "Sakin bir malik ya da kiracı ile ilişkilendirilmelidir.",
     "malik": "Malik",

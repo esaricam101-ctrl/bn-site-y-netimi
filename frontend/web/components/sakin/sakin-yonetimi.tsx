@@ -25,20 +25,31 @@ import { servis, type Sakin } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
 /**
- * Formda gösterilen yakınlık dereceleri.
+ * Formda gösterilen yakınlık dereceleri — ürün sahibinin belirlediği liste.
  *
- * ⚠️  `ANNE_BABA` · `AKRABA` · `MISAFIR` · `CALISAN` LİSTEDEN ÇIKARILDI. Bunlar
- *     eski değerlerdir; yerlerini `ANNE`/`BABA` ve `DIGER` + serbest metin
- *     aldı. Sunucu onları hâlâ KABUL EDER (eski kayıtlar düzeltilebilsin diye)
- *     ama yeni kayıtta teklif edilmezler.
+ * Sakin, dayanağının (malik/kiracı) YAKINIDIR. Malikin ya da kiracının
+ * kendisi zaten kendi kaydıyla durur; ayrıca sakin satırı açması gerekmez.
  *
- * ⚠️  `KENDISI` KORUNDU: malikin ya da kiracının kendi dairesinde oturması en
- *     yaygın durumdur. Çıkarılsaydı bu kişi "Diğer: kendisi" diye kaydedilmek
- *     zorunda kalırdı.
+ * ⚠️  `KENDISI` · `ANNE_BABA` · `AKRABA` · `MISAFIR` · `CALISAN` BURADA YOK
+ *     ama sunucu onları KABUL ETMEYE DEVAM EDER. Sebep: bu değerleri taşıyan
+ *     ESKİ KAYITLAR var ve onların giriş tarihi bile düzeltilemez hâle
+ *     gelmemelidir. Aşağıdaki `secenekler()` eski bir değeri, yalnızca o kayıt
+ *     düzenlenirken listeye ekler.
  */
-const YAKINLIKLAR = [
-  'KENDISI', 'ES', 'COCUK', 'ANNE', 'BABA', 'KARDES', 'DIGER',
-] as const;
+const YAKINLIKLAR = ['ES', 'COCUK', 'ANNE', 'BABA', 'KARDES', 'DIGER'] as const;
+
+/**
+ * Seçenek listesi — mevcut değer listede yoksa BAŞA EKLENİR.
+ *
+ * ⚠️  Eklenmeseydi eski değerli bir kaydı düzenlerken açılır liste BOŞ
+ *     görünürdü: kullanıcı kaydın yakınlık derecesini kaybettiğini sanır ve
+ *     rastgele bir değer seçerek gerçek veriyi bozardı.
+ */
+function secenekler(mevcut: string): readonly string[] {
+  return YAKINLIKLAR.includes(mevcut as (typeof YAKINLIKLAR)[number])
+    ? YAKINLIKLAR
+    : [mevcut, ...YAKINLIKLAR];
+}
 
 /** Oturum sekmesinin doğrulama anahtarları — rozet bunlardan sayılır. */
 const OTURUM_HATA_ANAHTARLARI = [
@@ -72,7 +83,14 @@ export function SakinEkleFormu({
   const [kisi, setKisi] = useState<KisiFormDurumu>(bosKisiFormu());
   const [dayanak, setDayanak] = useState<string>('');
   const [dayanaklar, setDayanaklar] = useState<readonly DayanakSecenegi[]>([]);
-  const [yakinlik, setYakinlik] = useState<string>('KENDISI');
+  /*
+   * VARSAYILAN YOK — kullanıcı açıkça seçer.
+   *
+   * ⚠️  "Eşi" gibi bir varsayılan konsaydı, alanı atlayan kullanıcı çocuğunu
+   *     eşi olarak kaydederdi ve hata hiçbir yerde görünmezdi. Acil durumda
+   *     yanlış kişiye ulaşılır.
+   */
+  const [yakinlik, setYakinlik] = useState<string>('');
   const [yakinlikAciklamasi, setYakinlikAciklamasi] = useState('');
   const [girisTarihi, setGirisTarihi] = useState('');
   const [acilAd, setAcilAd] = useState('');
@@ -115,6 +133,9 @@ export function SakinEkleFormu({
     // DAYANAK ZORUNLU — sunucu da reddeder ama kullanıcı hatayı formda,
     // gönderim denemeden önce görmelidir.
     if (dayanak === '') h['dayanak'] = t('hataDayanak');
+    // Yakınlık derecesi ZORUNLU: varsayılan olmadığı için seçilmemiş
+    // bırakılabilir ve sessizce boş gitmemelidir.
+    if (yakinlik === '') h['yakinlik'] = t('hataYakinlik');
     if (yakinlik === 'DIGER' && yakinlikAciklamasi.trim().length < 2) {
       h['yakinlikAciklamasi'] = t('hataYakinlikAciklamasi');
     }
@@ -202,11 +223,14 @@ export function SakinEkleFormu({
             <label className="flex flex-col gap-1">
               <span className="text-xs text-[color:var(--muted-2)]">{t('yakinlik')}</span>
               <select className={girdiSinifi} value={yakinlik}
+                      aria-invalid={hatalar['yakinlik'] !== undefined}
                       onChange={(e) => setYakinlik(e.target.value)}>
+                <option value="">{t('yakinlikSeciniz')}</option>
                 {YAKINLIKLAR.map((y) => (
                   <option key={y} value={y}>{td(`yakinlik_${y}`)}</option>
                 ))}
               </select>
+              <Hata ad="yakinlik" />
             </label>
 
             {/*
@@ -300,6 +324,9 @@ function SakinDuzeltFormu({
   const bildirim = useBildirim();
 
   const [yakinlik, setYakinlik] = useState(sakin.yakinlikDerecesi);
+  const [yakinlikAciklamasi, setYakinlikAciklamasi] = useState(
+    sakin.yakinlikAciklamasi ?? '',
+  );
   const [giris, setGiris] = useState(sakin.girisTarihi);
   const [acilAd, setAcilAd] = useState(sakin.acilDurumKisiAdi ?? '');
   const [acilTel, setAcilTel] = useState(sakin.acilDurumTelefon ?? '');
@@ -313,11 +340,18 @@ function SakinDuzeltFormu({
       setHata(t('hataGirisSonra', { cikis: sakin.cikisTarihi }));
       return;
     }
+    if (yakinlik === 'DIGER' && yakinlikAciklamasi.trim().length < 2) {
+      setHata(t('hataYakinlikAciklamasi'));
+      return;
+    }
     setHata(null);
     setGonderiliyor(true);
     try {
       await servis.sakinDuzelt(bolumId, sakin.id, {
         yakinlikDerecesi: yakinlik,
+        ...(yakinlik === 'DIGER'
+          ? { yakinlikAciklamasi: yakinlikAciklamasi.trim() }
+          : {}),
         girisTarihi: giris,
         acilDurumKisiAdi: acilAd.trim(),
         acilDurumTelefon: acilTel.trim(),
@@ -346,13 +380,31 @@ function SakinDuzeltFormu({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-[color:var(--muted-2)]">{t('yakinlik')}</span>
+          {/*
+            `secenekler()` mevcut degeri listeye ekler. Eski degerli bir kayit
+            (KENDISI · ANNE_BABA · AKRABA ...) duzenlenirken liste BOS
+            gorunseydi kullanici degerin kayboldugunu sanir ve rastgele bir
+            secim yaparak gercek veriyi bozardi.
+          */}
           <select className={girdiSinifi} value={yakinlik}
                   onChange={(e) => setYakinlik(e.target.value)}>
-            {YAKINLIKLAR.map((y) => (
+            {secenekler(sakin.yakinlikDerecesi).map((y) => (
               <option key={y} value={y}>{td(`yakinlik_${y}`)}</option>
             ))}
           </select>
         </label>
+
+        {/* "Diger" secilince serbest metin ACILIR (ekleme formuyla ayni kural). */}
+        {yakinlik === 'DIGER' && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-[color:var(--muted-2)]">
+              {t('yakinlikAciklamasi')}
+            </span>
+            <input className={girdiSinifi} value={yakinlikAciklamasi}
+                   placeholder={t('yakinlikAciklamasiIpucu')}
+                   onChange={(e) => setYakinlikAciklamasi(e.target.value)} />
+          </label>
+        )}
 
         <label className="flex flex-col gap-1">
           <span className="text-xs text-[color:var(--muted-2)]">{td('girisTarihi')}</span>

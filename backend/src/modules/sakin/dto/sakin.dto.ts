@@ -19,9 +19,19 @@ export const YAKINLIK_DERECELERI = [
   'ANNE_BABA', 'AKRABA', 'MISAFIR', 'CALISAN',
 ] as const;
 
-/** Formda gösterilen güncel seçenekler (eski değerler hariç). */
+/**
+ * Formda gösterilen güncel seçenekler: Eşi · Çocuğu · Annesi · Babası ·
+ * Kardeşi · Diğer.
+ *
+ * Sakin, dayanağının (malik/kiracı) YAKINIDIR; malikin ya da kiracının
+ * kendisi zaten kendi kaydıyla durur.
+ *
+ * ⚠️  `KENDISI` ve öteki eski değerler `YAKINLIK_DERECELERI` içinde KALIR —
+ *     onları taşıyan mevcut kayıtların düzeltilebilmesi için DTO kabul etmeye
+ *     devam eder. Yalnızca yeni kayıtta teklif edilmezler.
+ */
 export const YAKINLIK_SECENEKLERI = [
-  'KENDISI', 'ES', 'COCUK', 'ANNE', 'BABA', 'KARDES', 'DIGER',
+  'ES', 'COCUK', 'ANNE', 'BABA', 'KARDES', 'DIGER',
 ] as const;
 
 const TAKVIM_TARIHI = /^\d{4}-\d{2}-\d{2}$/;

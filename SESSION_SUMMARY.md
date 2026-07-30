@@ -77,9 +77,15 @@ kim" yanıtsızdı, sakin ile sorumlu arasındaki bağ kurulamıyordu.
   arayın" farklı bilgilerdir. Aynı şekilde `AKRABA` · `MISAFIR` · `CALISAN`
   DTO'da kabul edilmeye devam eder (eski kayıtlar düzeltilebilsin diye) ama
   formda **teklif edilmez**.
-- **`KENDISI` KORUNDU** — kullanıcının listesinde yok ama malikin/kiracının
-  kendi dairesinde oturması en yaygın durumdur; çıkarılsaydı bu kişi
-  "Diğer: kendisi" diye kaydedilmek zorunda kalırdı.
+- **`KENDISI` FORMDAN ÇIKARILDI.** İlk uygulamada listeye eklenmişti; ürün
+  sahibi talebi aynen yineleyince karar olarak alındı. Form artık **tam olarak
+  istenen altı seçeneği** gösterir: Eşi · Çocuğu · Annesi · Babası · Kardeşi ·
+  Diğer. Model: sakin, dayanağının **yakınıdır**; malikin/kiracının kendisi
+  zaten kendi kaydıyla durur. `KENDISI` enum'da ve DTO'da kalır — eski
+  kayıtların düzeltilebilmesi için.
+- **VARSAYILAN YAKINLIK YOK** — kullanıcı açıkça seçer. "Eşi" gibi bir
+  varsayılan konsaydı, alanı atlayan kullanıcı çocuğunu eşi olarak kaydeder ve
+  hata hiçbir yerde görünmezdi; acil durumda yanlış kişiye ulaşılırdı.
 
 #### Geriye dönük doldurma
 
@@ -102,11 +108,13 @@ durdu: *"Tenant baglami kurulmadan sorgu calistirilamaz"*. Tarama SELECT'i
 `FROM ONLY sakin fk LEFT JOIN malik pk` biçimindedir — kaynak taraf RLS
 altındaysa tarama da engellenir. (0011'de belgelenmiş tuzağın tekrarı.)
 
-#### Bilinen küçük eksik
+#### Düzeltme formundaki gösterim eksiği KAPATILDI
 
-`SakinDuzeltFormu`'nda eski bir kayıt (`ANNE_BABA` · `AKRABA` …) düzenlenirken
-açılır liste **boş görünür** — değer korunur ve doğru kaydedilir, yalnızca
-seçenek listede yoktur. Veri kaybı yoktur; gösterim eksiğidir.
+`secenekler()` mevcut değeri listeye **başa ekler**: eski değerli bir kayıt
+(`KENDISI` · `ANNE_BABA` · `AKRABA` …) düzenlenirken liste artık boş
+görünmüyor. Boş görünseydi kullanıcı değerin kaybolduğunu sanır ve rastgele
+bir seçim yaparak gerçek veriyi bozardı. Düzeltme formuna ayrıca **"Diğer" →
+serbest metin** alanı eklendi (ekleme formuyla aynı kural).
 
 ### Bu commit'te yapılan — İletişim (WhatsApp Business · SMS)
 
