@@ -35,7 +35,78 @@ tip denetiminden geçiyordu.
 | `5b56381` | ADR-0010 — cari hesap = **bölüm yardımcı defteri** (karar referans belgeden çözüldü) |
 | `85bbca5` | Tahsilat çekirdeği yarım (0017 + domain) — şema ve kurallar |
 | `ed68721` | **Makbuzlar** (tahsilat uçları + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
-| _bu commit_ | **İletişim çekirdeği** (0019/0020) — WhatsApp · SMS · e-posta TEK modülde |
+| `2094903` | **İletişim çekirdeği** (0019/0020) — WhatsApp · SMS · e-posta TEK modülde |
+| _bu commit_ | **Sakin dayanak kuralı** (0021) — sakin artık malike ya da kiracıya bağlı |
+
+### Bu commit'te yapılan — Sakin kayıt kuralı
+
+**SAKİN ARTIK BİR MALİKE YA DA KİRACIYA BAĞLANMAK ZORUNDA.**
+
+Bugüne kadar `sakin` yalnızca bölüme ve kişiye bağlıydı; **"bu kişi burada
+KİMİN YAKINI olarak oturuyor" sorusunun cevabı yoktu.** Sonuçları: kiracı
+taşındığında ailesinin akıbeti belirsizdi, acil durumda "bu çocuğun velisi
+kim" yanıtsızdı, sakin ile sorumlu arasındaki bağ kurulamıyordu.
+
+- **0021** — `sakin.malik_id` · `sakin.kiraci_id` · `sakin.yakinlik_aciklamasi`
+  + `YakinlikDerecesi` enum'una `ANNE` ve `BABA`.
+- Form: **Malik / Kiracı seçimi** (dairenin kendi malik-kiracılarından) →
+  **Yakınlık Derecesi** → `Diğer` seçilirse **serbest metin alanı açılır**.
+
+#### Zorlanan kritik kurallar
+
+- **DAYANAK TAM OLARAK BİR TANE.** İkisi birden verilirse hangisinin geçerli
+  olduğu belirsiz; hiçbiri verilmezse kayıt "havada" kalır ve kuralın kendisi
+  anlamsızlaşır. (CHECK `sakin_dayanak_tek` + servis denetimi.)
+- **DAYANAK AYNI BÖLÜMDE OLMAK ZORUNDA — ve bunu VERİTABANI garanti ediyor.**
+  `(malik_id, bolum_id)` çifti `malik(id, bolum_id)`ye **bileşik yabancı
+  anahtarla** bağlandı. Yalnızca serviste denetlenseydi, doğrudan veritabanına
+  yazan bir betik ya da ileride yazılacak toplu aktarım kuralı sessizce
+  atlardı. Servis ayrıca **açık hata mesajı** için denetler; yoksa kullanıcı
+  anlaşılmaz bir FK hatası görürdü.
+- **DEVREDİLMİŞ MALİKE / TAHLİYE OLMUŞ KİRACIYA yeni sakin bağlanamaz** — o
+  hane artık onun değildir.
+- **`DIGER` seçilirse serbest metin ZORUNLU**; başka dereceye geçilirse
+  **boşaltılır**. Boşaltılmasaydı "Diğer — Amcası" kaydı "Eşi"ne çevrildiğinde
+  ekranda "Eşi (Amcası)" gibi çelişkili bir bilgi kalırdı.
+- **Liste dayanağı GÖSTERİR** (`dayanakTipi` · `dayanakKisiAdi`): "Ayşe Yılmaz
+  · Eşi" satırı, kimin eşi olduğu yazılmazsa dört daireli bir katta hiçbir şey
+  anlatmaz.
+- **`ANNE_BABA` KALDIRILMADI.** Enum değeri silmek, o değeri taşıyan satırlar
+  varsa imkânsızdır ve geçmiş kayıtların anlamı değişmemelidir. Yeni kayıtlarda
+  `ANNE`/`BABA` kullanılır — acil durumda "annesini arayın" ile "babasını
+  arayın" farklı bilgilerdir. Aynı şekilde `AKRABA` · `MISAFIR` · `CALISAN`
+  DTO'da kabul edilmeye devam eder (eski kayıtlar düzeltilebilsin diye) ama
+  formda **teklif edilmez**.
+- **`KENDISI` KORUNDU** — kullanıcının listesinde yok ama malikin/kiracının
+  kendi dairesinde oturması en yaygın durumdur; çıkarılsaydı bu kişi
+  "Diğer: kendisi" diye kaydedilmek zorunda kalırdı.
+
+#### Geriye dönük doldurma
+
+Migration mevcut sakinleri sırayla bağlar: (a) kişinin kendisi malik/kiracıysa
+ona, (b) bölümün açık kiracısına, (c) açık malikine. (b) ve (c) **tahmindir**
+ve doldurulan kayıtlar `yakinlik_aciklamasi` alanına **iz bırakır** — iz
+olmasaydı sonradan bakan biri bu bağın kullanıcı tarafından mı göç tarafından
+mı kurulduğunu ayırt edemezdi.
+
+`CHECK sakin_dayanak_tek` doldurma başarısız kalırsa migration'ı **durdurur**.
+Bilinçlidir: dayanaksız bir kaydı sessizce bırakmak, kuralı "yeni kayıtlar
+için" geçerli kılıp eski veriyi görünmez bir istisna hâline getirirdi.
+(Bu veritabanında 0 sakin kaydı vardı; doldurma yolu canlıda sınanmadı.)
+
+#### Migration'da çıkan kusur
+
+**FK doğrulama taraması KAYNAK tabloyu da okur.** İlk yazımda yalnızca hedefler
+(`malik`, `kiraci`) RLS'ten muaf tutulmuştu; migration tam FK ekleme adımında
+durdu: *"Tenant baglami kurulmadan sorgu calistirilamaz"*. Tarama SELECT'i
+`FROM ONLY sakin fk LEFT JOIN malik pk` biçimindedir — kaynak taraf RLS
+altındaysa tarama da engellenir. (0011'de belgelenmiş tuzağın tekrarı.)
+
+#### Bilinen küçük eksik
+
+`SakinDuzeltFormu`'nda eski bir kayıt (`ANNE_BABA` · `AKRABA` …) düzenlenirken
+açılır liste **boş görünür** — değer korunur ve doğru kaydedilir, yalnızca
+seçenek listede yoktur. Veri kaybı yoktur; gösterim eksiğidir.
 
 ### Bu commit'te yapılan — İletişim (WhatsApp Business · SMS)
 
@@ -583,9 +654,9 @@ kaplamaya devam ederdi.
 
 **Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **9/9** ·
 birim testleri **298/298** · sözleşme testleri **24/24** · lint:md 0 ·
-migration **20/20 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
+migration **21/21 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
 **40/40** · portföy canlı testi **19/19** · muhasebe canlı testi **51/51** ·
-**banka canlı testi 91/91** · makbuz+geri al **13/13** · iletişim **18/18**.
+**banka canlı testi 91/91** · makbuz+geri al **13/13** · iletişim **18/18** · sakin dayanak **11/11**.
 
 > ⚠️ **Makbuz canlı testi 13/13.** `tahsilat` uçları artık çalışıyor; kalan
 > eksikler ("Makbuzlar talebinden karşılanmayanlar") ve FAZ 2'nin geri kalanı

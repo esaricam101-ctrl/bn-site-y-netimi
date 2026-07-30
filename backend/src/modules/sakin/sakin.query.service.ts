@@ -12,6 +12,18 @@ export interface SakinSatiri {
   readonly eposta: string | null;
   readonly telefon: string | null;
   readonly yakinlikDerecesi: string;
+  /** `DIGER` ise kullanıcının yazdığı ifade (Amcası · Bakıcısı…). */
+  readonly yakinlikAciklamasi: string | null;
+  /**
+   * DAYANAK — sakin kimin yakını olarak oturuyor (0021).
+   *
+   * ⚠️  Bu alan LİSTEDE DÖNMEK ZORUNDA: "Ayşe Yılmaz · Eşi" satırı, kimin eşi
+   *     olduğu yazılmazsa dört daireli bir katta hiçbir şey anlatmaz.
+   */
+  readonly dayanakTipi: 'MALIK' | 'KIRACI';
+  readonly dayanakKisiAdi: string;
+  readonly malikId: string | null;
+  readonly kiraciId: string | null;
   readonly girisTarihi: string;
   readonly cikisTarihi: string | null;
   readonly acilDurumKisiAdi: string | null;
@@ -43,10 +55,13 @@ export class SakinQueryService {
     const kayitlar = await this.prisma.tenantIslemi((tx) => tx.sakin.findMany({
       where: { tenantId: principal.tenantId, bolumId },
       select: {
-        id: true, kisiId: true, yakinlikDerecesi: true,
+        id: true, kisiId: true, yakinlikDerecesi: true, yakinlikAciklamasi: true,
+        malikId: true, kiraciId: true,
         girisTarihi: true, cikisTarihi: true,
         acilDurumKisiAdi: true, acilDurumTelefon: true,
         kisi: { select: { ad: true, soyad: true, eposta: true, telefon: true } },
+        malik: { select: { kisi: { select: { ad: true, soyad: true } } } },
+        kiraci: { select: { kisi: { select: { ad: true, soyad: true } } } },
       },
       orderBy: [{ girisTarihi: 'asc' }, { id: 'asc' }],
     }), principal.tenantId);
@@ -71,6 +86,17 @@ export class SakinQueryService {
         eposta: kayit.kisi.eposta,
         telefon: kayit.kisi.telefon,
         yakinlikDerecesi: kayit.yakinlikDerecesi,
+        yakinlikAciklamasi: kayit.yakinlikAciklamasi,
+        // Dayanak TAM OLARAK BİRİDİR (veritabanı CHECK `sakin_dayanak_tek`);
+        // `malik` doluysa malik, değilse kiracıdır.
+        dayanakTipi: kayit.malikId !== null ? 'MALIK' : 'KIRACI',
+        dayanakKisiAdi: kayit.malik !== null
+          ? `${kayit.malik.kisi.ad} ${kayit.malik.kisi.soyad}`
+          : kayit.kiraci !== null
+            ? `${kayit.kiraci.kisi.ad} ${kayit.kiraci.kisi.soyad}`
+            : '—',
+        malikId: kayit.malikId,
+        kiraciId: kayit.kiraciId,
         girisTarihi: giris,
         cikisTarihi: cikis,
         acilDurumKisiAdi: kayit.acilDurumKisiAdi,

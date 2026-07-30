@@ -97,6 +97,16 @@ export interface MockSakin {
   readonly eposta: string | null;
   readonly telefon: string | null;
   readonly yakinlikDerecesi: string;
+  /** `DIGER` ise kullanıcının yazdığı ifade (Amcası · Bakıcısı…). */
+  readonly yakinlikAciklamasi: string | null;
+  /**
+   * DAYANAK — sakin kimin yakını olarak oturuyor (0021).
+   *
+   * ⚠️  Listede GÖSTERİLMEK ZORUNDA: "Ayşe Yılmaz · Eşi" satırı, kimin eşi
+   *     olduğu yazılmazsa dört daireli bir katta hiçbir şey anlatmaz.
+   */
+  readonly dayanakTipi: 'MALIK' | 'KIRACI';
+  readonly dayanakKisiAdi: string;
   readonly girisTarihi: string;
   readonly cikisTarihi: string | null;
   readonly acilDurumKisiAdi: string | null;
@@ -291,6 +301,9 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
     eposta: s === 0 ? 'zeynep@ornek.test' : null,
     telefon: '+90 532 000 00 00',
     yakinlikDerecesi: s === 0 ? 'KENDISI' : 'COCUK',
+    yakinlikAciklamasi: null,
+    dayanakTipi: 'MALIK' as const,
+    dayanakKisiAdi: 'Zeynep Demir',
     girisTarihi: '2025-09-01',
     cikisTarihi: null,
     acilDurumKisiAdi: 'Fatma Demir',
@@ -583,6 +596,10 @@ export interface MockSakinEkle {
   readonly telefon?: string;
   readonly acilDurumKisiAdi?: string;
   readonly acilDurumTelefon?: string;
+  /** Dayanak — ikisinden TAM OLARAK biri (0021). */
+  readonly malikId?: string;
+  readonly kiraciId?: string;
+  readonly yakinlikAciklamasi?: string;
 }
 
 export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
@@ -595,6 +612,11 @@ export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
     eposta: null,
     telefon: dto.kisi?.telefon ?? null,
     yakinlikDerecesi: dto.yakinlikDerecesi,
+    yakinlikAciklamasi: dto.yakinlikAciklamasi ?? null,
+    // Mock, dayanağın ADINI çözemez (kişi kataloğu taklit edilmiyor); tipini
+    // gönderilen alandan okur. Gerçek veriyi backend döndürür.
+    dayanakTipi: dto.malikId !== undefined ? 'MALIK' : 'KIRACI',
+    dayanakKisiAdi: '—',
     girisTarihi: dto.girisTarihi,
     cikisTarihi: null,
     acilDurumKisiAdi: dto.acilDurumKisiAdi ?? null,

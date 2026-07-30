@@ -11,7 +11,7 @@
  * Sakin kaydı BORÇ SORUMLULUĞU DOĞURMAZ — borç malike ya da kiracıya yazılır
  * (ADR v1.1 §5). Sakin listesi acil durum ve fiilî yerleşim bilgisidir.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
 import {
@@ -24,15 +24,32 @@ import {
 import { servis, type Sakin } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
+/**
+ * Formda gösterilen yakınlık dereceleri.
+ *
+ * ⚠️  `ANNE_BABA` · `AKRABA` · `MISAFIR` · `CALISAN` LİSTEDEN ÇIKARILDI. Bunlar
+ *     eski değerlerdir; yerlerini `ANNE`/`BABA` ve `DIGER` + serbest metin
+ *     aldı. Sunucu onları hâlâ KABUL EDER (eski kayıtlar düzeltilebilsin diye)
+ *     ama yeni kayıtta teklif edilmezler.
+ *
+ * ⚠️  `KENDISI` KORUNDU: malikin ya da kiracının kendi dairesinde oturması en
+ *     yaygın durumdur. Çıkarılsaydı bu kişi "Diğer: kendisi" diye kaydedilmek
+ *     zorunda kalırdı.
+ */
 const YAKINLIKLAR = [
-  'KENDISI', 'ES', 'COCUK', 'ANNE_BABA', 'KARDES', 'AKRABA',
-  'MISAFIR', 'CALISAN', 'DIGER',
+  'KENDISI', 'ES', 'COCUK', 'ANNE', 'BABA', 'KARDES', 'DIGER',
 ] as const;
 
 /** Oturum sekmesinin doğrulama anahtarları — rozet bunlardan sayılır. */
 const OTURUM_HATA_ANAHTARLARI = [
-  'yakinlik', 'girisTarihi', 'acilAd', 'acilTel',
+  'dayanak', 'yakinlik', 'yakinlikAciklamasi', 'girisTarihi', 'acilAd', 'acilTel',
 ] as const;
+
+/** Dayanak seçimi: `MALIK:<id>` ya da `KIRACI:<id>`. */
+interface DayanakSecenegi {
+  readonly deger: string;
+  readonly etiket: string;
+}
 
 const TARIH_BICIMI = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -53,7 +70,10 @@ export function SakinEkleFormu({
   const bildirim = useBildirim();
 
   const [kisi, setKisi] = useState<KisiFormDurumu>(bosKisiFormu());
+  const [dayanak, setDayanak] = useState<string>('');
+  const [dayanaklar, setDayanaklar] = useState<readonly DayanakSecenegi[]>([]);
   const [yakinlik, setYakinlik] = useState<string>('KENDISI');
+  const [yakinlikAciklamasi, setYakinlikAciklamasi] = useState('');
   const [girisTarihi, setGirisTarihi] = useState('');
   const [acilAd, setAcilAd] = useState('');
   const [acilTel, setAcilTel] = useState('');
@@ -61,10 +81,43 @@ export function SakinEkleFormu({
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [etkinSekme, setEtkinSekme] = useState('kisi');
 
+  /*
+   * Dayanak seçenekleri daire kartından okunur: sakin, o dairenin malikine ya
+   * da kiracısına bağlanır. Serbest bir kişi listesi sunulsaydı A dairesinin
+   * sakini B dairesinin malikine bağlanabilirdi.
+   */
+  useEffect(() => {
+    servis
+      .daireKarti(bolumId)
+      .then((kart) => {
+        const secenekler: DayanakSecenegi[] = [
+          ...kart.malikler.map((m) => ({
+            deger: `MALIK:${m.id}`,
+            etiket: `${t('malik')}: ${m.kisiAdi}`,
+          })),
+          ...kart.kiracilar.map((k) => ({
+            deger: `KIRACI:${k.id}`,
+            etiket: `${t('kiraci')}: ${k.kisiAdi}`,
+          })),
+        ];
+        setDayanaklar(secenekler);
+        // Tek seçenek varsa önceden seçilir; kullanıcıyı tek seçeneği elle
+        // seçmeye zorlamak gereksiz sürtünmedir.
+        if (secenekler.length === 1) setDayanak(secenekler[0]?.deger ?? '');
+      })
+      .catch(() => setDayanaklar([]));
+  }, [bolumId, t]);
+
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault();
     const h: Record<string, string> = { ...kisiFormunuDogrula(kisi, tk) };
     if (!TARIH_BICIMI.test(girisTarihi)) h['girisTarihi'] = t('hataTarih');
+    // DAYANAK ZORUNLU — sunucu da reddeder ama kullanıcı hatayı formda,
+    // gönderim denemeden önce görmelidir.
+    if (dayanak === '') h['dayanak'] = t('hataDayanak');
+    if (yakinlik === 'DIGER' && yakinlikAciklamasi.trim().length < 2) {
+      h['yakinlikAciklamasi'] = t('hataYakinlikAciklamasi');
+    }
     setHatalar(h);
     if (Object.keys(h).length > 0) {
       const hedef = ilkHataliSekme([
@@ -79,9 +132,14 @@ export function SakinEkleFormu({
 
     setGonderiliyor(true);
     try {
+      const [tip, dayanakId] = dayanak.split(':');
       await servis.sakinEkle(bolumId, {
         ...kisiGirdisi,
+        ...(tip === 'MALIK' ? { malikId: dayanakId } : { kiraciId: dayanakId }),
         yakinlikDerecesi: yakinlik, girisTarihi,
+        ...(yakinlik === 'DIGER'
+          ? { yakinlikAciklamasi: yakinlikAciklamasi.trim() }
+          : {}),
         ...(acilAd.trim() === '' ? {} : { acilDurumKisiAdi: acilAd.trim() }),
         ...(acilTel.trim() === '' ? {} : { acilDurumTelefon: acilTel.trim() }),
       });
@@ -118,6 +176,29 @@ export function SakinEkleFormu({
       icerik: (
         <>
           <div className="grid gap-3 sm:grid-cols-2">
+            {/*
+              DAYANAK — sakin ya malike ya kiraciya baglanir. Bu alan
+              ZORUNLUDUR: bag olmadan "bu kisi kimin yakini olarak oturuyor"
+              sorusu yanitsiz kalir.
+            */}
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('dayanak')}</span>
+              <select className={girdiSinifi} value={dayanak}
+                      aria-invalid={hatalar['dayanak'] !== undefined}
+                      onChange={(e) => setDayanak(e.target.value)}>
+                <option value="">{t('dayanakSeciniz')}</option>
+                {dayanaklar.map((d) => (
+                  <option key={d.deger} value={d.deger}>{d.etiket}</option>
+                ))}
+              </select>
+              <Hata ad="dayanak" />
+              {dayanaklar.length === 0 && (
+                <span className="text-xs" style={{ color: 'var(--crit)' }}>
+                  {t('dayanakYok')}
+                </span>
+              )}
+            </label>
+
             <label className="flex flex-col gap-1">
               <span className="text-xs text-[color:var(--muted-2)]">{t('yakinlik')}</span>
               <select className={girdiSinifi} value={yakinlik}
@@ -127,6 +208,24 @@ export function SakinEkleFormu({
                 ))}
               </select>
             </label>
+
+            {/*
+              "Diger" secilince serbest metin ACILIR. Alan her zaman gorunur
+              olsaydi kullanici onu doldurmasi gerektigini sanardi; hic
+              olmasaydi listede bulunmayan iliskiler kaybolurdu.
+            */}
+            {yakinlik === 'DIGER' && (
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-[color:var(--muted-2)]">
+                  {t('yakinlikAciklamasi')}
+                </span>
+                <input className={girdiSinifi} value={yakinlikAciklamasi}
+                       placeholder={t('yakinlikAciklamasiIpucu')}
+                       aria-invalid={hatalar['yakinlikAciklamasi'] !== undefined}
+                       onChange={(e) => setYakinlikAciklamasi(e.target.value)} />
+                <Hata ad="yakinlikAciklamasi" />
+              </label>
+            )}
 
             {/*
               `required` KULLANILMAZ: alan gizli bir sekmedeyken tarayici onu

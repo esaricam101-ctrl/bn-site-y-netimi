@@ -33,6 +33,123 @@ import {
 import type { SakinDuzeltDto, SakinEkleDto } from './dto/sakin.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
+/** Dayanak çözümünün sonucu. */
+interface Dayanak {
+  readonly malikId: string | null;
+  readonly kiraciId: string | null;
+  /** Denetim kaydı ve hata mesajları için okunabilir ad. */
+  readonly aciklama: string;
+}
+
+/**
+ * DAYANAK DOĞRULAMASI — sakin ya bir malike ya bir kiracıya bağlanır.
+ *
+ * ⚠️  TAM OLARAK BİRİ. İkisi birden verilirse hangisinin geçerli olduğu
+ *     belirsizdir; hiçbiri verilmezse kayıt "havada" kalır ve kuralın kendisi
+ *     anlamsızlaşır.
+ *
+ * ⚠️  DAYANAK AYNI BÖLÜMDE OLMAK ZORUNDA. Değilse A dairesinin sakini B
+ *     dairesinin malikine bağlanır ve "bu hanede kimler oturuyor" listesi
+ *     kalıcı olarak yanlış çıkar. Veritabanı bunu bileşik yabancı anahtarla da
+ *     zorlar; burada AÇIK HATA mesajı verilmesi için ayrıca denetlenir —
+ *     yoksa kullanıcı anlaşılmaz bir FK hatası görürdü.
+ *
+ * ⚠️  DAYANAK İLİŞKİSİ HÂLÂ SÜRMELİ. Tapusu devredilmiş malike ya da tahliye
+ *     olmuş kiracıya yeni sakin bağlanamaz: o hane artık onun değildir.
+ */
+async function dayanagiCoz(
+  tx: Parameters<Parameters<PrismaService['tenantIslemi']>[0]>[0],
+  tenantId: string,
+  bolumId: string,
+  girdi: { readonly malikId?: string; readonly kiraciId?: string },
+  bugun: string,
+): Promise<Dayanak> {
+  const verilen = [girdi.malikId, girdi.kiraciId].filter((x) => x !== undefined);
+  if (verilen.length === 0) {
+    throw new IsKuraliIhlali(
+      'Sakin kaydı bir MALİK ya da KİRACI ile ilişkilendirilmelidir.',
+      'Sakin ekleme ekranında önce dayanağı (malik ya da kiracı) seçin: ' +
+        'bağ olmadan "bu kişi kimin yakını olarak oturuyor" sorusu ' +
+        'yanıtsız kalır.',
+    );
+  }
+  if (verilen.length > 1) {
+    throw new IsKuraliIhlali(
+      'Sakin hem malike hem kiracıya bağlanamaz; TAM OLARAK BİRİNİ seçin.',
+      'İkisi birden verilirse hangisinin geçerli olduğu belirsiz kalır.',
+    );
+  }
+
+  if (girdi.malikId !== undefined) {
+    const malik = await tx.malik.findFirst({
+      where: { id: girdi.malikId, tenantId, bolumId },
+      select: {
+        id: true, tapuBitis: true,
+        kisi: { select: { ad: true, soyad: true } },
+      },
+    });
+    if (!malik) {
+      throw new IsKuraliIhlali(
+        'Seçilen malik bu bağımsız bölüme ait değil.',
+        'Dayanak, sakinin oturduğu dairenin maliki olmalıdır.',
+      );
+    }
+    if (malik.tapuBitis !== null && takvimTarihiniOku(malik.tapuBitis) < bugun) {
+      throw new IsKuraliIhlali(
+        'Seçilen malikin tapu kaydı sona ermiş.',
+        'Devredilmiş bir malike yeni sakin bağlanamaz; güncel maliki seçin.',
+      );
+    }
+    return {
+      malikId: malik.id, kiraciId: null,
+      aciklama: `Malik ${malik.kisi.ad} ${malik.kisi.soyad}`,
+    };
+  }
+
+  const kiraci = await tx.kiraci.findFirst({
+    where: { id: girdi.kiraciId ?? '', tenantId, bolumId },
+    select: { id: true, bitis: true, kisi: { select: { ad: true, soyad: true } } },
+  });
+  if (!kiraci) {
+    throw new IsKuraliIhlali(
+      'Seçilen kiracı bu bağımsız bölüme ait değil.',
+      'Dayanak, sakinin oturduğu dairenin kiracısı olmalıdır.',
+    );
+  }
+  if (kiraci.bitis !== null && takvimTarihiniOku(kiraci.bitis) < bugun) {
+    throw new IsKuraliIhlali(
+      'Seçilen kiracının sözleşmesi sona ermiş.',
+      'Tahliye olmuş bir kiracıya yeni sakin bağlanamaz.',
+    );
+  }
+  return {
+    malikId: null, kiraciId: kiraci.id,
+    aciklama: `Kiracı ${kiraci.kisi.ad} ${kiraci.kisi.soyad}`,
+  };
+}
+
+/**
+ * "Diğer" seçildiğinde serbest metin ZORUNLU; başka derecede BOŞALTILIR.
+ *
+ * ⚠️  Boşaltma önemlidir: "Diğer — Amcası" kaydı sonradan "Eşi"ne çevrilirse
+ *     eski açıklama kalırsa ekranda "Eşi (Amcası)" gibi çelişkili bir bilgi
+ *     görünürdü. Veritabanı da bunu CHECK ile zorlar.
+ */
+function yakinlikAciklamasiniCoz(
+  derece: string, aciklama: string | undefined,
+): string | null {
+  if (derece !== 'DIGER') return null;
+  const metin = aciklama?.trim() ?? '';
+  if (metin.length < 2) {
+    throw new IsKuraliIhlali(
+      '"Diğer" seçildiğinde yakınlık derecesi yazılmalıdır.',
+      'Örnek: Amcası · Halası · Dayısı · Teyzesi · Kuzeni · Yeğeni · ' +
+        'Arkadaşı · Bakıcısı · Refakatçisi.',
+    );
+  }
+  return metin;
+}
+
 @Injectable()
 export class SakinCommandService {
   constructor(
@@ -86,10 +203,26 @@ export class SakinCommandService {
         );
       }
 
+      // DAYANAK — zorunlu ve aynı bölümde olmak zorunda.
+      const dayanak = await dayanagiCoz(
+        tx, principal.tenantId, bolumId,
+        {
+          ...(dto.malikId === undefined ? {} : { malikId: dto.malikId }),
+          ...(dto.kiraciId === undefined ? {} : { kiraciId: dto.kiraciId }),
+        },
+        takvimTarihi(new Date().toISOString().slice(0, 10)),
+      );
+
+      const derece = dto.yakinlikDerecesi ?? 'KENDISI';
+      const yakinlikAciklamasi = yakinlikAciklamasiniCoz(derece, dto.yakinlikAciklamasi);
+
       await tx.sakin.create({
         data: {
           id, tenantId: principal.tenantId, bolumId, kisiId,
-          yakinlikDerecesi: dto.yakinlikDerecesi ?? 'KENDISI',
+          malikId: dayanak.malikId,
+          kiraciId: dayanak.kiraciId,
+          yakinlikDerecesi: derece,
+          yakinlikAciklamasi,
           girisTarihi: takvimTarihiniYaz(girisTarihi),
           cikisTarihi: cikisTarihi === null ? null : takvimTarihiniYaz(cikisTarihi),
           acilDurumKisiAdi: dto.acilDurumKisiAdi ?? null,
@@ -112,7 +245,10 @@ export class SakinCommandService {
         sonrakiDeger: {
           bolumId, kapiNo: bolum.kapiNo, kisiId,
           kisiOlusturulduMu: cozum.olusturulduMu,
-          yakinlikDerecesi: dto.yakinlikDerecesi ?? 'KENDISI',
+          malikId: dayanak.malikId, kiraciId: dayanak.kiraciId,
+          dayanak: dayanak.aciklama,
+          yakinlikDerecesi: derece,
+          yakinlikAciklamasi,
           girisTarihi, cikisTarihi,
           plakaSayisi: plakalar.length,
         },
@@ -155,11 +291,35 @@ export class SakinCommandService {
       const kayit = await tx.sakin.findFirst({
         where: { id: sakinId, bolumId, tenantId: principal.tenantId },
         select: {
-          id: true, yakinlikDerecesi: true, girisTarihi: true, cikisTarihi: true,
+          id: true, yakinlikDerecesi: true, yakinlikAciklamasi: true,
+          malikId: true, kiraciId: true,
+          girisTarihi: true, cikisTarihi: true,
           acilDurumKisiAdi: true, acilDurumTelefon: true,
         },
       });
       if (!kayit) throw new KayitBulunamadi(`Sakin kaydı bulunamadı: ${sakinId}`);
+
+      // DAYANAK DEĞİŞİKLİĞİ — verilmezse mevcut korunur. Kiracı değişip
+      // ailesi aynı dairede kalıyorsa bağın yeni kiracıya taşınması gerekir.
+      const dayanak = dto.malikId === undefined && dto.kiraciId === undefined
+        ? null
+        : await dayanagiCoz(
+            tx, principal.tenantId, bolumId,
+            {
+              ...(dto.malikId === undefined ? {} : { malikId: dto.malikId }),
+              ...(dto.kiraciId === undefined ? {} : { kiraciId: dto.kiraciId }),
+            },
+            takvimTarihi(new Date().toISOString().slice(0, 10)),
+          );
+
+      // Derece değişirse açıklama YENİDEN çözülür: "Diğer"den çıkıldığında
+      // eski serbest metin kalırsa "Eşi (Amcası)" gibi çelişkili bir kayıt
+      // oluşurdu.
+      const yeniDerece = dto.yakinlikDerecesi ?? kayit.yakinlikDerecesi;
+      const yeniAciklama = yakinlikAciklamasiniCoz(
+        yeniDerece,
+        dto.yakinlikAciklamasi ?? kayit.yakinlikAciklamasi ?? undefined,
+      );
 
       const yeniGiris = dto.girisTarihi === undefined ? undefined : takvimTarihi(dto.girisTarihi);
       const mevcutCikis = takvimTarihiniOkuVeyaNull(kayit.cikisTarihi);
@@ -174,7 +334,11 @@ export class SakinCommandService {
       await tx.sakin.update({
         where: { id: sakinId },
         data: {
-          ...(dto.yakinlikDerecesi === undefined ? {} : { yakinlikDerecesi: dto.yakinlikDerecesi }),
+          yakinlikDerecesi: yeniDerece,
+          yakinlikAciklamasi: yeniAciklama,
+          ...(dayanak === null
+            ? {}
+            : { malikId: dayanak.malikId, kiraciId: dayanak.kiraciId }),
           ...(yeniGiris === undefined ? {} : { girisTarihi: takvimTarihiniYaz(yeniGiris) }),
           ...(dto.acilDurumKisiAdi === undefined ? {} : { acilDurumKisiAdi: dto.acilDurumKisiAdi }),
           ...(dto.acilDurumTelefon === undefined ? {} : { acilDurumTelefon: dto.acilDurumTelefon }),
@@ -186,12 +350,18 @@ export class SakinCommandService {
         varlik: 'Sakin', varlikId: sakinId,
         oncekiDeger: {
           yakinlikDerecesi: kayit.yakinlikDerecesi,
+          yakinlikAciklamasi: kayit.yakinlikAciklamasi,
+          malikId: kayit.malikId, kiraciId: kayit.kiraciId,
           girisTarihi: takvimTarihiniOku(kayit.girisTarihi),
           acilDurumKisiAdi: kayit.acilDurumKisiAdi,
           acilDurumTelefon: kayit.acilDurumTelefon,
         },
         sonrakiDeger: {
-          yakinlikDerecesi: dto.yakinlikDerecesi ?? kayit.yakinlikDerecesi,
+          yakinlikDerecesi: yeniDerece,
+          yakinlikAciklamasi: yeniAciklama,
+          malikId: dayanak?.malikId ?? kayit.malikId,
+          kiraciId: dayanak?.kiraciId ?? kayit.kiraciId,
+          ...(dayanak === null ? {} : { dayanak: dayanak.aciklama }),
           girisTarihi: yeniGiris ?? takvimTarihiniOku(kayit.girisTarihi),
           acilDurumKisiAdi: dto.acilDurumKisiAdi ?? kayit.acilDurumKisiAdi,
           acilDurumTelefon: dto.acilDurumTelefon ?? kayit.acilDurumTelefon,

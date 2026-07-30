@@ -547,7 +547,13 @@ model Malik {
   bolum  BagimsizBolum @relation(fields: [bolumId], references: [id])
   kisi   Kisi          @relation("MalikKisi", fields: [kisiId], references: [id])
   vekil  Kisi?         @relation("MalikVekil", fields: [vekilKisiId], references: [id])
+  /// Bu malike DAYANARAK oturan sakinler (0021) — eşi, çocuğu, annesi…
+  sakinler Sakin[]
 
+  /// `id` zaten birincil anahtardır; bu tekillik BEDELSİZDİR ama `Sakin`in
+  /// bileşik yabancı anahtarının hedefi olabilmesi için AÇIKÇA tanımlanmalıdır
+  /// — dayanağın aynı bölümde olduğunu veritabanı böyle garanti eder.
+  @@unique([id, bolumId], map: "malik_id_bolum_uq")
   @@index([tenantId, bolumId, tapuBaslangic])
   @@map("malik")
 }
@@ -588,15 +594,34 @@ model Kiraci {
   tenant Tenant        @relation(fields: [tenantId], references: [id])
   bolum  BagimsizBolum @relation(fields: [bolumId], references: [id])
   kisi   Kisi          @relation(fields: [kisiId], references: [id])
+  /// Bu kiracıya DAYANARAK oturan sakinler (0021) — eşi, çocuğu, annesi…
+  sakinler Sakin[]
 
+  /// Bileşik yabancı anahtarın hedefi (bkz. `Malik` üzerindeki not).
+  @@unique([id, bolumId], map: "kiraci_id_bolum_uq")
   @@index([tenantId, bolumId, baslangic])
   @@map("kiraci")
 }
 
+/// Sakinin, bağlı olduğu malik/kiracıya yakınlığı.
+///
+/// ⚠️  `ANNE_BABA` ESKİ değerdir ve KALDIRILMADI: enum değeri silmek, o değeri
+///     taşıyan satırlar varsa imkânsızdır ve geçmiş kayıtların anlamı
+///     değişmemelidir. Yeni kayıtlarda `ANNE` ya da `BABA` kullanılır — acil
+///     durumda "annesini arayın" ile "babasını arayın" farklı bilgilerdir.
+///
+/// ⚠️  `KENDISI` KORUNDU. Kullanıcının istediği listede yoktur ama malikin ya
+///     da kiracının KENDİ dairesinde oturması en yaygın durumdur; kaldırılsaydı
+///     bu kişi "Diğer: kendisi" diye kaydedilmek zorunda kalırdı.
+///
+/// `AKRABA` · `MISAFIR` · `CALISAN` eski değerlerdir; yerlerini `DIGER` +
+/// serbest metin aldı (Amcası · Bakıcısı · Refakatçisi…).
 enum YakinlikDerecesi {
   KENDISI
   ES
   COCUK
+  ANNE
+  BABA
   ANNE_BABA
   KARDES
   AKRABA
@@ -613,7 +638,20 @@ model Sakin {
   bolumId  String @map("bolum_id") @db.Uuid
   kisiId   String @map("kisi_id") @db.Uuid
 
+  /// SAKİN BİR DAYANAĞA BAĞLANIR: ya malike ya kiracıya, TAM OLARAK BİRİNE
+  /// (veritabanı CHECK `sakin_dayanak_tek`). Bağ olmasaydı "bu kişi burada
+  /// KİMİN YAKINI olarak oturuyor" sorusu yanıtsız kalırdı: kiracı
+  /// taşındığında ailesinin akıbeti belirsiz olur, acil durumda çocuğun velisi
+  /// bulunamazdı.
+  malikId  String? @map("malik_id") @db.Uuid
+  kiraciId String? @map("kiraci_id") @db.Uuid
+
   yakinlikDerecesi YakinlikDerecesi @default(KENDISI) @map("yakinlik_derecesi")
+  /// `DIGER` seçildiğinde ZORUNLU serbest metin (Amcası · Bakıcısı ·
+  /// Refakatçisi…). Sabit liste tek başına kullanılsaydı listede olmayan her
+  /// ilişki "Diğer" olarak kaydedilir ve bilgi KAYBOLURDU.
+  yakinlikAciklamasi String? @map("yakinlik_aciklamasi") @db.VarChar(80)
+
   girisTarihi      DateTime  @map("giris_tarihi") @db.Date
   cikisTarihi      DateTime? @map("cikis_tarihi") @db.Date
 
@@ -626,8 +664,16 @@ model Sakin {
   tenant Tenant        @relation(fields: [tenantId], references: [id])
   bolum  BagimsizBolum @relation(fields: [bolumId], references: [id])
   kisi   Kisi          @relation(fields: [kisiId], references: [id])
+  /// ⚠️  BİLEŞİK BAĞ — dayanak AYNI BÖLÜMDE olmak zorundadır. `bolumId` ikinci
+  ///     anahtar olarak taşınır; böylece A dairesinin sakini B dairesinin
+  ///     malikine BAĞLANAMAZ. Yalnızca serviste denetlenseydi, doğrudan
+  ///     veritabanına yazan bir toplu aktarım kuralı sessizce atlardı.
+  malik  Malik?  @relation(fields: [malikId, bolumId], references: [id, bolumId], onDelete: Restrict)
+  kiraci Kiraci? @relation(fields: [kiraciId, bolumId], references: [id, bolumId], onDelete: Restrict)
 
   @@index([tenantId, bolumId, girisTarihi])
+  @@index([tenantId, malikId])
+  @@index([tenantId, kiraciId])
   @@map("sakin")
 }
 
