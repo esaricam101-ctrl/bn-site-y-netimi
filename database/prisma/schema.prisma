@@ -103,6 +103,13 @@ model Tenant {
   // --- Geri alma (0018) ---
   geriAlmalar GeriAlma[]
 
+  // --- İletişim çekirdeği (0019) — WhatsApp · SMS ---
+  mesajSablonlari   MesajSablonu[]
+  iletisimIzinleri  IletisimIzni[]
+  mesajGonderimleri MesajGonderimi[]
+  mesajlar          Mesaj[]
+  bildirimKurallari OtomatikBildirimKurali[]
+
   /// Bu tenant bir YÖNETİM FİRMASI ise: yönettiği projeler (ADR-0009).
   yonettigiProjeler YonetimDelegasyonu[] @relation("DevirAlan")
   /// Bu tenant bir PROJE ise: yönetimini devrettiği firma kaydı.
@@ -190,6 +197,8 @@ model Kisi {
   /// Hızlı kayıtta girilebilen alanlar. Hepsi İSTEĞE BAĞLI: KVKK veri
   /// minimizasyonu (md. 4/1-ç) — doğum tarihi ve cinsiyet aidat tahakkuku
   /// için gerekli değildir.
+  /// WhatsApp numarası — `telefon`dan ayrı tutulur (0019).
+  whatsappNo  String?   @map("whatsapp_no") @db.VarChar(24)
   dogumTarihi DateTime? @map("dogum_tarihi") @db.Date
   cinsiyet    Cinsiyet  @default(BELIRTILMEMIS)
   adres       String?
@@ -223,6 +232,11 @@ model Kisi {
   /// Bu kişinin FİİLEN ÖDEDİĞİ tahsilatlar (0017). Ödeyen, borçlu ile aynı
   /// olmak zorunda DEĞİLDİR: komşusu ya da akrabası adına ödeme yapılabilir.
   odedigiTahsilatlar     Tahsilat[]
+  /// İletişim (0019). WhatsApp numarası `telefon`dan FARKLI olabilir: iş
+  /// telefonu SMS alır ama WhatsApp kişisel numaradadır. Tek alan kullanılsaydı
+  /// biri mutlaka yanlış olurdu.
+  iletisimIzinleri       IletisimIzni[]
+  mesajlar               Mesaj[]
 
   @@index([tenantId, soyad, ad])
   @@map("kisi")
@@ -1608,6 +1622,8 @@ model DaireGorevlisi {
   tcKimlikNo  String?   @map("tc_kimlik_no") @db.VarChar(11)
   telefon     String?   @db.VarChar(32)
   eposta      String?   @db.VarChar(180)
+  /// WhatsApp numarası — `telefon`dan ayrı tutulur (0019).
+  whatsappNo  String?   @map("whatsapp_no") @db.VarChar(24)
   dogumTarihi DateTime? @map("dogum_tarihi") @db.Date
   cinsiyet    Cinsiyet  @default(BELIRTILMEMIS)
   adres       String?
@@ -2388,4 +2404,267 @@ model TahsilatTahsisi {
   @@index([tenantId, tahsilatId])
   @@index([tenantId, borcSorumlusuId])
   @@map("tahsilat_tahsisi")
+}
+
+// ===========================================================================
+// İLETİŞİM ÇEKİRDEĞİ (0019) — WhatsApp Business · SMS · (ileride e-posta)
+//
+// ⚠️  WHATSAPP ve SMS AYRI MODEL DEĞİLDİR. İkisi de "bir mesajı, bir alıcıya,
+//     bir kanaldan gönder"dir; alıcı çözümü, şablonlar, toplu/zamanlanmış
+//     gönderim, geçmiş, durum takibi ve izin denetimi ORTAKTIR. Ayrı
+//     tutulsaydı bu iskelet iki kez yazılır ve biri düzeltildiğinde öteki
+//     SESSİZCE eski davranmaya devam ederdi. Kanal bir ALANDIR.
+//
+// ⚠️  GERÇEK SAĞLAYICI BAĞLANTISI YOKTUR. Hiçbir mesaj TESLIM_EDILDI olarak
+//     işaretlenmez; sağlayıcı yokken durum SAGLAYICI_YOK'ta kalır. Sahte bir
+//     "teslim edildi", yöneticinin sakinleri bilgilendirdiğini sanmasına yol
+//     açardı.
+// ===========================================================================
+
+enum IletisimKanali {
+  WHATSAPP
+  SMS
+  EPOSTA
+}
+
+/// Hizmet ilişkisinden doğan BİLGİLENDİRME İYS iznine tabi değildir; TİCARİ
+/// ileti tabidir (6563 s. K. md. 6). Ayrım yapılmasaydı ya bütün bildirimler
+/// izne takılır ya da ticari ileti izinsiz giderdi — ikincisi idari para
+/// cezasıdır.
+enum IletiTuru {
+  BILGILENDIRME
+  TICARI
+}
+
+enum IletiIzinDurumu {
+  IZIN
+  RET
+}
+
+enum HedefTipi {
+  TUM_SITE
+  BLOK
+  KAT
+  DAIRE
+  MALIK
+  KIRACI
+  SAKIN
+  DAIRE_GOREVLISI
+  YONETIM_KURULU
+  KISILER
+  GRUP
+}
+
+enum GonderimDurumu {
+  TASLAK
+  ZAMANLANDI
+  GONDERILIYOR
+  TAMAMLANDI
+  IPTAL
+}
+
+/// ⚠️  `SAGLAYICI_YOK` AYRI BİR DURUMDUR, `BASARISIZ` DEĞİL. Başarısız,
+///     sağlayıcının reddettiği mesajdır ve yeniden denenebilir. Sağlayıcı
+///     yokluğu bir yapılandırma eksiğidir; "başarısız" sayılsaydı durum
+///     raporunda operatör hatası gibi görünür ve gerçek hata oranı yanlış
+///     okunurdu.
+enum MesajDurumu {
+  BEKLIYOR
+  KUYRUKTA
+  GONDERILDI
+  TESLIM_EDILDI
+  OKUNDU
+  BASARISIZ
+  IPTAL
+  SAGLAYICI_YOK
+  IZIN_YOK
+}
+
+model MesajSablonu {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  kod String @db.VarChar(60)
+  ad  String @db.VarChar(160)
+  /// Boşsa şablon HER kanalda kullanılabilir. SMS'e özel kısa metin ile
+  /// WhatsApp'a özel uzun metin AYRI şablonlardır.
+  kanal     IletisimKanali?
+  iletiTuru IletiTuru       @default(BILGILENDIRME) @map("ileti_turu")
+
+  /// Değişkenler `{{ad}}` biçimindedir. ÇÖZÜLMEYEN DEĞİŞKEN GÖNDERİMİ
+  /// ENGELLER: "Sayın {{ad}}, {{tutar}} TL borcunuz var" mesajının ham
+  /// hâliyle gitmesi yönetime olan güveni tek seferde bitirir.
+  govde    String
+  aciklama String?
+  aktif    Boolean @default(true)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant     Tenant                   @relation(fields: [tenantId], references: [id])
+  gonderimler MesajGonderimi[]
+  kurallar   OtomatikBildirimKurali[]
+
+  @@index([tenantId, kanal])
+  @@map("mesaj_sablonu")
+}
+
+/// İYS izni — kişi · kanal · ileti türü bazında.
+///
+/// ⚠️  RET, İZİN YOKLUĞUNDAN FARKLIDIR. İzin kaydı hiç yoksa TİCARİ ileti
+///     gönderilemez; RET varsa BİLGİLENDİRME de dahil hiçbir şey gönderilmez
+///     (kişi açıkça istememiştir). Tek bayrağa indirgenseydi "hiç sorulmamış"
+///     ile "hayır demiş" ayırt edilemezdi.
+model IletisimIzni {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  kisiId   String @map("kisi_id") @db.Uuid
+
+  kanal     IletisimKanali
+  iletiTuru IletiTuru       @map("ileti_turu")
+  durum     IletiIzinDurumu
+
+  /// İzin KANITI: nereden alındığı (sözleşme · form · İYS · sözlü beyan).
+  /// Kanıtı olmayan izin, denetimde izin sayılmaz.
+  kaynak       String   @db.VarChar(120)
+  beyanTarihi  DateTime @map("beyan_tarihi") @db.Date
+  gerekce      String?
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  kisi   Kisi   @relation(fields: [kisiId], references: [id])
+
+  @@unique([tenantId, kisiId, kanal, iletiTuru])
+  @@index([tenantId, kisiId])
+  @@map("iletisim_izni")
+}
+
+/// Gönderim — bir parti (tekil ya da toplu).
+model MesajGonderimi {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  kanal     IletisimKanali
+  iletiTuru IletiTuru      @default(BILGILENDIRME) @map("ileti_turu")
+  durum     GonderimDurumu @default(TASLAK)
+
+  sablonId String? @map("sablon_id") @db.Uuid
+  baslik   String? @db.VarChar(200)
+  /// Şablon ÇÖZÜLMEDEN önceki gövde. Şablon sonradan değişse bile gönderilen
+  /// metin `Mesaj.govde`de saklıdır; bu alan "ne yazılmıştı"yı gösterir.
+  govde    String
+
+  hedefTipi      HedefTipi @map("hedef_tipi")
+  /// Hedefin kimliği. JSON çünkü şekli hedef tipine göre değişir; her tip için
+  /// ayrı kolon açmak on boş kolon demekti.
+  hedefReferansi Json?     @map("hedef_referansi")
+
+  zamanlanmaAni DateTime? @map("zamanlanma_ani") @db.Timestamptz(6)
+  baslamaAni    DateTime? @map("baslama_ani") @db.Timestamptz(6)
+  bitisAni      DateTime? @map("bitis_ani") @db.Timestamptz(6)
+
+  /// İLİŞKİLİ KAYIT: hangi tahakkuk/makbuz/arıza için gönderildi.
+  ilgiliVarlik   String? @map("ilgili_varlik") @db.VarChar(60)
+  ilgiliVarlikId String? @map("ilgili_varlik_id") @db.Uuid
+
+  olusturan      String  @db.Uuid
+  iptalGerekcesi String? @map("iptal_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  sablon   MesajSablonu? @relation(fields: [sablonId], references: [id], onDelete: Restrict)
+  mesajlar Mesaj[]
+
+  @@index([tenantId, durum])
+  @@index([tenantId, kanal, olusturulmaTarihi])
+  @@map("mesaj_gonderimi")
+}
+
+/// Mesaj — alıcı başına tek satır.
+///
+/// ⚠️  ALICI BİLGİSİ KOPYALANIR (ad ve numara). Kişi sonradan taşınsa ya da
+///     numarası değişse bile "bu mesaj O GÜN şu numaraya gitti" bilgisi
+///     değişmemelidir; ilişkiye bakılsaydı geçmiş sessizce yeniden yazılırdı.
+model Mesaj {
+  id         String @id @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  gonderimId String @map("gonderim_id") @db.Uuid
+
+  kisiId String? @map("kisi_id") @db.Uuid
+  /// SNAPSHOT — gönderim anındaki hâli.
+  aliciAdi String @map("alici_adi") @db.VarChar(160)
+  numara   String @db.VarChar(24)
+
+  kanal IletisimKanali
+  durum MesajDurumu    @default(BEKLIYOR)
+  /// Şablon ÇÖZÜLMÜŞ hâli — gerçekten gönderilen metin.
+  govde String
+
+  /// SMS kontörü. Türkçe karakterler (ğ ı ş İ) GSM-7 alfabesinde YOKTUR;
+  /// mesaj UCS-2'ye düşer ve parça uzunluğu 160'tan 70'e iner. Yanlış
+  /// hesaplansa fatura sessizce iki katına çıkardı.
+  parcaSayisi Int @default(1) @map("parca_sayisi")
+
+  saglayici        String? @db.VarChar(60)
+  saglayiciMesajId String? @map("saglayici_mesaj_id") @db.VarChar(120)
+  hataKodu         String? @map("hata_kodu") @db.VarChar(60)
+  hataMesaji       String? @map("hata_mesaji")
+  denemeSayisi     Int     @default(0) @map("deneme_sayisi")
+
+  gonderimAni DateTime? @map("gonderim_ani") @db.Timestamptz(6)
+  teslimAni   DateTime? @map("teslim_ani") @db.Timestamptz(6)
+  okunmaAni   DateTime? @map("okunma_ani") @db.Timestamptz(6)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  gonderim MesajGonderimi @relation(fields: [gonderimId], references: [id], onDelete: Cascade)
+  kisi     Kisi?          @relation(fields: [kisiId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, gonderimId])
+  @@index([tenantId, kisiId])
+  @@index([tenantId, durum])
+  @@index([tenantId, olusturulmaTarihi])
+  @@map("mesaj")
+}
+
+/// Otomatik bildirim kuralı — olay → şablon eşlemesi.
+///
+/// ⚠️  KURAL VERİ OLARAK TUTULUR, KODA GÖMÜLMEZ (§33 kural 3). "Aidat
+///     tahakkukunda SMS at" kodda olsaydı, SMS istemeyen bir tenant için
+///     kapatılamazdı.
+///
+/// ⚠️  BU TABLO DOLU OLSA DA HİÇBİR ŞEY OTOMATİK GÖNDERİLMEZ: tetikleyici
+///     bağlantısı (outbox tüketicisi) HENÜZ YOKTUR. Kural kaydı
+///     "gönderilecek" anlamına gelmez.
+model OtomatikBildirimKurali {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Outbox olay tipiyle eşleşir (ör. `tahakkuk.olusturuldu`).
+  olayKodu String         @map("olay_kodu") @db.VarChar(80)
+  kanal    IletisimKanali
+  sablonId String         @map("sablon_id") @db.Uuid
+  aktif    Boolean        @default(false)
+  aciklama String?
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id])
+  sablon MesajSablonu @relation(fields: [sablonId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, olayKodu, kanal])
+  @@index([tenantId, olayKodu])
+  @@map("otomatik_bildirim_kurali")
 }

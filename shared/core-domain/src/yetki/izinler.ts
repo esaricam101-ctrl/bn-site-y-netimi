@@ -40,6 +40,23 @@ export const IZINLER = {
   BELGE_GORUNTULE: 'belge.view',
   BELGE_YUKLE: 'belge.upload',
 
+  /*
+   * --- İletişim (0019) — WhatsApp · SMS · e-posta ---
+   *
+   * DÖRT AYRI İZİN, tek "iletisim.manage" değil. Gerekçe: bunlar farklı
+   * büyüklükte risklerdir ve aynı kişiye verilmeleri gerekmez.
+   *   · Tekil mesaj bir kişiye gider; yanlışsa düzeltilir.
+   *   · TOPLU mesaj 400 daireye aynı anda gider ve GERİ ALINAMAZ — gönderilen
+   *     mesaj geri çağrılamaz. Bu yüzden ayrı yetkidir.
+   *   · BELGE PAYLAŞIMI, gizlilik seviyesi olan bir dosyayı dışarı çıkarır;
+   *     mesaj göndermekten farklı bir karardır (KVKK).
+   *   · ŞABLON/AYAR değişikliği bütün gelecekteki gönderimleri etkiler.
+   */
+  ILETI_GONDER: 'iletisim.send',
+  ILETI_TOPLU_GONDER: 'iletisim.bulk.send',
+  ILETI_BELGE_PAYLAS: 'iletisim.document.share',
+  ILETI_AYAR: 'iletisim.settings.manage',
+
   // --- Denetim ---
   AUDIT_GORUNTULE: 'audit.view',
 

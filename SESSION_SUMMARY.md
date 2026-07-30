@@ -34,7 +34,104 @@ tip denetiminden geçiyordu.
 | `230042d` | **Banka Yönetimi çekirdeği** (0016) — banka · şube · hesap · POS · hareket · virman · ekstre · mutabakat · çek/senet + **veritabanı kısıt ihlalleri artık 500 değil 4xx** |
 | `5b56381` | ADR-0010 — cari hesap = **bölüm yardımcı defteri** (karar referans belgeden çözüldü) |
 | `85bbca5` | Tahsilat çekirdeği yarım (0017 + domain) — şema ve kurallar |
-| _bu commit_ | **Makbuzlar** (tahsilat uçları + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
+| `ed68721` | **Makbuzlar** (tahsilat uçları + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
+| _bu commit_ | **İletişim çekirdeği** (0019/0020) — WhatsApp · SMS · e-posta TEK modülde |
+
+### Bu commit'te yapılan — İletişim (WhatsApp Business · SMS)
+
+**WHATSAPP ve SMS AYRI MODÜL DEĞİLDİR.** İkisi de "bir mesajı, bir alıcıya,
+bir kanaldan gönder"dir. Ortak olanlar: alıcı çözümü (site · blok · kat ·
+daire · malik · kiracı · sakin · daire görevlisi · YK · kişiler), şablonlar ve
+değişkenler, toplu/zamanlanmış gönderim, geçmiş, durum takibi, İYS izin
+denetimi, audit. Ayrı yazılsaydı bu iskelet **iki kez** dururdu ve biri
+düzeltildiğinde öteki sessizce eski davranırdı. **Kanal bir ALANDIR.**
+E-posta ileride aynı çekirdeğe yeni enum değeriyle girer.
+
+Ekran: `/iletisim` → **WhatsApp · SMS · E-posta** sekmeleri (kullanıcının
+isteği: *"whatsapp, sms, e-posta gibi sekmeleri iletişim sekmesinde topla"*).
+
+- **0019** — `mesaj_sablonu` · `iletisim_izni` · `mesaj_gonderimi` · `mesaj` ·
+  `otomatik_bildirim_kurali` + `kisi.whatsapp_no`. Hepsinde RLS + politika.
+- **0020** — `daire_gorevlisi.whatsapp_no`. **Daire görevlisi bir `Kisi`
+  değildir** (0010); kendi telefonunu taşır, dolayısıyla kendi WhatsApp
+  numarasını da taşımalıydı.
+- **domain** `shared/apartman-domain/src/iletisim` — 33 birim testi.
+- **backend** `modules/iletisim` — CQRS + **sağlayıcı portu**.
+- **RBAC** — dört yeni izin (aşağıda).
+
+#### Zorlanan kritik kurallar
+
+- **HİÇBİR MESAJ GERÇEKTEN GÖNDERİLMEZ** ve hiçbiri "teslim edildi"
+  sayılmaz. Sağlayıcı yokken durum `SAGLAYICI_YOK`ta kalır. Sahte bir başarı,
+  yöneticinin 400 daireyi bilgilendirdiğini sanmasına yol açardı — ve bu
+  ancak icra takibi aşamasında anlaşılırdı.
+- **`SAGLAYICI_YOK` ve `IZIN_YOK`, `BASARISIZ` DEĞİLDİR.** Biri yapılandırma
+  eksiği, öteki hukuki engel; üçü tek durumda toplansaydı "hata oranı"
+  hiçbir şey anlatmazdı.
+- **İYS: ÜÇ DURUM VARDIR, İKİ DEĞİL.** RET → o kanalda bilgilendirme dahil
+  hiçbir şey; izin kaydı yok → bilgilendirme gider, ticari gitmez; İZİN →
+  ikisi de. Tek bayrağa indirgenseydi ya aidat borcu haber verilemez ya da
+  ticari ileti izinsiz giderdi (6563 s. K. md. 6 — idari para cezası).
+- **SMS KONTÖRÜ GSM-7/UCS-2 ayrımıyla hesaplanır.** Tek bir `ğ` mesajı
+  UCS-2'ye düşürür ve parça sınırı 160'tan 70'e iner. Hata **sessizdir**:
+  mesaj yine gider, yalnızca fatura iki katına çıkar. (`ç ö ü` GSM-7'de
+  vardır; hepsi UCS-2 sanılsaydı kontör boşuna fazla hesaplanırdı.)
+- **ÇÖZÜLMEYEN ŞABLON DEĞİŞKENİ GÖNDERİMİ ENGELLER.** Ham `{{ad}}` metninin
+  ya da `"Sayın , TL borcunuz var"` cümlesinin gitmesi güveni tek seferde
+  bitirir. Ama tek alıcının eksik verisi **bütün partiyi düşürmez**: o mesaj
+  `BASARISIZ` kaydedilir, ötekiler devam eder.
+- **İZİNSİZ/NUMARASIZ ALICI ATLANMAZ, KAYDEDİLİR.** Atlansaydı "500 kişiye
+  gönderdim" denir ama 80'ine gitmediği hiçbir yerde görünmezdi.
+- **AYNI KİŞİ TEKİLLEŞTİRİLİR** — hem malik hem sakin olan kişi duyuruyu iki
+  kez almaz (ve iki kontör düşmez).
+- **AYRILMIŞ KİRACIYA/ESKİ MALİKE MESAJ GİTMEZ**: alıcı çözümü *hâlen süren*
+  ilişkiye bakar (`tapuBitis` · `bitis` · `cikisTarihi`).
+- **GRUP hedefi AÇIK HATA verir** — sistemde grup kavramı yok; boş liste
+  dönmek sessiz başarısızlık olurdu.
+- Numara **E.164'e normallenir** ve **sabit hat reddedilir**: normalleştirme
+  olmasaydı aynı kişi üç kez kaydedilir ve aynı duyuruyu üç kez alırdı.
+
+#### Yeni izinler (yetki matrisi genişletildi)
+
+Bu talep RBAC gerektiriyordu ve iletişim izinleri **hiç yoktu**. Dört ayrı
+izin eklendi — tek `iletisim.manage` değil, çünkü bunlar farklı büyüklükte
+risklerdir:
+
+| İzin | Neden ayrı |
+|---|---|
+| `ILETI_GONDER` | Tekil mesaj bir kişiye gider; yanlışsa düzeltilir |
+| `ILETI_TOPLU_GONDER` | 400 daireye aynı anda gider ve **geri alınamaz** |
+| `ILETI_BELGE_PAYLAS` | Gizlilik seviyesi olan dosyayı dışarı çıkarır (KVKK) |
+| `ILETI_AYAR` | Şablon/kural değişikliği bütün gelecek gönderimleri etkiler |
+
+Dağıtım: `APARTMAN_YONETICISI` ve `YONETIM_SIRKETI` dördüne de sahip.
+`YK_BASKANI` **yalnızca `ILETI_GONDER`** — yönetim kurulu denetim organıdır,
+işletme değil; 400 daireye giden ve geri alınamayan bir mesaj işletme
+kararıdır.
+
+#### Canlı testte çıkan iki kusur
+
+1. **`tx.malik.findMany()` çalışma zamanında patladı** — `Malik`, `Kiraci`,
+   `Sakin` **soft delete taşımaz**; bunlar ilişki kayıtlarıdır. Asıl mesele
+   tip hatası değil **anlam**: alan doğru kabul edilseydi bile taşınmış
+   kiracıya duyuru gitmeye devam ederdi.
+2. **Dört alıcının dördü de numarasızken hiç uyarı üretilmedi.** Yanıt
+   "oluşturuldu" dedi, `numarasiz: 4` sayısı vardı ama kimse okumak zorunda
+   değildi. **Sayı ile uyarı aynı şey değildir**: sayı veridir, uyarı
+   iddiadır. Artık "hiçbir alıcıya mesaj gitmedi" açıkça yazılıyor.
+
+#### Karşılanmayanlar — açıkça eksik
+
+| İstenen | Neden |
+|---|---|
+| **Gerçek WhatsApp/SMS gönderimi** | Kullanıcının kararı: *"gerçek API bağlantıları sonraki fazda"*. Port hazır; adaptör eklenince servis kodu değişmez |
+| **Belge paylaşımı (PDF/Excel/Word/resim)** | İzin (`ILETI_BELGE_PAYLAS`) ve `BelgeVarlikTipi += MESAJ_GONDERIMI` hazır; **ekleme akışı yazılmadı**. Dosya altyapısı Belge modülünde zaten var |
+| **Otomatik bildirimler (14 olay)** | Kural tablosu var ve kayıt alınabiliyor ama **outbox tüketicisi yok**: `aktif = true` olsa bile hiçbir şey kendiliğinden gitmez. Bu ekranda ve API açıklamasında yazılı |
+| **Zamanlanmış gönderim** | Kayıt oluşur, **planlayıcı yok**; yanıtta uyarı olarak döner |
+| **Kişi kartlarına alan eklenmesi** | API hazır (`GET /iletisim/kisiler/:id`); Malik/Kiracı/Sakin **form ekranlarına** alan eklenmedi |
+| **Şablon/izin/kural yönetim ekranları** | API tam; ekran yalnızca şablon **seçimi** sunuyor |
+| **Grafikler** | Rapor uçları seri döndürüyor (`gunlukSeri`, `durumDagilimi`); grafik bileşeni çizilmedi |
+| **Dışa aktarma (Excel/PDF)** | FAZ 4 — kütüphane kararı bekliyor |
 
 ### Bu commit'te yapılan — Makbuzlar + Genel Geri Al
 
@@ -485,10 +582,10 @@ kaplamaya devam ederdi.
 ## 2. Şu anki durum
 
 **Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **9/9** ·
-birim testleri **265/265** · sözleşme testleri **24/24** · lint:md 0 ·
-migration **18/18 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
+birim testleri **298/298** · sözleşme testleri **24/24** · lint:md 0 ·
+migration **20/20 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
 **40/40** · portföy canlı testi **19/19** · muhasebe canlı testi **51/51** ·
-**banka canlı testi 91/91** (iki kez üst üste — test idempotent).
+**banka canlı testi 91/91** · makbuz+geri al **13/13** · iletişim **18/18**.
 
 > ⚠️ **Makbuz canlı testi 13/13.** `tahsilat` uçları artık çalışıyor; kalan
 > eksikler ("Makbuzlar talebinden karşılanmayanlar") ve FAZ 2'nin geri kalanı

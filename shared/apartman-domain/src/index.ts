@@ -24,3 +24,7 @@ export * from './banka/banka.js';
 // varlik DEGILDIR: kontrol hesabi `120` ile mutabik olan BOLUM bazli yardimci
 // defterdir. Kisi ekstresi bir gorunumdur.
 export * from './tahsilat/tahsilat.js';
+// Iletisim cekirdegi (0019): WhatsApp · SMS · (ileride e-posta) TEK kural
+// kumesi. Kanal bir ALANDIR; ayri modul degildir. Yalnizca SMS kontor hesabi
+// kanala ozeldir.
+export * from './iletisim/iletisim.js';

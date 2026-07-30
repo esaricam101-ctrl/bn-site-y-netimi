@@ -1110,3 +1110,102 @@ function gecerliJeton(): { token?: string } {
   const t = jeton();
   return t === undefined ? {} : { token: t };
 }
+
+/* -------------------------------- İletişim -------------------------------- */
+
+export interface MesajSatiri {
+  readonly id: string;
+  readonly tarih: string;
+  readonly aliciAdi: string;
+  readonly numara: string;
+  readonly ozet: string;
+  readonly kanal: string;
+  readonly iletiTuru: string;
+  readonly durum: string;
+  readonly teslimAni: string | null;
+  readonly saglayici: string | null;
+  readonly hataKodu: string | null;
+  readonly hataMesaji: string | null;
+  readonly parcaSayisi: number;
+  readonly ilgiliVarlik: string | null;
+  readonly yenidenGonderilebilirMi: boolean;
+}
+
+export interface IletisimDurumRaporu {
+  readonly toplam: number;
+  readonly basarili: number;
+  readonly basarisiz: number;
+  readonly bekleyen: number;
+  readonly iptal: number;
+  readonly saglayiciYok: number;
+  readonly izinYok: number;
+  readonly toplamKontor: number;
+  readonly basariOrani: number | null;
+  readonly sonGonderimTarihi: string | null;
+  readonly gunlukSayi: number;
+  readonly aylikSayi: number;
+  readonly gunlukSeri: readonly { readonly gun: string; readonly adet: number }[];
+  readonly durumDagilimi: readonly { readonly durum: string; readonly adet: number }[];
+  readonly saglayiciEtkinMi: boolean;
+}
+
+export interface MesajSablonuSatiri {
+  readonly id: string;
+  readonly kod: string;
+  readonly ad: string;
+  readonly kanal: string | null;
+  readonly iletiTuru: string;
+  readonly govde: string;
+  readonly aktif: boolean;
+  readonly kullanimSayisi: number;
+}
+
+export interface GonderimSonucu {
+  readonly aliciSayisi: number;
+  readonly kuyruklanan: number;
+  readonly izinYok: number;
+  readonly numarasiz: number;
+  readonly toplamKontor: number;
+  readonly saglayiciEtkinMi: boolean;
+  readonly uyarilar: readonly string[];
+}
+
+export const iletisim = {
+  saglayici: (): Promise<{ ad: string; etkinMi: boolean }> =>
+    api('/iletisim/saglayici', gecerliJeton()),
+
+  sablonlar: (kanal?: string): Promise<readonly MesajSablonuSatiri[]> =>
+    api(`/iletisim/sablonlar${kanal === undefined ? '' : `?kanal=${kanal}`}`, gecerliJeton()),
+
+  mesajlar: (
+    suzgec: {
+      kanal?: string; durum?: string; baslangic?: string; bitis?: string;
+      arama?: string; limit?: number;
+    } = {},
+  ): Promise<readonly MesajSatiri[]> => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(suzgec)) {
+      if (v !== undefined && v !== '') p.set(k, String(v));
+    }
+    const s = p.toString();
+    return api(`/iletisim/mesajlar${s === '' ? '' : `?${s}`}`, gecerliJeton());
+  },
+
+  durumRaporu: (kanal?: string): Promise<IletisimDurumRaporu> =>
+    api(`/iletisim/rapor/durum${kanal === undefined ? '' : `?kanal=${kanal}`}`, gecerliJeton()),
+
+  gonderimOlustur: (dto: {
+    kanal: string; hedefTipi: string; govde?: string; sablonId?: string;
+    baslik?: string; iletiTuru?: string; hedefReferansi?: Record<string, unknown>;
+  }): Promise<GonderimSonucu> =>
+    api('/iletisim/gonderimler', {
+      method: 'POST', govde: dto, idempotencyKey: crypto.randomUUID(),
+      ...gecerliJeton(),
+    }),
+
+  yenidenGonder: (id: string): Promise<{ durum: string }> =>
+    api(`/iletisim/mesajlar/${id}/yeniden-gonder`, {
+      method: 'POST', govde: {}, idempotencyKey: crypto.randomUUID(),
+      ...gecerliJeton(),
+    }),
+};

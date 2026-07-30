@@ -43,6 +43,9 @@ export const ROLLER: readonly RolTanimi[] = [
       I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK, I.FINANS_TAHSILAT,
       I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_AYAR,
       I.TALEP_GORUNTULE, I.TALEP_YONET, I.BELGE_GORUNTULE, I.BELGE_YUKLE,
+      // İletişim (0019). Yerleşkeyi fiilen yöneten taraf duyuru yapar;
+      // toplu gönderim ve belge paylaşımı da işin doğal parçasıdır.
+      I.ILETI_GONDER, I.ILETI_TOPLU_GONDER, I.ILETI_BELGE_PAYLAS, I.ILETI_AYAR,
       I.AI_KULLAN, I.AI_ONERI_KABUL,
     ],
   },
@@ -64,6 +67,7 @@ export const ROLLER: readonly RolTanimi[] = [
       I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_YEVMIYE_GIRIS,
       I.FINANS_DONEM_KAPAT, I.FINANS_AYAR,
       I.TALEP_GORUNTULE, I.TALEP_YONET, I.BELGE_GORUNTULE, I.BELGE_YUKLE,
+      I.ILETI_GONDER, I.ILETI_TOPLU_GONDER, I.ILETI_BELGE_PAYLAS, I.ILETI_AYAR,
       I.AI_KULLAN, I.AI_ONERI_KABUL,
     ],
   },
@@ -74,6 +78,10 @@ export const ROLLER: readonly RolTanimi[] = [
       I.TENANT_GORUNTULE, I.KISI_GORUNTULE, I.BOLUM_GORUNTULE,
       I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_DEFTER_GORUNTULE,
       I.TALEP_GORUNTULE, I.BELGE_GORUNTULE, I.AI_KULLAN,
+      // YALNIZCA TEKİL mesaj. Toplu gönderim ve belge paylaşımı BİLİNÇLİ
+      // OLARAK VERİLMEDİ: yönetim kurulu denetim organıdır, işletme değil;
+      // 400 daireye giden ve GERİ ALINAMAYAN bir mesaj işletme kararıdır.
+      I.ILETI_GONDER,
     ],
   },
   {
