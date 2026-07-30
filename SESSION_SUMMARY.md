@@ -1016,6 +1016,110 @@ elle yazılmış kısmî unique index'ler (`arac_plaka_donem_uq`,
 9. **C-4 hukuki görüş** (KMK emredici hükümler, genel kurul yeter sayısı,
    vekâlet sınırları).
 
+### F. Altyapı ve ölçeklenebilirlik denetimi (31 Temmuz 2026)
+
+Ürün sahibi talebiyle **salt okunur** bir denetim yapıldı: 443 dosya, 55 model,
+21 migration, 204 uç, 317 birim + 24 sözleşme testi tarandı. **Kod
+değiştirilmedi.** Aşağıdakiler bulgudur, karar değil — hiçbiri bu oturumda
+uygulanmadı.
+
+**Sonuç:** uygulanmış çekirdek (çok kiracılılık, RLS, denetim izi, şema, para
+tipi, doğrulama) kurumsal kalitede; eksik olan etrafındaki **işletme
+katmanıdır** (kuyruk, zamanlayıcı, metrik, rate limit, dağıtım). Uygulanmış
+bileşenler üzerinden üretim hazırlığı **%55**; 18 alanın kapsanma oranı **%38**.
+İki sayı arasındaki fark durumu özetliyor: *derinlik var, genişlik yok.*
+
+#### P0 — üretime çıkmadan kapatılması gerekenler
+
+1. 🔴 **`yalnizcaKendiVerisi` UYGULANMIYOR.** `RolTanimi.yalnizcaKendiVerisi` ve
+   `KENDI_VERISI_KISITLI` tanımlı ama **hiçbir yerde okunmuyor** (backend +
+   frontend genelinde 0 kullanım). Sonuç: `MALIK`/`KIRACI`/`SAKIN` rolündeki bir
+   kullanıcı `KISI_GORUNTULE` + `BOLUM_GORUNTULE` taşıdığı için `GET /kisiler`
+   ve `GET /bolumler` ile **tüm sitenin** listesini çekebiliyor. README:151 bunun
+   tersini iddia ediyor. **KVKK açığı.**
+2. 🔴 **Dağıtım giriş noktası yanlış.** Derleme çıktısı `backend/dist/src/main.js`
+   (tsconfig `include` hem `src` hem `test` kapsadığı için rootDir `backend/`
+   oluyor). Ama `backend/package.json:9` `dist/main.js`, `Dockerfile.backend`
+   son satırı `backend/dist/main.js` diyor → **konteyner MODULE_NOT_FOUND ile
+   açılışta düşer.** İmajın bir kez bile çalıştırılmadığını gösteriyor.
+3. 🔴 **Rate limiting yok** + giriş ucu istek başına ~134 MB scrypt belleği
+   ayırıyor (`N=131_072, r=8` → `128×N×r`; `maxmem` tavanı bunun iki katı).
+   Sınır olmadığı için tek IP'den düşük maliyetli bellek tükenmesi.
+4. 🔴 **`Idempotency-Key` gönderiliyor, okunmuyor.** Frontend her POST'ta
+   yolluyor (`api.ts:36`) ve yorumu "BFS v1 §12 zorunlu" diyor; backend'de
+   `@Headers` **hiç kullanılmıyor**. Ağ yeniden denemesi **mükerrer tahsilat /
+   tahakkuk** üretir.
+5. 🔴 **Bağlantı havuzu ve transaction timeout ayarsız.** `DATABASE_URL`'de
+   `connection_limit` yok → Prisma varsayılanı 9-17. `$transaction` seçeneksiz
+   çağrılıyor → varsayılan **5 sn**. Tahakkuk 400 daire için ~400 advisory lock
+   + ~1200 ardışık INSERT yapıyor; bu sınırın altında bitmesi olası değil
+   (`P2028`).
+
+#### P1 — ölçek büyümeden kapatılmalı
+
+6. **Portföy fan-out'u sınırsız eşzamanlı.** `portfoy.service.ts:307`
+   `Promise.allSettled(gecerliler.map(...))` — proje başına ayrı transaction,
+   11 sorgu. 150 proje = 150 eşzamanlı transaction. Havuz tükendiğinde
+   `allSettled` hatayı yutuyor ve portföy **eksik ama hatasız** görünüyor.
+7. **Önbellek geçersizleştirmesi yok.** `desenSil()` yazılmış, **sıfır çağrı
+   yeri**. Rol değişince yetki 5 dk eski kalıyor. İronik: aynı dosya devir kaydı
+   için önbelleklemeyi *"yetki kaldırmadır, 5 dakika geçerli görünmesi kabul
+   edilemez"* diye reddediyor — aynı gerekçe üyelik için de geçerli.
+8. **CI sözleşme testleri RLS'i doğrulayamıyor.** `ci.yml:74` `postgres`
+   süper kullanıcısıyla bağlanıyor; süper kullanıcı RLS'i **her koşulda atlar**
+   ve `database/init/01-roles.sql` CI servisine bağlanmadığı için `bnos_app`
+   rolü orada yok. Yerelde gerçekten doğrulanıyor, CI'da doğrulanamıyor.
+9. **Audit zinciri tenant başına serileşme noktası ve çatallanabilir.** Her
+   yazma `findFirst(orderBy: olusmaAni desc)` ile son halkayı okuyor; iki
+   eşzamanlı yazma **aynı `oncekiHash`'i** alabilir ve `oncekiHash` üzerinde
+   unique kısıt yok. Advisory lock deseni depoda zaten var (`numara.service.ts`).
+10. **Refresh token iptal edilemiyor.** `jti` üretiliyor, saklanmıyor; çıkış ucu
+    yok. Çalınan token 7 gün geçerli.
+11. **Metrik ve tracing yok** (OTel/prom-client 0 sonuç). `/saglik` Redis'i
+    kontrol etmiyor; readiness/liveness ayrımı yok.
+12. **`trust proxy` ayarlanmamış** → LB arkasında **her audit kaydındaki IP
+    yanlış** olur ve hata sessizdir (alan dolu görünür).
+
+#### Uygulanmamış bileşenler (kapsam dışı, belgeyle tutarlı)
+
+Workflow Engine · Knowledge Graph adaptörü · Vector DB / pgvector · AI Agent
+System · LLM Router · Token Optimization. Bunlar C-1 açık maddesiyle zaten
+işaretli. **Kuyruk altyapısı farklı:** BullMQ `backend/package.json`'da kurulu
+ama kaynak kodda **sıfır kullanım**; `IScheduler` portu ve `IsCalistirma` tablosu
+(idempotentlik UNIQUE'i dahil) yazılmış, **uygulaması yok**. Outbox Redis
+Stream'e `XADD` yapıyor ama **tüketici yok** ve `MAXLEN` verilmediği için stream
+sınırsız büyüyor. İletişimdeki `durum: 'ZAMANLANDI'` kayıtları **hiçbir zaman
+gönderilmiyor**.
+
+#### Belge–kod tutarsızlıkları (kod geçerlidir)
+
+| Belge iddiası | Koddaki gerçek |
+|---|---|
+| README:151 — malik/kiracı/sakin `yalnizcaKendiVerisi` taşır | Bayrak okunmuyor |
+| `api.ts:29` — "her POST için zorunlu (BFS v1 §12)" | Backend başlığı okumuyor |
+| ADR-0005 — "geçersizleştirme domain event'lerle" | `desenSil` hiç çağrılmıyor |
+| ADR-0005 — "yetersizse özet tablosu" | Özet tablo yok, canlı `groupBy` |
+| `local-business-rules.adapter.ts:4` — "kurallar VERİ olarak" | TS closure'ı olarak gömülü |
+| `bnos-client/package.json` — "Workflow portlari" | Workflow portu yok |
+| README:44 — `infrastructure/ … k8s` | Dizin **boş** |
+| README:116 — "57 duman testi" | 317 test |
+| `scheduler.port.ts:4` — "v1 uygulaması: BullMQ" | Uygulama yok |
+| `prisma.service.ts:9` — "soft delete filtresi merkezîdir" | Uzantı bağlı değil (§3.B.0) |
+
+#### Ölçek değerlendirmesi (kod yapısından çıkarım, ölçüm yok)
+
+| Ölçek | Hazırlık | İlk düşecek bileşen |
+|---|---|---|
+| 15 site | %60 | `GET /portfoy/ozet` yavaşlar, düşmez |
+| 50 site | %40 | Havuz tükenmesi → `P2024`, portföy **sessizce eksik** |
+| 100 site | %20 | `tahakkuk.calistir` → `P2028` (200+ daireli sitelerde) |
+| 500 site | %10 | `audit_kaydi` (bölümleme ve arşivleme yok) |
+| 1000 site | %5 | Tek PostgreSQL örneğinin yazma kapasitesi |
+
+⚠️  Bu tabloda **hiçbir ölçüm yok** — depoda yük testi, benchmark veya
+performans bütçesi bulunmuyor. Rakamlar kod yapısından yapılan mühendislik
+tahminidir ve gerçek ölçümle değiştirilmelidir.
+
 ---
 
 ## 4. Sonraki oturum — ilk komut ve ilk görev
