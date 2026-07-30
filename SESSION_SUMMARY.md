@@ -31,7 +31,9 @@ tip denetiminden geçiyordu.
 | `2f39c75` | Portföy Yönetim Merkezi (0014 · ADR-0009) + v23/v24 boşluk analizi |
 | `b40ee54` | Beş "Yeni Ekle" formu sekmeli — Kişi Bilgileri + modüle özel sekmeler |
 | `<muhasebe>` | **Muhasebe çekirdeği** (0015) — hesap planı · fiş · defterler · mizan · dönem kapanışı + **iki sessiz kusur düzeltildi** |
-| _bu commit_ | **Banka Yönetimi çekirdeği** (0016) — banka · şube · hesap · POS · hareket · virman · ekstre · mutabakat · çek/senet + **veritabanı kısıt ihlalleri artık 500 değil 4xx** |
+| `230042d` | **Banka Yönetimi çekirdeği** (0016) — banka · şube · hesap · POS · hareket · virman · ekstre · mutabakat · çek/senet + **veritabanı kısıt ihlalleri artık 500 değil 4xx** |
+| `5b56381` | ADR-0010 — cari hesap = **bölüm yardımcı defteri** (karar referans belgeden çözüldü) |
+| _bu commit_ | **Tahsilat çekirdeği YARIM** (0017 + domain) — şema ve kurallar hazır, **uçlar yok** |
 
 ### Bu commit'te yapılan — Banka Yönetimi çekirdeği (FAZ 1)
 
@@ -426,10 +428,14 @@ kaplamaya devam ederdi.
 ## 2. Şu anki durum
 
 **Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **9/9** ·
-birim testleri **208/208** · sözleşme testleri **24/24** · lint:md 0 ·
-migration **16/16 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
+birim testleri **240/240** · sözleşme testleri **24/24** · lint:md 0 ·
+migration **17/17 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
 **40/40** · portföy canlı testi **19/19** · muhasebe canlı testi **51/51** ·
 **banka canlı testi 91/91** (iki kez üst üste — test idempotent).
+
+> ⚠️ **FAZ 2 YARIM.** `tahsilat` şeması ve domain kuralları hazır ve testli ama
+> **hiçbir uçtan çağrılmıyor** — `modules/tahsilat` yalnızca DTO taşıyor. Ayrıntı
+> ve kalan iş listesi: "FAZ 2 nerede kaldı" başlığı.
 
 > ⚠️ **MUHASEBE YAZMA YETKİSİ YALNIZCA `YONETIM_SIRKETI` ROLÜNDE.**
 > `FINANS_YEVMIYE_GIRIS` ve `FINANS_DONEM_KAPAT` izinleri
@@ -762,7 +768,7 @@ generating the remaining screens batch by batch."*
 | Faz | Kapsam | Durum |
 |---|---|---|
 | **FAZ 1** | Banka Yönetimi çekirdeği (0016 · domain · CQRS servisleri) | ✅ **tamam** — 91/91 canlı |
-| **FAZ 2** | **Cari hesap kavramı** — bölüm 4 ve 5'in ön koşulu | ⏭️ **sıradaki** |
+| **FAZ 2** | **Cari hesap** — karar (ADR-0010) · 0017 · domain | ⚠️ **YARIM** — aşağıda |
 | FAZ 3 | Bilanço + Gelir Tablosu (mizandan türetilir) | bekliyor |
 | FAZ 4 | Excel/PDF kütüphane kararı + aktarma altyapısı | bekliyor |
 | FAZ 5+ | Ekranların toplu üretimi (bağımlılık sırasına göre) | bekliyor |
@@ -819,6 +825,47 @@ kolonlarında **yürüyen bir toplam**. Sonuçları:
 tahsilat tutarı; `borc.odenen` bundan **türetilir**, elle yazılmaz ·
 (3) bölüm cari ekstresi · (4) kişi ekstresi (aynı motor, süzgeç) ·
 (5) yardımcı defter ↔ kontrol hesabı mutabakat denetimi.
+
+#### FAZ 2 nerede kaldı — YARIM, kalan iş net
+
+| Katman | Durum |
+|---|---|
+| **ADR-0010** — cari = bölüm yardımcı defteri | ✅ yazıldı, commit edildi |
+| **Migration 0017** — `tahsilat` + `tahsilat_tahsisi` + `CARI_KONTROL` | ✅ **uygulandı** (48 tablo, RLS taraması temiz) |
+| **Prisma modelleri** + 7 ters ilişki + client | ✅ tamam |
+| **Domain** `shared/apartman-domain/src/tahsilat` | ✅ tamam — **32 birim testi** |
+| **Backend `modules/tahsilat`** | ⚠️ **YALNIZCA DTO yazıldı.** Servisler · controller · module YOK |
+| Canlı test | ❌ yapılamadı (uç yok) |
+
+**Sıradaki oturumun ilk işi — `backend/src/modules/tahsilat/` tamamlamak.**
+DTO hazır (`dto/tahsilat.dto.ts`); yazılacaklar:
+
+1. `tahsilat.command.service.ts`
+   - `ekle` — `tahsilatiDogrula` + `tahsisleriDogrula`, makbuz no
+     `NumaraServisi.tahsisEt(tx, {seriKodu: 'MAKBUZ'})`, tahsis satırları,
+     **ardından `borc.odenen` ve `borc_sorumlusu.odenen` YENİDEN HESAPLANIR**
+     (Σ tahsis) — asla `increment` ile artırılmaz.
+   - `iptal` — `tahsilatIptalEdilebilirMi` (muhasebeleşmişse RED), tahsisler
+     silinir, `odenen` yeniden hesaplanır, `durum = IPTAL` + gerekçe.
+   - `muhasebelestir` — `FisCommandServisi.ekleIslemde` ile **aynı
+     transaction'da** (banka modülündeki desen). Borç tarafı kanala göre:
+     NAKIT → `varsayilanKasaHesapId`, BANKA/POS → banka hareketinin hesabı ya
+     da `varsayilanBankaHesapId`. Alacak tarafı **`ozellik = CARI_KONTROL`**
+     hesabı. CEK/SENET/MAHSUP için hesap tanımı yok → **açık hata mesajıyla
+     reddedilmeli**, uydurma hesap seçilmemeli.
+2. `cari.query.service.ts` — `cariEkstre` (bölüm), kişi ekstresi
+   (`borc_sorumlusu` süzgeci), `alacakYaslandirmasi`, `otomatikTahsis`
+   önizlemesi (**YAZMAZ**), `kontrolMutabakati`.
+3. `tahsilat.controller.ts` + `tahsilat.module.ts` (+ `app.module.ts` kaydı).
+   Yetki: okuma `FINANS_BORCLU_DETAY`/`FINANS_DEFTER_GORUNTULE`, yazma
+   `FINANS_TAHSILAT`, makbuz `FINANS_MAKBUZ`, muhasebeleştirme
+   `FINANS_YEVMIYE_GIRIS`.
+4. `DonemServisi.kapat` içine **kontrol mutabakatı bloğu**: uyuşmazlık
+   kapanışı engeller (ADR-0010).
+
+> ⚠️ Domain kuralları hazır ve testli ama **hiçbir uçtan çağrılmıyor.** Bu
+> durum 0004/0005'te yaşananın aynısıdır: kural katmanı var, kalıcılık var,
+> arada uç yok. `git grep tahsisleriDogrula` bugün yalnızca testte eşleşir.
 
 **Kapsam dışı ve açıkça eksik:** tedarikçi carisi, personel bordro/avans
 defteri, `120` kontrol hesabının `HesapOzelligi` ile işaretlenmesi. Bunlar

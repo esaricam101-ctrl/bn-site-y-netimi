@@ -96,6 +96,10 @@ model Tenant {
   kiymetliEvraklar KiymetliEvrak[]
   bankaParametresi BankaParametresi?
 
+  // --- Tahsilat / cari yardımcı defteri (0017 · ADR-0010) ---
+  tahsilatlar        Tahsilat[]
+  tahsilatTahsisleri TahsilatTahsisi[]
+
   /// Bu tenant bir YÖNETİM FİRMASI ise: yönettiği projeler (ADR-0009).
   yonettigiProjeler YonetimDelegasyonu[] @relation("DevirAlan")
   /// Bu tenant bir PROJE ise: yönetimini devrettiği firma kaydı.
@@ -213,6 +217,9 @@ model Kisi {
   /// Bu kişinin BORÇLUSU olduğu çek/senetler (0016). Dışarıdan gelen çekin
   /// borçlusu kişi kaydı olmayabilir; bağ isteğe bağlıdır.
   borclusuOlduguEvraklar KiymetliEvrak[]
+  /// Bu kişinin FİİLEN ÖDEDİĞİ tahsilatlar (0017). Ödeyen, borçlu ile aynı
+  /// olmak zorunda DEĞİLDİR: komşusu ya da akrabası adına ödeme yapılabilir.
+  odedigiTahsilatlar     Tahsilat[]
 
   @@index([tenantId, soyad, ad])
   @@map("kisi")
@@ -727,6 +734,11 @@ enum HesapOzelligi {
   KASA
   BANKA
   YANSITMA
+  /// Yardımcı defterin (bölüm cari bakiyeleri toplamı) mutabık olması gereken
+  /// KONTROL HESABI — `120 Alıcılar` (ADR-0010). Kod ile DEĞİL bu alanla
+  /// işaretlenir: hesap kodu tenant'a göre değişir ve '120' her tenant'ta
+  /// alıcılar hesabı olmayabilir (§33 kural 3).
+  CARI_KONTROL
 }
 
 enum DonemDurumu {
@@ -884,6 +896,8 @@ model YevmiyeFisi {
   /// Bu fişin dayandığı banka hareketleri (0016). Fişe bağlanan hareket bir
   /// daha DEĞİŞTİRİLEMEZ: mali kaydın dayanağı olmuştur.
   bankaHareketleri BankaHareketi[]
+  /// Bu fişin dayandığı tahsilatlar (0017).
+  tahsilatlar      Tahsilat[]
 
   @@index([tenantId, tarih])
   @@index([tenantId, donemId])
@@ -940,6 +954,11 @@ model Borc {
   tenant    Tenant          @relation(fields: [tenantId], references: [id])
   bolum     BagimsizBolum   @relation(fields: [bolumId], references: [id])
   sorumlular BorcSorumlusu[]
+  /// ⚠️  `odenen` ARTIK BU SATIRLARDAN TÜRETİLİR (0017 · ADR-0010), elle
+  ///     yazılmaz. İki kaynak (kolon + tahsis satırları) bağımsız
+  ///     yazılabilseydi biri güncellenmeyi unuttuğunda bakiye SESSİZCE yanlış
+  ///     çıkardı — ve `odenen` kolonu ödeme kaydı olmadan da doğru görünür.
+  tahsisler TahsilatTahsisi[]
 
   @@index([tenantId, bolumId, kapandiMi])
   @@index([tenantId, vadeTarihi])
@@ -967,6 +986,10 @@ model BorcSorumlusu {
 
   borc Borc @relation(fields: [borcId], references: [id])
   kisi Kisi @relation(fields: [kisiId], references: [id])
+  /// Hisseli mülkiyette BU SORUMLUNUN payına sayılan tahsisler (0017). Tahsis
+  /// yalnızca borca bağlansaydı, bir malikin ödemesi bütün hissedarların
+  /// borcunu kapatmış görünürdü.
+  tahsisler TahsilatTahsisi[]
 
   @@unique([borcId, kisiId, sira])
   @@index([tenantId, kisiId])
@@ -1992,6 +2015,10 @@ model BankaHareketi {
   /// Bu hareketle eşleşen ekstre satırı. En çok BİR tane olabilir; kısmî
   /// tekillik index'i (`ekstre_satiri_eslesen_hareket_uq`) bunu zorlar.
   eslesenSatirlar EkstreSatiri[]
+  /// Bu banka hareketine karşılık gelen aidat tahsilatları (0017). Bu bağ
+  /// olmadan banka mutabakatı tahsilatı göremez: para hesaba girer ama hangi
+  /// borcu kapattığı kayıtsız kalır.
+  tahsilatlar     Tahsilat[]
 
   @@index([tenantId, bankaHesabiId, islemTarihi])
   @@index([tenantId, referansNo])
@@ -2139,6 +2166,8 @@ model KiymetliEvrak {
   sube         BankaSubesi?    @relation(fields: [subeId], references: [id], onDelete: Restrict)
   tahsilHesabi BankaHesabi?    @relation("EvrakTahsilHesabi", fields: [tahsilHesabiId], references: [id], onDelete: Restrict)
   hareketler   BankaHareketi[]
+  /// Bu çek/senet ile yapılan tahsilatlar (0017).
+  tahsilatlar  Tahsilat[]
 
   @@index([tenantId, durum, vadeTarihi])
   @@map("kiymetli_evrak")
@@ -2172,4 +2201,133 @@ model BankaParametresi {
   komisyonHesabi  Hesap?       @relation("BankaParamKomisyon", fields: [posKomisyonHesapId], references: [id], onDelete: Restrict)
 
   @@map("banka_parametresi")
+}
+
+// ===========================================================================
+// TAHSİLAT ve CARİ YARDIMCI DEFTERİ (0017 · ADR-0010)
+//
+// Cari hesap AYRI BİR VARLIK DEĞİLDİR: kontrol hesabı `120 Alıcılar` ile
+// mutabık olan BÖLÜM BAZLI yardımcı defterdir. Borç bölüme aittir (KMK md. 22),
+// sorumlu kişi `borc_sorumlusu` üzerinde TARİHSEL snapshot olarak durur.
+// Kişi ekstresi bir GÖRÜNÜMDÜR, ayrı defter değil.
+//
+// ⚠️  BU MIGRATION'A KADAR ÖDEME KAYDI HİÇ YOKTU. Ödeme yalnızca `borc.odenen`
+//     kolonunda yürüyen bir toplamdı ve o kolon ödeme kaydı OLMADAN DA DOĞRU
+//     GÖRÜNÜR — toplam tuttuğu için ödeme geçmişinin var olduğu sanılırdı.
+//     Eksiklik ancak ekstre üretmeye çalışınca ortaya çıktı.
+// ===========================================================================
+
+/// Tahsilat kanalı. Her kanal farklı bir kanıt taşır: banka kanalı banka
+/// hareketi, çek/senet kanalı kıymetli evrak ister (veritabanı CHECK).
+enum TahsilatKanali {
+  NAKIT
+  BANKA
+  POS
+  CEK
+  SENET
+  /// Mahsup — para hareketi olmadan borcun kapatılması (alacakla takas).
+  MAHSUP
+}
+
+enum TahsilatDurumu {
+  GECERLI
+  IPTAL
+}
+
+/// Tahsilat — FİNANSAL kayıt.
+///
+/// ⚠️  SOFT DELETE ALANLARI BİLİNÇLİ OLARAK YOK (BFS v1 §5.1). Hatalı tahsilat
+///     `durum = IPTAL` ile gerekçelenir; kayıt defterde KALIR ve makbuz
+///     numarası serisinde boşluk oluşmaz. VUK uyarınca makbuz numarası
+///     atlamaz; iptal edilen makbuz da numarasını korur.
+model Tahsilat {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// BOŞLUKSUZ seri (`NumaraServisi` · seri `MAKBUZ`). Tenant içinde tekildir:
+  /// aynı numaralı iki makbuz, hangisinin geçerli olduğu sorulduğunda cevapsız
+  /// kalır.
+  makbuzNo String @map("makbuz_no") @db.VarChar(32)
+
+  kanal TahsilatKanali
+  durum TahsilatDurumu @default(GECERLI)
+
+  /// İŞARETSİZ tutar. Tahsilat her zaman paranın GİRİŞİdir; iade ayrı bir
+  /// kavramdır ve negatif tahsilat olarak yazılmaz (toplamları bozar).
+  tutar           Decimal  @db.Decimal(18, 4)
+  tahsilatTarihi  DateTime @map("tahsilat_tarihi") @db.Date
+
+  aciklama String?
+
+  /// ÖDEYEN kişi, BORÇLU ile aynı olmak zorunda DEĞİLDİR: komşusu ya da
+  /// akrabası adına ödeme yapılabilir. Borçlu kimliği tahsis satırındaki
+  /// `borcSorumlusuId` üzerinden gelir.
+  odeyenKisiId String? @map("odeyen_kisi_id") @db.Uuid
+  tahsilEden   String? @map("tahsil_eden") @db.Uuid
+
+  /// 0016 BAĞLARI. Banka kanalıyla gelen tahsilatın hangi banka hareketine
+  /// karşılık geldiği; çek/senet ile ödemede hangi evrak. Bu bağ olmadan banka
+  /// mutabakatı aidat tahsilatını göremez.
+  bankaHareketiId String? @map("banka_hareketi_id") @db.Uuid
+  kiymetliEvrakId String? @map("kiymetli_evrak_id") @db.Uuid
+
+  /// Muhasebeleştirme. Boşsa tahsilat henüz deftere girmemiştir.
+  yevmiyeFisiId String? @map("yevmiye_fisi_id") @db.Uuid
+
+  /// İPTAL — gerekçe ZORUNLU (veritabanı CHECK). Bir tahsilatı iptal etmek
+  /// parayı geri vermek değildir; hangi kararla iptal edildiği denetimde
+  /// sorulabilir olmalıdır.
+  iptalGerekcesi String?   @map("iptal_gerekcesi")
+  iptalEden      String?   @map("iptal_eden") @db.Uuid
+  iptalAni       DateTime? @map("iptal_ani") @db.Timestamptz(6)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  odeyenKisi    Kisi?          @relation(fields: [odeyenKisiId], references: [id], onDelete: Restrict)
+  bankaHareketi BankaHareketi? @relation(fields: [bankaHareketiId], references: [id], onDelete: Restrict)
+  kiymetliEvrak KiymetliEvrak? @relation(fields: [kiymetliEvrakId], references: [id], onDelete: Restrict)
+  yevmiyeFisi   YevmiyeFisi?   @relation(fields: [yevmiyeFisiId], references: [id], onDelete: Restrict)
+
+  tahsisler TahsilatTahsisi[]
+
+  @@index([tenantId, tahsilatTarihi])
+  @@index([tenantId, kanal])
+  @@index([tenantId, odeyenKisiId])
+  @@map("tahsilat")
+}
+
+/// Tahsilat tahsisi — ödemenin HANGİ BORCA ne kadar gittiği.
+///
+/// ⚠️  BU TABLO OLMADAN "cari ekstre" DİYE BİR ŞEY YOKTUR. Ekstrenin ödeme
+///     satırı burasıdır; yürüyen bakiye, borç satırları ile bu satırların
+///     tarih sırasına göre birleşiminden çıkar.
+///
+/// ⚠️  `borcSorumlusuId` HİSSELİ MÜLKİYET İÇİN ZORUNLU AYRIMDIR. Borç
+///     maliklere BÖLÜNÜR (`borc_sorumlusu.pay`); bir malik kendi payını
+///     ödediğinde ötekilerin borcu AÇIK kalmalıdır. Tahsis yalnızca borca
+///     bağlansaydı, bir malikin ödemesi bütün hissedarların borcunu kapatmış
+///     görünürdü.
+model TahsilatTahsisi {
+  id         String @id @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  tahsilatId String @map("tahsilat_id") @db.Uuid
+  borcId     String @map("borc_id") @db.Uuid
+  /// Hisseli mülkiyette kimin payına sayıldığı. Tek sorumlu varsa boş kalabilir.
+  borcSorumlusuId String? @map("borc_sorumlusu_id") @db.Uuid
+
+  tutar Decimal @db.Decimal(18, 4)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  tahsilat      Tahsilat       @relation(fields: [tahsilatId], references: [id], onDelete: Cascade)
+  borc          Borc           @relation(fields: [borcId], references: [id], onDelete: Restrict)
+  borcSorumlusu BorcSorumlusu? @relation(fields: [borcSorumlusuId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, borcId])
+  @@index([tenantId, tahsilatId])
+  @@index([tenantId, borcSorumlusuId])
+  @@map("tahsilat_tahsisi")
 }

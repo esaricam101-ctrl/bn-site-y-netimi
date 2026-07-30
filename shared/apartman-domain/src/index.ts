@@ -20,3 +20,7 @@ export * from './muhasebe/muhasebe.js';
 // cek/senet durum makinesi. Havale/EFT/FAST/Virman AYRI KAVRAM DEGILDIR;
 // hepsi `BankaIslemTipi` degerleridir.
 export * from './banka/banka.js';
+// Tahsilat ve CARI YARDIMCI DEFTERI (0017 · ADR-0010). Cari hesap ayri bir
+// varlik DEGILDIR: kontrol hesabi `120` ile mutabik olan BOLUM bazli yardimci
+// defterdir. Kisi ekstresi bir gorunumdur.
+export * from './tahsilat/tahsilat.js';
