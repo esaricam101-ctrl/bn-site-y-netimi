@@ -137,8 +137,14 @@ export function kisiGirdisineCevir(d: KisiFormDurumu): {
 const GIRDI =
   'px-3 h-[var(--rowh)] rounded-[var(--rs)] border border-[color:var(--line)] bg-transparent w-full';
 
+/** Kişi bölümünün doğrulama anahtarları — sekme rozetinin dayanağı. */
+export const KISI_HATA_ANAHTARLARI = [
+  'kisiId', 'ad', 'soyad', 'tcKimlikNo', 'telefon', 'eposta',
+  'dogumTarihi', 'cinsiyet', 'adres', 'notlar', 'plaka',
+] as const;
+
 export function KisiBilgileriBolumu({
-  durum, setDurum, hatalar, kisiler, plakaGosterme,
+  durum, setDurum, hatalar, kisiler, plakaGosterme, baslikGoster = true,
 }: {
   readonly durum: KisiFormDurumu;
   readonly setDurum: (d: KisiFormDurumu) => void;
@@ -147,6 +153,13 @@ export function KisiBilgileriBolumu({
   readonly kisiler?: readonly { readonly id: string; readonly adSoyad: string }[];
   /** Misafir gibi araç kaydı istenmeyen akışlarda `true` verilir. */
   readonly plakaGosterme?: boolean;
+  /**
+   * SEKME PANELİ İÇİNDE `false` verilir: sekme başlığı zaten "Kişi Bilgileri"
+   * yazıyor, bölümün kendi başlığı ikinci kez yazardı. Ayrıca `fieldset` +
+   * `legend` yerine düz kapsayıcı kullanılır — panelin `role="tabpanel"`
+   * etiketi `aria-labelledby` ile sekme düğmesinden gelir.
+   */
+  readonly baslikGoster?: boolean;
 }) {
   const t = useTranslations('kisiBilgileri');
   const formId = useId();
@@ -182,9 +195,19 @@ export function KisiBilgileriBolumu({
     });
   };
 
+  const Kapsayici = baslikGoster ? 'fieldset' : 'div';
+
   return (
-    <fieldset className="flex flex-col gap-3 border-t border-[color:var(--line)] pt-3">
-      <legend className="text-sm font-semibold px-1">{t('baslik')}</legend>
+    <Kapsayici
+      className={
+        baslikGoster
+          ? 'flex flex-col gap-3 border-t border-[color:var(--line)] pt-3'
+          : 'flex flex-col gap-3'
+      }
+    >
+      {baslikGoster && (
+        <legend className="text-sm font-semibold px-1">{t('baslik')}</legend>
+      )}
       <p className="text-xs text-[color:var(--muted)]">{t('aciklama')}</p>
 
       {kisiler !== undefined && kisiler.length > 0 && (
@@ -365,6 +388,6 @@ export function KisiBilgileriBolumu({
           ))}
         </div>
       )}
-    </fieldset>
+    </Kapsayici>
   );
 }

@@ -28,12 +28,60 @@ tip denetiminden geçiyordu.
 | `b869940` | Modül adı düzeltmesi: Konut Çalışanları → Daire Görevlileri (0009) |
 | `394eb61` | Site Personeli / Daire Görevlisi ayrımı (0010) + tek ekran hızlı kayıt (0011-0013) + Misafir modülü |
 | `e191968` | Devir notu — v23/v24 referans mimari görevi |
-| _bu commit_ | **Portföy Yönetim Merkezi** (0014 · ADR-0009) + **v23/v24 boşluk analizi** |
+| `2f39c75` | Portföy Yönetim Merkezi (0014 · ADR-0009) + v23/v24 boşluk analizi |
+| _bu commit_ | **Beş "Yeni Ekle" formu SEKMELİ** — Kişi Bilgileri sekmesi + modüle özel sekmeler |
 
 Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
 `b4759d3` · `ec76035` · `89a56df` · `666c918`.
 
-### Bu commit'te yapılan — Portföy Yönetim Merkezi (ADR-0009)
+### Bu commit'te yapılan — beş form sekmeli hâle geldi
+
+Malik · Kiracı · Sakin · Misafir · Daire Görevlisi "Yeni Ekle" ekranları
+sekmelendi. İlk sekme **Kişi Bilgileri** (ad · soyad · TC · telefon · e-posta ·
+doğum tarihi · cinsiyet · adres · not · **çoklu araç plakası**), ardından
+modüle özel sekmeler:
+
+| Modül | Sekmeler |
+|---|---|
+| Malik | Kişi Bilgileri · **Tapu Bilgileri** |
+| Kiracı | Kişi Bilgileri · **Kira Sözleşmesi** · **Kefil** |
+| Sakin | Kişi Bilgileri · **Oturum Bilgileri** |
+| Misafir | Kişi Bilgileri · **Ziyaret Bilgileri** |
+| Daire Görevlisi | Kişi Bilgileri · **Görev Bilgileri** |
+
+**TEK FORM, TEK KAYDET.** Sekmeler yalnızca hangi bölümün görüneceğini
+değiştirir; her sekmenin kendi kaydet düğmesi YOKTUR. Kullanıcının daha önce
+istediği *"varsayılan kullanım tek ekrandan hızlı kayıt"* böylece korundu.
+
+⚠️ **Sekmeli formun ASIL TUZAĞI: gizli sekmedeki hata görünmez.** Kullanıcı
+Kaydet'e basar, hiçbir şey olmaz ve nedenini göremez. Üç koruma birlikte
+uygulandı:
+
+1. **Sekme başlığında hata rozeti** — o sekmedeki hata sayısı kırmızı badge
+   olarak görünür (`aria-label="N hata"`; çıplak sayı ekran okuyucuda
+   anlamsızdır).
+2. **Gönderim başarısızsa hatalı ilk sekmeye geçilir** (`ilkHataliSekme`).
+3. **Gizli alanda `required` KULLANILMAZ.** Tarayıcı gizli bir zorunlu alanı
+   odaklayamaz ve gönderimi *"An invalid form control is not focusable"* ile
+   **sessizce** durdurur. Beş formdaki `required` nitelikleri kaldırıldı;
+   zorunluluk kendi doğrulamamızla uygulanıyor.
+
+Ek olarak: **paneller kaldırılmaz, `hidden` ile gizlenir** — ağaçtan
+çıkarılsaydı sekme değiştikçe alanların DOM durumu sıfırlanırdı. Klavye
+gezinmesi WAI-ARIA tabs desenine göre (oklar · Home/End · tek durak).
+
+**Hata yönlendirme mantığı test edildi.** `lib/sekme-hata.ts` React'ten ayrı
+tutuldu (JSX taşıyan modül `node --test` ile içe alınamaz) ve 9 test yazıldı;
+biri özellikle şu ayrımı korur: `plaka-0` ön ekle yakalanmalı ama `plakaci`
+yakalanMAmalı. Birim testleri artık **155/155**.
+
+> `.test.ts` olarak yazmak denendi: `pnpm verify` koşuyor ama **ESLint
+> düşüyor** — kök `tsconfig.json` yalnızca `references` taşıyan bir çözüm
+> dosyası (`files: []`), bu yüzden `projectService` test dosyasını hiçbir
+> projede bulamıyor. `.mjs` + Node 24 yerleşik tip soyutlaması bunu tümüyle
+> çözdü.
+
+### Önceki commit'te yapılan — Portföy Yönetim Merkezi (ADR-0009)
 
 **YÖNETİM FİRMASI ARTIK BİR TENANT.** Ürün gereksinimi Portföy Yönetim
 Merkezi'ni zorunlu kıldı: firma giriş yaptığında doğrudan bir projeye
@@ -196,8 +244,9 @@ kaplamaya devam ederdi.
 ## 2. Şu anki durum
 
 **Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **8/8** ·
-sözleşme testleri **24/24** · migration **14/14 uygulandı** · 17 web rotası ·
-hızlı kayıt canlı testi **40/40** · portföy canlı testi **19/19**.
+birim testleri **155/155** · sözleşme testleri **24/24** · migration
+**14/14 uygulandı** · 17 web rotası · hızlı kayıt canlı testi **40/40** ·
+portföy canlı testi **19/19**.
 
 Çalışma ağacı temiz, `origin/master` ile senkron.
 
@@ -592,9 +641,19 @@ Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
   işaretlidir.
 - **CT-05 disiplini:** kullanıcıya görünen her metin `messages/tr.json`
   içinde bir i18n anahtarıdır.
-- **Web paketinin birim testi yok.** `tests/unit` yalnızca `shared/*/dist` ve
-  `backend/src/common` derlemesini koşar; `filtre.ts`, `csv-oku.ts` ve
-  `lib/kesir.ts` yalnızca tip denetimi ve derleme ile korunuyor.
+- **Web paketinin birim testi neredeyse yok.** `tests/unit` çoğunlukla
+  `shared/*/dist` ve `backend/src/common` derlemesini koşar; `filtre.ts`,
+  `csv-oku.ts` ve `lib/kesir.ts` yalnızca tip denetimi ve derleme ile
+  korunuyor. **İstisna:** `lib/sekme-hata.ts` React'ten ayrı tutulduğu için
+  `tests/unit/sekme-hata.test.mjs` ile test edilir — aynı yol, saf mantığı
+  bileşenden çıkararak başka web modülleri için de kullanılabilir.
+- **Tarayıcı koşum harness'ı YOK** (playwright/puppeteer/jsdom kurulu değil).
+  Etkileşimli davranış (sekme değişimi, form gönderimi) tip denetimi, derleme,
+  i18n anahtar denetimi ve saf mantık testleriyle korunuyor; gerçek tıklama
+  doğrulanmıyor. Sekmeli formlarda bu sınır özellikle önemli.
+- **SEKMELİ FORMDA GİZLİ ALANDA `required` KULLANILMAZ.** Tarayıcı gizli bir
+  zorunlu alanı odaklayamaz ve gönderimi *sessizce* durdurur. Yeni bir sekme
+  eklerken bu kural tekrar hatırlanmalı.
 - **Enum kodları iki yerde aynalı:** `frontend/web/lib/kodlar.ts` ve
   `messages/tr.json`. Domain'e yeni kod eklenirse ikisine de eklenmelidir.
 - **SİTE PERSONELİ ≠ DAİRE GÖREVLİSİ.** İşveren farklıdır ve bu, alan listesini

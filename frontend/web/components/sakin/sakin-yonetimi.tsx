@@ -15,15 +15,23 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
 import {
-  KisiBilgileriBolumu, bosKisiFormu, kisiFormunuDogrula, kisiGirdisineCevir,
-  type KisiFormDurumu,
+  KISI_HATA_ANAHTARLARI, KisiBilgileriBolumu, bosKisiFormu,
+  kisiFormunuDogrula, kisiGirdisineCevir, type KisiFormDurumu,
 } from '@/components/kisi/kisi-bilgileri-bolumu';
+import {
+  Sekmeler, ilkHataliSekme, sekmeHataSayisi, type SekmeTanimi,
+} from '@/components/sekmeler';
 import { servis, type Sakin } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
 const YAKINLIKLAR = [
   'KENDISI', 'ES', 'COCUK', 'ANNE_BABA', 'KARDES', 'AKRABA',
   'MISAFIR', 'CALISAN', 'DIGER',
+] as const;
+
+/** Oturum sekmesinin doğrulama anahtarları — rozet bunlardan sayılır. */
+const OTURUM_HATA_ANAHTARLARI = [
+  'yakinlik', 'girisTarihi', 'acilAd', 'acilTel',
 ] as const;
 
 const TARIH_BICIMI = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,13 +59,21 @@ export function SakinEkleFormu({
   const [acilTel, setAcilTel] = useState('');
   const [hatalar, setHatalar] = useState<Readonly<Record<string, string>>>({});
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [etkinSekme, setEtkinSekme] = useState('kisi');
 
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault();
     const h: Record<string, string> = { ...kisiFormunuDogrula(kisi, tk) };
     if (!TARIH_BICIMI.test(girisTarihi)) h['girisTarihi'] = t('hataTarih');
     setHatalar(h);
-    if (Object.keys(h).length > 0) return;
+    if (Object.keys(h).length > 0) {
+      const hedef = ilkHataliSekme([
+        { anahtar: 'kisi', hataSayisi: sekmeHataSayisi(h, KISI_HATA_ANAHTARLARI) },
+        { anahtar: 'oturum', hataSayisi: sekmeHataSayisi(h, OTURUM_HATA_ANAHTARLARI) },
+      ]);
+      if (hedef !== null) setEtkinSekme(hedef);
+      return;
+    }
 
     const kisiGirdisi = kisiGirdisineCevir(kisi);
 
@@ -85,49 +101,74 @@ export function SakinEkleFormu({
       <p role="alert" className="text-xs" style={{ color: 'var(--crit)' }}>{hatalar[ad]}</p>
     );
 
+  const sekmeler: readonly SekmeTanimi[] = [
+    {
+      anahtar: 'kisi',
+      etiket: tk('baslik'),
+      hataSayisi: sekmeHataSayisi(hatalar, KISI_HATA_ANAHTARLARI),
+      icerik: (
+        <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar}
+                             baslikGoster={false} />
+      ),
+    },
+    {
+      anahtar: 'oturum',
+      etiket: t('oturumSekmesi'),
+      hataSayisi: sekmeHataSayisi(hatalar, OTURUM_HATA_ANAHTARLARI),
+      icerik: (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('yakinlik')}</span>
+              <select className={girdiSinifi} value={yakinlik}
+                      onChange={(e) => setYakinlik(e.target.value)}>
+                {YAKINLIKLAR.map((y) => (
+                  <option key={y} value={y}>{td(`yakinlik_${y}`)}</option>
+                ))}
+              </select>
+            </label>
+
+            {/*
+              `required` KULLANILMAZ: alan gizli bir sekmedeyken tarayici onu
+              odaklayamaz ve gonderimi sessizce durdurur.
+            */}
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{td('girisTarihi')}</span>
+              <input type="date" className={girdiSinifi} value={girisTarihi}
+                     aria-invalid={hatalar['girisTarihi'] !== undefined}
+                     onChange={(e) => setGirisTarihi(e.target.value)} />
+              <Hata ad="girisTarihi" />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('acilKisi')}</span>
+              <input className={girdiSinifi} value={acilAd}
+                     onChange={(e) => setAcilAd(e.target.value)} />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('acilTelefon')}</span>
+              <input className={girdiSinifi} value={acilTel} inputMode="tel"
+                     onChange={(e) => setAcilTel(e.target.value)} />
+            </label>
+          </div>
+
+          <p className="text-xs text-[color:var(--muted)]">{t('sakinIpucu')}</p>
+        </>
+      ),
+    },
+  ];
+
   return (
     <form onSubmit={(e) => { void gonder(e); }}
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
       <h3 className="font-semibold">{t('yeniSakin')}</h3>
 
-      {/* Formun İLK bölümü kişi bilgileridir; beş modülde aynı bileşen. */}
-      <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar} />
+      {/* TEK FORM, TEK KAYDET — sekmeler yalnizca gorunumu boler. */}
+      <Sekmeler sekmeler={sekmeler} etkinAnahtar={etkinSekme}
+                onDegisti={setEtkinSekme} etiket={t('yeniSakin')} />
 
-      <div className="grid gap-3 sm:grid-cols-2 border-t border-[color:var(--line)] pt-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('yakinlik')}</span>
-          <select className={girdiSinifi} value={yakinlik}
-                  onChange={(e) => setYakinlik(e.target.value)}>
-            {YAKINLIKLAR.map((y) => (
-              <option key={y} value={y}>{td(`yakinlik_${y}`)}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{td('girisTarihi')}</span>
-          <input type="date" className={girdiSinifi} value={girisTarihi} required
-                 aria-invalid={hatalar['girisTarihi'] !== undefined}
-                 onChange={(e) => setGirisTarihi(e.target.value)} />
-          <Hata ad="girisTarihi" />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('acilKisi')}</span>
-          <input className={girdiSinifi} value={acilAd}
-                 onChange={(e) => setAcilAd(e.target.value)} />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('acilTelefon')}</span>
-          <input className={girdiSinifi} value={acilTel} inputMode="tel"
-                 onChange={(e) => setAcilTel(e.target.value)} />
-        </label>
-      </div>
-
-      <p className="text-xs text-[color:var(--muted)]">{t('sakinIpucu')}</p>
-
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-[color:var(--line)] pt-3">
         <button type="submit" disabled={gonderiliyor}
                 className="px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold disabled:opacity-60"
                 style={{ backgroundImage: 'var(--grad)' }}>

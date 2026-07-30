@@ -17,11 +17,22 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
 import {
-  KisiBilgileriBolumu, bosKisiFormu, kisiFormunuDogrula, kisiGirdisineCevir,
-  type KisiFormDurumu,
+  KISI_HATA_ANAHTARLARI, KisiBilgileriBolumu, bosKisiFormu,
+  kisiFormunuDogrula, kisiGirdisineCevir, type KisiFormDurumu,
 } from '@/components/kisi/kisi-bilgileri-bolumu';
+import {
+  Sekmeler, ilkHataliSekme, sekmeHataSayisi, type SekmeTanimi,
+} from '@/components/sekmeler';
 import { servis, type Kiraci } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
+
+/** Sekme rozetlerinin dayanağı — hangi hata hangi sekmeye ait. */
+const SOZLESME_HATA_ANAHTARLARI = [
+  'sozlesmeNo', 'baslangic', 'bitis', 'depozito',
+] as const;
+const KEFIL_HATA_ANAHTARLARI = [
+  'kefilAdSoyad', 'kefilTc', 'kefilTelefon', 'kefilAdres',
+] as const;
 
 const TARIH_BICIMI = /^\d{4}-\d{2}-\d{2}$/;
 const PARA_BICIMI = /^\d+([.,]\d{1,2})?$/;
@@ -52,6 +63,7 @@ export function KiraciEkleFormu({
   const [kefilAdres, setKefilAdres] = useState('');
   const [hatalar, setHatalar] = useState<Readonly<Record<string, string>>>({});
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [etkinSekme, setEtkinSekme] = useState('kisi');
 
   // Kefil bilgisinden HERHANGİ BİRİ girildiyse ad soyad zorunludur: adı olmayan
   // ama telefonu olan bir kefil kaydı, icra takibinde kime başvurulacağını
@@ -71,7 +83,17 @@ export function KiraciEkleFormu({
       h['kefilTc'] = tk('hataTc');
     }
     setHatalar(h);
-    if (Object.keys(h).length > 0) return;
+    if (Object.keys(h).length > 0) {
+      // Hatalı sekmeye geç: gizli sekmedeki hata görünmezse kullanıcı neden
+      // kaydedilmediğini anlamaz.
+      const hedef = ilkHataliSekme([
+        { anahtar: 'kisi', hataSayisi: sekmeHataSayisi(h, KISI_HATA_ANAHTARLARI) },
+        { anahtar: 'sozlesme', hataSayisi: sekmeHataSayisi(h, SOZLESME_HATA_ANAHTARLARI) },
+        { anahtar: 'kefil', hataSayisi: sekmeHataSayisi(h, KEFIL_HATA_ANAHTARLARI) },
+      ]);
+      if (hedef !== null) setEtkinSekme(hedef);
+      return;
+    }
 
     const kisiGirdisi = kisiGirdisineCevir(kisi);
 
@@ -112,91 +134,121 @@ export function KiraciEkleFormu({
       <p role="alert" className="text-xs" style={{ color: 'var(--crit)' }}>{hatalar[ad]}</p>
     );
 
+  const sekmeler: readonly SekmeTanimi[] = [
+    {
+      anahtar: 'kisi',
+      etiket: tk('baslik'),
+      hataSayisi: sekmeHataSayisi(hatalar, KISI_HATA_ANAHTARLARI),
+      icerik: (
+        <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar}
+                             baslikGoster={false} />
+      ),
+    },
+    {
+      anahtar: 'sozlesme',
+      etiket: t('sozlesmeSekmesi'),
+      hataSayisi: sekmeHataSayisi(hatalar, SOZLESME_HATA_ANAHTARLARI),
+      icerik: (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('sozlesmeNo')}</span>
+              <input className={girdiSinifi} value={sozlesmeNo}
+                     onChange={(e) => setSozlesmeNo(e.target.value)} />
+            </label>
+
+            {/*
+              `required` KULLANILMAZ: alan gizli bir sekmedeyken tarayici onu
+              odaklayamaz ve gonderimi sessizce durdurur. Zorunluluk kendi
+              dogrulamamizla uygulanir ve hata sekme rozetinde gorunur.
+            */}
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('baslangic')}</span>
+              <input type="date" className={girdiSinifi} value={baslangic}
+                     aria-invalid={hatalar['baslangic'] !== undefined}
+                     onChange={(e) => setBaslangic(e.target.value)} />
+              <Hata ad="baslangic" />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('bitisIsteğe')}</span>
+              <input type="date" className={girdiSinifi} value={bitis}
+                     aria-invalid={hatalar['bitis'] !== undefined}
+                     onChange={(e) => setBitis(e.target.value)} />
+              <Hata ad="bitis" />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('depozito')}</span>
+              <input className={`${girdiSinifi} num`} value={depozito} inputMode="decimal"
+                     aria-invalid={hatalar['depozito'] !== undefined}
+                     onChange={(e) => setDepozito(e.target.value)} />
+              <Hata ad="depozito" />
+            </label>
+          </div>
+
+          <p className="text-xs text-[color:var(--muted)]">{t('bitisIpucu')}</p>
+        </>
+      ),
+    },
+    {
+      anahtar: 'kefil',
+      etiket: t('kefilSekmesi'),
+      hataSayisi: sekmeHataSayisi(hatalar, KEFIL_HATA_ANAHTARLARI),
+      icerik: (
+        <>
+          {/*
+            KEFİL — ayrı bir kişi kaydı AÇILMAZ. Yönetimin ortak gider alacağı
+            malike (KMK md. 20) ve kiracıya (md. 22) yönelir, kefile yönelmez;
+            `Kisi` kaydı açılsaydı kefil borç sorumluluğu sorgularında görünürdü.
+          */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('kefilAdSoyad')}</span>
+              <input className={girdiSinifi} value={kefilAdSoyad}
+                     aria-invalid={hatalar['kefilAdSoyad'] !== undefined}
+                     onChange={(e) => setKefilAdSoyad(e.target.value)} />
+              <Hata ad="kefilAdSoyad" />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('kefilTc')}</span>
+              <input className={`${girdiSinifi} num`} value={kefilTc}
+                     inputMode="numeric" maxLength={11}
+                     aria-invalid={hatalar['kefilTc'] !== undefined}
+                     onChange={(e) => setKefilTc(e.target.value)} />
+              <Hata ad="kefilTc" />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('kefilTelefon')}</span>
+              <input className={girdiSinifi} value={kefilTelefon} inputMode="tel"
+                     onChange={(e) => setKefilTelefon(e.target.value)} />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-[color:var(--muted-2)]">{t('kefilAdres')}</span>
+              <input className={girdiSinifi} value={kefilAdres}
+                     onChange={(e) => setKefilAdres(e.target.value)} />
+            </label>
+          </div>
+
+          <p className="text-xs text-[color:var(--muted)]">{t('kefilIpucu')}</p>
+        </>
+      ),
+    },
+  ];
+
   return (
     <form onSubmit={(e) => { void gonder(e); }}
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
       <h3 className="font-semibold">{t('yeniSozlesme')}</h3>
 
-      {/* Formun İLK bölümü kişi bilgileridir; beş modülde aynı bileşen. */}
-      <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar} />
+      {/* TEK FORM, TEK KAYDET — sekmeler yalnizca gorunumu boler. */}
+      <Sekmeler sekmeler={sekmeler} etkinAnahtar={etkinSekme}
+                onDegisti={setEtkinSekme} etiket={t('yeniSozlesme')} />
 
-      <div className="grid gap-3 sm:grid-cols-2 border-t border-[color:var(--line)] pt-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('sozlesmeNo')}</span>
-          <input className={girdiSinifi} value={sozlesmeNo}
-                 onChange={(e) => setSozlesmeNo(e.target.value)} />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('baslangic')}</span>
-          <input type="date" className={girdiSinifi} value={baslangic} required
-                 aria-invalid={hatalar['baslangic'] !== undefined}
-                 onChange={(e) => setBaslangic(e.target.value)} />
-          <Hata ad="baslangic" />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('bitisIsteğe')}</span>
-          <input type="date" className={girdiSinifi} value={bitis}
-                 aria-invalid={hatalar['bitis'] !== undefined}
-                 onChange={(e) => setBitis(e.target.value)} />
-          <Hata ad="bitis" />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-[color:var(--muted-2)]">{t('depozito')}</span>
-          <input className={`${girdiSinifi} num`} value={depozito} inputMode="decimal"
-                 aria-invalid={hatalar['depozito'] !== undefined}
-                 onChange={(e) => setDepozito(e.target.value)} />
-          <Hata ad="depozito" />
-        </label>
-      </div>
-
-      <p className="text-xs text-[color:var(--muted)]">{t('bitisIpucu')}</p>
-
-      {/*
-        KEFİL — ayrı bir kişi kaydı AÇILMAZ. Yönetimin ortak gider alacağı
-        malike (KMK md. 20) ve kiracıya (md. 22) yönelir, kefile yönelmez;
-        `Kisi` kaydı açılsaydı kefil borç sorumluluğu sorgularında görünürdü.
-      */}
-      <fieldset className="flex flex-col gap-3 border-t border-[color:var(--line)] pt-3">
-        <legend className="text-sm font-semibold px-1">{t('kefilBaslik')}</legend>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilAdSoyad')}</span>
-            <input className={girdiSinifi} value={kefilAdSoyad}
-                   aria-invalid={hatalar['kefilAdSoyad'] !== undefined}
-                   onChange={(e) => setKefilAdSoyad(e.target.value)} />
-            <Hata ad="kefilAdSoyad" />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilTc')}</span>
-            <input className={`${girdiSinifi} num`} value={kefilTc}
-                   inputMode="numeric" maxLength={11}
-                   aria-invalid={hatalar['kefilTc'] !== undefined}
-                   onChange={(e) => setKefilTc(e.target.value)} />
-            <Hata ad="kefilTc" />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilTelefon')}</span>
-            <input className={girdiSinifi} value={kefilTelefon} inputMode="tel"
-                   onChange={(e) => setKefilTelefon(e.target.value)} />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-[color:var(--muted-2)]">{t('kefilAdres')}</span>
-            <input className={girdiSinifi} value={kefilAdres}
-                   onChange={(e) => setKefilAdres(e.target.value)} />
-          </label>
-        </div>
-
-        <p className="text-xs text-[color:var(--muted)]">{t('kefilIpucu')}</p>
-      </fieldset>
-
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-[color:var(--line)] pt-3">
         <button type="submit" disabled={gonderiliyor}
                 className="px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold disabled:opacity-60"
                 style={{ backgroundImage: 'var(--grad)' }}>

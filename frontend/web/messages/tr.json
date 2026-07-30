@@ -8,7 +8,8 @@
     "kaydet": "Kaydet",
     "sil": "Sil",
     "veriYok": "Kayıt bulunamadı",
-    "kapat": "Kapat"
+    "kapat": "Kapat",
+    "sekmeHatasi": "{sayi} alan eksik ya da hatalı"
   },
   "giris": {
     "baslik": "Giriş yap",
@@ -136,7 +137,8 @@
     "hataPayda": "Payda pozitif bir tam sayı olmalıdır.",
     "hataPayBuyuk": "Pay, paydadan büyük olamaz.",
     "hataTarih": "Tarih seçilmelidir.",
-    "hataBitisOnce": "Bitiş tarihi başlangıçtan ({baslangic}) önce olamaz."
+    "hataBitisOnce": "Bitiş tarihi başlangıçtan ({baslangic}) önce olamaz.",
+    "tapuSekmesi": "Tapu Bilgileri"
   },
   "kiraci": {
     "yeniSozlesme": "Yeni kira sözleşmesi",
@@ -172,7 +174,9 @@
     "kefilTelefon": "Kefil telefon",
     "kefilAdres": "Kefil adres",
     "kefilIpucu": "Kefil için ayrı kişi kaydı açılmaz. Yönetimin ortak gider alacağı malike (KMK md. 20) ve kiracıya (md. 22) yönelir; kefile yönelmez — kefalet kira sözleşmesinin tarafıdır.",
-    "kefilHataAd": "Kefil bilgisi girildiyse ad soyad zorunludur."
+    "kefilHataAd": "Kefil bilgisi girildiyse ad soyad zorunludur.",
+    "sozlesmeSekmesi": "Kira Sözleşmesi",
+    "kefilSekmesi": "Kefil"
   },
   "sakinYonetim": {
     "yeniSakin": "Yeni sakin ekle",
@@ -195,7 +199,8 @@
     "duzeltildi": "Sakin bilgisi güncellendi.",
     "duzeltilemedi": "Sakin bilgisi güncellenemedi.",
     "kisiDegistirilemez": "Kişi burada değiştirilemez — kaydın kimliğidir. Yanlış kişi girildiyse çıkış verip doğru kişiyle yeni kayıt açın.",
-    "hataGirisSonra": "Giriş tarihi mevcut çıkış tarihinden ({cikis}) sonra olamaz."
+    "hataGirisSonra": "Giriş tarihi mevcut çıkış tarihinden ({cikis}) sonra olamaz.",
+    "oturumSekmesi": "Oturum Bilgileri"
   },
   "daire": {
     "baslik": "Daire Kartı",
@@ -411,7 +416,8 @@
     "isveren_KIRACI": "Kiracı",
     "isveren_SAKIN": "Sakin",
     "durum_AKTIF": "Aktif",
-    "durum_PASIF": "Pasif"
+    "durum_PASIF": "Pasif",
+    "gorevSekmesi": "Görev Bilgileri"
   },
   "giderTuru": {
     "baslik": "Gider Türleri",
@@ -709,7 +715,8 @@
     "eklenemedi": "Misafir eklenemedi.",
     "hataBolum": "Ziyaret edilen bölüm seçilmelidir.",
     "hataGiris": "Giriş tarihi zorunludur.",
-    "hataCikis": "Çıkış tarihi girişten önce olamaz."
+    "hataCikis": "Çıkış tarihi girişten önce olamaz.",
+    "ziyaretSekmesi": "Ziyaret Bilgileri"
   },
   "kisiBilgileri": {
     "baslik": "Kişi Bilgileri",

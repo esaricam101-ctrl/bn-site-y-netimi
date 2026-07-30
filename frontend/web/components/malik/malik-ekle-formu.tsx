@@ -20,14 +20,22 @@ import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
 import {
-  KisiBilgileriBolumu, bosKisiFormu, kisiFormunuDogrula, kisiGirdisineCevir,
-  type KisiFormDurumu,
+  KISI_HATA_ANAHTARLARI, KisiBilgileriBolumu, bosKisiFormu,
+  kisiFormunuDogrula, kisiGirdisineCevir, type KisiFormDurumu,
 } from '@/components/kisi/kisi-bilgileri-bolumu';
+import {
+  Sekmeler, ilkHataliSekme, sekmeHataSayisi, type SekmeTanimi,
+} from '@/components/sekmeler';
 import { servis, type MalikEkleGirdisi } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
 const TAPU_TURLERI = [
   'KAT_MULKIYETI', 'KAT_IRTIFAKI', 'ARSA_PAYLI', 'MIRAS_ISTIRAK', 'DIGER',
+] as const;
+
+/** Tapu sekmesinin doğrulama anahtarları — rozet bunlardan sayılır. */
+const TAPU_HATA_ANAHTARLARI = [
+  'tapuTuru', 'hissePay', 'hissePayda', 'tapuBaslangic', 'yevmiyeNo',
 ] as const;
 
 const TARIH_BICIMI = /^\d{4}-\d{2}-\d{2}$/;
@@ -55,6 +63,7 @@ export function MalikEkleFormu({
 
   const [hatalar, setHatalar] = useState<Readonly<Record<string, string>>>({});
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [etkinSekme, setEtkinSekme] = useState('kisi');
 
   const dogrula = (): Readonly<Record<string, string>> => {
     // Kişi bölümünün doğrulaması PAYLAŞILAN: beş formda aynı kural geçerli
@@ -77,7 +86,16 @@ export function MalikEkleFormu({
     e.preventDefault();
     const h = dogrula();
     setHatalar(h);
-    if (Object.keys(h).length > 0) return;
+    if (Object.keys(h).length > 0) {
+      // HATALI SEKMEYE GEÇ. Geçilmezse kullanıcı Kaydet'e basar, gizli
+      // sekmedeki hatayı göremez ve neden kaydedilmediğini anlamaz.
+      const hedef = ilkHataliSekme([
+        { anahtar: 'kisi', hataSayisi: sekmeHataSayisi(h, KISI_HATA_ANAHTARLARI) },
+        { anahtar: 'tapu', hataSayisi: sekmeHataSayisi(h, TAPU_HATA_ANAHTARLARI) },
+      ]);
+      if (hedef !== null) setEtkinSekme(hedef);
+      return;
+    }
 
     const girdi: MalikEkleGirdisi = {
       ...kisiGirdisineCevir(kisi),
@@ -127,6 +145,80 @@ export function MalikEkleFormu({
   const girdiSinifi =
     'px-3 h-[var(--rowh)] rounded-[var(--rs)] border border-[color:var(--line)] bg-transparent';
 
+  const sekmeler: readonly SekmeTanimi[] = [
+    {
+      anahtar: 'kisi',
+      etiket: tk('baslik'),
+      hataSayisi: sekmeHataSayisi(hatalar, KISI_HATA_ANAHTARLARI),
+      icerik: (
+        <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar}
+                             baslikGoster={false} />
+      ),
+    },
+    {
+      anahtar: 'tapu',
+      etiket: t('tapuSekmesi'),
+      hataSayisi: sekmeHataSayisi(hatalar, TAPU_HATA_ANAHTARLARI),
+      icerik: (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Alan ad="tapuTuru" etiket={td('tapuTuru')}>
+              {(id) => (
+                <select id={id} className={girdiSinifi} value={tapuTuru}
+                        onChange={(e) => setTapuTuru(e.target.value)}>
+                  {TAPU_TURLERI.map((tt) => (
+                    <option key={tt} value={tt}>{td(`tapuTuru_${tt}`)}</option>
+                  ))}
+                </select>
+              )}
+            </Alan>
+
+            {/*
+              Pay ve payda AYRI: tek "yuzde" alani 1/3 hissede toplami bozar.
+              inputMode="numeric" mobilde sayi klavyesi acar.
+
+              `required` KULLANILMAZ: alan gizli bir sekmedeyken tarayici onu
+              odaklayamaz ve gonderimi sessizce durdurur. Zorunluluk
+              `dogrula` ile uygulanir ve hata sekme rozetinde gorunur.
+            */}
+            <Alan ad="hissePay" etiket={t('hissePay')}>
+              {(id, hataId) => (
+                <input id={id} className={`${girdiSinifi} num`} value={hissePay}
+                       inputMode="numeric" onChange={(e) => setHissePay(e.target.value)}
+                       aria-invalid={hataId !== undefined} aria-describedby={hataId} />
+              )}
+            </Alan>
+
+            <Alan ad="hissePayda" etiket={t('hissePayda')}>
+              {(id, hataId) => (
+                <input id={id} className={`${girdiSinifi} num`} value={hissePayda}
+                       inputMode="numeric" onChange={(e) => setHissePayda(e.target.value)}
+                       aria-invalid={hataId !== undefined} aria-describedby={hataId} />
+              )}
+            </Alan>
+
+            <Alan ad="tapuBaslangic" etiket={td('tapuBaslangic')}>
+              {(id, hataId) => (
+                <input id={id} type="date" className={girdiSinifi} value={tapuBaslangic}
+                       onChange={(e) => setTapuBaslangic(e.target.value)}
+                       aria-invalid={hataId !== undefined} aria-describedby={hataId} />
+              )}
+            </Alan>
+
+            <Alan ad="yevmiyeNo" etiket={td('yevmiyeNo')}>
+              {(id) => (
+                <input id={id} className={girdiSinifi} value={yevmiyeNo}
+                       onChange={(e) => setYevmiyeNo(e.target.value)} />
+              )}
+            </Alan>
+          </div>
+
+          <p className="text-xs text-[color:var(--muted)]">{t('hisseIpucu')}</p>
+        </>
+      ),
+    },
+  ];
+
   return (
     // `void`: onSubmit void bekler, `gonder` Promise doner. Isaretlenmezse
     // reddedilen bir promise sessizce kaybolur (no-misused-promises).
@@ -135,60 +227,14 @@ export function MalikEkleFormu({
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
       <h3 className="font-semibold">{t('yeniMalik')}</h3>
 
-      {/* Formun İLK bölümü kişi bilgileridir; beş modülde aynı bileşen. */}
-      <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar} />
+      {/*
+        TEK FORM, TEK KAYDET. Sekmeler yalnizca hangi bolumun gorunecegini
+        degistirir; varsayilan kullanim hala tek ekrandan hizli kayittir.
+      */}
+      <Sekmeler sekmeler={sekmeler} etkinAnahtar={etkinSekme}
+                onDegisti={setEtkinSekme} etiket={t('yeniMalik')} />
 
-      <div className="grid gap-3 sm:grid-cols-2 border-t border-[color:var(--line)] pt-3">
-        <Alan ad="tapuTuru" etiket={td('tapuTuru')}>
-          {(id) => (
-            <select id={id} className={girdiSinifi} value={tapuTuru}
-                    onChange={(e) => setTapuTuru(e.target.value)}>
-              {TAPU_TURLERI.map((tt) => (
-                <option key={tt} value={tt}>{td(`tapuTuru_${tt}`)}</option>
-              ))}
-            </select>
-          )}
-        </Alan>
-
-        {/*
-          Pay ve payda AYRI: tek "yuzde" alani 1/3 hissede toplami bozar.
-          inputMode="numeric" mobilde sayi klavyesi acar.
-        */}
-        <Alan ad="hissePay" etiket={t('hissePay')}>
-          {(id, hataId) => (
-            <input id={id} className={`${girdiSinifi} num`} value={hissePay}
-                   inputMode="numeric" onChange={(e) => setHissePay(e.target.value)}
-                   aria-invalid={hataId !== undefined} aria-describedby={hataId} required />
-          )}
-        </Alan>
-
-        <Alan ad="hissePayda" etiket={t('hissePayda')}>
-          {(id, hataId) => (
-            <input id={id} className={`${girdiSinifi} num`} value={hissePayda}
-                   inputMode="numeric" onChange={(e) => setHissePayda(e.target.value)}
-                   aria-invalid={hataId !== undefined} aria-describedby={hataId} required />
-          )}
-        </Alan>
-
-        <Alan ad="tapuBaslangic" etiket={td('tapuBaslangic')}>
-          {(id, hataId) => (
-            <input id={id} type="date" className={girdiSinifi} value={tapuBaslangic}
-                   onChange={(e) => setTapuBaslangic(e.target.value)}
-                   aria-invalid={hataId !== undefined} aria-describedby={hataId} required />
-          )}
-        </Alan>
-
-        <Alan ad="yevmiyeNo" etiket={td('yevmiyeNo')}>
-          {(id) => (
-            <input id={id} className={girdiSinifi} value={yevmiyeNo}
-                   onChange={(e) => setYevmiyeNo(e.target.value)} />
-          )}
-        </Alan>
-      </div>
-
-      <p className="text-xs text-[color:var(--muted)]">{t('hisseIpucu')}</p>
-
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-[color:var(--line)] pt-3">
         <button type="submit" disabled={gonderiliyor}
                 className="px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold disabled:opacity-60"
                 style={{ backgroundImage: 'var(--grad)' }}>

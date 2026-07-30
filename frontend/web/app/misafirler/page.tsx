@@ -20,11 +20,17 @@ import { UygulamaKabugu } from '@/components/uygulama-kabugu';
 import { BosDurum, HataDurumu, Yukleniyor } from '@/components/durumlar';
 import { useBildirim } from '@/components/bildirim';
 import {
-  KisiBilgileriBolumu, bosKisiFormu, kisiFormunuDogrula, kisiGirdisineCevir,
-  type KisiFormDurumu,
+  KISI_HATA_ANAHTARLARI, KisiBilgileriBolumu, bosKisiFormu,
+  kisiFormunuDogrula, kisiGirdisineCevir, type KisiFormDurumu,
 } from '@/components/kisi/kisi-bilgileri-bolumu';
+import {
+  Sekmeler, ilkHataliSekme, sekmeHataSayisi, type SekmeTanimi,
+} from '@/components/sekmeler';
 import { servis, type Bolum, type Misafir } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
+
+/** Ziyaret sekmesinin doğrulama anahtarları — rozet bunlardan sayılır. */
+const ZIYARET_HATA_ANAHTARLARI = ['bolumId', 'giris', 'cikis', 'neden'] as const;
 
 const ALAN =
   'px-3 h-[var(--rowh)] rounded-[var(--rs)] border border-[color:var(--line)] bg-transparent w-full';
@@ -289,6 +295,7 @@ function MisafirFormu({
 
   const [hatalar, setHatalar] = useState<Readonly<Record<string, string>>>({});
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [etkinSekme, setEtkinSekme] = useState('kisi');
 
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,7 +305,14 @@ function MisafirFormu({
     if (giris === '') h['giris'] = t('hataGiris');
     if (cikis !== '' && giris !== '' && cikis < giris) h['cikis'] = t('hataCikis');
     setHatalar(h);
-    if (Object.keys(h).length > 0) return;
+    if (Object.keys(h).length > 0) {
+      const hedef = ilkHataliSekme([
+        { anahtar: 'kisi', hataSayisi: sekmeHataSayisi(h, KISI_HATA_ANAHTARLARI) },
+        { anahtar: 'ziyaret', hataSayisi: sekmeHataSayisi(h, ZIYARET_HATA_ANAHTARLARI) },
+      ]);
+      if (hedef !== null) setEtkinSekme(hedef);
+      return;
+    }
 
     const cevrilmis = kisiGirdisineCevir(kisi).kisi;
     if (cevrilmis === undefined) {
@@ -335,62 +349,84 @@ function MisafirFormu({
     }
   };
 
+  const sekmeler: readonly SekmeTanimi[] = [
+    {
+      anahtar: 'kisi',
+      etiket: tk('baslik'),
+      hataSayisi: sekmeHataSayisi(hatalar, KISI_HATA_ANAHTARLARI),
+      icerik: (
+        <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar}
+                             baslikGoster={false} />
+      ),
+    },
+    {
+      anahtar: 'ziyaret',
+      etiket: t('ziyaretSekmesi'),
+      hataSayisi: sekmeHataSayisi(hatalar, ZIYARET_HATA_ANAHTARLARI),
+      icerik: (
+        <>
+          {/*
+            `required` KULLANILMAZ: alan gizli bir sekmedeyken tarayici onu
+            odaklayamaz ve gonderimi sessizce durdurur.
+          */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
+              {t('bolum')}
+              <select className={ALAN} value={bolumId}
+                      onChange={(e) => setBolumId(e.target.value)}
+                      aria-invalid={hatalar['bolumId'] !== undefined}>
+                <option value="">—</option>
+                {bolumler.map((b) => (
+                  <option key={b.id} value={b.id}>{b.kapiNo}</option>
+                ))}
+              </select>
+              {hatalar['bolumId'] !== undefined && (
+                <span role="alert" style={{ color: 'var(--crit)' }}>{hatalar['bolumId']}</span>
+              )}
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
+              {t('ziyaretNedeni')}
+              <input className={ALAN} value={neden} onChange={(e) => setNeden(e.target.value)} />
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
+              {t('girisTarihi')}
+              <input type="date" className={ALAN} value={giris}
+                     onChange={(e) => setGiris(e.target.value)}
+                     aria-invalid={hatalar['giris'] !== undefined} />
+              {hatalar['giris'] !== undefined && (
+                <span role="alert" style={{ color: 'var(--crit)' }}>{hatalar['giris']}</span>
+              )}
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
+              {t('cikisTarihi')}
+              <input type="date" className={ALAN} value={cikis}
+                     onChange={(e) => setCikis(e.target.value)}
+                     aria-invalid={hatalar['cikis'] !== undefined} />
+              {hatalar['cikis'] !== undefined && (
+                <span role="alert" style={{ color: 'var(--crit)' }}>{hatalar['cikis']}</span>
+              )}
+            </label>
+          </div>
+
+          <p className="text-xs text-[color:var(--muted)]">{t('cikisIpucu')}</p>
+        </>
+      ),
+    },
+  ];
+
   return (
     <form onSubmit={(e) => { void gonder(e); }}
           className="glass p-[var(--cardpad)] flex flex-col gap-4">
       <h2 className="font-semibold">{t('yeniMisafirEkle')}</h2>
 
-      <KisiBilgileriBolumu durum={kisi} setDurum={setKisi} hatalar={hatalar} />
+      {/* TEK FORM, TEK KAYDET — sekmeler yalnizca gorunumu boler. */}
+      <Sekmeler sekmeler={sekmeler} etkinAnahtar={etkinSekme}
+                onDegisti={setEtkinSekme} etiket={t('yeniMisafirEkle')} />
 
-      <fieldset className="flex flex-col gap-3 border-t border-[color:var(--line)] pt-3">
-        <legend className="text-sm font-semibold px-1">{t('baslik')}</legend>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
-            {t('bolum')}
-            <select className={ALAN} value={bolumId}
-                    onChange={(e) => setBolumId(e.target.value)}
-                    aria-invalid={hatalar['bolumId'] !== undefined} required>
-              <option value="">—</option>
-              {bolumler.map((b) => (
-                <option key={b.id} value={b.id}>{b.kapiNo}</option>
-              ))}
-            </select>
-            {hatalar['bolumId'] !== undefined && (
-              <span role="alert" style={{ color: 'var(--crit)' }}>{hatalar['bolumId']}</span>
-            )}
-          </label>
-
-          <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
-            {t('ziyaretNedeni')}
-            <input className={ALAN} value={neden} onChange={(e) => setNeden(e.target.value)} />
-          </label>
-
-          <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
-            {t('girisTarihi')}
-            <input type="date" className={ALAN} value={giris}
-                   onChange={(e) => setGiris(e.target.value)}
-                   aria-invalid={hatalar['giris'] !== undefined} required />
-            {hatalar['giris'] !== undefined && (
-              <span role="alert" style={{ color: 'var(--crit)' }}>{hatalar['giris']}</span>
-            )}
-          </label>
-
-          <label className="flex flex-col gap-1 text-xs text-[color:var(--muted-2)]">
-            {t('cikisTarihi')}
-            <input type="date" className={ALAN} value={cikis}
-                   onChange={(e) => setCikis(e.target.value)}
-                   aria-invalid={hatalar['cikis'] !== undefined} />
-            {hatalar['cikis'] !== undefined && (
-              <span role="alert" style={{ color: 'var(--crit)' }}>{hatalar['cikis']}</span>
-            )}
-          </label>
-        </div>
-
-        <p className="text-xs text-[color:var(--muted)]">{t('cikisIpucu')}</p>
-      </fieldset>
-
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t border-[color:var(--line)] pt-3">
         <button type="submit" disabled={gonderiliyor}
                 className="px-4 h-[var(--rowh)] rounded-[var(--rs)] text-white font-semibold disabled:opacity-60"
                 style={{ backgroundImage: 'var(--grad)' }}>
