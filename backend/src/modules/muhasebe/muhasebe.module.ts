@@ -20,5 +20,9 @@ import { ParametreServisi } from './parametre.service';
     DonemServisi,
     ParametreServisi,
   ],
+  // Banka modülü hareketi muhasebeleştirirken fiş üretimini KOPYALAMAZ, bunu
+  // çağırır. Dönem denetimi · çift kayıt denkliği · fiş no tahsisi · audit
+  // yalnızca burada yazılıdır.
+  exports: [FisCommandServisi],
 })
 export class MuhasebeModule {}

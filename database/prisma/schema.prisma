@@ -85,6 +85,17 @@ model Tenant {
   numaraSayaclari  NumaraSayaci[]
   isCalistirmalari IsCalistirma[]
 
+  // --- Banka çekirdeği (0016) ---
+  bankalar         Banka[]
+  bankaSubeleri    BankaSubesi[]
+  bankaHesaplari   BankaHesabi[]
+  posTanimlari     PosTanimi[]
+  bankaHareketleri BankaHareketi[]
+  bankaEkstreleri  BankaEkstresi[]
+  ekstreSatirlari  EkstreSatiri[]
+  kiymetliEvraklar KiymetliEvrak[]
+  bankaParametresi BankaParametresi?
+
   /// Bu tenant bir YÖNETİM FİRMASI ise: yönettiği projeler (ADR-0009).
   yonettigiProjeler YonetimDelegasyonu[] @relation("DevirAlan")
   /// Bu tenant bir PROJE ise: yönetimini devrettiği firma kaydı.
@@ -199,6 +210,9 @@ model Kisi {
   /// ev yardımcısı…). Görevlinin kendisi `Kisi` DEĞİLDİR; buradaki ilişki
   /// yalnızca işvereni gösterir.
   calistirdigiGorevliler DaireGorevlisi[] @relation("GorevliIsvereni")
+  /// Bu kişinin BORÇLUSU olduğu çek/senetler (0016). Dışarıdan gelen çekin
+  /// borçlusu kişi kaydı olmayabilir; bağ isteğe bağlıdır.
+  borclusuOlduguEvraklar KiymetliEvrak[]
 
   @@index([tenantId, soyad, ad])
   @@map("kisi")
@@ -823,6 +837,12 @@ model Hesap {
   paramBanka     MuhasebeParametresi[] @relation("ParamBanka")
   paramDonemKari MuhasebeParametresi[] @relation("ParamDonemKari")
 
+  // --- Banka çekirdeği (0016) ---
+  /// Bu muhasebe hesabını KARŞILIK olarak kullanan banka hesapları.
+  bankaHesaplari      BankaHesabi[]
+  bankaParamMasraf    BankaParametresi[] @relation("BankaParamMasraf")
+  bankaParamKomisyon  BankaParametresi[] @relation("BankaParamKomisyon")
+
   @@index([tenantId, kod])
   @@index([tenantId, ozellik])
   @@map("hesap")
@@ -861,6 +881,9 @@ model YevmiyeFisi {
   tenant   Tenant          @relation(fields: [tenantId], references: [id])
   satirlar YevmiyeSatiri[]
   donem    MuhasebeDonemi? @relation(fields: [donemId], references: [id], onDelete: Restrict)
+  /// Bu fişin dayandığı banka hareketleri (0016). Fişe bağlanan hareket bir
+  /// daha DEĞİŞTİRİLEMEZ: mali kaydın dayanağı olmuştur.
+  bankaHareketleri BankaHareketi[]
 
   @@index([tenantId, tarih])
   @@index([tenantId, donemId])
@@ -1726,4 +1749,427 @@ model IsCalistirma {
   /// Zamanlayıcı iki kez tetiklense veya pod yeniden başlasa da bir kez çalışır.
   @@unique([isKodu, tenantId, donemAnahtari])
   @@map("is_calistirma")
+}
+
+// ===========================================================================
+// BANKA YÖNETİMİ (0016)
+//
+// Kullanıcının istediği 17 alt modül DOKUZ MODELE indirildi. Bu bir eksiltme
+// değil, tekrarın önlenmesidir:
+//
+//   Havale · EFT · FAST · Virman · Masraf · Faiz  →  BankaHareketi.islemTipi
+//   POS Tanımları · Sanal POS                     →  PosTanimi.tip
+//   Çek · Senet                                   →  KiymetliEvrak.tip
+//   Ekstre · Online Ekstre · Mutabakat            →  BankaEkstresi + EkstreSatiri
+//
+// ⚠️  HAVALE ve EFT AYRI TABLO DEĞİLDİR. İkisi de "bir banka hesabından para
+//     çıkışı"dır; alan kümeleri birebir aynıdır. Ayrı tutulsaydı banka
+//     bakiyesi dört ayrı sorgunun toplamı olur ve biri unutulduğunda bakiye
+//     SESSİZCE yanlış çıkardı.
+// ===========================================================================
+
+model Banka {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  ad       String @db.VarChar(120)
+
+  /// TCMB EFT kodu (4 hane). IBAN'ın 5-8. haneleriyle eşleşir; mutabakatta
+  /// hareketin hangi bankadan geldiğini bu kod söyler.
+  eftKodu String? @map("eft_kodu") @db.VarChar(4)
+  swift   String? @db.VarChar(11)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  subeler  BankaSubesi[]
+  hesaplar BankaHesabi[]
+  evraklar KiymetliEvrak[]
+
+  @@index([tenantId])
+  @@map("banka")
+}
+
+model BankaSubesi {
+  id       String  @id @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  bankaId  String  @map("banka_id") @db.Uuid
+  ad       String  @db.VarChar(120)
+  subeKodu String? @map("sube_kodu") @db.VarChar(10)
+  adres    String?
+  telefon  String? @db.VarChar(32)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  banka    Banka           @relation(fields: [bankaId], references: [id])
+  hesaplar BankaHesabi[]
+  evraklar KiymetliEvrak[]
+
+  @@index([tenantId, bankaId])
+  @@map("banka_subesi")
+}
+
+/// Banka hesabı.
+///
+/// ⚠️  MUHASEBE HESABINA BAĞLIDIR ve bu bağ ZORUNLUDUR. Bağ olmasaydı banka
+///     bakiyesi ile 102 Bankalar hesabının bakiyesi birbirinden bağımsız iki
+///     sayı olur ve MUTABAKAT YAPILAMAZDI. Bağlanan hesabın `ozellik = BANKA`
+///     olması gerekir (0015) — bu kural serviste zorlanır.
+model BankaHesabi {
+  id       String  @id @db.Uuid
+  tenantId String  @map("tenant_id") @db.Uuid
+  bankaId  String  @map("banka_id") @db.Uuid
+  subeId   String? @map("sube_id") @db.Uuid
+
+  /// Muhasebe karşılığı — ZORUNLU (üstteki not).
+  muhasebeHesapId String @map("muhasebe_hesap_id") @db.Uuid
+
+  ad         String  @db.VarChar(120)
+  iban       String? @db.VarChar(34)
+  hesapNo    String? @map("hesap_no") @db.VarChar(32)
+  paraBirimi String  @default("TRY") @map("para_birimi") @db.Char(3)
+
+  /// Hesabın banka nezdindeki açılış bakiyesi. Muhasebe açılış fişinden
+  /// AYRIDIR: banka gerçeği ile defterin başlangıç noktası farklı olabilir ve
+  /// fark mutabakatta görünmelidir.
+  acilisBakiyesi Decimal   @default(0) @map("acilis_bakiyesi") @db.Decimal(18, 4)
+  acilisTarihi   DateTime? @map("acilis_tarihi") @db.Date
+  aktif          Boolean   @default(true)
+  notlar         String?
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  banka          Banka        @relation(fields: [bankaId], references: [id])
+  sube           BankaSubesi? @relation(fields: [subeId], references: [id], onDelete: Restrict)
+  muhasebeHesabi Hesap        @relation(fields: [muhasebeHesapId], references: [id], onDelete: Restrict)
+
+  posTanimlari    PosTanimi[]
+  hareketler      BankaHareketi[]
+  ekstreler       BankaEkstresi[]
+  tahsilEvraklari KiymetliEvrak[]    @relation("EvrakTahsilHesabi")
+  varsayilanOlanParametreler BankaParametresi[] @relation("BankaParamVarsayilan")
+
+  @@index([tenantId, bankaId])
+  @@index([tenantId, muhasebeHesapId])
+  @@map("banka_hesabi")
+}
+
+/// Sanal POS'un fiziki POS'tan tek farkı `tip` alanıdır; alan kümesi (banka
+/// hesabı · komisyon · valör · terminal no) aynıdır. Ayrı model yapılsaydı
+/// komisyon hesabı iki yerde yazılır ve biri güncellenmeyi unuturdu.
+enum PosTipi {
+  FIZIKI
+  SANAL
+}
+
+model PosTanimi {
+  id            String  @id @db.Uuid
+  tenantId      String  @map("tenant_id") @db.Uuid
+  bankaHesabiId String  @map("banka_hesabi_id") @db.Uuid
+  tip           PosTipi @default(FIZIKI)
+  ad            String  @db.VarChar(120)
+  terminalNo    String? @map("terminal_no") @db.VarChar(32)
+  uyeIsyeriNo   String? @map("uye_isyeri_no") @db.VarChar(32)
+
+  /// Komisyon oranı BİNDE tam sayıdır: `25` = binde 25 = %2,5. Binde tutulur
+  /// çünkü gerçek POS sözleşmeleri %1,79 gibi kesirli oranlar içerir; yüzde
+  /// tam sayı olsaydı bunlar temsil edilemezdi. Ondalık `float` olsaydı her
+  /// tahsilatta kuruş sapardı (ADR-0007 gerekçesi).
+  komisyonBinde Int @default(0) @map("komisyon_binde")
+
+  /// Valör: paranın hesaba geçtiği gün sayısı. 0 = aynı gün.
+  valorGunu Int     @default(0) @map("valor_gunu")
+  aktif     Boolean @default(true)
+
+  silindiMi      Boolean   @default(false) @map("silindi_mi")
+  silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
+  silenKullanici String?   @map("silen_kullanici") @db.Uuid
+  silmeGerekcesi String?   @map("silme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  bankaHesabi BankaHesabi     @relation(fields: [bankaHesabiId], references: [id])
+  hareketler  BankaHareketi[]
+
+  @@index([tenantId, bankaHesabiId])
+  @@map("pos_tanimi")
+}
+
+/// Banka hareket tipi. Havale · EFT · FAST · Virman · Masraf AYRI KAVRAM
+/// DEĞİLDİR; hepsi bir banka hesabına para giriş/çıkışıdır.
+enum BankaIslemTipi {
+  HAVALE
+  EFT
+  FAST
+  VIRMAN
+  MASRAF
+  FAIZ
+  POS_TAHSILAT
+  CEK_TAHSIL
+  SENET_TAHSIL
+  NAKIT
+  DIGER
+}
+
+enum HareketYonu {
+  GIRIS
+  CIKIS
+}
+
+/// Banka hareketi — bankanın değil BİZİM kaydımız.
+///
+/// ⚠️  YÖN AYRI ALANDIR, tutar İŞARETSİZDİR. Negatif tutarla çıkış yazmak
+///     mümkün olsaydı toplamlar işaret karışıklığıyla bozulur ve "toplam
+///     giriş" sorgusu negatifleri de toplardı.
+///
+/// ⚠️  MUHASEBELEŞTİRME AYRI ADIMDIR (`yevmiyeFisiId`). Hareket banka
+///     gerçeğidir ve fiş kesilmeden de var olabilir; fiş kesildikten sonra
+///     hareket DEĞİŞTİRİLEMEZ (mali kaydın dayanağı olmuştur).
+model BankaHareketi {
+  id            String @id @db.Uuid
+  tenantId      String @map("tenant_id") @db.Uuid
+  bankaHesabiId String @map("banka_hesabi_id") @db.Uuid
+
+  islemTipi BankaIslemTipi @map("islem_tipi")
+  yon       HareketYonu
+  /// İŞARETSİZ tutar; yön `yon` alanındadır (veritabanı CHECK ile zorlanır).
+  tutar     Decimal        @db.Decimal(18, 4)
+
+  /// İşlem tarihi ile VALÖR tarihi FARKLIDIR: POS tahsilatı bugün olur ama
+  /// para üç gün sonra hesaba geçer. Bakiye valöre, ekstre işlem tarihine göre
+  /// okunur; tek alan tutulsaydı ikisi de yanlış olurdu.
+  islemTarihi DateTime  @map("islem_tarihi") @db.Date
+  valorTarihi DateTime? @map("valor_tarihi") @db.Date
+
+  aciklama   String
+  karsiTaraf String? @map("karsi_taraf") @db.VarChar(200)
+  karsiIban  String? @map("karsi_iban") @db.VarChar(34)
+  /// Banka referans/dekont numarası — mutabakatın BİRİNCİL eşleştirme anahtarı.
+  referansNo String? @map("referans_no") @db.VarChar(64)
+
+  /// Virmanın karşı bacağı. Virman İKİ hareket üretir (çıkış + giriş) ve
+  /// birbirlerine referans verir; tek kayıt olsaydı iki hesabın bakiyesi tek
+  /// satırdan türetilmek zorunda kalırdı.
+  karsiHareketId String? @map("karsi_hareket_id") @db.Uuid
+
+  posTanimiId     String? @map("pos_tanimi_id") @db.Uuid
+  kiymetliEvrakId String? @map("kiymetli_evrak_id") @db.Uuid
+
+  /// Muhasebeleştirme. Boşsa hareket henüz deftere girmemiştir.
+  yevmiyeFisiId String? @map("yevmiye_fisi_id") @db.Uuid
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id])
+  bankaHesabi   BankaHesabi     @relation(fields: [bankaHesabiId], references: [id])
+  karsiHareket  BankaHareketi?  @relation("Virman", fields: [karsiHareketId], references: [id], onDelete: Restrict)
+  karsisiOlan   BankaHareketi[] @relation("Virman")
+  posTanimi     PosTanimi?      @relation(fields: [posTanimiId], references: [id], onDelete: Restrict)
+  kiymetliEvrak KiymetliEvrak?  @relation(fields: [kiymetliEvrakId], references: [id], onDelete: Restrict)
+  yevmiyeFisi   YevmiyeFisi?    @relation(fields: [yevmiyeFisiId], references: [id], onDelete: Restrict)
+  /// Bu hareketle eşleşen ekstre satırı. En çok BİR tane olabilir; kısmî
+  /// tekillik index'i (`ekstre_satiri_eslesen_hareket_uq`) bunu zorlar.
+  eslesenSatirlar EkstreSatiri[]
+
+  @@index([tenantId, bankaHesabiId, islemTarihi])
+  @@index([tenantId, referansNo])
+  @@map("banka_hareketi")
+}
+
+enum EkstreKaynagi {
+  ELLE
+  DOSYA
+  ONLINE
+}
+
+enum MutabakatDurumu {
+  ESLESMEDI
+  ESLESTI
+  FARK_KABUL
+}
+
+/// Banka ekstresi — BANKANIN beyanı, bizim kaydımız değil.
+///
+/// İkisi ayrı tutulur ki FARK GÖRÜNÜR olsun: ekstrede olup sistemde olmayan
+/// satır, kaçırılmış bir hareket demektir. Tek tabloda birleştirilseydi fark
+/// diye bir şey kalmaz, mutabakat kavramı ortadan kalkardı.
+model BankaEkstresi {
+  id            String @id @db.Uuid
+  tenantId      String @map("tenant_id") @db.Uuid
+  bankaHesabiId String @map("banka_hesabi_id") @db.Uuid
+
+  baslangic DateTime @db.Date
+  bitis     DateTime @db.Date
+  /// Bankanın BEYAN ETTİĞİ açılış/kapanış bakiyesi — kendi hesabımız değil.
+  acilisBakiyesi  Decimal @map("acilis_bakiyesi") @db.Decimal(18, 4)
+  kapanisBakiyesi Decimal @map("kapanis_bakiyesi") @db.Decimal(18, 4)
+
+  kaynak          EkstreKaynagi @default(ELLE)
+  /// Dosya/online kaynaklı ekstrede özgün dosya adı — denetim izi.
+  kaynakReferansi String?       @map("kaynak_referansi") @db.VarChar(200)
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  bankaHesabi BankaHesabi    @relation(fields: [bankaHesabiId], references: [id])
+  satirlar    EkstreSatiri[]
+
+  @@index([tenantId, bankaHesabiId, baslangic])
+  @@map("banka_ekstresi")
+}
+
+model EkstreSatiri {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  ekstreId String @map("ekstre_id") @db.Uuid
+
+  islemTarihi DateTime    @map("islem_tarihi") @db.Date
+  valorTarihi DateTime?   @map("valor_tarihi") @db.Date
+  yon         HareketYonu
+  tutar       Decimal     @db.Decimal(18, 4)
+  aciklama    String
+  referansNo  String?     @map("referans_no") @db.VarChar(64)
+  /// Bankanın satır sonrası bakiyesi — sıralama ve tutarlılık denetimi.
+  bakiye      Decimal?    @db.Decimal(18, 4)
+
+  // --- MUTABAKAT ---
+  mutabakatDurumu     MutabakatDurumu @default(ESLESMEDI) @map("mutabakat_durumu")
+  eslesenHareketId    String?         @map("eslesen_hareket_id") @db.Uuid
+  eslestirenKullanici String?         @map("eslestiren_kullanici") @db.Uuid
+  eslesmeAni          DateTime?       @map("eslesme_ani") @db.Timestamptz(6)
+  /// FARK_KABUL için gerekçe ZORUNLUDUR (veritabanı CHECK): bir farkı "kabul
+  /// edildi" diye kapatmak, gerekçesi yazılmazsa denetimde açıklanamaz.
+  farkGerekcesi       String?         @map("fark_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  ekstre         BankaEkstresi  @relation(fields: [ekstreId], references: [id], onDelete: Cascade)
+  eslesenHareket BankaHareketi? @relation(fields: [eslesenHareketId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, ekstreId])
+  @@map("ekstre_satiri")
+}
+
+enum KiymetliEvrakTipi {
+  CEK
+  SENET
+}
+
+enum KiymetliEvrakDurumu {
+  PORTFOYDE
+  TAHSILDE
+  TAHSIL_EDILDI
+  KARSILIKSIZ
+  CIRO_EDILDI
+  IADE_EDILDI
+}
+
+/// Kıymetli evrak — Çek ve Senet AYNI MODEL, farkı `tip`.
+///
+/// Alan kümesi birebir aynıdır (vade · tutar · borçlu · durum). Ayrı model
+/// yapılsaydı durum makinesi iki yerde yazılır ve biri güncellenmeyi unuturdu.
+///
+/// ⚠️  DURUM MAKİNESİ ATLAMA KABUL ETMEZ (domain'de zorlanır):
+///       PORTFOYDE → TAHSILDE → TAHSIL_EDILDI
+///                            → KARSILIKSIZ → TAHSILDE (yeniden ibraz)
+///       PORTFOYDE → CIRO_EDILDI / IADE_EDILDI
+///     Doğrudan TAHSIL_EDILDI'ye atlamak, çekin bankaya hiç verilmediği hâlde
+///     tahsil edilmiş görünmesi demektir; "tahsilde bekleyenler" listesi bir
+///     daha doğru olmazdı.
+model KiymetliEvrak {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  tip   KiymetliEvrakTipi
+  durum KiymetliEvrakDurumu @default(PORTFOYDE)
+
+  evrakNo    String   @map("evrak_no") @db.VarChar(64)
+  tutar      Decimal  @db.Decimal(18, 4)
+  vadeTarihi DateTime @map("vade_tarihi") @db.Date
+  alisTarihi DateTime @map("alis_tarihi") @db.Date
+
+  /// Çeki/senedi VEREN taraf. Dışarıdan gelen çekin borçlusunun kişi kaydı
+  /// olmayabilir; bu yüzden serbest metin ZORUNLU, kişi bağı isteğe bağlıdır.
+  borcluAdi    String  @map("borclu_adi") @db.VarChar(200)
+  borcluKisiId String? @map("borclu_kisi_id") @db.Uuid
+
+  /// Çekte banka/şube bilgisi vardır, senette olmayabilir.
+  bankaId String? @map("banka_id") @db.Uuid
+  subeId  String? @map("sube_id") @db.Uuid
+
+  /// Tahsile verildiği banka hesabı.
+  tahsilHesabiId String?   @map("tahsil_hesabi_id") @db.Uuid
+  tahsilTarihi   DateTime? @map("tahsil_tarihi") @db.Date
+  /// Olumsuz durumlar (KARSILIKSIZ · IADE_EDILDI) için ZORUNLU: karşılıksız
+  /// çıkan bir çekin neden öyle işaretlendiği sonradan sorulabilir olmalıdır.
+  durumGerekcesi String?   @map("durum_gerekcesi")
+
+  notlar String?
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  borcluKisi   Kisi?           @relation(fields: [borcluKisiId], references: [id], onDelete: Restrict)
+  banka        Banka?          @relation(fields: [bankaId], references: [id], onDelete: Restrict)
+  sube         BankaSubesi?    @relation(fields: [subeId], references: [id], onDelete: Restrict)
+  tahsilHesabi BankaHesabi?    @relation("EvrakTahsilHesabi", fields: [tahsilHesabiId], references: [id], onDelete: Restrict)
+  hareketler   BankaHareketi[]
+
+  @@index([tenantId, durum, vadeTarihi])
+  @@map("kiymetli_evrak")
+}
+
+/// Banka parametreleri — tenant başına TEK satır.
+///
+/// Ayarların koda gömülmesi, iki tenant'ın farklı masraf hesabı kullanmasını
+/// imkânsız kılardı (§33 kural 3: politika koda gömülmez, VERİ olarak taşınır).
+model BankaParametresi {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  varsayilanBankaHesabiId String? @map("varsayilan_banka_hesabi_id") @db.Uuid
+  /// Banka masraflarının yazıldığı gider hesabı.
+  masrafGiderHesapId      String? @map("masraf_gider_hesap_id") @db.Uuid
+  /// POS komisyonunun yazıldığı gider hesabı.
+  posKomisyonHesapId      String? @map("pos_komisyon_hesap_id") @db.Uuid
+
+  /// Otomatik eşleştirmede kabul edilen tutar toleransı (kuruş). 0 = tam
+  /// eşleşme zorunlu. Tolerans varsayılan olarak KAPALIDIR: makine kuruş
+  /// farkını sessizce yutarsa gerçek bir eksik tahsilat mutabık görünür.
+  mutabakatToleransKurus Int @default(0) @map("mutabakat_tolerans_kurus")
+  /// Otomatik eşleştirmede tarih penceresi (gün) — valör gecikmesi payı.
+  mutabakatGunPenceresi  Int @default(3) @map("mutabakat_gun_penceresi")
+
+  guncellemeTarihi DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id])
+  varsayilanHesap BankaHesabi? @relation("BankaParamVarsayilan", fields: [varsayilanBankaHesabiId], references: [id], onDelete: Restrict)
+  masrafHesabi    Hesap?       @relation("BankaParamMasraf", fields: [masrafGiderHesapId], references: [id], onDelete: Restrict)
+  komisyonHesabi  Hesap?       @relation("BankaParamKomisyon", fields: [posKomisyonHesapId], references: [id], onDelete: Restrict)
+
+  @@map("banka_parametresi")
 }

@@ -16,3 +16,7 @@ export * from './belge/belge.js';
 // `hesap` · `yevmiye_fisi` · `yevmiye_satiri` tablolari 0001'de vardi ama
 // kural katmani yoktu; 0015 ile donem · fis turu · hesap ozelligi eklendi.
 export * from './muhasebe/muhasebe.js';
+// Banka cekirdegi (0016): IBAN mod-97 · hareket yonu · mutabakat eslestirme ·
+// cek/senet durum makinesi. Havale/EFT/FAST/Virman AYRI KAVRAM DEGILDIR;
+// hepsi `BankaIslemTipi` degerleridir.
+export * from './banka/banka.js';

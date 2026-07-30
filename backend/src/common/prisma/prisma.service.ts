@@ -15,7 +15,29 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { TenantBaglamiHatasi, type TenantId } from '@bnos/kernel';
 import { mevcutBaglam } from '../context/request-context';
 
-/** Soft delete taşımayan tablolar — finansal ve değiştirilemez kayıtlar (BFS v1 §5.1). */
+/**
+ * Soft delete taşımayan tablolar — finansal ve değiştirilemez kayıtlar
+ * (BFS v1 §5.1).
+ *
+ * ⚠️  BU LİSTE EKSİK ve eksikliği ŞU AN GÖRÜNMÜYOR. Aşağıdaki `$extends`
+ *     çağrısının dönüş değeri atıldığı için uzantı hiç devreye girmiyor
+ *     (SESSION_SUMMARY §B.0). Uzantı bağlanır bağlanmaz, `silinmeTarihi`
+ *     sütunu OLMAYAN her modele yapılan okuma sorgusu
+ *     `PrismaClientValidationError` verir çünkü uzantı `where` koşuluna
+ *     `silinmeTarihi: null` ekler.
+ *
+ *     Listede olmayan ama sütunu da olmayan modeller (2026-07 itibarıyla):
+ *       YevmiyeFisi · YevmiyeSatiri · Borc · BorcSorumlusu · MuhasebeDonemi ·
+ *       MuhasebeParametresi · BolumIliskisi · SayacOkumasi · BelgeIliskisi ·
+ *       YonetimDelegasyonu · BankaHareketi · BankaEkstresi · EkstreSatiri ·
+ *       KiymetliEvrak · BankaParametresi
+ *
+ *     Yani §B.0'ı "tek satırlık bir düzeltme" sanıp `$extends` sonucunu
+ *     bağlamak, 15 modelin bütün okuma uçlarını birden kırar. Doğru çözüm
+ *     listeyi elle uzatmak DEĞİL, muafiyeti modelin gerçekten o sütunu taşıyıp
+ *     taşımadığından türetmektir (`Prisma.dmmf`): elle tutulan liste her yeni
+ *     tabloda güncellenmeyi unutur ve hata SESSİZDİR.
+ */
 const SOFT_DELETE_HARICI = new Set([
   'AuditKaydi', 'OutboxKayit', 'IsCalistirma', 'NumaraSayaci',
 ]);

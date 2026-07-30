@@ -13,6 +13,7 @@ import {
   TenantBaglamiHatasi, OnbellekPolitikaHatasi, ParaHatasi, SilmePolitikaHatasi,
 } from '@bnos/kernel';
 import { mevcutBaglam } from '../context/request-context';
+import { prismaHatasiniCevir } from './prisma-hata-cevirisi';
 
 /**
  * HttpException gövdesi serbest biçimlidir; alanlar `unknown`'dur. `String(...)`
@@ -77,8 +78,24 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     yanit.status(problem.status).type('application/problem+json').json(problem);
   }
 
-  private coz(hata: unknown, url: string, correlationId: string): ProblemDetails {
+  private coz(hamHata: unknown, url: string, correlationId: string): ProblemDetails {
     const temel = { instance: url, correlationId };
+
+    /*
+     * VERİTABANI KISIT İHLALLERİ EN BAŞTA çevrilir.
+     *
+     * ⚠️  Bu çeviri YOKTU: şemadaki her koruma (kısmî unique index'ler, CHECK
+     *     kısıtları, yabancı anahtarlar) istemciye 500 "beklenmeyen bir sorun
+     *     oluştu" olarak dönüyordu. Kullanıcı "aynı IBAN zaten kayıtlı" yerine
+     *     "sistem bozuldu" görüyordu ve istemci de bu ikisini ayırt edemiyordu.
+     *
+     *     Çevrilemeyen Prisma hatası `null` döner ve aşağıda 500'e düşer:
+     *     bilinmeyen bir hata için 4xx UYDURULMAZ.
+     *
+     * Çeviri sonucu her zaman bir `DomainHatasi`dır ve aşağıdaki ilk dal onu
+     * ele alır. Özyineleme yoktur: `coz` kendini çağırmaz.
+     */
+    const hata = prismaHatasiniCevir(hamHata) ?? hamHata;
 
     if (hata instanceof DomainHatasi) {
       return {

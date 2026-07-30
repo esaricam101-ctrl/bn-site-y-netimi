@@ -33,6 +33,7 @@ import { StorageModule } from './common/storage/storage.module';
 import { BelgeModule } from './modules/belge/belge.module';
 import { MuhasebeModule } from './modules/muhasebe/muhasebe.module';
 import { PortfoyModule } from './modules/portfoy/portfoy.module';
+import { BankaModule } from './modules/banka/banka.module';
 import { SitePersoneliModule } from './modules/site-personeli/site-personeli.module';
 import { DaireGorevlisiModule } from './modules/daire-gorevlisi/daire-gorevlisi.module';
 import { MisafirModule } from './modules/misafir/misafir.module';
@@ -77,6 +78,7 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     // Daire görevlileri — sitede görev yapan personel. Malik/Kiracı/Sakin
     // modüllerinden AYRIDIR ve onlara dokunmaz.
     MuhasebeModule,
+    BankaModule,
     PortfoyModule,
     SitePersoneliModule,
     DaireGorevlisiModule,

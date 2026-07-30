@@ -1,4 +1,4 @@
-# Oturum Özeti — 29-30 Temmuz 2026 (Docker · on modül · hızlı kayıt · portföy)
+# Oturum Özeti — 29-30 Temmuz 2026 (Docker · on bir modül · muhasebe · banka)
 
 Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 [`DEVLOG.md`](DEVLOG.md) içindedir; burada yalnızca *nerede kaldık* ve
@@ -30,7 +30,122 @@ tip denetiminden geçiyordu.
 | `e191968` | Devir notu — v23/v24 referans mimari görevi |
 | `2f39c75` | Portföy Yönetim Merkezi (0014 · ADR-0009) + v23/v24 boşluk analizi |
 | `b40ee54` | Beş "Yeni Ekle" formu sekmeli — Kişi Bilgileri + modüle özel sekmeler |
-| _bu commit_ | **Muhasebe çekirdeği** (0015) — hesap planı · fiş · defterler · mizan · dönem kapanışı + **iki sessiz kusur düzeltildi** |
+| `<muhasebe>` | **Muhasebe çekirdeği** (0015) — hesap planı · fiş · defterler · mizan · dönem kapanışı + **iki sessiz kusur düzeltildi** |
+| _bu commit_ | **Banka Yönetimi çekirdeği** (0016) — banka · şube · hesap · POS · hareket · virman · ekstre · mutabakat · çek/senet + **veritabanı kısıt ihlalleri artık 500 değil 4xx** |
+
+### Bu commit'te yapılan — Banka Yönetimi çekirdeği (FAZ 1)
+
+Kullanıcının istediği **17 alt modül dokuz tabloya indirildi.** Bu bir
+eksiltme değil, "gereksiz tekrar eden ekran oluşturma" kuralının veri
+katmanındaki karşılığıdır:
+
+| İstenen | Karşılığı |
+|---|---|
+| Bankalar · Şubeler · Hesaplar | `banka` · `banka_subesi` · `banka_hesabi` |
+| POS Tanımları · Sanal POS | `pos_tanimi` (`tip`) |
+| Havale · EFT · FAST · Virman · Masraf · Faiz | `banka_hareketi` (`islem_tipi`) |
+| Ekstreler · Online Ekstre · Mutabakat | `banka_ekstresi` + `ekstre_satiri` |
+| Çek · Senet | `kiymetli_evrak` (`tip`) |
+| Banka Parametreleri | `banka_parametresi` |
+
+**⚠️ HAVALE ve EFT AYRI TABLO DEĞİLDİR.** İkisi de "bir banka hesabından para
+çıkışı"dır ve alan kümeleri birebir aynıdır. Ayrı tutulsaydı banka bakiyesi
+dört ayrı sorgunun toplamı olur, biri unutulduğunda **bakiye sessizce yanlış
+çıkardı** ve mutabakat dört tabloyu ayrı ayrı taramak zorunda kalırdı.
+
+Katmanlar:
+
+- **0016** — dokuz tablo, hepsinde RLS + FORCE + politika; 6 kısmî unique
+  index, 14 CHECK kısıtı. `BelgeVarlikTipi` += `BANKA_HAREKETI` ·
+  `BANKA_EKSTRESI` · `KIYMETLI_EVRAK` (belge modülü yeniden kullanıldı).
+- **domain** — `shared/apartman-domain/src/banka`: IBAN mod-97, hareket/virman
+  kuralları, POS komisyonu (binde BigInt), mutabakat eşleştirme, çek/senet
+  durum makinesi. **38 birim testi.**
+- **backend** — `modules/banka`, CQRS ayrımı korundu: `BankaTanimServisi` ·
+  `BankaHareketCommandServisi` · `EkstreServisi` · `KiymetliEvrakServisi` ·
+  `BankaParametreServisi` (yazma), `BankaHareketQueryServisi` (okuma).
+  **Yeni izin tanımlanmadı.**
+- **ekran YOK** — kullanıcının talimatı: *"Do not generate the remaining
+  screens yet."* FAZ 1 yalnızca temeldir.
+
+Zorlanan kritik kurallar (canlı test **91/91**, iki kez üst üste):
+
+- **IBAN mod-97 ile doğrulanır.** Uzunluk denetimi yetmez: tek hane yanlış
+  girilmiş bir IBAN biçimsel olarak kusursuz görünür ve hata ancak **para
+  başka hesaba gittiğinde** anlaşılır. IBAN'ın banka kodu seçilen bankanın EFT
+  kodu ile tutmazsa hesap eklenemez.
+- **Banka hesabı muhasebe hesabına bağlanmak ZORUNDA** ve bağlanan hesabın
+  `ozellik = BANKA` olmalı. Bağ olmasaydı banka bakiyesi ile 102 Bankalar
+  hesabının bakiyesi bağımsız iki sayı olur, **mutabakat yapılamazdı**.
+- **Tutar işaretsiz, yön ayrı alan.** Negatif tutarla çıkış yazılabilseydi
+  "toplam giriş" sorgusu negatifleri de toplardı.
+- **VİRMAN tek hareket olarak yazılamaz** — iki bacak, aynı transaction,
+  karşılıklı referans. Farklı para birimi virman değildir (kur işlemi).
+- **İŞLEM ve VALÖR bakiyesi AYRI raporlanır.** Tek sayı verilseydi POS
+  tahsilatı henüz hesaba geçmemişken bakiyede görünür, harcanabilir sanılır ve
+  karşılıksız ödeme yapılırdı. `yoldaTutar` farkı gösterir.
+- **Muhasebeleştirme ayrı adım ve TEK TRANSACTION.** Fiş üretimi
+  `FisCommandServisi.ekleIslemde` ile **kopyalanmadan** çağrılır. İki ayrı
+  işlem olsaydı fiş yazılıp hareket işaretlenmeden hata alınabilir, hareket
+  "muhasebeleşmemiş" görünmeye devam eder ve **aynı para iki kez** deftere
+  girerdi.
+- **Muhasebeleşmiş ya da eşleşmiş hareket değiştirilemez.**
+- **Otomatik eşleştirme BELİRSİZLİKTE DURUR.** İki aday uyuyorsa hiçbiri
+  seçilmez; `kalanEslesmeyen` yanıtta döner ve gizlenmez. Makine tahmin
+  ederse yanlış eşleşme mutabakatı **sessizce tamamlanmış** gösterir.
+- **`mutabikMi` İKİ koşul ister**: eşleşmemiş satır kalmaması **ve** bakiye
+  farkının sıfır olması. Yalnızca satır sayısına bakılsaydı, ekstrede hiç
+  görünmeyen bir sistem hareketi mutabakatı tamamlanmış gösterirdi.
+- **FARK_KABUL gerekçe ister** ve özette **ayrı** sayılır.
+- **Çek/senet durum makinesi atlama kabul etmez.** `PORTFOYDE →
+  TAHSIL_EDILDI` yasaktır: bankaya verilmemiş bir çek tahsil edilmiş olamaz ve
+  "tahsilde bekleyenler" listesi bir daha doğru olmazdı. `KARSILIKSIZ →
+  TAHSILDE` (yeniden ibraz) açıktır.
+- Para her yerde `Decimal`/`Money`; hiçbir yerde `Number`.
+
+#### Bu commit'te bulunan sessiz kusur — kısıt ihlalleri 500 dönüyordu
+
+`POST /banka/bankalar` aynı EFT kodu ile ikinci kez çağrıldığında **500
+"beklenmeyen bir sorun oluştu"** döndü. Kök neden banka modülünde değildi:
+**Prisma/PostgreSQL kısıt ihlalleri istisna filtresinde hiç eşlenmemişti.**
+
+Yani şemadaki **bütün** korumalar — 20'den fazla kısmî unique index, 30'dan
+fazla CHECK kısıtı, yabancı anahtarlar — kullanıcıya "sistem bozuldu" gibi
+görünüyordu. `kisi_eposta_uq` için önceki bir oturumda **tek modüle özel** ön
+kontrol yazılmıştı; bu sınıfı çözmez ve **yarış durumuna** açıktır (kontrol ile
+yazma arasına başka istek girebilir).
+
+Çözüm merkezî: `backend/src/common/errors/prisma-hata-cevirisi.ts`
+
+- `P2002` → **409**, `P2003` → 422, `P2025` → 404, `P2000` → 422
+- **CHECK kısıtları Prisma'da tipli hata değildir** (ham PostgreSQL mesajı
+  `PrismaClientUnknownRequestError` içinde gelir) — metinden de yakalanır.
+  Yalnızca tipli hatalar çevrilseydi bütün CHECK korumaları 500 dönmeye devam
+  ederdi.
+- **Kısmî unique index'te Prisma alan adı VERMEZ** (`meta.target` =
+  `"(not available)"`). O metin alan adı değildir ve **gösterilmez** — var
+  olmayan bir alan uydurulmaz. Kısıt adı ham PostgreSQL mesajından okunur.
+- Çevrilemeyen hata `null` döner ve 500'e düşer: **bilinmeyen hata için 4xx
+  uydurulmaz.**
+- Kısıt adı → kullanıcı diline çeviri tablosu **veri olarak** tutulur (§33
+  kural 3). 12 birim testi.
+
+#### İkinci kalıcı koruma — RLS politika kapsamı taraması
+
+`scripts/rls-scan.mjs` **uygulama** tarafını denetliyordu (sorgu bağlam içinden
+mi çalışıyor). **Veritabanı** tarafını kimse denetlemiyordu: yeni bir tabloya
+`ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` yazmayı unutmak derleme hatası
+vermez, lint geçer, testleri kırmaz ve uygulama taramasına da yakalanmaz —
+sonuç **tenant izolasyonunun sessizce kalkmasıdır.**
+
+`scripts/rls-politika-scan.mjs` migration SQL'lerini okur ve `verify`
+zincirine eklendi (artık 9 adım). 0001'in **dinamik** politika döngüsü
+(`tenant_id` sütunu olan her tabloyu tarar) modellendi; o döngü yalnızca **o
+anda var olan** tabloları kapsar, sonradan eklenen tablo kendi migration'ında
+açıkça politika almak zorundadır. Muafiyetler (`tenant` · `oturum_dizini`)
+**gerekçesiyle** listede. Canlı veritabanına karşı da doğrulandı: 45 tablo,
+9/9 banka tablosu RLS + FORCE + politika, `bnos_app` ve `bnos_migrator`
+`NOBYPASSRLS`.
 
 Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
 `b4759d3` · `ec76035` · `89a56df` · `666c918`.
@@ -283,7 +398,14 @@ kaplamaya devam ederdi.
 ### Kalıcı korumalar
 
 - `scripts/rls-scan.mjs` — RLS'li modele tenant bağlamı dışında erişen her
-  çağrıyı yakalar. `pnpm verify` zincirinde (artık **8/8**).
+  çağrıyı yakalar (**uygulama** tarafı). `pnpm verify` zincirinde.
+- `scripts/rls-politika-scan.mjs` — migration'da oluşturulan her tablonun RLS
+  politikası alıp almadığını denetler (**veritabanı** tarafı). Politikasız bir
+  tablo derlenir, lint geçer, testler yeşil kalır ve tenant izolasyonu
+  **sessizce** kalkar; bu iki tarama ayrı sessiz kusur sınıfıdır.
+- `common/errors/prisma-hata-cevirisi.ts` — veritabanı kısıt ihlalleri (unique ·
+  CHECK · FK) artık 500 değil **409/422/404** döner. Çevrilemeyen hata `null`
+  döner ve 500'e düşer; bilinmeyen hata için 4xx **uydurulmaz**.
 - `scripts/db.mjs` — migration `bnos_migrator`, tohum `bnos_app` rolüyle
   koşar. Tohumun uygulama rolüyle koşması **kasıtlıdır**: RLS böylece fiilen
   sınanır.
@@ -303,10 +425,11 @@ kaplamaya devam ederdi.
 
 ## 2. Şu anki durum
 
-**Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **8/8** ·
-birim testleri **158/158** · sözleşme testleri **24/24** · migration
-**15/15 uygulandı** · 18 web rotası · hızlı kayıt canlı testi **40/40** ·
-portföy canlı testi **19/19** · **muhasebe canlı testi 51/51**.
+**Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **9/9** ·
+birim testleri **208/208** · sözleşme testleri **24/24** · lint:md 0 ·
+migration **16/16 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
+**40/40** · portföy canlı testi **19/19** · muhasebe canlı testi **51/51** ·
+**banka canlı testi 91/91** (iki kez üst üste — test idempotent).
 
 > ⚠️ **MUHASEBE YAZMA YETKİSİ YALNIZCA `YONETIM_SIRKETI` ROLÜNDE.**
 > `FINANS_YEVMIYE_GIRIS` ve `FINANS_DONEM_KAPAT` izinleri
@@ -344,6 +467,8 @@ Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
 | **Daire Görevlisi** | ✅ API + UI + migration 0010. İşveren MALİK/KİRACI/SAKİN. Ev hizmetleri; bölüm zorunlu; plaka; çalışma sonlandırma |
 | **Misafir** | ✅ API + UI + migration 0011. `Kisi` kaydı açmaz; giriş/çıkış; "hâlen içeride" listesi; plaka |
 | **Hızlı kayıt** | ✅ Malik · Kiracı · Sakin · Misafir · Daire Görevlisi tek ekrandan. Kişi seçimi isteğe bağlı; TC/e-posta ile tekilleştirme; çoklu plaka |
+| **Muhasebe** | ✅ API + UI (`/muhasebe`, 5 sekme) + migration 0015. Hesap planı · fiş · storno · yevmiye/muavin/kasa defteri · mizan · dönem kapanışı (6 işlem) · parametreler |
+| **Banka** | ✅ API + migration 0016, **EKRAN YOK** (kullanıcı talimatı). Banka · şube · hesap (IBAN mod-97) · POS/sanal POS · hareket · virman · muhasebeleştirme · ekstre · mutabakat · çek/senet · parametreler |
 
 Kullanıcının istediği beş modül + Belge profesyonel seviye + Site Personeli +
 Daire Görevlisi + Misafir + tek ekran hızlı kayıt tamamlandı.
@@ -455,8 +580,14 @@ Daire Görevlisi + Misafir + tek ekran hızlı kayıt tamamlandı.
 
 ### A. Arayüzü olmayan hazır API'ler — en yüksek değer burada
 
-Backend'de dokuz modül tamam ama **dördünün ekranı yok** (Tahakkuk · Sayaç ·
-Belge · Araç). Kullanıcı bunları yalnızca Swagger'dan görebiliyor.
+Backend'de on bir modül tamam ama **beşinin ekranı yok** (Tahakkuk · Sayaç ·
+Belge · Araç · **Banka**). Kullanıcı bunları yalnızca Swagger'dan görebiliyor.
+
+> **Banka ekranı bilinçli olarak yazılmadı**, eksik kalmadı: kullanıcının
+> talimatı *"Do not generate the remaining screens yet"* idi. Ekran üretimi
+> FAZ 5'te, bağımlılık sırasına göre toplu yapılacak. Banka için gereken
+> sekmeler: Hesaplar · Hareketler · Ekstre/Mutabakat · Çek-Senet · POS ·
+> Parametreler — **tek rota, çok sekme** (muhasebe ekranındaki desen).
 
 1. **Tahakkuk ekranı.** API önizlemeli (`onizleme: true`), yani bir sihirbaz
    için hazır: yönetici dağıtımı görüp onaylayarak uygular. Sayaç türü
@@ -502,6 +633,21 @@ Belge · Araç). Kullanıcı bunları yalnızca Swagger'dan görebiliyor.
    Hangisi seçilirse `scripts/` altına bir tarayıcı eklenmeli: RLS
    tarayıcısı gibi, soft delete taşıyan modele koşulsuz sorgu atan yeri
    yakalasın.
+
+   ⚠️ **BU DÜZELTME "TEK SATIR" DEĞİLDİR — ikinci bir tuzak var.**
+   `SOFT_DELETE_HARICI` elle tutulan bir listedir ve **eksiktir**. Uzantı
+   bağlanır bağlanmaz, `silinmeTarihi` sütunu olmayan **15 modelin** bütün
+   okuma uçları `PrismaClientValidationError` verir (uzantı `where`'a
+   `silinmeTarihi: null` ekler): `YevmiyeFisi` · `YevmiyeSatiri` · `Borc` ·
+   `BorcSorumlusu` · `MuhasebeDonemi` · `MuhasebeParametresi` ·
+   `BolumIliskisi` · `SayacOkumasi` · `BelgeIliskisi` · `YonetimDelegasyonu` ·
+   `BankaHareketi` · `BankaEkstresi` · `EkstreSatiri` · `KiymetliEvrak` ·
+   `BankaParametresi`.
+
+   Listeyi elle uzatmak çözüm değil: her yeni tabloda güncellenmeyi unutur ve
+   hata sessizdir. Muafiyet **modelin o sütunu gerçekten taşıyıp
+   taşımadığından** türetilmeli (`Prisma.dmmf`). Gerekçe
+   `prisma.service.ts` içinde de yazılı.
 
 5. **Sözleşme testleri tenant sızdırıyor.** `numaralandirma` ve
    `rls-izolasyon` testleri her koşuda yeni tenant açıyor ve temizlemiyor;
@@ -582,14 +728,14 @@ modülünün üstüne kurulur.
 | Bölüm | Durum |
 |---|---|
 | **1. Muhasebe** | ✅ çekirdek tamam (fiş · hesap planı · 3 defter · mizan · parametre · 6 kapanış işlemi) · ❌ Muhasebe Raporları (bkz. 6) |
-| **2. Banka Yönetimi** (17 alt modül) | ❌ **hiç yok** — yeni domain: banka · şube · hesap · POS · sanal POS · hareket · ekstre · havale/EFT/FAST · virman · çek · senet · masraf · mutabakat · parametre |
-| **3. Muhasebe Analizleri** (11 ekran) | ❌ yok. Ödeme skorları `borc` + `borc_sorumlusu` üzerinden türetilebilir; nakit akışı banka modülünü bekler |
+| **2. Banka Yönetimi** (17 alt modül) | ✅ **çekirdek tamam** (0016) — banka · şube · hesap · POS/sanal POS · hareket (havale/EFT/FAST/virman/masraf/faiz/POS) · ekstre · mutabakat · çek/senet · parametre. **API tam, EKRAN YOK** (kullanıcı talimatı) |
+| **3. Muhasebe Analizleri** (11 ekran) | ❌ yok. Ödeme skorları `borc` + `borc_sorumlusu` üzerinden türetilebilir; nakit akışı artık **banka hareketlerinden türetilebilir** (ön koşul kalktı) |
 | **4. Listeler** (14 ekran) | ⚠️ veri temeli var (`borc` · `Malik/Kiraci/Sakin` · mizan), ekran yok. Makbuz numaralandırma serileri hazır |
 | **5. Ekstreler** (7 ekran) | ⚠️ **Muavin bunun motoru**: cari/kasa/banka/genel hesap ekstresi `muavin` ucunun farklı hesap seçimleridir. Personel ve site sakini ekstresi cari hesap kavramı ister (henüz yok) |
 | **6. Dökümler** (7 döküm) | ⚠️ **Mizan ✅ · Muavin ✅** · Bilanço · Gelir Tablosu · Fiş dökümü · Hesap planı dökümü · Gelir-gider muavini ❌ |
 | **7. Grafikler** (7 grafik) | ❌ yok. `dataviz` yönergesi izlenmeli; veri kaynakları (3) ve (6)'ya bağlı |
 | **8. İletişim** (9 ekran) | ⚠️ veri var (kişi · araç · misafir giriş-çıkış · personel), ekran/çıktı yok |
-| **9. Evrak Yönetimi** | ⚠️ **Belge modülü tam** (versiyonlama · kategori · gizlilik · önizleme · KVKK · MinIO). 0015 `BelgeVarlikTipi`ye `YEVMIYE_FISI` + `MUHASEBE_DONEMI` ekledi; **banka hareketi ve cari hesap ilişkileri o modüller gelince eklenecek**. `/belgeler` EKRANI hâlâ yok |
+| **9. Evrak Yönetimi** | ⚠️ **Belge modülü tam** (versiyonlama · kategori · gizlilik · önizleme · KVKK · MinIO). 0015 `YEVMIYE_FISI` + `MUHASEBE_DONEMI`, 0016 `BANKA_HAREKETI` + `BANKA_EKSTRESI` + `KIYMETLI_EVRAK` ekledi; **cari hesap ilişkisi FAZ 2'de**. `/belgeler` EKRANI hâlâ yok |
 | **10. Genel Özellikler** | ⚠️ Audit ✅ (hash zincirli) · Yetkilendirme ✅ (Üç Kapı) · Listeleme/arama/filtreleme/sıralama ✅ · Sayfalama ⚠️ (limit var, cursor yok) · Yazdırma ✅ (`@media print`) · **Excel/PDF aktarma ❌ kütüphane kararı bekliyor** · Toplu işlem ⚠️ kısmî · İşlem geçmişi ⚠️ audit'ten okunuyor, ekranı yok |
 
 **Neden hepsi yapılmadı:** ~100 ekranı tek oturumda üretmek, kullanıcının kendi
@@ -598,11 +744,48 @@ koyduğu iki kurala aykırı olurdu — *"Gereksiz tekrar eden ekran oluşturma"
 bölümlerinin **tamamı** onun okuma modelleridir; çekirdek yanlışsa yüz ekran da
 yanlış olur.
 
-**Önerilen sıra:** (a) **Banka Yönetimi** çekirdeği (banka · şube · hesap ·
-hareket · ekstre · mutabakat) — 5 ve 3'ün ön koşulu · (b) **Cari hesap**
-kavramı — 4 ve 5'in ön koşulu · (c) Bilanço + Gelir Tablosu (mizandan
-türetilir) · (d) Excel/PDF kütüphane kararı, sonra tüm dökümler · (e)
-Analizler ve grafikler · (f) `/belgeler` ve İletişim ekranları.
+**Önerilen sıra:** ~~(a) Banka Yönetimi çekirdeği~~ ✅ **bu commit** ·
+**(b) Cari hesap kavramı** — 4 ve 5'in ön koşulu · (c) Bilanço + Gelir Tablosu
+(mizandan türetilir) · (d) Excel/PDF kütüphane kararı, sonra tüm dökümler ·
+(e) Analizler ve grafikler · (f) `/belgeler` ve İletişim ekranları ·
+(g) **ekranların toplu üretimi** — bağımlılık sırasına göre, her toplu grup
+kendi içinde çalışır durumda.
+
+---
+
+## Mimari-öncelikli plan — nerede kaldık
+
+Kullanıcının onayladığı sıra: *"Finish the shared platform and domain
+foundation first… When the platform foundation is complete, automatically start
+generating the remaining screens batch by batch."*
+
+| Faz | Kapsam | Durum |
+|---|---|---|
+| **FAZ 1** | Banka Yönetimi çekirdeği (0016 · domain · CQRS servisleri) | ✅ **tamam** — 91/91 canlı |
+| **FAZ 2** | **Cari hesap kavramı** — bölüm 4 ve 5'in ön koşulu | ⏭️ **sıradaki** |
+| FAZ 3 | Bilanço + Gelir Tablosu (mizandan türetilir) | bekliyor |
+| FAZ 4 | Excel/PDF kütüphane kararı + aktarma altyapısı | bekliyor |
+| FAZ 5+ | Ekranların toplu üretimi (bağımlılık sırasına göre) | bekliyor |
+
+### FAZ 2 — cari hesap: neden ön koşul
+
+Bölüm 5'in yedi ekranından dördü (**cari hesap ekstresi** · personel ekstresi ·
+site sakini ekstresi · genel hesap ekstresi) ve bölüm 4'ün liste ekranlarının
+çoğu "bir tarafın bize olan borcu/alacağı"nı ister. Bugün sistemde:
+
+- `borc` **bağımsız bölüme** bağlıdır (ADR v1.1 §5), kişiye değil;
+- `borc_sorumlusu` sorumluları **snapshot** olarak tutar;
+- muhasebede `hesap` var ama **cari** (müşteri/tedarikçi/personel alt hesabı)
+  kavramı yok.
+
+Yani "Ahmet Yılmaz'ın cari ekstresi" bugün **türetilemez**: borç bölüme, ödeme
+banka hareketine bağlıdır ve ikisini birleştiren bir taraf kimliği yoktur.
+Cari hesap eklenmeden bölüm 4 ve 5 ekranları **uydurma veriyle** üretilmiş
+olurdu.
+
+**⚠️ Karar gerektiren nokta:** cari hesap `hesap` ağacının altına mı
+(muhasebe tarzı: `120.01.001 = Ahmet Yılmaz`) yoksa ayrı bir `cari` tablosuna
+mı kurulacak. Mevcut dokümanlar bunu yazmıyor; ADR gerektirir.
 
 ### İlk görev — `/belgeler` ekranı (menüde ölü link)
 

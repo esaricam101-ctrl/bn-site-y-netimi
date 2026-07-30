@@ -45,6 +45,11 @@ const ADIMLAR = [
   { ad: 'Paket siniri (ADR v1.1 §40)', komut: 'node', argv: [join(BURASI, 'boundary.mjs')] },
   { ad: 'Onbellek anahtari (ADR-0005 · §37)', komut: 'node', argv: [join(BURASI, 'cache-key-scan.mjs')] },
   { ad: 'RLS tenant baglami (ADR-0002)', komut: 'node', argv: [join(BURASI, 'rls-scan.mjs')] },
+  // Ustteki adim UYGULAMA tarafini denetler (sorgu baglam icinden mi calisiyor).
+  // Bu adim VERITABANI tarafini denetler (tablo politika almis mi). Ikisi ayri
+  // sessiz kusur sinifidir: politikasiz bir tablo derlenir, lint gecer, testler
+  // yesil kalir ve tenant izolasyonu sessizce kalkar.
+  { ad: 'RLS politika kapsami (ADR-0002 · ADR-0008)', komut: 'node', argv: [join(BURASI, 'rls-politika-scan.mjs')] },
   { ad: 'Yapilandirma tutarliligi', komut: 'node', argv: [join(BURASI, 'config-check.mjs')] },
   { ad: 'Birim testleri (node:test)', komut: 'node', argv: ['--test', ...testDosyalari()] },
 ];

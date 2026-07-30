@@ -22,7 +22,9 @@ import { fisiDogrula, fisTarihiniDogrula, type FisSatiri } from '@bnos/apartman-
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { NumaraServisi } from '../../common/numbering/numara.service';
-import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
+import {
+  mevcutBaglamiZorunluKil, type IstekBaglami,
+} from '../../common/context/request-context';
 import type { FisEkleDto, FisStornoDto } from './dto/muhasebe.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
 
@@ -53,10 +55,31 @@ export class FisCommandServisi {
     dto: FisEkleDto, principal: Principal,
   ): Promise<KomutSonucu & { readonly fisNo: string }> {
     const baglam = mevcutBaglamiZorunluKil('muhasebe.fisEkle');
+    return this.prisma.tenantIslemi((tx) => this.ekleIslemde(tx, dto, principal, baglam));
+  }
+
+  /**
+   * Fiş oluşturmanın GÖVDESİ — açık bir transaction içinde çalışır.
+   *
+   * NEDEN AYRI: banka hareketini muhasebeleştirme, hareketi işaretlemek ile
+   * fişi yazmayı AYNI transaction'da yapmak zorundadır. İki ayrı işlem
+   * olsaydı fiş yazılıp hareket işaretlenmeden hata alınabilir; hareket
+   * "muhasebeleşmemiş" görünmeye devam eder ve bir daha muhasebeleştirilerek
+   * AYNI PARA İKİ KEZ deftere girerdi.
+   *
+   * Bu yüzden `BankaHareketCommandServisi` fiş üretimini KOPYALAMAZ, buradan
+   * çağırır (kural: kod tekrarı yok).
+   */
+  async ekleIslemde(
+    tx: Prisma.TransactionClient,
+    dto: FisEkleDto,
+    principal: Principal,
+    baglam: IstekBaglami,
+  ): Promise<KomutSonucu & { readonly fisNo: string }> {
     const id = randomUUID();
     const tarih = takvimTarihi(dto.tarih);
 
-    return this.prisma.tenantIslemi(async (tx) => {
+    {
       // --- Dönem ---
       const donem = await tx.muhasebeDonemi.findFirst({
         where: {
@@ -171,7 +194,7 @@ export class FisCommandServisi {
       });
 
       return { id, durum: dto.hemenIsle === true ? 'ISLENDI' : 'TASLAK', fisNo };
-    });
+    }
   }
 
   /**
