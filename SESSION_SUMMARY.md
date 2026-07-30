@@ -767,25 +767,63 @@ generating the remaining screens batch by batch."*
 | FAZ 4 | Excel/PDF kütüphane kararı + aktarma altyapısı | bekliyor |
 | FAZ 5+ | Ekranların toplu üretimi (bağımlılık sırasına göre) | bekliyor |
 
-### FAZ 2 — cari hesap: neden ön koşul
+### FAZ 2 — cari hesap: karar VERİLDİ (ADR-0010), asıl eksik başkaydı
 
-Bölüm 5'in yedi ekranından dördü (**cari hesap ekstresi** · personel ekstresi ·
-site sakini ekstresi · genel hesap ekstresi) ve bölüm 4'ün liste ekranlarının
-çoğu "bir tarafın bize olan borcu/alacağı"nı ister. Bugün sistemde:
+Mimari soru — *cari, `hesap` ağacının altına mı yoksa ayrı bir `cari` tablosuna
+mı?* — **referans belgelerde cevaplıydı.** Kullanıcıya sorulmasına gerek
+kalmadı:
 
-- `borc` **bağımsız bölüme** bağlıdır (ADR v1.1 §5), kişiye değil;
-- `borc_sorumlusu` sorumluları **snapshot** olarak tutar;
-- muhasebede `hesap` var ama **cari** (müşteri/tedarikçi/personel alt hesabı)
-  kavramı yok.
+> **Debt follows the unit, not the person.** … The data model therefore attaches
+> the receivable to the **Daire**, with the responsible party recorded separately
+> and historically. — `07-Finance-Spec` §128
+>
+> **The critical relationship:** `Receivable → Daire`, not
+> `Receivable → Resident`. — §561
+>
+> `GET /statements/{unitId}` — **Unit** statement · `unit balance = Σ
+> receivables − Σ allocations`
 
-Yani "Ahmet Yılmaz'ın cari ekstresi" bugün **türetilemez**: borç bölüme, ödeme
-banka hareketine bağlıdır ve ikisini birleştiren bir taraf kimliği yoktur.
-Cari hesap eklenmeden bölüm 4 ve 5 ekranları **uydurma veriyle** üretilmiş
-olurdu.
+Referans prototipinde de yevmiye satırı **`120 Alıcılar (Daire Cari)`** —
+cari hesabın **birimi dairedir.** BNOS bunu zaten uygulamış: `borc.bolum_id`
+zorunlu, `borc_sorumlusu` tarihsel snapshot.
 
-**⚠️ Karar gerektiren nokta:** cari hesap `hesap` ağacının altına mı
-(muhasebe tarzı: `120.01.001 = Ahmet Yılmaz`) yoksa ayrı bir `cari` tablosuna
-mı kurulacak. Mevcut dokümanlar bunu yazmıyor; ADR gerektirir.
+**Karar** ([ADR-0010](docs/adr/log/0010-cari-hesap-bolum-yardimci-defteri.md)):
+cari hesap ayrı bir varlık değil, **kontrol hesabı `120` ile mutabık olan bölüm
+bazlı yardımcı defterdir.** Kişi ekstresi bir **görünümdür**
+(`borc_sorumlusu` süzgeci), ayrı defter değil. Yardımcı defter ↔ kontrol hesabı
+uyuşmazlığı **dönem kapanışını bloke eder.**
+
+#### Karar netleşince görünen GERÇEK eksik: `tahsilat` tablosu YOK
+
+Ödeme bilgisi bugün yalnızca `borc.odenen` ve `borc_sorumlusu.odenen`
+kolonlarında **yürüyen bir toplam**. Sonuçları:
+
+- **Ekstre üretilemez** — ekstre "borç satırı · ödeme satırı · yürüyen bakiye"
+  ister; ödeme satırı diye bir kayıt yok.
+- **Tahsis izlenemez** — bir ödeme birden çok borcu kapatabilir; hangisine ne
+  kadar gittiği kayıtsız.
+- **Denetlenemez** — `odenen` bir UPDATE ile artıyor; kim, ne zaman, hangi
+  kanaldan tahsil etti belli değil. Bu FİNANSAL kayıttır ve BFS v1 §5.1
+  uyarınca değiştirilemez olmalıydı.
+- **Makbuz numarası bağlanamaz** — boşluksuz seri hazır ama bağlanacak ödeme
+  kaydı yok.
+- **Banka mutabakatı yarım kalıyor** — 0016 ile aidat tahsilatı arasında bağ
+  yok; para hesaba girdi ama hangi borcu kapattığı kayıtsız.
+
+> ⚠️ `odenen` kolonu, ödeme kaydı olmadan da **doğru görünür.** Toplam tuttuğu
+> için ödeme geçmişinin var olduğu sanılır; oysa yoktur. Eksiklik ancak ekstre
+> üretmeye çalışınca ortaya çıkar.
+
+**FAZ 2 kapsamı:** (1) `tahsilat` — FİNANSAL, silinmez; kanal · makbuz no ·
+`banka_hareketi_id?` · `yevmiye_fisi_id?` · (2) `tahsilat_tahsisi` — Σ tahsis =
+tahsilat tutarı; `borc.odenen` bundan **türetilir**, elle yazılmaz ·
+(3) bölüm cari ekstresi · (4) kişi ekstresi (aynı motor, süzgeç) ·
+(5) yardımcı defter ↔ kontrol hesabı mutabakat denetimi.
+
+**Kapsam dışı ve açıkça eksik:** tedarikçi carisi, personel bordro/avans
+defteri, `120` kontrol hesabının `HesapOzelligi` ile işaretlenmesi. Bunlar
+ADR-0010'da bekleyen karar olarak kayıtlı — **uydurma veriyle ekran
+üretilmeyecek.**
 
 ### İlk görev — `/belgeler` ekranı (menüde ölü link)
 

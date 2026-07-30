@@ -38,5 +38,7 @@ Karar **buraya** yazılır ve ilgili belge bölümüne (CONSTITUTION / BFS / DMS
 | # | Konu | Kaynak | Aciliyet |
 |---|---|---|---|
 | — | Veri Aktarım Merkezi · rollback'in §33 ile ilişkisi | `04-CAKISMA-KAYDI.md` Y-Ç-1 | Sprint 3 öncesi |
-| — | Portföy görünümünün Yönetim Şirketi dikeyinde çözüm yolu | `04-CAKISMA-KAYDI.md` Ç-2 | Faz 0 |
+| ✅ | ~~Portföy görünümünün Yönetim Şirketi dikeyinde çözüm yolu~~ | → [ADR-0009](0009-yonetim-sirketi-acik-devir.md) | — |
 | — | §13–§30'un yeniden karara bağlanması (v1.0 bulunamazsa) | `BASELINE.md` G-1 | **Derhal** |
+| — | **Tedarikçi carisi ve personel bordro/avans defteri** | [ADR-0010](0010-cari-hesap-bolum-yardimci-defteri.md) kapsam dışı bıraktı | Bölüm 5 ekranları öncesi |
+| — | **Kontrol hesabının (`120`) tenant başına işaretlenmesi** — kod planı tenant'a göre değişir, koda gömülemez (§33 kural 3) | [ADR-0010](0010-cari-hesap-bolum-yardimci-defteri.md) | FAZ 2 |
