@@ -898,6 +898,109 @@ export interface FisGirdisi {
  *     sanılabilir. Bu yüzden uçlar doğrudan çağrılır ve backend kapalıysa
  *     ekran hata gösterir.
  */
+/* -------------------------------- Makbuzlar ------------------------------- */
+
+export interface MakbuzSatiri {
+  readonly id: string;
+  readonly makbuzNo: string;
+  readonly tarih: string;
+  readonly kanal: string;
+  readonly durum: string;
+  /** Para METİN taşınır — JSON number float'tır (ADR-0007). */
+  readonly tutar: string;
+  readonly odeyenAdi: string | null;
+  readonly daireler: readonly string[];
+  readonly muhasebelestiMi: boolean;
+  readonly fisNo: string | null;
+  readonly iptalGerekcesi: string | null;
+}
+
+export interface MakbuzKalemi {
+  readonly tahsisId: string;
+  readonly borcId: string;
+  readonly bolumId: string;
+  readonly daire: string;
+  readonly borcKalemi: string;
+  readonly donem: string;
+  readonly vadeTarihi: string;
+  readonly borcTutari: string;
+  readonly tahsilEdilen: string;
+  readonly kalan: string;
+  readonly malik: string | null;
+  readonly kiraci: string | null;
+  readonly sakin: string | null;
+  readonly sorumluAdi: string | null;
+}
+
+export interface MakbuzDetayi {
+  readonly id: string;
+  readonly makbuzNo: string;
+  readonly tarih: string;
+  readonly tahsilatiAlan: string | null;
+  readonly odeyenAdi: string | null;
+  readonly kanal: string;
+  readonly durum: string;
+  readonly aciklama: string | null;
+  readonly tahsilEdilenTutar: string;
+  readonly kalanBorc: string;
+  readonly iptalGerekcesi: string | null;
+  readonly iptalAni: string | null;
+  readonly yevmiyeFisiId: string | null;
+  readonly fisNo: string | null;
+  readonly bankaHareketiId: string | null;
+  readonly bankaAdi: string | null;
+  readonly bankaHesabiAdi: string | null;
+  readonly evrakNo: string | null;
+  readonly kalemler: readonly MakbuzKalemi[];
+}
+
+export interface KontrolMutabakati {
+  readonly yardimciDefterToplami: string;
+  readonly kontrolHesabiKodu: string | null;
+  readonly kontrolHesabiBakiyesi: string;
+  readonly fark: string;
+  readonly mutabikMi: boolean;
+  readonly bolumSayisi: number;
+}
+
+export const makbuzlar = {
+  liste: (
+    suzgec: {
+      baslangic?: string; bitis?: string; kanal?: string; durum?: string;
+      bolumId?: string; kisiId?: string;
+    } = {},
+  ): Promise<readonly MakbuzSatiri[]> => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(suzgec)) {
+      if (v !== undefined && v !== '') p.set(k, String(v));
+    }
+    const s = p.toString();
+    return api(`/makbuzlar${s === '' ? '' : `?${s}`}`, gecerliJeton());
+  },
+
+  detay: (id: string): Promise<MakbuzDetayi> =>
+    api(`/makbuzlar/${id}`, gecerliJeton()),
+
+  iptal: (id: string, gerekce: string): Promise<{ id: string; durum: string }> =>
+    api(`/makbuzlar/${id}/iptal`, {
+      method: 'POST', govde: { gerekce },
+      idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+
+  muhasebelestir: (id: string, hemenIsle: boolean): Promise<{ fisNo: string }> =>
+    api(`/makbuzlar/${id}/muhasebelestir`, {
+      method: 'POST', govde: { hemenIsle },
+      idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+
+  kontrolMutabakati: (): Promise<KontrolMutabakati> =>
+    api('/makbuzlar/rapor/kontrol-mutabakati', gecerliJeton()),
+
+  yaslandirma: (): Promise<readonly {
+    etiket: string; adet: number; tutar: string;
+  }[]> => api('/makbuzlar/rapor/yaslandirma', gecerliJeton()),
+};
+
 export const muhasebe = {
   hesaplar: (
     suzgec: { arama?: string; tip?: string; ozellik?: string; yalnizcaAktif?: boolean } = {},

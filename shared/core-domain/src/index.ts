@@ -9,3 +9,7 @@ export * from './outbox/domain-event.js';
 export * from './numbering/numara-serisi.js';
 export * from './yetki/izinler.js';
 export * from './yetki/roller.js';
+// GENEL GERİ AL (0018). Kural katmanı core-domain'dedir çünkü geri alma tek
+// bir modüle ait değildir; her modüle ayrı yazılsaydı biri unutulur ve o
+// modülde finansal bir kayıt SESSİZCE silinebilirdi.
+export * from './geri-alma/geri-alma.js';

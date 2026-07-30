@@ -24,7 +24,8 @@ import { BosDurum, HataDurumu, Yukleniyor } from '@/components/durumlar';
 import { useBildirim } from '@/components/bildirim';
 import { Sekmeler, type SekmeTanimi } from '@/components/sekmeler';
 import {
-  muhasebe,
+  makbuzlar as makbuzServisi, muhasebe,
+  type KontrolMutabakati, type MakbuzDetayi, type MakbuzSatiri,
   type Mizan, type MuhasebeDonemi, type MuhasebeFisiSatiri,
   type MuhasebeHesabi, type YevmiyeSatiri,
 } from '@/lib/servis';
@@ -55,6 +56,10 @@ export default function MuhasebeSayfasi() {
     { anahtar: 'hesaplar', etiket: t('hesapPlaniSekmesi'), icerik: <HesapPlani /> },
     { anahtar: 'defterler', etiket: t('defterlerSekmesi'), icerik: <YevmiyeDefteri /> },
     { anahtar: 'mizan', etiket: t('mizanSekmesi'), icerik: <MizanDokumu /> },
+    // MAKBUZLAR — tahsilat kaydının belge görünümü. Ayrı bir rota değil
+    // sekme: makbuz listesi de fiş listesiyle aynı süzgeç/tablo iskeletini
+    // kullanır ve ayrı rota olsaydı ikinci kez yazılırdı.
+    { anahtar: 'makbuzlar', etiket: t('makbuzlarSekmesi'), icerik: <Makbuzlar /> },
     { anahtar: 'donem', etiket: t('donemSekmesi'), icerik: <DonemYonetimi /> },
   ];
 
@@ -381,6 +386,248 @@ function YevmiyeDefteri() {
                 </table>
               </div>
             )}
+    </div>
+  );
+}
+
+/* -------------------------------- Makbuzlar ------------------------------- */
+
+/**
+ * MAKBUZLAR — tahsilat kaydının belge görünümü.
+ *
+ * ⚠️  İPTAL EDİLMİŞ MAKBUZLAR LİSTEDE KALIR ve `durum` rozetiyle ayrılır.
+ *     Gizlenselerdi numara serisindeki boşluk açıklanamaz görünür ve "kaç
+ *     makbuz kesildi" sorusunun cevabı defterle tutmazdı.
+ *
+ * ⚠️  MOCK YOKTUR (sayfa başındaki not): uydurma bir makbuz gerçek sanılır.
+ */
+function Makbuzlar() {
+  const t = useTranslations('muhasebe');
+  const tg = useTranslations('genel');
+  const bildirim = useBildirim();
+  const varsayilan = yilAraligi();
+
+  const [satirlar, setSatirlar] = useState<readonly MakbuzSatiri[]>([]);
+  const [secili, setSecili] = useState<MakbuzDetayi | null>(null);
+  const [mutabakat, setMutabakat] = useState<KontrolMutabakati | null>(null);
+  const [baslangic, setBaslangic] = useState(varsayilan.baslangic);
+  const [bitis, setBitis] = useState(varsayilan.bitis);
+  const [durum, setDurum] = useState('');
+  const [hata, setHata] = useState<unknown>(null);
+  const [yukleniyor, setYukleniyor] = useState(true);
+
+  const yukle = useCallback(() => {
+    setYukleniyor(true);
+    setHata(null);
+    makbuzServisi
+      .liste({ baslangic, bitis, ...(durum === '' ? {} : { durum }) })
+      .then(setSatirlar)
+      .catch(setHata)
+      .finally(() => setYukleniyor(false));
+    // Kontrol mutabakatı AYRI yüklenir ve hatası listeyi düşürmez: mutabakat
+    // hesabı işaretlenmemişse bile makbuz listesi görünmelidir.
+    makbuzServisi.kontrolMutabakati().then(setMutabakat).catch(() => setMutabakat(null));
+  }, [baslangic, bitis, durum]);
+
+  useEffect(yukle, [yukle]);
+
+  const detayAc = (id: string): void => {
+    makbuzServisi
+      .detay(id)
+      .then(setSecili)
+      .catch((h: unknown) => bildirim.hata(hataMetni(h, t('makbuzDetayHatasi'))));
+  };
+
+  const iptalEt = (id: string, makbuzNo: string): void => {
+    const gerekce = window.prompt(t('makbuzIptalGerekce', { makbuzNo }));
+    if (gerekce === null || gerekce.trim().length < 10) return;
+    makbuzServisi
+      .iptal(id, gerekce.trim())
+      .then(() => {
+        bildirim.basari(t('makbuzIptalEdildi', { makbuzNo }));
+        setSecili(null);
+        yukle();
+      })
+      .catch((h: unknown) => bildirim.hata(hataMetni(h, t('makbuzIptalHatasi'))));
+  };
+
+  if (yukleniyor) return <Yukleniyor />;
+  if (hata !== null) return <HataDurumu hata={hata} tekrarDene={yukle} />;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end baski-gizle">
+        <label className="flex flex-col gap-1 text-xs">
+          {t('baslangic')}
+          <input type="date" className={ALAN} value={baslangic}
+                 onChange={(e) => setBaslangic(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          {t('bitis')}
+          <input type="date" className={ALAN} value={bitis}
+                 onChange={(e) => setBitis(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          {t('durum')}
+          <select className={ALAN} value={durum} onChange={(e) => setDurum(e.target.value)}>
+            <option value="">{tg('tumu')}</option>
+            <option value="GECERLI">{t('makbuzGecerli')}</option>
+            <option value="IPTAL">{t('makbuzIptal')}</option>
+          </select>
+        </label>
+      </div>
+
+      {/*
+        YARDIMCI DEFTER ↔ KONTROL HESABI MUTABAKATI (ADR-0010).
+        ⚠️ `mutabikMi = false` GİZLENMEZ: uyuşmazlık dönem kapanışını bloke
+           eder ve kullanıcı bunu makbuz ekranında görmelidir.
+      */}
+      {mutabakat !== null && (
+        <div
+          className={`rounded-[var(--rs)] border p-3 text-sm ${
+            mutabakat.mutabikMi
+              ? 'border-[color:var(--line)]'
+              : 'border-[color:var(--danger)] text-[color:var(--danger)]'
+          }`}
+        >
+          {mutabakat.kontrolHesabiKodu === null
+            ? t('kontrolHesabiYok')
+            : t('kontrolMutabakati', {
+                hesap: mutabakat.kontrolHesabiKodu,
+                yardimci: mutabakat.yardimciDefterToplami,
+                kontrol: mutabakat.kontrolHesabiBakiyesi,
+                fark: mutabakat.fark,
+              })}
+        </div>
+      )}
+
+      {satirlar.length === 0 ? (
+        <BosDurum baslik={t('makbuzYok')} />
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[color:var(--muted)]">
+              <th className="py-2">{t('makbuzNo')}</th>
+              <th>{t('tarih')}</th>
+              <th>{t('tahsilatTuru')}</th>
+              <th>{t('daire')}</th>
+              <th>{t('odeyen')}</th>
+              <th className="text-right">{t('tutar')}</th>
+              <th>{t('durum')}</th>
+              <th className="baski-gizle" />
+            </tr>
+          </thead>
+          <tbody>
+            {satirlar.map((m) => (
+              <tr key={m.id} className="border-t border-[color:var(--line)]">
+                <td className="py-2 font-mono">{m.makbuzNo}</td>
+                <td>{m.tarih}</td>
+                <td>{m.kanal}</td>
+                <td>{m.daireler.join(', ')}</td>
+                <td>{m.odeyenAdi ?? '—'}</td>
+                {/* Para METİN gösterilir, Number'a çevrilmez (ADR-0007). */}
+                <td className="text-right font-mono">{m.tutar}</td>
+                <td>
+                  {m.durum === 'IPTAL' ? (
+                    <span className="text-[color:var(--danger)]">{t('makbuzIptal')}</span>
+                  ) : (
+                    <span>{m.muhasebelestiMi ? (m.fisNo ?? '—') : t('makbuzMuhasebesiz')}</span>
+                  )}
+                </td>
+                <td className="text-right baski-gizle">
+                  <button type="button" className="underline"
+                          onClick={() => detayAc(m.id)}>
+                    {tg('detay')}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {secili !== null && (
+        <div className="rounded-[var(--rs)] border border-[color:var(--line)] p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">
+              {t('makbuzNo')}: <span className="font-mono">{secili.makbuzNo}</span>
+            </h3>
+            <div className="flex gap-2 baski-gizle">
+              <button type="button" className="underline" onClick={() => window.print()}>
+                {t('yazdir')}
+              </button>
+              {secili.durum === 'GECERLI' && (
+                <button type="button" className="underline text-[color:var(--danger)]"
+                        onClick={() => iptalEt(secili.id, secili.makbuzNo)}>
+                  {t('makbuzIptalEt')}
+                </button>
+              )}
+              <button type="button" className="underline" onClick={() => setSecili(null)}>
+                {tg('kapat')}
+              </button>
+            </div>
+          </div>
+
+          <dl className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            <Alan etiket={t('tarih')} deger={secili.tarih} />
+            <Alan etiket={t('tahsilatiAlan')} deger={secili.tahsilatiAlan} />
+            <Alan etiket={t('odeyen')} deger={secili.odeyenAdi} />
+            <Alan etiket={t('tahsilatTuru')} deger={secili.kanal} />
+            <Alan etiket={t('tahsilEdilenTutar')} deger={secili.tahsilEdilenTutar} />
+            <Alan etiket={t('kalanBorc')} deger={secili.kalanBorc} />
+            <Alan etiket={t('iliskiliFis')} deger={secili.fisNo} />
+            <Alan etiket={t('iliskiliBanka')}
+                  deger={secili.bankaAdi === null ? null
+                    : `${secili.bankaAdi} — ${secili.bankaHesabiAdi ?? ''}`} />
+            <Alan etiket={t('evrakNo')} deger={secili.evrakNo} />
+            <Alan etiket={t('aciklama')} deger={secili.aciklama} />
+          </dl>
+
+          {secili.iptalGerekcesi !== null && (
+            <p className="text-sm text-[color:var(--danger)]">
+              {t('iptalGerekcesi')}: {secili.iptalGerekcesi}
+            </p>
+          )}
+
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[color:var(--muted)]">
+                <th className="py-2">{t('daire')}</th>
+                <th>{t('borcKalemi')}</th>
+                <th>{t('donem')}</th>
+                <th>{t('malik')}</th>
+                <th>{t('kiraci')}</th>
+                <th>{t('sakin')}</th>
+                <th className="text-right">{t('tahsilEdilen')}</th>
+                <th className="text-right">{t('kalan')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {secili.kalemler.map((k) => (
+                <tr key={k.tahsisId} className="border-t border-[color:var(--line)]">
+                  <td className="py-2">{k.daire}</td>
+                  <td>{k.borcKalemi}</td>
+                  <td>{k.donem}</td>
+                  <td>{k.malik ?? '—'}</td>
+                  <td>{k.kiraci ?? '—'}</td>
+                  <td>{k.sakin ?? '—'}</td>
+                  <td className="text-right font-mono">{k.tahsilEdilen}</td>
+                  <td className="text-right font-mono">{k.kalan}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Alan({ etiket, deger }: { etiket: string; deger: string | null }) {
+  return (
+    <div>
+      <dt className="text-xs text-[color:var(--muted)]">{etiket}</dt>
+      <dd>{deger === null || deger === '' ? '—' : deger}</dd>
     </div>
   );
 }

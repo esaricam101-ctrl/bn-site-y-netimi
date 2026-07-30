@@ -33,7 +33,64 @@ tip denetiminden geçiyordu.
 | `<muhasebe>` | **Muhasebe çekirdeği** (0015) — hesap planı · fiş · defterler · mizan · dönem kapanışı + **iki sessiz kusur düzeltildi** |
 | `230042d` | **Banka Yönetimi çekirdeği** (0016) — banka · şube · hesap · POS · hareket · virman · ekstre · mutabakat · çek/senet + **veritabanı kısıt ihlalleri artık 500 değil 4xx** |
 | `5b56381` | ADR-0010 — cari hesap = **bölüm yardımcı defteri** (karar referans belgeden çözüldü) |
-| _bu commit_ | **Tahsilat çekirdeği YARIM** (0017 + domain) — şema ve kurallar hazır, **uçlar yok** |
+| `85bbca5` | Tahsilat çekirdeği yarım (0017 + domain) — şema ve kurallar |
+| _bu commit_ | **Makbuzlar** (tahsilat uçları + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
+
+### Bu commit'te yapılan — Makbuzlar + Genel Geri Al
+
+**Makbuzlar, `85bbca5`'te yarım kalan tahsilat modülünü tamamlar.** Makbuz
+AYRI BİR VARLIK DEĞİLDİR: `tahsilat` kaydının belge görünümüdür. Ayrı bir
+`makbuz` tablosu açılsaydı aynı para iki yerde durur ve biri güncellenmediğinde
+makbuz ile defter tutmazdı.
+
+Eklenen uçlar (`/makbuzlar`):
+
+- `GET /` **Makbuz Geçmişi** — iptal edilmişler de listede (durum rozetiyle);
+  gizlenselerdi numara serisindeki boşluk açıklanamaz görünürdü.
+- `GET /:id` **Tahsilat Makbuzu detayı** — istenen alanların tamamı.
+  **Malik · Kiracı · Sakin ÖDEYENDEN DEĞİL** borcun sorumluluk zincirinden
+  gelir: ödeyen komşusu olabilir.
+- `GET /borclar/:bolumId` **Detaylı Tahsilat Girişi** — açık borçlar; hisseli
+  mülkiyette PAY satırları ayrı.
+- `POST /tahsis-onerisi` — EN ESKİ VADE önce, **hiçbir şey yazmaz**.
+- `POST /` tahsilat · `POST /:id/iptal` **Makbuz İptali** · `POST
+  /:id/muhasebelestir`
+- `GET /cari/:bolumId` **Cari Hesap Ekstresi** (ADR-0010) · `GET
+  /rapor/yaslandirma` · `GET /rapor/kontrol-mutabakati`
+
+Ekran: `/muhasebe` → **Makbuzlar** sekmesi (altıncı sekme). Ayrı rota değil —
+makbuz listesi fiş listesiyle aynı süzgeç/tablo iskeletini kullanır.
+
+#### GENEL GERİ AL (0018)
+
+**Yeni bir "ne değişti" günlüğü AÇILMADI.** `audit_kaydi` zaten
+`oncekiDeger`/`sonrakiDeger` tutuyor; ikinci bir günlük yazılsaydı iki kaynak
+zamanla ayrışır ve geri alma **yanlış değere** dönerdi. `geri_alma` tablosu
+yalnızca "hangi denetim kaydı, hangi yöntemle geri alındı" olgusunu taşır —
+işaret audit satırına yazılamaz çünkü audit UPDATE'i trigger ile reddedilir.
+
+Yöntemler varlığın **silme sınıfına** göre: FİNANSAL → `TERS_KAYIT` (kayıt
+silinmez), BELGE → `ARSIVLE`/`GERI_YUKLE` (dosya silinmez, sürüm korunur),
+ANA_VERİ → `ARSIVLE`/`GERI_YUKLE`/`ALAN_GERI_AL`.
+
+Reddedilen durumlar **gerekçesiyle** bildirilir: başkasının işlemi · zaten geri
+alınmış · sonradan tekrar değiştirilmiş · anonimleştirme (KVKK) ·
+muhasebeleşmiş finansal kayıt · kapalı dönem · **kuralı tanımlı olmayan
+varlık** ("muhtemelen ana veridir" varsayımıyla devam edilseydi finansal bir
+kayıt silinebilirdi). 25 birim testi.
+
+#### Canlı testte çıkan iki kusur
+
+1. **Geri alma uçları `AUDIT_GORUNTULE` iznine bağlanmıştı → 403.** O izin
+   yalnızca DENETÇİ rolünde; yani kaydı **giren kullanıcı kendi işlemini geri
+   alamıyordu** — özelliğin bütün amacı buyken. Doğru sınır **sahipliktir**:
+   geri alma, kullanıcının zaten yapmaya yetkili olduğu bir işlemi geri çevirir
+   ve servis kayıt sahipliğini doğrular. Modül izni kaldırıldı (Kapı 1 ve 2
+   çalışmaya devam eder), **yetki matrisi değiştirilmedi, yeni izin
+   tanımlanmadı**.
+2. **`dist` bayat kaldığı için ilk düzeltme görünmedi.** Backend çalışırken
+   yapılan derleme dosyaları yazamamış; süreç kapatılıp `dist` silinerek
+   yeniden derlendi. (Bilinen tuzak: çalışan backend derleme çıktısını kilitler.)
 
 ### Bu commit'te yapılan — Banka Yönetimi çekirdeği (FAZ 1)
 
@@ -428,14 +485,14 @@ kaplamaya devam ederdi.
 ## 2. Şu anki durum
 
 **Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **9/9** ·
-birim testleri **240/240** · sözleşme testleri **24/24** · lint:md 0 ·
-migration **17/17 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
+birim testleri **265/265** · sözleşme testleri **24/24** · lint:md 0 ·
+migration **18/18 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
 **40/40** · portföy canlı testi **19/19** · muhasebe canlı testi **51/51** ·
 **banka canlı testi 91/91** (iki kez üst üste — test idempotent).
 
-> ⚠️ **FAZ 2 YARIM.** `tahsilat` şeması ve domain kuralları hazır ve testli ama
-> **hiçbir uçtan çağrılmıyor** — `modules/tahsilat` yalnızca DTO taşıyor. Ayrıntı
-> ve kalan iş listesi: "FAZ 2 nerede kaldı" başlığı.
+> ⚠️ **Makbuz canlı testi 13/13.** `tahsilat` uçları artık çalışıyor; kalan
+> eksikler ("Makbuzlar talebinden karşılanmayanlar") ve FAZ 2'nin geri kalanı
+> aşağıda başlıklar hâlinde yazılı.
 
 > ⚠️ **MUHASEBE YAZMA YETKİSİ YALNIZCA `YONETIM_SIRKETI` ROLÜNDE.**
 > `FINANS_YEVMIYE_GIRIS` ve `FINANS_DONEM_KAPAT` izinleri
@@ -825,6 +882,23 @@ kolonlarında **yürüyen bir toplam**. Sonuçları:
 tahsilat tutarı; `borc.odenen` bundan **türetilir**, elle yazılmaz ·
 (3) bölüm cari ekstresi · (4) kişi ekstresi (aynı motor, süzgeç) ·
 (5) yardımcı defter ↔ kontrol hesabı mutabakat denetimi.
+
+#### Makbuzlar talebinden KARŞILANMAYANLAR — açıkça eksik
+
+Kullanıcı 17 alt modül istedi. Karşılanan: **Tahsilat Makbuzu · Detaylı
+Tahsilat Girişi · Makbuz İptali · Makbuz Geçmişi** (+ Makbuz Yazdır yalnızca
+tarayıcı yazdırması). Karşılanmayanlar ve **nedenleri**:
+
+| İstenen | Neden yapılmadı |
+|---|---|
+| **PDF Oluştur** (otomatik) | PDF kütüphanesi kararı verilmedi (FAZ 4). Ekran şu an `window.print()` kullanır — gerçek PDF değildir ve öyle sunulmuyor |
+| **E-posta · SMS · WhatsApp** | Bildirim altyapısı **yok**. Ayrıca ticari elektronik ileti **İYS kapsamı belirsiz** ve bu, belgelerde açık bir bloke (`04-CAKISMA-KAYDI.md` C-6). Sağlayıcı seçilmeden gönderim yazmak, mevzuata aykırı ileti üretebilirdi |
+| **İade Makbuzu** | İade kavramı TANIMSIZ. ADR-0010 negatif tahsilatı yasakladı; iade ayrı bir kayıt tipi ve karşılık hesabı ister. Uydurmak yerine bırakıldı |
+| **Borç Makbuzu · Toplu/Otomatik Borçlandırma · Gider/Gelir Dağıtımı** | Bunlar **tahsilat değil TAHAKKUK** işlemleridir ve `TahakkukModule`'e aittir (API var, ekran yok). Makbuz modülüne kopyalamak aynı dağıtım mantığını ikinci kez yazmak olurdu |
+| **Devir Bakiye Girişi** | Muhasebe **açılış fişi** ile yapılır (`DonemServisi.acilisFisiUret` mevcut). Cari devir bakiyesi için ayrı bir akış gerekir; kontrol hesabı mutabakatını bozmadan yazılmalı |
+| **Toplu Tahsilat** | Tek tahsilat çekirdeği yeni oturdu. Toplu akış, kısmî başarısızlıkta ne olacağına (hepsi mi geri alınır) dair karar ister |
+| **Makbuz versiyonlama** | Makbuz İPTAL edilir, sürümlenmez (VUK: numara korunur). "Versiyon" isteniyorsa Belge modülü zaten sürümlüyor; makbuz PDF'i oraya `varlikTipi = TAHSILAT` ile bağlanabilir — 0017 bu enum değerini ekledi |
+| **Geri Al arayüzü** | Backend tamam (`/geri-alma`), ekran yok |
 
 #### FAZ 2 nerede kaldı — YARIM, kalan iş net
 

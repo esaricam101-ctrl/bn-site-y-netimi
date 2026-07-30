@@ -100,6 +100,9 @@ model Tenant {
   tahsilatlar        Tahsilat[]
   tahsilatTahsisleri TahsilatTahsisi[]
 
+  // --- Geri alma (0018) ---
+  geriAlmalar GeriAlma[]
+
   /// Bu tenant bir YÖNETİM FİRMASI ise: yönettiği projeler (ADR-0009).
   yonettigiProjeler YonetimDelegasyonu[] @relation("DevirAlan")
   /// Bu tenant bir PROJE ise: yönetimini devrettiği firma kaydı.
@@ -1710,10 +1713,65 @@ model AuditKaydi {
   hash          String   @db.VarChar(64)
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  /// Bu işlemin geri alınıp alınmadığı (0018). EN ÇOK BİR kayıt olabilir.
+  /// İşaret audit satırının KENDİSİNE yazılamaz: audit UPDATE'i trigger ile
+  /// reddedilir (hash zinciri kopmasın diye).
+  geriAlma GeriAlma?
 
   @@index([tenantId, olusmaAni])
   @@index([tenantId, varlik, varlikId])
   @@map("audit_kaydi")
+}
+
+/// Geri alma yöntemi — denetimde "bu kayıt NASIL geri alındı" sorusunun cevabı.
+enum GeriAlmaYontemi {
+  /// Finansal kayıt: ters kayıt üretildi (fiş storno · makbuz iptali).
+  TERS_KAYIT
+  /// Soft-delete edilmiş kayıt geri yüklendi.
+  GERI_YUKLE
+  /// Oluşturma geri alındı: kayıt arşivlendi (soft delete).
+  ARSIVLE
+  /// Güncelleme geri alındı: alanlar `oncekiDeger`den yazıldı.
+  ALAN_GERI_AL
+}
+
+/// GENEL GERİ AL (0018) — hangi denetim kaydının geri alındığı.
+///
+/// ⚠️  YENİ BİR "ne değişti" GÜNLÜĞÜ DEĞİLDİR. `audit_kaydi` zaten
+///     `oncekiDeger`/`sonrakiDeger` tutuyor; ikinci bir günlük yazılsaydı iki
+///     kaynak zamanla ayrışır ve geri alma YANLIŞ değere dönerdi. Bu tablo
+///     yalnızca "geri alındı" olgusunu ve yöntemini taşır.
+///
+/// ⚠️  Kayıt DEĞİŞTİRİLEMEZ: `bnos_app` rolüne yalnızca SELECT ve INSERT
+///     verildi. Geri alma olgusu da denetim izidir.
+model GeriAlma {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Geri alınan denetim kaydı. TEKİLDİR: aynı işlem iki kez geri alınamaz.
+  /// Alınabilseydi bir güncelleme iki kez "eski değere" döndürülür ve arada
+  /// yapılan başka değişiklikler sessizce silinirdi.
+  auditKaydiId String @unique @map("audit_kaydi_id") @db.Uuid
+
+  varlik   String @db.VarChar(60)
+  varlikId String @map("varlik_id") @db.Uuid
+  eylem    String @db.VarChar(20)
+
+  yontem GeriAlmaYontemi
+  /// Ters kayıt üretildiyse doğan kaydın kimliği (storno fişi vb.).
+  sonucVarlikId String? @map("sonuc_varlik_id") @db.Uuid
+
+  geriAlan String  @map("geri_alan") @db.Uuid
+  gerekce  String?
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  auditKaydi AuditKaydi @relation(fields: [auditKaydiId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, geriAlan, olusturulmaTarihi])
+  @@index([tenantId, varlik, varlikId])
+  @@map("geri_alma")
 }
 
 model OutboxKayit {
