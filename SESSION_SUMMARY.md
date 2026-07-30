@@ -29,12 +29,72 @@ tip denetiminden geçiyordu.
 | `394eb61` | Site Personeli / Daire Görevlisi ayrımı (0010) + tek ekran hızlı kayıt (0011-0013) + Misafir modülü |
 | `e191968` | Devir notu — v23/v24 referans mimari görevi |
 | `2f39c75` | Portföy Yönetim Merkezi (0014 · ADR-0009) + v23/v24 boşluk analizi |
-| _bu commit_ | **Beş "Yeni Ekle" formu SEKMELİ** — Kişi Bilgileri sekmesi + modüle özel sekmeler |
+| `b40ee54` | Beş "Yeni Ekle" formu sekmeli — Kişi Bilgileri + modüle özel sekmeler |
+| _bu commit_ | **Muhasebe çekirdeği** (0015) — hesap planı · fiş · defterler · mizan · dönem kapanışı + **iki sessiz kusur düzeltildi** |
 
 Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
 `b4759d3` · `ec76035` · `89a56df` · `666c918`.
 
-### Bu commit'te yapılan — beş form sekmeli hâle geldi
+### Bu commit'te yapılan — muhasebe çekirdeği
+
+**BULGU: muhasebe ŞEMASI vardı ama HİÇ UCU VE EKRANI YOKTU.** `hesap`,
+`yevmiye_fisi` ve `yevmiye_satiri` 0001'de kurulmuştu ve yalnızca tahakkuk
+modülü dolduruyordu; okuma, yazma, defter, mizan, dönem — hiçbiri yoktu.
+
+Eklenenler (0015 + `modules/muhasebe` + `/muhasebe` ekranı):
+
+| Bölüm | Durum |
+|---|---|
+| Hesap Planı | ✅ ağaç · kod/tip tutarlılığı · ara hesap koruması · arşivleme |
+| Muhasebe Fişleri + detay | ✅ çift kayıt denkliği · TASLAK/İŞLENDİ · **storno** |
+| Yevmiye Defteri | ✅ tarih sırası · yevmiye sıra no |
+| Büyük Defter (Muavin) | ✅ açılış devri · yürüyen bakiye · doğal yön |
+| Kasa Defteri | ✅ (aynı uç `ozellik=BANKA` ile Banka Defteri) |
+| Mizan | ✅ denklik denetimi yanıtta döner |
+| Muhasebe Parametreleri | ✅ varsayılan kasa/banka/dönem kârı · geriye dönük pencere |
+| Dönem Sonu Kapanış | ✅ hepsi (aşağıda) |
+
+**Dönem Sonu Kapanış — altı işlem:**
+
+- **Yeni Dönem Açılışı** — aynı mali yıl iki kez açılamaz, tarih aralığı çakışamaz
+- **Muhasebe Açılış İşlemleri** — önceki dönemin **bilanço** bakiyelerini devreder
+  (gelir/gider DEVRETMEZ: geçmiş yılın kârı yeni yılın gelir tablosunda ikinci
+  kez görünürdü)
+- **Yansıtma Hesapları** — `ozellik=YANSITMA` hesaplarını karşı yöne yazar
+- **Yevmiye Yeniden Numaralandırma** — `fisNo` **DEĞİŞTİRİLMEZ**, yalnızca
+  `yevmiyeSiraNo` yazılır (makbuz üzerindeki numara ile defter tutmalı)
+- **Muhasebe/Mali Yıl Kapanışı** — gelir/gider sıfırlanır, net sonuç özkaynağa
+  aktarılır; **GERİ ALINAMAZ** ve önkoşullar öncesinde denetlenir
+
+**Zorlanan kritik kurallar** (canlı test 51/51):
+
+- Fiş **silinemez** — düzeltme yalnızca ters kayıt (storno); yön ters çevrilir,
+  **negatif tutar yazılmaz** (eksi tutar mizan toplamlarını bozar)
+- **Kapalı döneme fiş yazılamaz** — düzeltme açık dönemde storno ile
+- En az iki satır · borç = alacak · satırda tek yön · ara hesaba fiş yok ·
+  aynı hesap aynı yönde iki kez yok
+- **Taslak fiş mizanda görünmez** (parametre açabilir)
+- Kasa/Banka Defteri hesap **koduna değil** `hesap.ozellik` alanına dayanır
+  (kod planı tenant'a göre değişir)
+- Para her yerde **Decimal/Money**, hiçbir yerde `Number`
+
+#### 🔴 İki sessiz kusur bulundu ve düzeltildi
+
+**1. `silmeyiDogrula` engelleyen bağımlılıkları HİÇ OKUMUYORDU.** Alan
+arayüzde tanımlıydı, **dört modül** dolduruyordu (`Belge`, `DaireGorevlisi`,
+`Misafir`, `Hesap`) ama fonksiyon bakmıyordu. Sonuç: "açık araç kaydı varken
+misafir/görevli arşivlenemez" ve "hareket görmüş hesap arşivlenemez"
+korumaları **etkisizdi** — hesap arşivlenip ona yazılmış yevmiye satırları
+sahipsiz kalabiliyordu.
+
+> Arayüzde duran ama okunmayan bir alan, çağıranı korunduğuna inandırdığı için
+> yokluğundan daha tehlikelidir. Dört test eklendi.
+
+**2. `SilmePolitikaHatasi` istisna filtresinde eşlenmemişti** → 422 yerine
+**500**. İki kusur birbirini gizliyordu: okunmayan alan yüzünden bu hata hiç
+fırlatılmadığı için eşleme eksikliği hiç görünmemişti.
+
+### Önceki commit'te yapılan — beş form sekmeli hâle geldi
 
 Malik · Kiracı · Sakin · Misafir · Daire Görevlisi "Yeni Ekle" ekranları
 sekmelendi. İlk sekme **Kişi Bilgileri** (ad · soyad · TC · telefon · e-posta ·
@@ -244,9 +304,17 @@ kaplamaya devam ederdi.
 ## 2. Şu anki durum
 
 **Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **8/8** ·
-birim testleri **155/155** · sözleşme testleri **24/24** · migration
-**14/14 uygulandı** · 17 web rotası · hızlı kayıt canlı testi **40/40** ·
-portföy canlı testi **19/19**.
+birim testleri **158/158** · sözleşme testleri **24/24** · migration
+**15/15 uygulandı** · 18 web rotası · hızlı kayıt canlı testi **40/40** ·
+portföy canlı testi **19/19** · **muhasebe canlı testi 51/51**.
+
+> ⚠️ **MUHASEBE YAZMA YETKİSİ YALNIZCA `YONETIM_SIRKETI` ROLÜNDE.**
+> `FINANS_YEVMIYE_GIRIS` ve `FINANS_DONEM_KAPAT` izinleri
+> `APARTMAN_YONETICISI`de **yok**; o rol yalnızca defter görüntüleyip ayar
+> yapabiliyor. KMK md. 35/d–36 uyarınca işletme defterini tutan ve genel kurula
+> hesap veren taraf yöneticidir, dolayısıyla bu dağıtım büyük olasılıkla
+> yanlıştır — ama **yetki matrisini izinsiz değiştirmedim**. Karar kullanıcıya
+> ait; değişecekse tek yerden: `shared/core-domain/src/yetki/roller.ts`.
 
 Çalışma ağacı temiz, `origin/master` ile senkron.
 
@@ -503,6 +571,38 @@ Beklenen: `14 migrations found` · `Database schema is up to date` ·
 
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
+
+### Muhasebe/Banka talebinin EKSİK KALAN bölümleri
+
+Kullanıcı 10 bölümlük bir liste verdi (~100+ ekran). Bu commit **1. bölümün
+çekirdeğini** tamamladı; geri kalanı aşağıda. Sıralama bağımlılığa göredir:
+analiz/liste/ekstre/döküm ekranlarının hepsi muhasebe çekirdeğinin ve banka
+modülünün üstüne kurulur.
+
+| Bölüm | Durum |
+|---|---|
+| **1. Muhasebe** | ✅ çekirdek tamam (fiş · hesap planı · 3 defter · mizan · parametre · 6 kapanış işlemi) · ❌ Muhasebe Raporları (bkz. 6) |
+| **2. Banka Yönetimi** (17 alt modül) | ❌ **hiç yok** — yeni domain: banka · şube · hesap · POS · sanal POS · hareket · ekstre · havale/EFT/FAST · virman · çek · senet · masraf · mutabakat · parametre |
+| **3. Muhasebe Analizleri** (11 ekran) | ❌ yok. Ödeme skorları `borc` + `borc_sorumlusu` üzerinden türetilebilir; nakit akışı banka modülünü bekler |
+| **4. Listeler** (14 ekran) | ⚠️ veri temeli var (`borc` · `Malik/Kiraci/Sakin` · mizan), ekran yok. Makbuz numaralandırma serileri hazır |
+| **5. Ekstreler** (7 ekran) | ⚠️ **Muavin bunun motoru**: cari/kasa/banka/genel hesap ekstresi `muavin` ucunun farklı hesap seçimleridir. Personel ve site sakini ekstresi cari hesap kavramı ister (henüz yok) |
+| **6. Dökümler** (7 döküm) | ⚠️ **Mizan ✅ · Muavin ✅** · Bilanço · Gelir Tablosu · Fiş dökümü · Hesap planı dökümü · Gelir-gider muavini ❌ |
+| **7. Grafikler** (7 grafik) | ❌ yok. `dataviz` yönergesi izlenmeli; veri kaynakları (3) ve (6)'ya bağlı |
+| **8. İletişim** (9 ekran) | ⚠️ veri var (kişi · araç · misafir giriş-çıkış · personel), ekran/çıktı yok |
+| **9. Evrak Yönetimi** | ⚠️ **Belge modülü tam** (versiyonlama · kategori · gizlilik · önizleme · KVKK · MinIO). 0015 `BelgeVarlikTipi`ye `YEVMIYE_FISI` + `MUHASEBE_DONEMI` ekledi; **banka hareketi ve cari hesap ilişkileri o modüller gelince eklenecek**. `/belgeler` EKRANI hâlâ yok |
+| **10. Genel Özellikler** | ⚠️ Audit ✅ (hash zincirli) · Yetkilendirme ✅ (Üç Kapı) · Listeleme/arama/filtreleme/sıralama ✅ · Sayfalama ⚠️ (limit var, cursor yok) · Yazdırma ✅ (`@media print`) · **Excel/PDF aktarma ❌ kütüphane kararı bekliyor** · Toplu işlem ⚠️ kısmî · İşlem geçmişi ⚠️ audit'ten okunuyor, ekranı yok |
+
+**Neden hepsi yapılmadı:** ~100 ekranı tek oturumda üretmek, kullanıcının kendi
+koyduğu iki kurala aykırı olurdu — *"Gereksiz tekrar eden ekran oluşturma"* ve
+*"Kod kalitesini düşürme"*. Muhasebe çekirdeği seçildi çünkü 3 · 4 · 5 · 6 · 7
+bölümlerinin **tamamı** onun okuma modelleridir; çekirdek yanlışsa yüz ekran da
+yanlış olur.
+
+**Önerilen sıra:** (a) **Banka Yönetimi** çekirdeği (banka · şube · hesap ·
+hareket · ekstre · mutabakat) — 5 ve 3'ün ön koşulu · (b) **Cari hesap**
+kavramı — 4 ve 5'in ön koşulu · (c) Bilanço + Gelir Tablosu (mizandan
+türetilir) · (d) Excel/PDF kütüphane kararı, sonra tüm dökümler · (e)
+Analizler ve grafikler · (f) `/belgeler` ve İletişim ekranları.
 
 ### İlk görev — `/belgeler` ekranı (menüde ölü link)
 

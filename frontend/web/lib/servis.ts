@@ -783,3 +783,227 @@ export type {
   MockYerlesimSatiri as YerlesimSatiri,
   SayfaliSonuc,
 };
+
+/* ------------------------- Muhasebe (0015 · ADR-0003) --------------------- */
+//
+// Hesap planı · fişler · defterler · mizan · dönem kapanışı. Backend uçları
+// `/muhasebe/*`; mock YOKTUR — muhasebe verisi uydurulamaz, sahte mizan
+// gerçek bir mizan gibi görünür ve karar dayanağı olarak kullanılabilir.
+
+export interface MuhasebeHesabi {
+  readonly id: string;
+  readonly kod: string;
+  readonly ad: string;
+  readonly tip: string;
+  readonly ozellik: string;
+  readonly ustHesapId: string | null;
+  readonly fisKesilebilirMi: boolean;
+  readonly aktif: boolean;
+  readonly seviye: number;
+  readonly hareketSayisi: number;
+}
+
+export interface MuhasebeFisiSatiri {
+  readonly id: string;
+  readonly fisNo: string;
+  readonly tarih: string;
+  readonly fisTuru: string;
+  readonly durum: string;
+  readonly aciklama: string;
+  readonly yevmiyeSiraNo: number | null;
+  readonly kaynakTipi: string;
+  readonly satirSayisi: number;
+  /** Para METİN taşınır — JSON number float'tır (ADR-0007). */
+  readonly borcToplam: string;
+}
+
+export interface MizanSatiri {
+  readonly hesapId: string;
+  readonly kod: string;
+  readonly ad: string;
+  readonly tip: string;
+  readonly seviye: number;
+  readonly borcToplam: string;
+  readonly alacakToplam: string;
+  readonly borcBakiye: string;
+  readonly alacakBakiye: string;
+}
+
+export interface Mizan {
+  readonly baslangic: string;
+  readonly bitis: string;
+  readonly satirlar: readonly MizanSatiri[];
+  readonly borcToplam: string;
+  readonly alacakToplam: string;
+  readonly borcBakiyeToplam: string;
+  readonly alacakBakiyeToplam: string;
+  /** false ise deftere denk olmayan fiş girmiş demektir — ekran bunu gösterir. */
+  readonly denkMi: boolean;
+}
+
+export interface YevmiyeSatiri {
+  readonly fisId: string;
+  readonly fisNo: string;
+  readonly yevmiyeSiraNo: number | null;
+  readonly tarih: string;
+  readonly fisTuru: string;
+  readonly durum: string;
+  readonly fisAciklamasi: string;
+  readonly hesapKodu: string;
+  readonly hesapAdi: string;
+  readonly satirAciklamasi: string | null;
+  readonly borc: string;
+  readonly alacak: string;
+  readonly kapiNo: string | null;
+}
+
+export interface MuhasebeDonemi {
+  readonly id: string;
+  readonly maliYil: number;
+  readonly ad: string;
+  readonly baslangic: string;
+  readonly bitis: string;
+  readonly durum: string;
+  readonly acilisFisiId: string | null;
+  readonly kapanisFisiId: string | null;
+  readonly kapanisAni: string | null;
+  readonly kapanisGerekcesi: string | null;
+  readonly fisSayisi: number;
+  readonly taslakFisSayisi: number;
+  readonly numarasizFisSayisi: number;
+}
+
+export interface FisSatirGirdisi {
+  readonly hesapId: string;
+  readonly borc?: string;
+  readonly alacak?: string;
+  readonly aciklama?: string;
+  readonly bolumId?: string;
+}
+
+export interface FisGirdisi {
+  readonly tarih: string;
+  readonly aciklama: string;
+  readonly fisTuru?: string;
+  readonly satirlar: readonly FisSatirGirdisi[];
+  readonly hemenIsle?: boolean;
+}
+
+/**
+ * Muhasebe servisi.
+ *
+ * ⚠️  MOCK YOKTUR. Öteki modüllerde mock, backend hazır olmadan arayüz
+ *     geliştirmeyi sağlıyordu. Muhasebede aynı şeyi yapmak TEHLİKELİDİR:
+ *     uydurma bir mizan gerçek bir mizan gibi görünür ve karar dayanağı
+ *     sanılabilir. Bu yüzden uçlar doğrudan çağrılır ve backend kapalıysa
+ *     ekran hata gösterir.
+ */
+export const muhasebe = {
+  hesaplar: (
+    suzgec: { arama?: string; tip?: string; ozellik?: string; yalnizcaAktif?: boolean } = {},
+  ): Promise<readonly MuhasebeHesabi[]> => {
+    const p = new URLSearchParams();
+    if (suzgec.arama !== undefined) p.set('arama', suzgec.arama);
+    if (suzgec.tip !== undefined) p.set('tip', suzgec.tip);
+    if (suzgec.ozellik !== undefined) p.set('ozellik', suzgec.ozellik);
+    if (suzgec.yalnizcaAktif === true) p.set('yalnizcaAktif', 'true');
+    const s = p.toString();
+    return api(`/muhasebe/hesaplar${s === '' ? '' : `?${s}`}`, gecerliJeton());
+  },
+
+  hesapEkle: (dto: {
+    kod: string; ad: string; tip: string; ozellik?: string; ustHesapId?: string;
+  }): Promise<{ id: string }> =>
+    api('/muhasebe/hesaplar', {
+      method: 'POST', govde: dto, idempotencyKey: crypto.randomUUID(),
+      ...gecerliJeton(),
+    }),
+
+  fisler: (
+    suzgec: {
+      baslangic?: string; bitis?: string; fisTuru?: string; durum?: string;
+      arama?: string; limit?: number;
+    } = {},
+  ): Promise<readonly MuhasebeFisiSatiri[]> => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(suzgec)) {
+      if (v !== undefined) p.set(k, String(v));
+    }
+    const s = p.toString();
+    return api(`/muhasebe/fisler${s === '' ? '' : `?${s}`}`, gecerliJeton());
+  },
+
+  fisEkle: (dto: FisGirdisi): Promise<{ id: string; fisNo: string }> =>
+    api('/muhasebe/fisler', {
+      method: 'POST', govde: dto, idempotencyKey: crypto.randomUUID(),
+      ...gecerliJeton(),
+    }),
+
+  fisIsle: (id: string): Promise<{ id: string; durum: string }> =>
+    api(`/muhasebe/fisler/${id}/isle`, { method: 'PATCH', govde: {}, ...gecerliJeton() }),
+
+  fisStorno: (id: string, gerekce: string, tarih?: string): Promise<{ tersFisNo: string }> =>
+    api(`/muhasebe/fisler/${id}/storno`, {
+      method: 'POST',
+      govde: { gerekce, ...(tarih === undefined ? {} : { tarih }) },
+      idempotencyKey: crypto.randomUUID(),
+      ...gecerliJeton(),
+    }),
+
+  yevmiyeDefteri: (baslangic: string, bitis: string): Promise<readonly YevmiyeSatiri[]> =>
+    api(
+      `/muhasebe/defterler/yevmiye?baslangic=${baslangic}&bitis=${bitis}`,
+      gecerliJeton(),
+    ),
+
+  kasaDefteri: (
+    baslangic: string, bitis: string, ozellik: 'KASA' | 'BANKA' = 'KASA',
+  ): Promise<readonly unknown[]> =>
+    api(
+      `/muhasebe/defterler/kasa?baslangic=${baslangic}&bitis=${bitis}&ozellik=${ozellik}`,
+      gecerliJeton(),
+    ),
+
+  mizan: (baslangic: string, bitis: string): Promise<Mizan> =>
+    api(`/muhasebe/dokumler/mizan?baslangic=${baslangic}&bitis=${bitis}`, gecerliJeton()),
+
+  donemler: (): Promise<readonly MuhasebeDonemi[]> =>
+    api('/muhasebe/donemler', gecerliJeton()),
+
+  donemAc: (dto: {
+    maliYil: number; ad: string; baslangic: string; bitis: string;
+  }): Promise<{ id: string }> =>
+    api('/muhasebe/donemler', {
+      method: 'POST', govde: dto, idempotencyKey: crypto.randomUUID(),
+      ...gecerliJeton(),
+    }),
+
+  donemKapat: (
+    id: string, gerekce: string,
+  ): Promise<{ sonuc: string; tutar: string }> =>
+    api(`/muhasebe/donemler/${id}/kapat`, {
+      method: 'POST', govde: { gerekce }, idempotencyKey: crypto.randomUUID(),
+      ...gecerliJeton(),
+    }),
+
+  acilisFisi: (id: string): Promise<{ satirSayisi: number }> =>
+    api(`/muhasebe/donemler/${id}/acilis-fisi`, {
+      method: 'POST', govde: {}, idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+
+  yansitmaFisi: (id: string): Promise<{ satirSayisi: number }> =>
+    api(`/muhasebe/donemler/${id}/yansitma-fisi`, {
+      method: 'POST', govde: {}, idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+
+  yevmiyeNumarala: (id: string): Promise<{ numaralananFisSayisi: number }> =>
+    api(`/muhasebe/donemler/${id}/yevmiye-numarala`, {
+      method: 'POST', govde: {}, idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+};
+
+/** Oturum jetonunu istek seçeneklerine çevirir. */
+function gecerliJeton(): { token?: string } {
+  const t = jeton();
+  return t === undefined ? {} : { token: t };
+}

@@ -9,7 +9,9 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { DomainHatasi } from '@bnos/core-domain';
-import { TenantBaglamiHatasi, OnbellekPolitikaHatasi, ParaHatasi } from '@bnos/kernel';
+import {
+  TenantBaglamiHatasi, OnbellekPolitikaHatasi, ParaHatasi, SilmePolitikaHatasi,
+} from '@bnos/kernel';
 import { mevcutBaglam } from '../context/request-context';
 
 /**
@@ -100,7 +102,23 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       };
     }
 
-    if (hata instanceof OnbellekPolitikaHatasi || hata instanceof ParaHatasi) {
+    /*
+     * Kernel politika hataları → 422.
+     *
+     * ⚠️  `SilmePolitikaHatasi` BU LİSTEDE YOKTU ve eksikliği görünmüyordu:
+     *     `silmeyiDogrula` engelleyen bağımlılıkları hiç okumadığı için bu
+     *     hata pratikte hiç fırlatılmıyordu. Bağımlılık kontrolü etkinleşince
+     *     "hareket görmüş hesap arşivlenemez" 422 yerine **500** döndü —
+     *     kullanıcıya anlaşılır bir kural ihlali değil, beklenmeyen hata.
+     *
+     *     İki kusur birbirini gizliyordu: okunmayan alan, eşlenmemiş hatayı
+     *     görünmez kılmıştı.
+     */
+    if (
+      hata instanceof OnbellekPolitikaHatasi
+      || hata instanceof ParaHatasi
+      || hata instanceof SilmePolitikaHatasi
+    ) {
       return {
         ...temel,
         type: 'https://bnos.local/hatalar/is-kurali',

@@ -180,6 +180,59 @@ test('silme: ana veri gerekce ister', () => {
   assert.doesNotThrow(() => K.silmeyiDogrula(politika, 'Malik tasindi, kayit mukerrer'));
 });
 
+/*
+ * ⚠️  BU TEST BASTA YOKTU ve yoklugunda gercek bir kusur aylarca gizlendi:
+ *     `engelleyenBagimliliklar` arayuzde tanimliydi, dort modul dolduruyordu
+ *     ama `silmeyiDogrula` HIC OKUMUYORDU. "Hareket gormus hesap arsivlenemez"
+ *     korumasi sessizce etkisizdi.
+ */
+test('silme: engelleyen bagimlilik silmeyi REDDEDER', () => {
+  const engelli = {
+    varlik: 'Hesap',
+    sinif: 'ANA_VERI',
+    engelleyenBagimliliklar: [
+      { aciklama: '3 yevmiye satiri bu hesaba yazilmis.', kontrol: 'HESAP_HAREKET_VAR' },
+    ],
+  };
+  // Gerekce YETERLI OLSA BILE reddedilir: bagimlilik gerekceyle asilamaz.
+  assert.throws(
+    () => K.silmeyiDogrula(engelli, 'Gerekce yeterince uzun bir metin'),
+    /engelleyen bagimliliklar|engelleyen bağımlılıklar/,
+  );
+});
+
+test('silme: birden cok engel hepsi mesajda listelenir', () => {
+  const engelli = {
+    varlik: 'Hesap',
+    sinif: 'ANA_VERI',
+    engelleyenBagimliliklar: [
+      { aciklama: '3 yevmiye satiri var.', kontrol: 'HESAP_HAREKET_VAR' },
+      { aciklama: '2 alt hesabi var.', kontrol: 'HESAP_ALT_HESAP_VAR' },
+    ],
+  };
+  try {
+    K.silmeyiDogrula(engelli, 'Gerekce yeterince uzun bir metin');
+    assert.fail('engel varken silme kabul edildi');
+  } catch (h) {
+    // Kullanici BUTUN engelleri gormeli: teki teki cozup tekrar denemek
+    // yerine hepsini bir kerede bilmesi gerekir.
+    assert.match(h.message, /HESAP_HAREKET_VAR/);
+    assert.match(h.message, /HESAP_ALT_HESAP_VAR/);
+  }
+});
+
+// FINANSAL kayit, engel olmasa DA silinemez: sinif kontrolu bagimliliktan
+// ONCE gelir ve gerekce/engel durumundan bagimsizdir.
+test('silme: FINANSAL sinif engelden ONCE reddeder', () => {
+  assert.throws(
+    () => K.silmeyiDogrula(
+      { varlik: 'YevmiyeFisi', sinif: 'FINANSAL', engelleyenBagimliliklar: [] },
+      'Gerekce yeterince uzun bir metin',
+    ),
+    /finansal kayıttır|finansal kayittir/,
+  );
+});
+
 test('silme: kismi unique index tenant_id ve silinme_tarihi tasir', () => {
   const sql = K.kismiUniqueIndex('bagimsiz_bolum', ['blok_id', 'kapi_no']);
   assert.match(sql, /tenant_id, blok_id, kapi_no/);

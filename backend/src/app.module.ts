@@ -31,6 +31,7 @@ import { AracModule } from './modules/arac/arac.module';
 import { SayacModule } from './modules/sayac/sayac.module';
 import { StorageModule } from './common/storage/storage.module';
 import { BelgeModule } from './modules/belge/belge.module';
+import { MuhasebeModule } from './modules/muhasebe/muhasebe.module';
 import { PortfoyModule } from './modules/portfoy/portfoy.module';
 import { SitePersoneliModule } from './modules/site-personeli/site-personeli.module';
 import { DaireGorevlisiModule } from './modules/daire-gorevlisi/daire-gorevlisi.module';
@@ -75,6 +76,7 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     BelgeModule,
     // Daire görevlileri — sitede görev yapan personel. Malik/Kiracı/Sakin
     // modüllerinden AYRIDIR ve onlara dokunmaz.
+    MuhasebeModule,
     PortfoyModule,
     SitePersoneliModule,
     DaireGorevlisiModule,

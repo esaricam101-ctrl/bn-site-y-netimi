@@ -12,3 +12,7 @@ export * from './sayac/sayac.js';
 export * from './arac/arac.js';
 export * from './evcil/evcil-hayvan.js';
 export * from './belge/belge.js';
+// Muhasebe cekirdegi: cift kayit denkligi · donem kilidi · mizan · kapanis.
+// `hesap` · `yevmiye_fisi` · `yevmiye_satiri` tablolari 0001'de vardi ama
+// kural katmani yoktu; 0015 ile donem · fis turu · hesap ozelligi eklendi.
+export * from './muhasebe/muhasebe.js';

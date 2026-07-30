@@ -58,6 +58,29 @@ export function silmeyiDogrula(
       `Silme gerekçesi zorunludur ve en az 10 karakter olmalıdır.`,
     );
   }
+
+  /*
+   * ENGELLEYEN BAĞIMLILIKLAR ZORLANIR.
+   *
+   * ⚠️  Bu blok BAŞTA YOKTU: `engelleyenBagimliliklar` arayüzde tanımlıydı,
+   *     çağıranlar dolduruyordu ama fonksiyon HİÇ OKUMUYORDU. Sonuç: dört
+   *     ayrı modülde (`Belge`, `DaireGorevlisi`, `Misafir`, `Hesap`) yazılmış
+   *     "şu varsa silinemez" koruması SESSİZCE ETKİSİZDİ — hareket görmüş bir
+   *     hesap arşivlenebiliyordu ve ona yazılmış yevmiye satırları sahipsiz
+   *     kalıyordu.
+   *
+   *     Kusur canlı testte yakalandı ("hareket gormus hesap arsivlenemez"
+   *     beklenen 422 yerine 200 döndü). Arayüzde duran ama okunmayan bir alan,
+   *     çağıranı korunduğuna inandırdığı için yokluğundan daha tehlikelidir.
+   */
+  if (politika.engelleyenBagimliliklar.length > 0) {
+    const liste = politika.engelleyenBagimliliklar
+      .map((b) => `${b.aciklama} (${b.kontrol})`)
+      .join(' · ');
+    throw new SilmePolitikaHatasi(
+      `'${politika.varlik}' silinemez — engelleyen bağımlılıklar: ${liste}`,
+    );
+  }
 }
 
 /**

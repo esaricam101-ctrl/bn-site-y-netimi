@@ -77,6 +77,8 @@ model Tenant {
   giderTurleri     GiderTuru[]
   hesaplar         Hesap[]
   yevmiyeler       YevmiyeFisi[]
+  muhasebeDonemleri MuhasebeDonemi[]
+  muhasebeParametresi MuhasebeParametresi?
   borclar          Borc[]
   auditKayitlari   AuditKaydi[]
   outboxKayitlari  OutboxKayit[]
@@ -688,6 +690,111 @@ enum FisDurumu {
   TERS_KAYITLI
 }
 
+///
+/// Fiş türü (0015). Dönem kapanışı ve raporlar buna dayanır: kapanış fişi
+/// gelir tablosuna girmez, açılış fişi dönem hareketi sayılmaz.
+enum FisTuru {
+  ACILIS
+  MAHSUP
+  TAHSILAT
+  TEDIYE
+  YANSITMA
+  KAPANIS
+}
+
+///
+/// Hesabın işlevsel özelliği (0015).
+/// 
+/// Kasa Defteri ve Banka Defteri hesabın KOD'una bakılarak üretilemez: kod
+/// planı tenant'a göre değişir ('100' her tenant'ta kasa olmayabilir). Bu
+/// ayrım VERİ olarak taşınır (§33 kural 3: politika koda gömülmez).
+enum HesapOzelligi {
+  NORMAL
+  KASA
+  BANKA
+  YANSITMA
+}
+
+enum DonemDurumu {
+  ACIK
+  KAPANIS_SURECI
+  KAPALI
+}
+
+///
+/// Muhasebe dönemi — mali yıl.
+/// 
+/// ⚠️  KAPALI DÖNEME FİŞ YAZILAMAZ. Muhasebenin en temel korumasıdır: kapanmış
+///     bir mali yılın kaydı değişirse yayımlanmış bilanço ile defter tutmaz ve
+///     denetim izi kopar. Düzeltme, kapalı döneme kayıt atarak DEĞİL açık
+///     dönemde ters kayıt (storno) ile yapılır.
+model MuhasebeDonemi {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  /// Mali yıl. Türkiye'de takvim yılıyla aynıdır ama alan olarak tutulur:
+  /// özel hesap dönemi (VUK md. 174) uygulayan tenant'ta farklı olabilir.
+  maliYil   Int      @map("mali_yil")
+  ad        String   @db.VarChar(60)
+  baslangic DateTime @db.Date
+  bitis     DateTime @db.Date
+  durum     DonemDurumu @default(ACIK)
+
+  /// Dönemin açılış ve kapanış fişleri. Kapanışta üretilir ve bir daha
+  /// değişmez; hangi fişin dönemi kapattığı sorulduğunda cevap budur.
+  acilisFisiId  String? @map("acilis_fisi_id") @db.Uuid
+  kapanisFisiId String? @map("kapanis_fisi_id") @db.Uuid
+
+  kapanisAni       DateTime? @map("kapanis_ani") @db.Timestamptz(6)
+  kapatanKullanici String?   @map("kapatan_kullanici") @db.Uuid
+  kapanisGerekcesi String?   @map("kapanis_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  fisler  YevmiyeFisi[]
+
+  @@index([tenantId, durum])
+  @@map("muhasebe_donemi")
+}
+
+///
+/// Muhasebe parametreleri — tenant başına TEK satır.
+/// 
+/// Ayarların koda gömülmesi, iki tenant'ın farklı kasa hesabı kullanmasını
+/// imkânsız kılardı (§33 kural 3).
+model MuhasebeParametresi {
+  tenantId String @id @map("tenant_id") @db.Uuid
+
+  /// Varsayılan hesaplar. Boş bırakılabilir: kurulum tamamlanmadan tahsilat
+  /// fişi kesilmesi engellenmeli ama parametre kaydı yine açılabilmeli.
+  varsayilanKasaHesapId  String? @map("varsayilan_kasa_hesap_id") @db.Uuid
+  varsayilanBankaHesapId String? @map("varsayilan_banka_hesap_id") @db.Uuid
+  /// Dönem kapanışında kâr/zararın aktarıldığı özkaynak hesabı.
+  donemKariHesapId       String? @map("donem_kari_hesap_id") @db.Uuid
+
+  /// Yevmiye defteri yeniden numaralandırılırken kullanılan başlangıç.
+  yevmiyeBaslangicNo Int @default(1) @map("yevmiye_baslangic_no")
+
+  /// TASLAK fiş deftere GİRMEZ. Varsayılan `false`: işlenmemiş bir kayıt mali
+  /// tabloya giremez.
+  taslakMizanaGirer Boolean @default(false) @map("taslak_mizana_girer")
+
+  /// Geriye dönük kayıt penceresi (gün). 0 = sınırsız. Kapalı dönem yasağı
+  /// bundan BAĞIMSIZDIR ve her zaman geçerlidir.
+  geriyeDonukGun Int @default(0) @map("geriye_donuk_gun")
+
+  guncellemeTarihi DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant             Tenant  @relation(fields: [tenantId], references: [id])
+  varsayilanKasa     Hesap?  @relation("ParamKasa", fields: [varsayilanKasaHesapId], references: [id], onDelete: Restrict)
+  varsayilanBanka    Hesap?  @relation("ParamBanka", fields: [varsayilanBankaHesapId], references: [id], onDelete: Restrict)
+  donemKariHesabi    Hesap?  @relation("ParamDonemKari", fields: [donemKariHesapId], references: [id], onDelete: Restrict)
+
+  @@map("muhasebe_parametresi")
+}
+
 model Hesap {
   id        String    @id @db.Uuid
   tenantId  String    @map("tenant_id") @db.Uuid
@@ -697,6 +804,8 @@ model Hesap {
   ustHesapId String?  @map("ust_hesap_id") @db.Uuid
   fisKesilebilirMi Boolean @default(true) @map("fis_kesilebilir_mi")
   aktif     Boolean   @default(true)
+  /// İşlevsel özellik (0015) — Kasa/Banka Defteri buna dayanır, koda değil.
+  ozellik   HesapOzelligi @default(NORMAL)
 
   silindiMi      Boolean   @default(false) @map("silindi_mi")
   silinmeTarihi  DateTime? @map("silinme_tarihi") @db.Timestamptz(6)
@@ -710,7 +819,12 @@ model Hesap {
   altHesaplar Hesap[]      @relation("HesapAgaci")
   satirlar  YevmiyeSatiri[]
 
+  paramKasa      MuhasebeParametresi[] @relation("ParamKasa")
+  paramBanka     MuhasebeParametresi[] @relation("ParamBanka")
+  paramDonemKari MuhasebeParametresi[] @relation("ParamDonemKari")
+
   @@index([tenantId, kod])
+  @@index([tenantId, ozellik])
   @@map("hesap")
 }
 
@@ -727,14 +841,30 @@ model YevmiyeFisi {
   /// Ters kayıt (storno) referansı — silme YOKTUR (BFS v1 §5.1).
   tersKaydiOlanId String? @map("ters_kaydi_olan_id") @db.Uuid
 
+  /// --- 0015 ---
+  fisTuru FisTuru @default(MAHSUP) @map("fis_turu")
+  donemId String? @map("donem_id") @db.Uuid
+
+  /// ⚠️  FİŞ NO ile YEVMİYE SIRA NO AYNI ŞEY DEĞİLDİR:
+  ///   · `fisNo`         — kayıt anında verilen, boşluksuz seri.
+  ///   · `yevmiyeSiraNo` — yevmiye defterine BASILDIĞINDA verilen sıra; dönem
+  ///                       içinde TARİH SIRASINA göre yeniden numaralandırılır
+  ///                       (VUK md. 183).
+  /// Tek alanda tutulsaydı yeniden numaralandırma kayıt kimliğini de değiştirir
+  /// ve makbuz üzerindeki numara ile defter tutmaz hale gelirdi.
+  yevmiyeSiraNo Int? @map("yevmiye_sira_no")
+
   islenmeAni   DateTime? @map("islenme_ani") @db.Timestamptz(6)
   isleyenKisi  String?   @map("isleyen_kisi") @db.Uuid
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
 
   tenant   Tenant          @relation(fields: [tenantId], references: [id])
   satirlar YevmiyeSatiri[]
+  donem    MuhasebeDonemi? @relation(fields: [donemId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, tarih])
+  @@index([tenantId, donemId])
+  @@index([tenantId, fisTuru])
   @@map("yevmiye_fisi")
 }
 

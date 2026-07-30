@@ -36,6 +36,7 @@ const MENU: readonly MenuOgesi[] = [
   { yol: '/daire-gorevlileri', anahtar: 'daireGorevlileri', simge: '◎' },
   { yol: '/misafirler', anahtar: 'misafirler', simge: '◐' },
   { yol: '/gider-turleri', anahtar: 'giderTurleri', simge: '₺' },
+  { yol: '/muhasebe', anahtar: 'muhasebe', simge: '▩' },
   { yol: '/belgeler', anahtar: 'belgeler', simge: '▧' },
 ];
 
