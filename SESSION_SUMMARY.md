@@ -37,7 +37,9 @@ tip denetiminden geçiyordu.
 | `ed68721` | **Makbuzlar** (tahsilat uçları + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
 | `2094903` | **İletişim çekirdeği** (0019/0020) — WhatsApp · SMS · e-posta TEK modülde |
 | `ded0cc3` | **Sakin dayanak kuralı** (0021) — sakin artık malike ya da kiracıya bağlı |
-| _bu commit_ | **Dayanağı biten sakine otomatik çıkış** — malik devri · kiracı tahliyesi + **bozuk kimlik artık 500 değil 404** |
+| `cdbe92d` | **Dayanağı biten sakine otomatik çıkış** — malik devri · kiracı tahliyesi + **bozuk kimlik artık 500 değil 404** |
+| `90d085b` | **Altyapı ve ölçeklenebilirlik denetimi** — salt okunur, kod değişmedi (§3.F) |
+| _bu commit_ | **Oturum kapanışı** — devredilen iki düzeltme kayda geçti (§3.G) |
 
 ### Bu commit'te yapılan — dayanağı sona eren sakine otomatik çıkış
 
@@ -1120,6 +1122,55 @@ gönderilmiyor**.
 performans bütçesi bulunmuyor. Rakamlar kod yapısından yapılan mühendislik
 tahminidir ve gerçek ölçümle değiştirilmelidir.
 
+### G. Sonraki oturuma DEVREDİLEN iki düzeltme — ürün sahibi kararı
+
+30-31 Temmuz 2026 oturumu kapatılırken ürün sahibi, denetimde çıkan iki küçük
+ama **üretime çıkışı doğrudan engelleyen** düzeltmenin sonraki oturumda ele
+alınmasına karar verdi. Bu bir erteleme kararıdır, bulgunun geçersizliği
+DEĞİLDİR: ikisi de bugün ayakta duran bir engeldir.
+
+**1. Konteyner giriş noktası yanlış — imaj açılışta düşer.**
+
+| Yer | Yazan | Olması gereken |
+|---|---|---|
+| `backend/package.json:9` | `node dist/main.js` | `node dist/src/main.js` |
+| `infrastructure/docker/Dockerfile.backend` (CMD) | `node backend/dist/main.js` | `node backend/dist/src/main.js` |
+
+Sebep: `backend/tsconfig.json` `include: ["src/**/*", "test/**/*"]` olduğu için
+tsc rootDir'i `backend/` seçiyor ve çıktı `dist/src/` altına düşüyor. İki yol da
+`MODULE_NOT_FOUND` verir. **İmajın bir kez bile çalıştırılmadığının kanıtıdır.**
+
+İki çözüm var, biri seçilmeli:
+- Yolları düzeltmek (en küçük değişiklik), ya da
+- `tsconfig`'te testleri `include` dışına alıp çıktıyı `dist/` köküne düzleştirmek
+  (o zaman `vitest` yolları gözden geçirilmeli).
+
+⚠️  Hangisi seçilirse **CI'a bir duman testi bağlanmalı**: imaj build edilip
+`--help` ya da sağlık ucuyla bir kez açılmalı. Bu hata tam olarak "hiç
+çalıştırılmadığı için" fark edilmedi; aynı boşluk bırakılırsa tekrar eder.
+
+**2. Rate limiting yok — giriş ucu ucuz bir bellek tükenmesi vektörü.**
+
+`@nestjs/throttler` benzeri bir sınır **hiç yok** (depoda 0 sonuç). Giriş ucu
+her denemede scrypt çalıştırıyor — kullanıcı bulunamasa bile, çünkü zamanlama
+sızıntısını önlemek için `KUKLA_OZET` ile doğrulama yapılıyor
+(`oturum.service.ts:95`, doğru bir tasarım).
+
+Maliyet: `N=131_072, r=8` → scrypt çalışma belleği `128 × N × r` ≈ **134 MB**;
+`sifre.ts:37`'deki `maxmem` tavanı bunun **iki katını** (≈268 MB) veriyor.
+Sınırsız istek × 134 MB = tek IP'den önemsiz maliyetle süreç düşürülebilir.
+
+⚠️  **scrypt parametreleri DÜŞÜRÜLEREK çözülmemeli** — `N=2^17` OWASP 2024
+asgarisidir ve bilinçli seçilmiştir (`sifre.ts:28`). Çözüm sınırlamadır, maliyeti
+azaltmak değil. En az `/oturum/giris` ve `/oturum/yenile` sınırlanmalı; IP başına
+ve e-posta başına ayrı sayaç gerekir (yalnızca IP, NAT arkasındaki bir siteyi
+toptan kilitler).
+
+**Devredilmeyen ama açık kalan:** §3.F'deki P0-1 (`yalnizcaKendiVerisi`
+uygulanmıyor — KVKK açığı) bu iki maddenin **dışındadır** ve hâlâ açıktır.
+Denetimdeki en ağır bulgu odur; küçük bir düzeltme olmadığı için bu ikisiyle
+birlikte gruplanmadı. Önceliklendirmesi ürün sahibine aittir.
+
 ---
 
 ## 4. Sonraki oturum — ilk komut ve ilk görev
@@ -1133,6 +1184,23 @@ Beklenen: `14 migrations found` · `Database schema is up to date` ·
 
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
+
+### İLK GÖREV — devredilen iki düzeltme (ürün sahibi kararı)
+
+Ekran üretimine geçmeden önce **§3.G**'deki iki madde kapatılacak:
+
+1. **Konteyner giriş noktası** — `backend/package.json:9` ve
+   `Dockerfile.backend` CMD'si `dist/src/main.js`'i göstermeli.
+   Yanına **imaj duman testi** (build + bir kez açılış) CI'a bağlanmalı;
+   bu hata "hiç çalıştırılmadığı için" fark edilmedi.
+2. **Rate limiting** — en az `/oturum/giris` ve `/oturum/yenile`.
+   IP başına **ve** e-posta başına ayrı sayaç (yalnız IP, NAT arkasındaki bir
+   siteyi toptan kilitler). **scrypt parametreleri düşürülmeyecek** —
+   `N=2^17` OWASP asgarisi ve bilinçli seçim.
+
+Doğrulama ölçütü: `docker compose --profile uygulama up -d backend` ile
+konteyner **ayağa kalkmalı** ve `/api/v1/saglik` 200 dönmeli; giriş ucuna
+art arda istek 429 almalı.
 
 ### Muhasebe/Banka talebinin EKSİK KALAN bölümleri
 
