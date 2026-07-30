@@ -1719,3 +1719,147 @@ export function mockMisafirCikis(id: string, tarih: string): void {
   }
   liste[i] = { ...mevcut, cikisTarihi: tarih, icerideMi: false };
 }
+
+// ===========================================================================
+// PORTFÖY YÖNETİM MERKEZİ — mock (ADR-0009)
+//
+// Gerçek uçla (`PortfoyOzeti`) aynı şekil. `acikIsEmri` ve `bekleyenTalep`
+// **-1** döner: bu modüller henüz yok ve uydurma sayı üretilmez (BFS: sahte
+// veri yasağı). Arayüz -1'i "Hazır değil" olarak gösterir.
+// ===========================================================================
+
+export interface MockPortfoyProjesi {
+  readonly tenantId: string;
+  readonly kod: string;
+  readonly ad: string;
+  readonly tip: string;
+  readonly durum: string;
+  readonly devirDayanagi: string;
+  readonly devirBaslangic: string;
+  readonly devirBitis: string | null;
+  readonly apartmanSayisi: number;
+  readonly bagimsizBolumSayisi: number;
+  readonly malikSayisi: number;
+  readonly kiraciSayisi: number;
+  readonly sakinSayisi: number;
+  readonly personelSayisi: number;
+  readonly daireGorevlisiSayisi: number;
+  readonly icerideMisafirSayisi: number;
+  readonly ozetHatasi: string | null;
+}
+
+export interface MockPortfoyOzeti {
+  readonly yonetimTenantId: string;
+  readonly yonetimAdi: string;
+  readonly projeSayisi: number;
+  readonly siteSayisi: number;
+  readonly apartmanSayisi: number;
+  readonly toplamApartmanBinasi: number;
+  readonly toplamBagimsizBolum: number;
+  readonly toplamMalik: number;
+  readonly toplamKiraci: number;
+  readonly toplamSakin: number;
+  readonly toplamPersonel: number;
+  readonly toplamDaireGorevlisi: number;
+  readonly icerideMisafir: number;
+  readonly acikIsEmri: number;
+  readonly bekleyenTalep: number;
+  readonly tahsilatDurumu: {
+    readonly tahakkuk: string;
+    readonly tahsil: string;
+    readonly kalan: string;
+    readonly oranBinde: number | null;
+  };
+  readonly kritikUyarilar: readonly {
+    readonly projeTenantId: string;
+    readonly projeAdi: string;
+    readonly siddet: 'KRITIK' | 'UYARI';
+    readonly konu: string;
+    readonly mesaj: string;
+  }[];
+  readonly aiOnerileri: readonly string[];
+  readonly projeler: readonly MockPortfoyProjesi[];
+  readonly okunamayanProjeSayisi: number;
+}
+
+const mockProjeler: readonly MockPortfoyProjesi[] = [
+  {
+    tenantId: 'tenant-guzel', kod: 'guzel-apartmani', ad: 'Güzel Apartmanı',
+    tip: 'APARTMAN', durum: 'AKTIF',
+    devirDayanagi: 'Yönetim sözleşmesi 2026/01',
+    devirBaslangic: '2026-01-01', devirBitis: null,
+    apartmanSayisi: 1, bagimsizBolumSayisi: 4, malikSayisi: 4,
+    kiraciSayisi: 2, sakinSayisi: 5, personelSayisi: 3,
+    daireGorevlisiSayisi: 2, icerideMisafirSayisi: 1, ozetHatasi: null,
+  },
+  {
+    tenantId: 'tenant-yesil', kod: 'yesil-vadi-apartmani', ad: 'Yeşil Vadi Apartmanı',
+    tip: 'APARTMAN', durum: 'AKTIF',
+    devirDayanagi: 'Yönetim sözleşmesi 2026/02',
+    devirBaslangic: '2026-01-01', devirBitis: null,
+    apartmanSayisi: 1, bagimsizBolumSayisi: 2, malikSayisi: 2,
+    kiraciSayisi: 1, sakinSayisi: 3, personelSayisi: 1,
+    daireGorevlisiSayisi: 0, icerideMisafirSayisi: 0, ozetHatasi: null,
+  },
+  {
+    tenantId: 'tenant-kuzey', kod: 'kuzey-sitesi', ad: 'Kuzey Sitesi',
+    tip: 'SITE', durum: 'KURULUM',
+    devirDayanagi: '2026/7 sayılı genel kurul kararı',
+    devirBaslangic: '2026-07-01', devirBitis: null,
+    apartmanSayisi: 3, bagimsizBolumSayisi: 0, malikSayisi: 0,
+    kiraciSayisi: 0, sakinSayisi: 0, personelSayisi: 0,
+    daireGorevlisiSayisi: 0, icerideMisafirSayisi: 0, ozetHatasi: null,
+  },
+];
+
+export function mockPortfoyOzeti(): MockPortfoyOzeti {
+  const t = (al: (p: MockPortfoyProjesi) => number): number =>
+    mockProjeler.reduce((toplam, p) => toplam + al(p), 0);
+
+  return {
+    yonetimTenantId: 'tenant-bn-yonetim',
+    yonetimAdi: 'BN Yönetim A.Ş.',
+    projeSayisi: mockProjeler.length,
+    siteSayisi: mockProjeler.filter((p) => p.tip === 'SITE').length,
+    apartmanSayisi: mockProjeler.filter((p) => p.tip === 'APARTMAN').length,
+    toplamApartmanBinasi: t((p) => p.apartmanSayisi),
+    toplamBagimsizBolum: t((p) => p.bagimsizBolumSayisi),
+    toplamMalik: t((p) => p.malikSayisi),
+    toplamKiraci: t((p) => p.kiraciSayisi),
+    toplamSakin: t((p) => p.sakinSayisi),
+    toplamPersonel: t((p) => p.personelSayisi),
+    toplamDaireGorevlisi: t((p) => p.daireGorevlisiSayisi),
+    icerideMisafir: t((p) => p.icerideMisafirSayisi),
+    // Modülleri yok — uydurma sayı üretilmez.
+    acikIsEmri: -1,
+    bekleyenTalep: -1,
+    tahsilatDurumu: {
+      tahakkuk: '184500.00', tahsil: '156200.00', kalan: '28300.00',
+      oranBinde: 846,
+    },
+    kritikUyarilar: [
+      {
+        projeTenantId: 'tenant-kuzey', projeAdi: 'Kuzey Sitesi',
+        siddet: 'UYARI', konu: 'Kurulum tamamlanmadı',
+        mesaj: 'Kuzey Sitesi hâlâ KURULUM durumunda; iş işlemi yapılamaz.',
+      },
+      {
+        projeTenantId: 'tenant-kuzey', projeAdi: 'Kuzey Sitesi',
+        siddet: 'UYARI', konu: 'Bağımsız bölüm yok',
+        mesaj: 'Kuzey Sitesi projesinde hiç bağımsız bölüm tanımlı değil; tahakkuk yapılamaz.',
+      },
+      {
+        projeTenantId: 'tenant-guzel', projeAdi: 'Güzel Apartmanı',
+        siddet: 'KRITIK', konu: 'Sertifika süresi doldu',
+        mesaj: 'Güzel Apartmanı: 1 personelin sertifikası süresi dolmuş — süresi ' +
+          'geçmiş belgeyle çalıştırmak idari yaptırım sebebidir.',
+      },
+    ],
+    aiOnerileri: [
+      '1 kritik uyarı var; en riskli projelerden başlanması önerilir.',
+      '1 proje hâlâ KURULUM durumunda; aktifleştirilmeden tahakkuk yapılamaz.',
+    ],
+    projeler: mockProjeler,
+    okunamayanProjeSayisi: 0,
+  };
+}

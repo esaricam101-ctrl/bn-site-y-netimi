@@ -83,7 +83,67 @@ model Tenant {
   numaraSayaclari  NumaraSayaci[]
   isCalistirmalari IsCalistirma[]
 
+  /// Bu tenant bir YÖNETİM FİRMASI ise: yönettiği projeler (ADR-0009).
+  yonettigiProjeler YonetimDelegasyonu[] @relation("DevirAlan")
+  /// Bu tenant bir PROJE ise: yönetimini devrettiği firma kaydı.
+  devirKayitlari    YonetimDelegasyonu[] @relation("DevirVeren")
+
   @@map("tenant")
+}
+
+/// Devrin durumu. Sona ermiş devir SİLİNMEZ — hangi firmanın hangi tarihte
+/// yetkili olduğu, geçmişe dönük her tahakkukun dayanağıdır.
+enum DevirDurumu {
+  AKTIF
+  SONA_ERDI
+  IPTAL
+}
+
+/// Yönetim devri — PORTFÖY YÖNETİM MERKEZİ'nin veri temeli (ADR-0009).
+///
+/// Yönetim firması bir tenant'tır; proje de bir tenant'tır (ADR-0008).
+/// Aralarındaki bağ bu AÇIK DEVİR kaydıdır.
+///
+/// ⚠️  ÇAPRAZ-TENANT SORGUYA KAPI AÇMAZ. ADR-0002 portföy görünümünün
+///     "RLS gevşetilerek çözülmeyeceğini" ve çözüm yolunun tam olarak bu devir
+///     ilişkisi olduğunu şimdiden yazmıştı. Portföy özeti PROJE BAŞINA ayrı
+///     sorgu + uygulama katmanında toplamadır; bedeli ADR-0002'de kabul edildi.
+///
+/// ⚠️  RLS politikası İKİ TARAFLIDIR (`yonetim_tenant_id = app_tenant_id() OR
+///     proje_tenant_id = app_tenant_id()`): satırın iki tenant'ı vardır ve
+///     ikisi de kendi tarafını görmek zorundadır. Açığa çıkan tek şey devir
+///     olgusudur, projenin verisi değil.
+model YonetimDelegasyonu {
+  id String @id @db.Uuid
+
+  /// Yönetimi DEVRALAN firma tenant'ı (tip = YONETIM_SIRKETI).
+  yonetimTenantId String @map("yonetim_tenant_id") @db.Uuid
+  /// Yönetimi DEVREDEN proje tenant'ı (tip = APARTMAN | SITE).
+  projeTenantId   String @map("proje_tenant_id") @db.Uuid
+
+  durum DevirDurumu @default(AKTIF)
+
+  /// Devrin dayanağı: yönetim sözleşmesi no, genel kurul kararı vb. ZORUNLU —
+  /// dayanağı olmayan devir, hangi kararla verildiği sorulduğunda cevapsız
+  /// kalır (KMK md. 34 · yönetici seçimi).
+  dayanak String @db.VarChar(200)
+
+  baslangic DateTime  @db.Date
+  /// Boşsa devir SÜRESİZDİR.
+  bitis     DateTime? @db.Date
+
+  verenKullanici        String? @map("veren_kullanici") @db.Uuid
+  sonaErdirmeGerekcesi  String? @map("sona_erdirme_gerekcesi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  yonetimTenant Tenant @relation("DevirAlan", fields: [yonetimTenantId], references: [id], onDelete: Restrict)
+  projeTenant   Tenant @relation("DevirVeren", fields: [projeTenantId], references: [id], onDelete: Restrict)
+
+  @@index([yonetimTenantId, durum])
+  @@index([projeTenantId, durum])
+  @@map("yonetim_delegasyonu")
 }
 
 // ===========================================================================

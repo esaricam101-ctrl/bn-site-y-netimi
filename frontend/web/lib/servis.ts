@@ -17,6 +17,7 @@ import {
   mockGiderTuruEkle, mockGiderTuruGuncelle, mockGiderTurleriniOku, mockGiderTuruSil,
   mockPersonelAyril, mockPersonelEkle, mockPersonelleriOku,
   type MockPersonelGirdisi, type MockSitePersoneli,
+  mockPortfoyOzeti,
   mockDaireGorevlileriniOku, mockDaireGorevlisiAyril, mockDaireGorevlisiEkle,
   mockMisafirCikis, mockMisafirEkle, mockMisafirleriOku,
   type MockDaireGorevlisi, type MockMisafir,
@@ -121,6 +122,79 @@ export interface ApartmanGirdisi {
   readonly adres?: string;
   /** Site içindeki kısa kod. Site dışı tenant'ta boş bırakılır. */
   readonly siteIciKod?: string;
+}
+
+/* ---------------------- Portföy Yönetim Merkezi (ADR-0009) ---------------- */
+
+/** Kontrol merkezinde bir projenin satırı. */
+export interface PortfoyProjesi {
+  readonly tenantId: string;
+  readonly kod: string;
+  readonly ad: string;
+  /** APARTMAN | SITE — site/apartman sayımı buna dayanır. */
+  readonly tip: string;
+  readonly durum: string;
+  readonly devirDayanagi: string;
+  readonly devirBaslangic: string;
+  readonly devirBitis: string | null;
+  readonly apartmanSayisi: number;
+  readonly bagimsizBolumSayisi: number;
+  readonly malikSayisi: number;
+  readonly kiraciSayisi: number;
+  readonly sakinSayisi: number;
+  readonly personelSayisi: number;
+  readonly daireGorevlisiSayisi: number;
+  readonly icerideMisafirSayisi: number;
+  /** Özeti okunamadıysa doludur; satır YİNE gösterilir (kısmî veri). */
+  readonly ozetHatasi: string | null;
+}
+
+export interface PortfoyTahsilat {
+  /** Para METİN taşınır (ADR-0007): JSON number float'tır. */
+  readonly tahakkuk: string;
+  readonly tahsil: string;
+  readonly kalan: string;
+  /** BİNDE tam sayı (`847` = %84,7). */
+  readonly oranBinde: number | null;
+}
+
+export interface PortfoyUyarisi {
+  readonly projeTenantId: string;
+  readonly projeAdi: string;
+  readonly siddet: 'KRITIK' | 'UYARI';
+  readonly konu: string;
+  readonly mesaj: string;
+}
+
+export interface PortfoyOzeti {
+  readonly yonetimTenantId: string;
+  readonly yonetimAdi: string;
+  readonly projeSayisi: number;
+  readonly siteSayisi: number;
+  readonly apartmanSayisi: number;
+  readonly toplamApartmanBinasi: number;
+  readonly toplamBagimsizBolum: number;
+  readonly toplamMalik: number;
+  readonly toplamKiraci: number;
+  readonly toplamSakin: number;
+  readonly toplamPersonel: number;
+  readonly toplamDaireGorevlisi: number;
+  readonly icerideMisafir: number;
+  /** **-1** = modül henüz yok; uydurma sayı üretilmez, arayüz "Hazır değil" gösterir. */
+  readonly acikIsEmri: number;
+  readonly bekleyenTalep: number;
+  readonly tahsilatDurumu: PortfoyTahsilat;
+  readonly kritikUyarilar: readonly PortfoyUyarisi[];
+  readonly aiOnerileri: readonly string[];
+  readonly projeler: readonly PortfoyProjesi[];
+  readonly okunamayanProjeSayisi: number;
+}
+
+export interface ProjeGirisSonucu {
+  readonly accessToken: string;
+  readonly projeTenantId: string;
+  readonly projeAdi: string;
+  readonly devirDayanagi: string;
 }
 
 /** Kişi bilgileriyle birlikte girilen araç plakası. */
@@ -369,6 +443,65 @@ export const servis = {
       { blokId, ...(katId === null ? {} : { katId }), kat, bolumler },
       () => { mockBolumTopluOlustur(blokId, katId, kat, bolumler); },
     ),
+
+  // --- Portföy Yönetim Merkezi (ADR-0009) ---
+  //
+  // Yönetim firması giriş yaptığında ilk açılan ekranın verisi. Özet, PROJE
+  // BAŞINA ayrı sorgu + uygulama katmanında toplamadır; çapraz-tenant sorgu
+  // yoktur (ADR-0002'nin kabul ettiği bedel).
+
+  portfoyOzeti: (): Promise<PortfoyOzeti> =>
+    getir('/portfoy/ozet', mockPortfoyOzeti()),
+
+  /**
+   * Projeye giriş — proje kapsamlı jeton alır ve OTURUMA YAZAR.
+   *
+   * Jeton `tid = proje` ve `dvr = firma` taşır; sonraki bütün istekler o
+   * projenin bağlamında koşar. Firma jetonu `bnos.portfoyToken` altında
+   * saklanır: portföye dönerken yeniden giriş yapmak gerekmemelidir.
+   */
+  projeyeGir: async (projeTenantId: string): Promise<ProjeGirisSonucu> => {
+    if (MOCK_AKTIF) {
+      const proje = mockPortfoyOzeti().projeler.find((p) => p.tenantId === projeTenantId);
+      if (!proje) throw new Error(`Proje bulunamadı: ${projeTenantId}`);
+      return gecikmeli({
+        accessToken: 'mock-proje-jetonu',
+        projeTenantId,
+        projeAdi: proje.ad,
+        devirDayanagi: proje.devirDayanagi,
+      });
+    }
+    const token = jeton();
+    const sonuc = await api<ProjeGirisSonucu>(
+      `/portfoy/projeler/${projeTenantId}/gir`,
+      {
+        method: 'POST',
+        govde: {},
+        ...(token ? { token } : {}),
+        idempotencyKey: crypto.randomUUID(),
+      },
+    );
+    if (typeof window !== 'undefined') {
+      // Firma jetonu KORUNUR; proje jetonu onun yerine geçer. Kaybedilirse
+      // kullanıcı portföye dönmek için yeniden giriş yapmak zorunda kalır.
+      const firmaJetonu = sessionStorage.getItem('bnos.token');
+      if (firmaJetonu !== null && sessionStorage.getItem('bnos.portfoyToken') === null) {
+        sessionStorage.setItem('bnos.portfoyToken', firmaJetonu);
+      }
+      sessionStorage.setItem('bnos.token', sonuc.accessToken);
+      sessionStorage.setItem('bnos.projeAdi', sonuc.projeAdi);
+    }
+    return sonuc;
+  },
+
+  /** Portföye dön — firma jetonuna geri geçilir. */
+  portfoyeDon: (): void => {
+    if (typeof window === 'undefined') return;
+    const firmaJetonu = sessionStorage.getItem('bnos.portfoyToken');
+    if (firmaJetonu !== null) sessionStorage.setItem('bnos.token', firmaJetonu);
+    sessionStorage.removeItem('bnos.portfoyToken');
+    sessionStorage.removeItem('bnos.projeAdi');
+  },
 
   // --- Site personeli (işveren YÖNETİM) ---
   //

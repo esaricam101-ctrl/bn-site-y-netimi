@@ -1,7 +1,16 @@
 /**
- * Tenant — ADR-0002 · BFS v1 §2
+ * Tenant — ADR-0002 · ADR-0008 · ADR-0009 · BFS v1 §2
  *
- * Her tenant bir apartmandir. portfolio/group/site kapsami bu modulde uygulanmaz.
+ * TENANT = YONETILEN YERLESKE ya da YONETIM FIRMASI:
+ *   APARTMAN | SITE      -> bir PROJE (ADR-0008). Ic hiyerarsi:
+ *                           Apartman -> Blok -> Kat -> BagimsizBolum.
+ *   YONETIM_SIRKETI      -> birden cok projeyi yoneten firma (ADR-0009).
+ *
+ * ⚠️  CAPRAZ-TENANT SORGU YOKTUR. Firma ile proje arasindaki bag bir
+ *     `YonetimDelegasyonu` (acik devir) kaydidir; portfoy ozeti PROJE BASINA
+ *     ayri sorgu + uygulama katmaninda toplamadir. ADR-0002 bunu
+ *     "RLS gevsetilerek cozulmeyecektir" diye yazmisti ve cozum yolu olarak
+ *     tam olarak bu devir iliskisini gostermisti.
  */
 import type { TenantId } from '@bnos/kernel';
 import { DogrulamaHatasi } from '../errors/domain-error.js';
@@ -36,12 +45,9 @@ export class Tenant {
     if (o.ad.trim().length < 3) {
       throw new DogrulamaHatasi('Tenant adi en az 3 karakter olmalidir.');
     }
-    if (o.tip !== 'APARTMAN') {
-      throw new DogrulamaHatasi(
-        `v1 kapsaminda yalnizca APARTMAN tenant tipi desteklenir (ADR v1.1 §11). Verilen: ${o.tip}`,
-        'Site ve Yonetim Sirketi dikeyleri sonraki surumlerde eklenecektir.',
-      );
-    }
+    // Uc tip de gecerlidir (ADR-0008 SITE'yi, ADR-0009 YONETIM_SIRKETI'ni
+    // kapsama aldi). Eski `tip !== 'APARTMAN'` reddi "v1 kapsaminda" diye
+    // yazilmis GECICI bir kisitti; ikisi de o notu acikca kaldirdi.
     return new Tenant(o);
   }
 

@@ -47,7 +47,12 @@ export const ROLLER: readonly RolTanimi[] = [
     ],
   },
   {
-    kod: 'YONETIM_SIRKETI', ad: 'Yönetim Şirketi', varsayilanPanel: '/yonetim',
+    kod: 'YONETIM_SIRKETI', ad: 'Yönetim Şirketi',
+    // PORTFÖY YÖNETİM MERKEZİ (ADR-0009). Yönetim firması giriş yaptığında
+    // DOĞRUDAN BİR PROJEYE YÖNLENDİRİLMEZ: hangi projeye düşeceği belirsizdir
+    // ve tek projeye düşmek, firmanın öteki projelerini görünmez kılar.
+    // İlk ekran kontrol merkezidir; proje oradan seçilir.
+    varsayilanPanel: '/portfoy',
     yalnizcaKendiVerisi: false,
     izinler: [
       // TENANT_KURULUM buraya taşındı: yeni yerleşkeyi sisteme açan taraf

@@ -62,4 +62,50 @@ export class TenantOkuyucu {
     await this.onbellek.yaz(anahtar, bilgi, 300);
     return bilgi;
   }
+
+  /**
+   * DEVREDİLMİŞ PROJE ERİŞİMİ — Kapı 2'nin ikinci yolu (ADR-0009).
+   *
+   * Yönetim firmasının kullanıcısı, yönettiği projede AYRI BİR `kullanici`
+   * kaydına sahip DEĞİLDİR (kimliği çoğaltmak, KVKK silme talebinde kişinin
+   * kaç tenant'a yayıldığını takip edilemez kılardı). Erişim, firma tenant'ı
+   * ile proje tenant'ı arasındaki **aktif devir** kaydından gelir.
+   *
+   * ⚠️  BU TEK KARAR NOKTASIDIR. İki yere kopyalanırsa biri güncellenmeyi
+   *     unutur ve firma, devri sona ermiş bir projeyi okumaya devam eder —
+   *     sessiz bir yetki aşımı.
+   *
+   * ⚠️  ÖNBELLEKLENMEZ. Üyelik 5 dk önbelleklenebilir çünkü değişimi
+   *     nadirdir ve etkisi sınırlıdır; devrin sona ermesi bir YETKİ
+   *     KALDIRMADIR ve 5 dakika boyunca geçerli görünmesi kabul edilemez.
+   *
+   * Sorgu, devir tablosunun İKİ TARAFLI politikası altında koşar: bağlam
+   * firma tenant'ıyla kurulur, satır `yonetim_tenant_id` tarafından görünür.
+   */
+  async devirGecerliMi(
+    yonetimTenantId: TenantId,
+    projeTenantId: string,
+    gun: string,
+  ): Promise<{ readonly dayanak: string; readonly saatDilimi: string } | null> {
+    const kayit = await this.prisma.tenantIslemi(
+      (tx) =>
+        tx.yonetimDelegasyonu.findFirst({
+          where: {
+            yonetimTenantId,
+            projeTenantId,
+            durum: 'AKTIF',
+            baslangic: { lte: new Date(gun) },
+            OR: [{ bitis: null }, { bitis: { gte: new Date(gun) } }],
+          },
+          select: {
+            dayanak: true,
+            projeTenant: { select: { saatDilimi: true, durum: true } },
+          },
+        }),
+      yonetimTenantId,
+    );
+
+    if (!kayit || kayit.projeTenant.durum === 'ARSIV') return null;
+    return { dayanak: kayit.dayanak, saatDilimi: kayit.projeTenant.saatDilimi };
+  }
 }

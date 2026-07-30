@@ -1,4 +1,4 @@
-# Oturum Özeti — 29-30 Temmuz 2026 (Docker + dokuz modül + hızlı kayıt)
+# Oturum Özeti — 29-30 Temmuz 2026 (Docker · on modül · hızlı kayıt · portföy)
 
 Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 [`DEVLOG.md`](DEVLOG.md) içindedir; burada yalnızca *nerede kaldık* ve
@@ -26,12 +26,65 @@ tip denetiminden geçiyordu.
 | `58ae032` | Belge profesyonel seviye (0007) + Daire Görevlileri (0008) |
 | `a9d4071` | Devir notu — kritik soft-delete bulgusu |
 | `b869940` | Modül adı düzeltmesi: Konut Çalışanları → Daire Görevlileri (0009) |
-| _bu commit_ | **Site Personeli / Daire Görevlisi ayrımı** (0010) + **tek ekran hızlı kayıt** (0011-0013) + Misafir modülü |
+| `394eb61` | Site Personeli / Daire Görevlisi ayrımı (0010) + tek ekran hızlı kayıt (0011-0013) + Misafir modülü |
+| `e191968` | Devir notu — v23/v24 referans mimari görevi |
+| _bu commit_ | **Portföy Yönetim Merkezi** (0014 · ADR-0009) + **v23/v24 boşluk analizi** |
 
 Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
 `b4759d3` · `ec76035` · `89a56df` · `666c918`.
 
-### Bu commit'te yapılan — iki kavram ayrıldı, kayıt akışı tek ekrana indi
+### Bu commit'te yapılan — Portföy Yönetim Merkezi (ADR-0009)
+
+**YÖNETİM FİRMASI ARTIK BİR TENANT.** Ürün gereksinimi Portföy Yönetim
+Merkezi'ni zorunlu kıldı: firma giriş yaptığında doğrudan bir projeye
+düşmüyor, önce yönettiği bütün projeleri kontrol merkezinde görüyor.
+
+⚠️ **Yeni mimari TASARLANMADI.** [ADR-0002](docs/adr/log/0002-tenant-modeli.md)
+bu günü öngörmüş ve çözüm yolunu *şimdiden yazmıştı*:
+
+> Portföy görünümü ileride **RLS gevşetilerek çözülmeyecektir.** Çözüm yolu:
+> yönetim şirketi tenant'ı + apartman tenant'larından **açık devir**
+> (delegation) ilişkisi. Bu not, ileride kolay yolun (RLS by-pass) cazip
+> görünmemesi için yazılmıştır.
+
+Uygulanan tam olarak bu yol:
+
+| Katman | Ne yapıldı |
+|---|---|
+| Şema (0014) | `yonetim_delegasyonu` — firma tenant'ı ⟷ proje tenant'ı; **iki taraflı** RLS politikası |
+| Domain | `devirGecerliMi` · `devriDogrula` · `devirSonlandirmayiDogrula`; `Tenant.olustur` üç tipi de kabul ediyor |
+| Kapı 2 | Üyeliğin **ikinci yolu**: aktif devir. Jeton `dvr` claim'i taşır |
+| Backend | `/portfoy/ozet` · `/portfoy/projeler/:id/gir` · devir ekle/sonlandır |
+| Rol | `YONETIM_SIRKETI.varsayilanPanel` → **`/portfoy`** (projeye yönlendirilmiyor) |
+| Frontend | `/portfoy` kontrol merkezi + proje seçimi + kabukta "Aktif proje / Portföye dön" |
+| Tohum | `portfoy@bn-yonetim.test` / `bnos1234` — iki projeye açık devir |
+
+**ÇAPRAZ-TENANT SORGU YOK.** Özet, proje başına ayrı `tenantIslemi(projeId)`
+sorgusunun uygulama katmanında toplanmasıdır — ADR-0002'nin açıkça kabul
+ettiği bedel. `BYPASSRLS` yok ve CI'da denetleniyor.
+
+**Kısmî veri açıkça bildiriliyor:** bir projenin özeti okunamazsa satır
+`ozetHatasi` ile YİNE döner ve toplamların eksik olduğu yazılır. 150 projeli
+bir firmada bir projenin arızası öteki 149'u görünmez kılmamalı.
+
+**Uydurma veri üretilmedi:** "Açık İş Emirleri" ve "Bekleyen Talepler"
+modülleri yok; uçlar **-1** döner ve ekran "Modül hazır değil" gösterir.
+Sıfır basmak, "iş emri yok" ile "modül yok" ayrımını gizlerdi.
+
+### v23/v24 referans mimari boşluk analizi
+
+[`docs/V23-V24-BOSLUK-ANALIZI.md`](docs/V23-V24-BOSLUK-ANALIZI.md) —
+referanslar madde madde mevcut kodla karşılaştırıldı.
+
+En önemli iki bulgu:
+
+1. **Referanslar ekran tasarımı değil, SÜRÜM YOL HARİTASIDIR** ve kendileri
+   bunu söylüyor. Ekran envanteri V22 "Temel" belgesindedir.
+2. 🔴 **`/belgeler` menüde var ama sayfası YOK** — link 404 veriyor. Backend
+   Belge modülü tam çalışıyor; eksik olan yalnızca ekran. Eski "Kişiler"
+   girdisiyle aynı hata sınıfı.
+
+### Önceki commit'te yapılan — iki kavram ayrıldı, kayıt akışı tek ekrana indi
 
 **1. İKİ AYRI KAVRAM TEK TABLODA BİRLEŞTİRİLMİŞTİ.** 0009'da yapılan
 adlandırma düzeltmesi hatalıydı: yönetimin kadrosu ile malikin ücretli
@@ -142,9 +195,9 @@ kaplamaya devam ederdi.
 
 ## 2. Şu anki durum
 
-**Doğrulama:** 9/9 build · ESLint 0 · verify **8/8** · sözleşme testleri
-**24/24** · migration **13/13 uygulandı** · 16 web rotası · hızlı kayıt canlı
-testi **40/40**.
+**Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **8/8** ·
+sözleşme testleri **24/24** · migration **14/14 uygulandı** · 17 web rotası ·
+hızlı kayıt canlı testi **40/40** · portföy canlı testi **19/19**.
 
 Çalışma ağacı temiz, `origin/master` ile senkron.
 
@@ -396,79 +449,46 @@ elle yazılmış kısmî unique index'ler (`arac_plaka_donem_uq`,
 pnpm db:up && pnpm db:status && pnpm verify && pnpm test:contract
 ```
 
-Beklenen: `13 migrations found` · `Database schema is up to date` ·
+Beklenen: `14 migrations found` · `Database schema is up to date` ·
 `Tum kontroller yesil` · `24 passed`.
 
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
 
-### İlk görev — referans mimariyle boşluk analizi (v23 · v24)
+### İlk görev — `/belgeler` ekranı (menüde ölü link)
 
-Kullanıcının kapanış talimatı. **Önce oku, sonra yaz.**
+**En düşük maliyet, en görünür kazanç.** `components/uygulama-kabugu.tsx`
+menüsünde `/belgeler` girdisi var ama `app/belgeler/` **yok**; link 404
+veriyor. Backend Belge modülü **tam** (versiyonlama · kategori · çoklu ilişki ·
+etiket · arama · gizlilik · önizleme · KVKK imha) ve MinIO bağlı.
 
-Referans dosyalar (Canva AI ile hazırlanmış mimari dokümanları):
+Ekranın taşıması gerekenler (backend hazır):
 
-- [`docs/reference/roadmap/01-v23.html`](docs/reference/roadmap/01-v23.html)
-- [`docs/reference/roadmap/02-v24.html`](docs/reference/roadmap/02-v24.html)
-- ayrıca [`02-v23-v25.html`](docs/reference/roadmap/02-v23-v25.html) —
-  v23 ile v24'ü birlikte özetliyor, çelişki halinde tekil dosyalar esastır.
+- Yükleme **iki adımlıdır**: `POST /belgeler/yukleme-izni` → önimzalı URL'ye
+  `PUT` → `POST /belgeler`. Dosya API'den geçmez.
+- Sürüm geçmişi zinciri; güncel sürüm silinemez.
+- Kategori · etiket · tarih aralığı · ilişki (apartman/blok/bölüm/kişi) süzgeci.
+- "Geçerliliği dolanlar" listesi.
+- Gizlilik yükseltilebilir, DÜŞÜRÜLEMEZ — arayüz düşürmeyi teklif etmemeli.
+- Önizleme yalnızca betik taşıyamayan tiplerde (PDF · resim · düz metin).
 
-**Kurallar (kullanıcının kendi sözleriyle):**
+### İkinci görev — Tahakkuk Sihirbazı
 
-1. v23 ve v24 **referans mimaridir**.
-2. Mevcut yapıyı **bozma**.
-3. Mevcut ekranları **yeniden tasarlama**.
-4. Eksik modül · sekme · alt sekme · form · iş akışını referansa göre
-   **tamamla**.
-5. İsimlendirme ve hiyerarşiyi mevcut projeyle uyumlu tut.
-6. **Yeni mimari oluşturma** — referanstaki tasarımı mevcut yapıyla birleştir.
+Boşluk analizinin 2. önceliği: sistemin **para üreten tek akışı** ve ekranı
+yok. Ayrıntılı kapsam aşağıda.
 
-**Özellikle denetlenecek iş süreçleri:**
+> Sıralamanın tamamı ve gerekçeleri:
+> [`docs/V23-V24-BOSLUK-ANALIZI.md`](docs/V23-V24-BOSLUK-ANALIZI.md) §5.
+> Kısaca: (3) Muhasebe ekranı · (4) Malik/Kiracı liste ekranları ·
+> (5) **v24 iskeleti** (İş Emri + Onay Akışı + Bildirim Merkezi — "Teknik
+> İşler", "Açık İş Emirleri" ve personel görev onayının ORTAK temeli; üçünü
+> ayrı kurmak üç farklı onay mekanizması doğurur) · (6) personel görev
+> yürütme akışı · (7) v23 pano derinliği.
 
-*Yönetim yapısı*
+### Tahakkuk Sihirbazı — kapsam
 
-- Yönetim Firması (ayrı modül)
-- Site / Apartman Yönetimi (ayrı modül)
-- Bir yönetim firmasının **birden fazla** site/apartman projesi yönetmesi
-- Her proje için bağımsız yönetim bilgileri
-- Çoklu proje desteği (Multi Project)
-
-> Bugünkü durum: `tenant` tipi `APARTMAN | SITE` taşıyor ve `TenantTipi` içinde
-> `YONETIM_SIRKETI` rolü var (`tenant.setup` izni oraya taşındı) ama **yönetim
-> firması ile proje arasında bir üst-alt ilişki YOK**: her tenant bağımsızdır.
-> Çoklu proje bu ilişkiyi gerektirir; şema etkisi olduğu için **önce referansta
-> ne dendiği okunmalı**, tahminle tablo eklenmemeli.
-
-*Personel yönetimi — görev yürütme akışı*
-
-Personel kartı · görev tanımları · **günlük görev planı** · **haftalık görev
-planı** · vardiya · devam durumu · Göreve Başla · görev öncesi fotoğraf · görev
-sırasında not · Mola Başlat · Molayı Bitir · Göreve Devam Et · Görev Sonlandır ·
-görev sonrası fotoğraf · açıklama · **GPS konumu (altyapı)** · **QR/NFC ile
-görev doğrulama (altyapı)** · yapılan işler · yapılmayan işler · yönetici onayı.
-
-> Bugünkü durum: `site_personeli` **kadro kaydıdır** (kimlik · SGK · vardiya ·
-> sertifika · zimmet · ayrılış). Yukarıdaki liste bir **görev yürütme** akışıdır
-> ve karşılığı **hiç yok**: görev tanımı, plan, vardiya çizelgesi, görev
-> oturumu (başla/mola/bitir), fotoğraf, GPS, QR/NFC, onay — hepsi yeni.
-> Fotoğraf için nesne deposu hazır (`nesne-deposu.service.ts`, önimzalı URL).
-
-*Genel kontrol*
-
-v23/v24'te olup projede olmayan sekme · alt sekme · kart · panel · iş akışı ·
-veri giriş ekranı · rapor · filtre · dashboard bileşeni **tek tek tespit
-edilecek** ve mevcut mimari bozulmadan eklenecek.
-
-**Önerilen sıra:** (a) iki HTML'i baştan sona oku, (b) mevcut rotalar/uçlarla
-karşılaştıran bir **boşluk listesi** yaz ve kullanıcıya raporla, (c) sonra
-kodla. Şema değiştiren maddeler (çoklu proje, görev oturumu) migration ister;
-`0004`-`0013` tuzakları için §3.C okunmalı.
-
-### İkinci görev
-
-**Tahakkuk Sihirbazı ve motor genişletmesi.** Kullanıcı bu işi tarif etti ama
-bütçe Belge + Site Personeli / Daire Görevlisi ayrımı + hızlı kayıta gitti;
-**hiç başlanmadı**.
+Kullanıcı bu işi tarif etti ama bütçe Belge + Site Personeli / Daire Görevlisi
+ayrımı + hızlı kayıt + Portföy Merkezi'ne gitti; **hiç başlanmadı**.
 
 Talep edilen kapsam (kullanıcının kendi sözleriyle: *"ticari muhasebe
 mantığıyla değil, Kat Mülkiyeti Kanunu ve profesyonel site yönetimi
@@ -541,6 +561,10 @@ Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
 | **Kefil ayrı `Kisi` DEĞİL, sözleşme üzerinde inline** | Yönetimin ortak gider alacağı malike (KMK md. 20) ve kiracıya (md. 22, kira bedeli kadar müteselsil) yönelir; **kefile yönelmez** — kefalet kira sözleşmesinin tarafıdır, yönetim planının değil. Ayrı kimlik kaydı borç sorumluluğu sorgularında görünürdü. | `migrations/0012_kiraci_kefil` |
 | **Tek araç kütüğü + kapsam ayrımı** | Otopark kapasitesi malik aracıyla bakıcının/güvenliğin aracını ayırt etmez; ayrı tablolar sayımı bölerdi. Ama **personel aracı yönetime**, diğerleri **ilgili bölüme** kayıtlıdır: personel aracını daireye yazmak o dairenin otopark hakkını tüketmiş gösterir ve KULLANIM_BAZLI dağıtımda ona fazla pay çıkarır. | `migrations/0011` · `0013_arac_kapsami` |
 | **`kisiId` zorunluluğu kalktı; tekilleştirme TC + e-postaya devredildi** | Zorunluluğun asıl işlevi mükerrer kimlik kaydını engellemekti. Kaldırırken bu koruma bırakılsaydı aynı kişi iki `Kisi` satırına bölünür ve borç geçmişi, tahakkuk sorumluluğu, KVKK silme talebi iki kayda dağılırdı. `kisi_eposta_uq` tenant genelinde tekil olduğu için e-posta da kimlik anahtarı sayıldı. | `common/kayit/hizli-kayit.ts` |
+| **Portföy, RLS gevşetilerek DEĞİL açık devirle çözüldü** | ADR-0002 kolay yolu (RLS by-pass / `BYPASSRLS` rolü) ismiyle yasaklamış ve çözüm yolunu şimdiden yazmıştı. Devir modeli **yetkilendirme ile izolasyonu ayırır**: firma neye erişeceğini devir kaydından öğrenir, ama her sorgu yine tek tenant bağlamında koşar. Devir kaydı silinse bile RLS ayakta kalır. | [ADR-0009](docs/adr/log/0009-yonetim-sirketi-acik-devir.md) |
+| **Devir yetkisi Kapı 2'de doğrulanır, projede `kullanici` kaydı AÇILMAZ** | Firma kullanıcısını her projeye kopyalamak, KVKK silme talebinde kişinin kaç tenant'a yayıldığını takip edilemez kılardı. Bunun yerine jeton `dvr` claim'i taşır ve Kapı 2 aktif devri sorgular. | `common/guards/tenant.guard.ts` |
+| **Devir doğrulaması ÖNBELLEKLENMEZ** | Üyelik 5 dk önbelleklenir (değişimi nadir, etkisi sınırlı). Devrin sona ermesi bir YETKİ KALDIRMADIR; 5 dakika boyunca geçerli görünmesi kabul edilemez. | `common/prisma/tenant.reader.ts` |
+| **`Tenant.olustur` üç tipi de kabul ediyor; birim testi buna göre GÜNCELLENDİ** | Test "yalnizca APARTMAN kabul edilir" diye assert ediyordu. O kısıt kaynağın kendisinde "v1 kapsamında" diye yazılmış geçici bir kısıttı; ADR-0008 SITE'yi, ADR-0009 YONETIM_SIRKETI'ni kapsama aldı. Testi olduğu gibi bırakmak, kararı koda yansıtmayı imkânsız kılardı. | `tests/unit/domain.smoke.mjs` |
 
 ---
 
@@ -588,7 +612,18 @@ Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
   bloğu yazıldı. Betikler **dosyaya yazılıp** `node dosya.mjs` ile koşulmalı.
 - **Git Bash `/api/v1` gibi env değerlerini Windows yoluna çevirir.** Backend'i
   elle başlatırken `MSYS_NO_PATHCONV=1` verilmezse API öneki
-  `C:/Program Files/Git/api/v1` olur ve bütün uçlar 404 döner.
+  `C:/Program Files/Git/api/v1` olur ve bütün uçlar 404 döner. Ayrıca giriş
+  noktası `dist/src/main.js`'tir (`dist/main.js` değil).
+- **Backend çalışırken `prisma generate` EPERM verir.** Motor DLL'i
+  (`query_engine-windows.dll.node`) kilitlidir. `pnpm -r build` öncesi node
+  süreçleri durdurulmalı.
+- **PORTFÖY ÖZETİ ÇAPRAZ-TENANT SORGU DEĞİLDİR.** Proje başına ayrı
+  `tenantIslemi(projeId)` çağrısıdır. "Tek sorguda toplayalım" fikri
+  ADR-0002'nin ismiyle yasakladığı şeydir; hızlandırma yolu da yazılıdır —
+  RLS'i delmek değil, event ile bakımı yapılan özet tabloları
+  (IMPLEMENTATION-ROADMAP R-4).
+- **Kontrol merkezinde karşılığı olmayan gösterge `-1` döner**, sıfır DEĞİL.
+  Sıfır basmak "iş emri yok" ile "iş emri modülü yok" ayrımını gizler.
 - **Yetki modeli kararı:** `tenant.setup` Apartman Yöneticisi'nden alınıp
   Yönetim Şirketi'ne verildi (yeni yerleşke açmak bir onboarding işlemidir).
   Belgelerde yetki matrisi yok; farklı isteniyorsa tek yerden değişir:

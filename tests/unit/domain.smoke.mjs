@@ -15,14 +15,118 @@ const UI = await import('../../shared/ui-tokens/dist/index.js');
 
 const TID = K.tenantId('11111111-2222-3333-4444-555555555555');
 
-/* ---------------- Tenant (ADR-0002) ---------------- */
+/* ---------------- Tenant (ADR-0002 · ADR-0008 · ADR-0009) ---------------- */
 
-test('tenant: yalnizca APARTMAN tipi kabul edilir (v1 kapsami)', () => {
+/**
+ * Eski hali "yalnizca APARTMAN kabul edilir" diye assert ediyordu. O kisit
+ * kaynagin kendisinde "v1 kapsaminda" diye yazilmis GECICI bir kisitti;
+ * ADR-0008 SITE'yi, ADR-0009 YONETIM_SIRKETI'ni kapsama aldi ve ikisi de o
+ * notu acikca kaldirdi. Test artik ucunun da kabul edildigini korur.
+ */
+test('tenant: uc tip de kabul edilir (ADR-0008 · ADR-0009)', () => {
   const temel = { id: TID, kod: 'guzel-apartmani', ad: 'Güzel Apartmanı',
                   durum: 'KURULUM', saatDilimi: 'Europe/Istanbul',
                   paraBirimi: 'TRY', lisansKodu: 'X' };
-  assert.doesNotThrow(() => CD.Tenant.olustur({ ...temel, tip: 'APARTMAN' }));
-  assert.throws(() => CD.Tenant.olustur({ ...temel, tip: 'SITE' }), /yalnizca APARTMAN/);
+  for (const tip of ['APARTMAN', 'SITE', 'YONETIM_SIRKETI']) {
+    assert.doesNotThrow(() => CD.Tenant.olustur({ ...temel, tip }));
+  }
+});
+
+/* ---------------- Yonetim devri (ADR-0009) ---------------- */
+
+const DEVIR_TEMEL = {
+  yonetimTenantId: 'y-1',
+  yonetimTenantTipi: 'YONETIM_SIRKETI',
+  projeTenantId: 'p-1',
+  projeTenantTipi: 'APARTMAN',
+  dayanak: 'Yönetim sözleşmesi 2026/01',
+  baslangic: K.takvimTarihi('2026-01-01'),
+  bitis: null,
+};
+
+test('devir: gecerli devir kabul edilir', () => {
+  assert.doesNotThrow(() => CD.devriDogrula(DEVIR_TEMEL, null));
+});
+
+test('devir: yalnizca YONETIM_SIRKETI devralabilir', () => {
+  assert.throws(
+    () => CD.devriDogrula({ ...DEVIR_TEMEL, yonetimTenantTipi: 'APARTMAN' }, null),
+    /YONETIM_SIRKETI/,
+  );
+});
+
+test('devir: yonetim firmasinin yonetimi devredilemez', () => {
+  assert.throws(
+    () => CD.devriDogrula({ ...DEVIR_TEMEL, projeTenantTipi: 'YONETIM_SIRKETI' }, null),
+    /devredilemez/,
+  );
+});
+
+test('devir: tenant kendine devredemez', () => {
+  assert.throws(
+    () => CD.devriDogrula({ ...DEVIR_TEMEL, projeTenantId: 'y-1' }, null),
+    /kendine devredemez/,
+  );
+});
+
+test('devir: dayanak zorunludur', () => {
+  assert.throws(
+    () => CD.devriDogrula({ ...DEVIR_TEMEL, dayanak: '  ' }, null),
+    /dayanagi zorunludur/,
+  );
+});
+
+// Ayni proje ayni anda iki firmaya devredilemez: aksi halde tahakkukun hangi
+// yonetim tarafindan yapildigi belirsiz kalir.
+test('devir: ayni projeye ikinci aktif devir reddedilir', () => {
+  const mevcut = {
+    id: 'd-1', yonetimTenantId: 'y-0', projeTenantId: 'p-1', durum: 'AKTIF',
+    dayanak: 'Onceki sozlesme', baslangic: K.takvimTarihi('2025-01-01'), bitis: null,
+  };
+  assert.throws(() => CD.devriDogrula(DEVIR_TEMEL, mevcut), /zaten baska bir firmaya/);
+});
+
+test('devir: bitis baslangictan once olamaz', () => {
+  assert.throws(
+    () => CD.devriDogrula(
+      { ...DEVIR_TEMEL, bitis: K.takvimTarihi('2025-12-31') }, null,
+    ),
+    /once olamaz/,
+  );
+});
+
+test('devirGecerliMi: durum · baslangic · bitis birlikte bakilir', () => {
+  const d = (yama) => ({
+    id: 'd', yonetimTenantId: 'y', projeTenantId: 'p', durum: 'AKTIF',
+    dayanak: 'x', baslangic: K.takvimTarihi('2026-01-01'), bitis: null, ...yama,
+  });
+  assert.equal(CD.devirGecerliMi(d({}), K.takvimTarihi('2026-06-01')), true);
+  // Sona ermis devir yetki VERMEZ — sessiz yetki asimini engelleyen kural.
+  assert.equal(CD.devirGecerliMi(d({ durum: 'SONA_ERDI' }), K.takvimTarihi('2026-06-01')), false);
+  assert.equal(CD.devirGecerliMi(d({ durum: 'IPTAL' }), K.takvimTarihi('2026-06-01')), false);
+  // Ileri baslangic henuz yetki vermez.
+  assert.equal(CD.devirGecerliMi(d({}), K.takvimTarihi('2025-12-31')), false);
+  // Bitis gunu DAHILDIR; ertesi gun degildir.
+  const sureli = d({ bitis: K.takvimTarihi('2026-06-30') });
+  assert.equal(CD.devirGecerliMi(sureli, K.takvimTarihi('2026-06-30')), true);
+  assert.equal(CD.devirGecerliMi(sureli, K.takvimTarihi('2026-07-01')), false);
+});
+
+test('devir: sonlandirma gerekce ister ve tekrarlanamaz', () => {
+  const aktif = {
+    id: 'd', yonetimTenantId: 'y', projeTenantId: 'p', durum: 'AKTIF',
+    dayanak: 'x', baslangic: K.takvimTarihi('2026-01-01'), bitis: null,
+  };
+  assert.throws(() => CD.devirSonlandirmayiDogrula(aktif, 'kisa'), /gerekce zorunludur/);
+  assert.doesNotThrow(
+    () => CD.devirSonlandirmayiDogrula(aktif, 'Yönetim sözleşmesi yenilenmedi'),
+  );
+  assert.throws(
+    () => CD.devirSonlandirmayiDogrula(
+      { ...aktif, durum: 'SONA_ERDI' }, 'Yeterince uzun gerekce',
+    ),
+    /zaten/,
+  );
 });
 
 test('tenant: gecersiz kod reddedilir', () => {

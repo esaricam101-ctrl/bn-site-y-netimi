@@ -16,6 +16,19 @@ export interface Principal {
   readonly izinler: readonly string[];
   /** Yetkinin devralındığı principal. Devralınan yetki daima alt kümedir. */
   readonly devraldigiPrincipalId?: string;
+  /**
+   * YÖNETİM DEVRİ (ADR-0009) — bu oturum bir yönetim firmasının, yönettiği bir
+   * PROJE tenant'ı adına açtığı oturumsa firma tenant'ının kimliğidir.
+   *
+   * `tenantId` her zaman İŞLEM YAPILAN tenant'tır (proje); bu alan işlemi
+   * KİMİN ADINA yaptığını söyler. Kapı 2 devrin geçerliliğini bununla
+   * doğrular, denetim kaydı da bunu yazar — aksi hâlde projede yapılan bir
+   * işlem, firmanın kullanıcısını projenin kullanıcısı gibi gösterirdi.
+   *
+   * Değer YALNIZCA jeton claim'inden gelir, istek parametresinden ASLA:
+   * aksi hâlde kullanıcı istediği firmayı yazıp devri kendisi uydurabilirdi.
+   */
+  readonly devirYonetimTenantId?: string;
 }
 
 /**

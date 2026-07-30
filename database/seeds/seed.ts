@@ -252,12 +252,79 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
   return tenantId;
 }
 
+/**
+ * YÖNETİM FİRMASI tenant'ı + yönettiği projelere AÇIK DEVİR (ADR-0009).
+ *
+ * Portföy Yönetim Merkezi'nin demo edilebilmesi için gerekir: firma hesabı
+ * girdiğinde doğrudan bir projeye düşmez, önce kontrol merkezini görür.
+ *
+ * ⚠️  DEVİR KAYDI, PROJE BAĞLAMINDA yazılır. `yonetim_delegasyonu` politikası
+ *     iki taraflıdır (`yonetim_tenant_id = app_tenant_id() OR proje_tenant_id
+ *     = app_tenant_id()`); herhangi bir taraf yazabilir. Firma bağlamı
+ *     seçildi çünkü devri kaydeden kullanıcı firmadadır.
+ */
+async function yonetimFirmasiOlustur(projeTenantIdleri: readonly string[]): Promise<string> {
+  const firmaId = randomUUID();
+  const kod = 'bn-yonetim';
+
+  await prisma.tenant.create({
+    data: {
+      id: firmaId, kod, ad: 'BN Yönetim A.Ş.',
+      tip: 'YONETIM_SIRKETI', durum: 'AKTIF',
+      saatDilimi: 'Europe/Istanbul', paraBirimi: 'TRY',
+      lisansKodu: 'BNOS-YS-V1',
+    },
+  });
+
+  await prisma.$executeRawUnsafe(`SELECT set_config('app.tenant_id', '${firmaId}', false)`);
+
+  const kisiId = randomUUID();
+  await prisma.kisi.create({
+    data: {
+      id: kisiId, tenantId: firmaId,
+      ad: 'Portföy', soyad: 'Yöneticisi',
+      eposta: `portfoy@${kod}.test`,
+    },
+  });
+
+  await prisma.kullanici.create({
+    data: {
+      id: randomUUID(), tenantId: firmaId, kisiId,
+      eposta: `portfoy@${kod}.test`,
+      sifreHash: GELISTIRME_SIFRE_HASH, aktif: true,
+      // YONETIM_SIRKETI rolü `tenant.setup` iznini taşır (bkz. roller.ts);
+      // devir kaydı açmak bir onboarding işlemidir.
+      roller: { create: { id: randomUUID(), tenantId: firmaId, rolKodu: 'YONETIM_SIRKETI' } },
+    },
+  });
+
+  for (const [i, projeId] of projeTenantIdleri.entries()) {
+    await prisma.yonetimDelegasyonu.create({
+      data: {
+        id: randomUUID(),
+        yonetimTenantId: firmaId,
+        projeTenantId: projeId,
+        durum: 'AKTIF',
+        // Dayanak ZORUNLUDUR: dayanağı olmayan devir, hangi kararla verildiği
+        // sorulduğunda cevapsız kalır (KMK md. 34 · yönetici seçimi).
+        dayanak: `Yönetim sözleşmesi 2026/${String(i + 1).padStart(2, '0')}`,
+        baslangic: new Date('2026-01-01'),
+      },
+    });
+  }
+
+  console.log('\nYönetim firması oluşturuldu (Portföy Yönetim Merkezi):');
+  console.log(`  BN Yönetim A.Ş. — ${projeTenantIdleri.length} projeye açık devir`);
+  console.log(`     giriş: portfoy@${kod}.test / bnos1234`);
+  return firmaId;
+}
+
 async function main(): Promise<void> {
   console.log('BNOS Apartman — tohum verisi yükleniyor\n');
 
   const mevcut = await prisma.tenant.count();
   if (mevcut > 0) {
-    console.log(`Veritabanında zaten ${mevcut} apartman var. Önce "pnpm db:reset" çalıştırın.`);
+    console.log(`Veritabanında zaten ${mevcut} tenant var. Önce "pnpm db:reset" çalıştırın.`);
     return;
   }
 
@@ -267,6 +334,8 @@ async function main(): Promise<void> {
   console.log('\nİki apartman kasıtlı olarak oluşturuldu:');
   console.log('tenant izolasyon testi (CT-01) en az iki tenant gerektirir.');
   console.log(`\n  ${idler[0]}\n  ${idler[1]}\n`);
+
+  await yonetimFirmasiOlustur(idler);
 }
 
 main()

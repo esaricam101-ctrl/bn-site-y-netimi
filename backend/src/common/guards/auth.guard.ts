@@ -20,6 +20,12 @@ interface JwtYuku {
   readonly tid: string;
   readonly izinler: string[];
   readonly devraldigi?: string;
+  /**
+   * YÖNETİM DEVRİ (ADR-0009): oturum bir yönetim firmasının, yönettiği bir
+   * proje adına açtığı oturumsa firma tenant'ının kimliği. `tid` bu durumda
+   * PROJE tenant'ıdır. Kapı 2 devrin geçerliliğini bu iki değerle doğrular.
+   */
+  readonly dvr?: string;
 }
 
 @Injectable()
@@ -60,6 +66,7 @@ export class AuthGuard implements CanActivate {
       tenantId: tenantId(yuk.tid),
       izinler: yuk.izinler,
       ...(yuk.devraldigi ? { devraldigiPrincipalId: yuk.devraldigi } : {}),
+      ...(yuk.dvr ? { devirYonetimTenantId: yuk.dvr } : {}),
     };
 
     istek.principal = principal;

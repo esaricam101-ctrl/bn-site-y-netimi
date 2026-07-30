@@ -15,6 +15,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { TemaAnahtari, YogunlukAnahtari } from './gorunum-anahtarlari';
 import { KirintiYolu, type KirintiOgesi } from './kirinti-yolu';
+import { servis } from '@/lib/servis';
 
 interface MenuOgesi {
   readonly yol: string;
@@ -66,6 +67,38 @@ function BaskiBasligi({ baslik }: { readonly baslik?: string }) {
       {baslik !== undefined && <div>{baslik}</div>}
       {tarih !== '' && <div className="num text-xs">{tarih}</div>}
     </div>
+  );
+}
+
+/**
+ * AKTİF PROJE göstergesi — yalnızca bir portföy oturumunda görünür (ADR-0009).
+ *
+ * Yönetim firması bir projeye girdiğinde HANGİ projede olduğunu her ekranda
+ * görmelidir: aksi hâlde iki proje arasında geçiş yapan kullanıcı, yanlış
+ * projeye tahakkuk yazdığını fark etmez. "Portföye dön" firma jetonuna geri
+ * geçer; jeton saklanmasaydı yeniden giriş yapmak gerekirdi.
+ */
+function AktifProje() {
+  const t = useTranslations('navigasyon');
+  const [projeAdi, setProjeAdi] = useState<string | null>(null);
+
+  // `sessionStorage` yalnızca istemcide vardır; sunucuda okumak hidrasyon
+  // uyuşmazlığı doğurur.
+  useEffect(() => {
+    setProjeAdi(sessionStorage.getItem('bnos.projeAdi'));
+  }, []);
+
+  if (projeAdi === null) return null;
+
+  return (
+    <span className="flex items-center gap-2 text-xs px-2 py-1 rounded-[var(--rs)] border border-[color:var(--line)]">
+      <span className="text-[color:var(--muted-2)]">{t('aktifProje')}:</span>
+      <span className="font-semibold truncate max-w-[10rem]">{projeAdi}</span>
+      <Link href="/portfoy" className="underline"
+            onClick={() => { servis.portfoyeDon(); }}>
+        {t('portfoyeDon')}
+      </Link>
+    </span>
   );
 }
 
@@ -167,6 +200,7 @@ export function UygulamaKabugu({
           </div>
 
           <div className="flex items-center gap-2 baski-gizle">
+            <AktifProje />
             {eylemler}
             <YogunlukAnahtari />
             <TemaAnahtari />

@@ -3,6 +3,7 @@
 
 export * from './errors/domain-error.js';
 export * from './tenant/tenant.js';
+export * from './tenant/yonetim-devri.js';
 export * from './audit/audit-entry.js';
 export * from './outbox/domain-event.js';
 export * from './numbering/numara-serisi.js';
