@@ -107,6 +107,15 @@ export interface MockSakin {
    */
   readonly dayanakTipi: 'MALIK' | 'KIRACI';
   readonly dayanakKisiAdi: string;
+  /**
+   * Dayanağın KİMLİĞİ — ikisinden tam olarak biri dolu.
+   *
+   * ⚠️  Yalnızca `dayanakTipi` tutulsaydı mock, malik devrinde "hangi malikin
+   *     yakını" sorusunu yanıtlayamaz ve otomatik çıkışı ya hiç ya da yanlış
+   *     kayıtlara uygulardı — demo, gerçek davranışın tersini gösterirdi.
+   */
+  readonly malikId: string | null;
+  readonly kiraciId: string | null;
   readonly girisTarihi: string;
   readonly cikisTarihi: string | null;
   readonly acilDurumKisiAdi: string | null;
@@ -304,6 +313,10 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
     yakinlikAciklamasi: null,
     dayanakTipi: 'MALIK' as const,
     dayanakKisiAdi: 'Zeynep Demir',
+    // Tohum sakinler bölümün İLK malikine dayanır; maliksiz bölümlerde
+    // (i % 5 === 0) zaten sakin üretilmez.
+    malikId: `malik-${bolumId}-0`,
+    kiraciId: null,
     girisTarihi: '2025-09-01',
     cikisTarihi: null,
     acilDurumKisiAdi: 'Fatma Demir',
@@ -422,7 +435,9 @@ export function mockMalikEkle(bolumId: string, dto: MockMalikEkle): MockMalik {
   return yeni;
 }
 
-export function mockMalikDevret(bolumId: string, malikId: string, tapuBitis: string): void {
+export function mockMalikDevret(
+  bolumId: string, malikId: string, tapuBitis: string,
+): MockSakinCikisSonucu {
   const kart = mockDaireKarti(bolumId);
   if (kart === null) throw new Error(`Bölüm bulunamadı: ${bolumId}`);
   const liste = malikleriAl(bolumId, kart.malikler);
@@ -430,6 +445,7 @@ export function mockMalikDevret(bolumId: string, malikId: string, tapuBitis: str
   if (i < 0) throw new Error(`Malik kaydı bulunamadı: ${malikId}`);
   // Kayit SILINMEZ; donemi kapanir ve tarihcede kalir.
   liste[i] = { ...(liste[i] as MockMalik), tapuBitis, gecerliMi: false };
+  return dayanakSakinleriniCikar(bolumId, { malikId }, tapuBitis);
 }
 
 export function mockMalikDuzelt(
@@ -516,7 +532,7 @@ export function mockKiraciEkle(bolumId: string, dto: MockKiraciEkle): void {
 
 export function mockKiraciTahliye(
   bolumId: string, kiraciId: string, tahliyeTarihi: string, gerekce: string,
-): void {
+): MockSakinCikisSonucu {
   const liste = kiraciOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((k) => k.id === kiraciId);
   if (i < 0) throw new Error(`Kiracı kaydı bulunamadı: ${kiraciId}`);
@@ -527,6 +543,63 @@ export function mockKiraciTahliye(
     ...mevcut, tahliyeTarihi, tahliyeGerekcesi: gerekce,
     bitis: tahliyeTarihi, gecerliMi: false,
   };
+  return dayanakSakinleriniCikar(bolumId, { kiraciId }, tahliyeTarihi);
+}
+
+/* ---------------- Dayanağı biten sakinlere otomatik çıkış ---------------- */
+
+export interface MockSakinCikisSonucu {
+  readonly cikarilan: number;
+  readonly cikarilamayan: readonly {
+    readonly sakinId: string;
+    readonly kisiAdi: string;
+    readonly girisTarihi: string;
+    readonly gerekce: string;
+  }[];
+}
+
+/**
+ * Backend'deki `dayanakSakinleriniCikar` ile AYNI kuralları uygular.
+ *
+ * ⚠️  Mock hiçbir şey yapmasaydı demo modda kiracı tahliye edilir, ailesi
+ *     listede "hâlen oturuyor" kalırdı — yani mock, ürünün YAPMADIĞI bir şeyi
+ *     gösterirdi. Mock'un işi gerçeği taklit etmektir; farklı davranan bir
+ *     mock, hata ayıklarken yanlış yöne bakılmasına yol açar.
+ */
+function dayanakSakinleriniCikar(
+  bolumId: string,
+  dayanak: { readonly malikId?: string; readonly kiraciId?: string },
+  cikisTarihi: string,
+): MockSakinCikisSonucu {
+  // Kartı çağırmak, örtüsü henüz oluşmamış bölümde tohum sakinleri üretir.
+  mockDaireKarti(bolumId);
+  const liste = sakinOrtusu.get(bolumId) ?? [];
+  const cikarilamayan: MockSakinCikisSonucu['cikarilamayan'][number][] = [];
+  let cikarilan = 0;
+
+  liste.forEach((s, i) => {
+    if (s.cikisTarihi !== null) return;
+    const eslesti = dayanak.malikId === undefined
+      ? s.kiraciId === dayanak.kiraciId
+      : s.malikId === dayanak.malikId;
+    if (!eslesti) return;
+
+    // Çıkış girişten önce yazılamaz; kayıt AÇIK bırakılır ve raporlanır.
+    if (s.girisTarihi > cikisTarihi) {
+      cikarilamayan.push({
+        sakinId: s.id, kisiAdi: s.kisiAdi, girisTarihi: s.girisTarihi,
+        gerekce:
+          `Giriş tarihi (${s.girisTarihi}), dayanağın bitiş tarihinden ` +
+          `(${cikisTarihi}) sonra olduğu için otomatik çıkış verilemedi; ` +
+          'çıkışı elle vermeniz gerekir.',
+      });
+      return;
+    }
+    liste[i] = { ...s, cikisTarihi, gecerliMi: false };
+    cikarilan += 1;
+  });
+
+  return { cikarilan, cikarilamayan };
 }
 
 export function mockKiraciDuzelt(
@@ -617,6 +690,8 @@ export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
     // gönderilen alandan okur. Gerçek veriyi backend döndürür.
     dayanakTipi: dto.malikId !== undefined ? 'MALIK' : 'KIRACI',
     dayanakKisiAdi: '—',
+    malikId: dto.malikId ?? null,
+    kiraciId: dto.kiraciId ?? null,
     girisTarihi: dto.girisTarihi,
     cikisTarihi: null,
     acilDurumKisiAdi: dto.acilDurumKisiAdi ?? null,

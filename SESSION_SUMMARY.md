@@ -36,7 +36,80 @@ tip denetiminden geçiyordu.
 | `85bbca5` | Tahsilat çekirdeği yarım (0017 + domain) — şema ve kurallar |
 | `ed68721` | **Makbuzlar** (tahsilat uçları + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
 | `2094903` | **İletişim çekirdeği** (0019/0020) — WhatsApp · SMS · e-posta TEK modülde |
-| _bu commit_ | **Sakin dayanak kuralı** (0021) — sakin artık malike ya da kiracıya bağlı |
+| `ded0cc3` | **Sakin dayanak kuralı** (0021) — sakin artık malike ya da kiracıya bağlı |
+| _bu commit_ | **Dayanağı biten sakine otomatik çıkış** — malik devri · kiracı tahliyesi + **bozuk kimlik artık 500 değil 404** |
+
+### Bu commit'te yapılan — dayanağı sona eren sakine otomatik çıkış
+
+Ürün sahibi: *"DEVREDİLMİŞ MALİK VE TAHLİYE EDİLMİŞ KİRACIDA SAKİNLERDE
+OTOMATİKMEN TAHLİYE EDİLİR"*.
+
+0021 sakini bir malike ya da kiracıya bağladı. Bu commit bağın **sona erme**
+yönünü kapatıyor: dayanak biterse (tapu devri · kiracı tahliyesi) o dayanağa
+bağlı sakinlerin oturma hakkı da biter.
+
+**Elle yapılması beklenseydi unutulurdu ve hata SESSİZ olurdu.** Kiracı tahliye
+edilir, eşi ve çocukları listede "hâlen oturuyor" kalır; daire kartı, acil
+durum listesi ve doluluk raporu **aylarca** yanlış çalışır — kayıt geçerli
+göründüğü için kimse fark etmez.
+
+- `backend/src/common/kayit/sakin-otomatik-cikis.ts` — **tek yerde** yazılan
+  kural; `malik.devret` ve `kiraci.tahliyeEt` ikisi de bunu çağırır. Ayrı ayrı
+  yazılsaydı biri düzeltildiğinde öteki eski davranmaya devam ederdi.
+
+#### Zorlanan kritik kurallar
+
+- **AYNI İŞLEM İÇİNDE.** Dayanağın kapanışı ile sakinlerin çıkışı ya birlikte
+  olur ya hiç olmaz. Ayrı işlemde yapılsaydı araya düşen bir hata "kiracı
+  gitmiş ama ailesi hâlâ oturuyor" durumunu **kalıcı** hâle getirirdi.
+- **ÇIKIŞ TARİHİ = DAYANAĞIN BİTİŞİ**, bugün değil. Kiracı 30.06'da tahliye
+  edildiyse ailesi de o gün çıkmıştır; "bugün" yazılsaydı aradaki günler
+  boyunca oturuyor görünürlerdi.
+- **GİRİŞİ, DAYANAĞIN BİTİŞİNDEN SONRA OLAN KAYIT SESSİZCE ATLANMAZ.** Çıkış
+  girişten önce yazılsaydı "eksi gün oturmuş" bir kayıt doğardı; bugüne
+  çekilseydi kişi dayanağı bittikten sonra da oturmuş görünürdü. İkisi de
+  veriyi bozar — kayıt **açık bırakılır** ve gerekçesiyle **kullanıcıya
+  bildirilir**; kararı kullanıcı verir.
+- **HER SAKİN İÇİN AYRI DENETİM KAYDI + AYRI OUTBOX OLAYI.** Tek toplu satır
+  yazılsaydı "benim sakin kaydımı kim, ne zaman kapattı" sorusu kişi bazında
+  yanıtlanamazdı. Olay elle çıkışla **aynıdır** (`apartman.sakin.cikti`); fark
+  `payload.otomatikMi` ile taşınır, böylece tüketiciler ikisini ayırmak
+  zorunda kalmaz.
+- **SAYI YANITTA DÖNER VE EKRANDA GÖSTERİLİR** (`sakinCikisi.cikarilan`).
+  Dönmeseydi yönetici dört kişiyi listeden düşürdüğünü hiç öğrenmez, daire
+  beklenmedik biçimde boş göründüğünde nedenini arayacak yer olmazdı.
+- **ÖZET SAYFA SEVİYESİNDE TUTULUR.** İlk denemede eylem bileşenine konmuştu;
+  ama devir/tahliyeden sonra kayıt "geçerli değil" olur ve o bileşen `null`
+  döner — özet **yazıldığı anda kaybolurdu**. Çıkarılamayan kayıtlar ayrıca
+  bildirim balonunda değil **kalıcı panelde** durur: balon beş saniyede
+  kaybolur, oysa bunlar kullanıcının elle yapması gereken bir işi anlatır.
+- **MOCK DA AYNI KURALI UYGULAR.** `MockSakin` artık `malikId`/`kiraciId`
+  taşıyor. Mock hiçbir şey yapmasaydı demo modda kiracı tahliye edilir, ailesi
+  "hâlen oturuyor" kalırdı — mock, ürünün **yapmadığı** bir şeyi gösterirdi.
+- **Sözleşme bitişi (`duzelt`) tahliye DEĞİLDİR** ve sakinleri kapatmaz:
+  sözleşme sessizce yenilenmiş olabilir. Otomatik çıkış yalnızca `devret` ve
+  `tahliyeEt` uçlarına bağlıdır.
+
+#### Yan bulgu — bozuk kimlik BÜTÜN uygulamada 500 dönüyordu
+
+Canlı test yazarken çıktı: `/kiracilar/undefined/tahliye` gibi bir yol Prisma
+`P2023` ("Inconsistent column data: Error creating UUID") atıyor ve bu kod
+`prisma-hata-cevirisi.ts` içinde **eşlenmemişti** → 500 "sistem bozuldu".
+
+Adres çubuğundaki kimliği kırpılmış her bağlantı, eksik değişken taşıyan her
+istemci çağrısı bu koda düşer. Artık **404** dönüyor: sunucu sağlamdır,
+*aranan kayıt yoktur*. 400 değil 404 — kimliğin biçimi hakkında bilgi vermek,
+var olan bir kimliğin biçimini de doğrulamak olurdu.
+
+#### Doğrulama
+
+- Birim: `tests/unit/sakin-otomatik-cikis.test.mjs` (**19**) + P2023 testi →
+  toplam **317** birim testi.
+- Canlı (gerçek veritabanı): **23/23** — iki sakinin tahliyeyle kapanması,
+  malik yakınının **etkilenmemesi**, ileri tarihli kaydın **açık kalıp
+  raporlanması**, devirde kapanma, mükerrer tahliyenin reddi, bozuk kimlikte
+  404. Sakin dayanak testi de yeniden koşuldu: **11/11**.
+- `pnpm verify` 9/9 · lint temiz · sözleşme testleri 24/24.
 
 ### Bu commit'te yapılan — Sakin kayıt kuralı
 

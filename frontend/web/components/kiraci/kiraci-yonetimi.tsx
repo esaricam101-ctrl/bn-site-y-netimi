@@ -23,7 +23,7 @@ import {
 import {
   Sekmeler, ilkHataliSekme, sekmeHataSayisi, type SekmeTanimi,
 } from '@/components/sekmeler';
-import { servis, type Kiraci } from '@/lib/servis';
+import { servis, type DayanakKapanisSonucu, type Kiraci } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
 /** Sekme rozetlerinin dayanağı — hangi hata hangi sekmeye ait. */
@@ -363,14 +363,22 @@ export function KiraciDuzeltFormu({
 }
 
 export function KiraciTahliyeEylemi({
-  bolumId, kiraci, onDegisti,
+  bolumId, kiraci, onDegisti, onSakinCikisi,
 }: {
   readonly bolumId: string;
   readonly kiraci: Kiraci;
   readonly onDegisti: () => void;
+  /**
+   * Tahliyeye bagli otomatik sakin cikislarini SAYFAYA bildirir.
+   *
+   * ⚠️  Ozet burada tutulamaz: tahliyeden sonra `gecerliMi` false olur ve bu
+   *     bilesen `null` doner — ozet, yazildigi anda kaybolurdu.
+   */
+  readonly onSakinCikisi: (sonuc: DayanakKapanisSonucu['sakinCikisi']) => void;
 }) {
   const t = useTranslations('kiraci');
   const tg = useTranslations('genel');
+  const ts = useTranslations('sakinYonetim');
   const bildirim = useBildirim();
 
   const [acik, setAcik] = useState(false);
@@ -393,8 +401,12 @@ export function KiraciTahliyeEylemi({
     setHata(null);
     setGonderiliyor(true);
     try {
-      await servis.kiraciTahliye(bolumId, kiraci.id, tarih, gerekce.trim());
+      const sonuc = await servis.kiraciTahliye(bolumId, kiraci.id, tarih, gerekce.trim());
       bildirim.basari(t('tahliyeEdildi'));
+      onSakinCikisi(sonuc.sakinCikisi);
+      if (sonuc.sakinCikisi.cikarilan > 0) {
+        bildirim.bilgi(ts('otomatikCikisBildirim', { adet: sonuc.sakinCikisi.cikarilan }));
+      }
       setAcik(false);
       onDegisti();
     } catch (h) {

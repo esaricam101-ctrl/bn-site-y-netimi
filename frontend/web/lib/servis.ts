@@ -83,6 +83,35 @@ async function gonder(
 }
 
 /**
+ * Yanıtı OKUNAN yazma isteği.
+ *
+ * ⚠️  `gonder` yanıtı atar; çoğu komut için doğrudur (yalnızca id/durum döner).
+ *     Ama bir komut kullanıcıya SÖYLENMESİ GEREKEN bir yan etkiyi raporluyorsa
+ *     (tahliyede kaç sakinin otomatik çıkarıldığı gibi) yanıtın atılması o
+ *     bilgiyi sessizce yok eder — kullanıcı dört kişiyi listeden düşürdüğünü
+ *     hiç öğrenmez.
+ */
+async function gonderVeAl<T>(
+  yol: string,
+  method: 'POST' | 'PATCH',
+  govde: unknown,
+  mockEtki: () => T,
+): Promise<T> {
+  if (MOCK_AKTIF) {
+    const sonuc = mockEtki();
+    await gecikmeli(null);
+    return sonuc;
+  }
+  const token = jeton();
+  return api<T>(yol, {
+    method,
+    govde,
+    ...(token ? { token } : {}),
+    ...(method === 'POST' ? { idempotencyKey: crypto.randomUUID() } : {}),
+  });
+}
+
+/**
  * Silme isteği. Gövde taşır: soft delete gerekçesi zorunludur (BFS v1 §5.2)
  * ve denetim kaydına yazılır.
  */
@@ -283,6 +312,29 @@ export interface KiraciDuzeltGirdisi {
   readonly depozito?: string;
   /** Uzatma/kısaltma. Tahliye edilmiş sözleşmede değiştirilemez. */
   readonly bitis?: string;
+}
+
+/**
+ * Malik devri / kiracı tahliyesi sonucu.
+ *
+ * ⚠️  `sakinCikisi` KULLANICIYA GÖSTERİLMEK ZORUNDA. Devir ya da tahliye, o
+ *     dayanağa bağlı sakinleri de kapatır; sayı ekranda görünmezse yönetici
+ *     üç kişiyi listeden düşürdüğünü hiç öğrenmez ve daire boş göründüğünde
+ *     nedenini bulamaz.
+ */
+export interface DayanakKapanisSonucu {
+  readonly id: string;
+  readonly durum: string;
+  readonly sakinCikisi: {
+    readonly cikarilan: number;
+    /** Girişi dayanağın bitişinden sonra olduğu için ELLE kapatılacaklar. */
+    readonly cikarilamayan: readonly {
+      readonly sakinId: string;
+      readonly kisiAdi: string;
+      readonly girisTarihi: string;
+      readonly gerekce: string;
+    }[];
+  };
 }
 
 export interface SakinDuzeltGirdisi {
@@ -688,11 +740,21 @@ export const servis = {
       mockMalikEkle(bolumId, dto);
     }),
 
-  /** Tapu dönemini kapatır. Kayıt SİLİNMEZ — tarihçe korunur. */
-  malikDevret: (bolumId: string, malikId: string, tapuBitis: string): Promise<void> =>
-    gonder(
+  /**
+   * Tapu dönemini kapatır. Kayıt SİLİNMEZ — tarihçe korunur.
+   *
+   * Bu malike DAYANAN sakinler aynı işlemde otomatik çıkarılır; kaç kişi
+   * olduğu `sakinCikisi` ile döner ve KULLANICIYA GÖSTERİLMELİDİR.
+   */
+  malikDevret: (
+    bolumId: string, malikId: string, tapuBitis: string,
+  ): Promise<DayanakKapanisSonucu> =>
+    gonderVeAl<DayanakKapanisSonucu>(
       `/bolumler/${bolumId}/malikler/${malikId}/devret`, 'PATCH', { tapuBitis },
-      () => { mockMalikDevret(bolumId, malikId, tapuBitis); },
+      () => ({
+        id: malikId, durum: 'DEVREDILDI',
+        sakinCikisi: mockMalikDevret(bolumId, malikId, tapuBitis),
+      }),
     ),
 
   /**
@@ -729,14 +791,22 @@ export const servis = {
       mockKiraciDuzelt(bolumId, kiraciId, dto);
     }),
 
-  /** Tahliye — sözleşme kapanır, kayıt SİLİNMEZ. */
+  /**
+   * Tahliye — sözleşme kapanır, kayıt SİLİNMEZ.
+   *
+   * Bu kiracıya DAYANAN sakinler (eşi · çocuğu…) aynı işlemde otomatik
+   * çıkarılır; kaç kişi olduğu `sakinCikisi` ile döner.
+   */
   kiraciTahliye: (
     bolumId: string, kiraciId: string, tahliyeTarihi: string, tahliyeGerekcesi: string,
-  ): Promise<void> =>
-    gonder(
+  ): Promise<DayanakKapanisSonucu> =>
+    gonderVeAl<DayanakKapanisSonucu>(
       `/bolumler/${bolumId}/kiracilar/${kiraciId}/tahliye`, 'PATCH',
       { tahliyeTarihi, tahliyeGerekcesi },
-      () => { mockKiraciTahliye(bolumId, kiraciId, tahliyeTarihi, tahliyeGerekcesi); },
+      () => ({
+        id: kiraciId, durum: 'TAHLIYE_EDILDI',
+        sakinCikisi: mockKiraciTahliye(bolumId, kiraciId, tahliyeTarihi, tahliyeGerekcesi),
+      }),
     ),
 
   // --- Sakin ---

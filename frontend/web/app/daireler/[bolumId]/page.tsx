@@ -25,7 +25,10 @@ import { MalikEkleFormu } from '@/components/malik/malik-ekle-formu';
 import { MalikEylemleri } from '@/components/malik/malik-eylemleri';
 import { KiraciEkleFormu, KiraciTahliyeEylemi } from '@/components/kiraci/kiraci-yonetimi';
 import { SakinCikisEylemi, SakinEkleFormu } from '@/components/sakin/sakin-yonetimi';
-import { servis, type AuditSatiri, type DaireKarti } from '@/lib/servis';
+import { DayanakKapanisOzeti } from '@/components/sakin/dayanak-kapanis-ozeti';
+import {
+  servis, type AuditSatiri, type DaireKarti, type DayanakKapanisSonucu,
+} from '@/lib/servis';
 
 function Alan({ etiket, deger }: { readonly etiket: string; readonly deger: string }) {
   return (
@@ -68,6 +71,15 @@ export default function DaireKartiSayfasi({
   const [formAcik, setFormAcik] = useState(false);
   const [kiraciFormu, setKiraciFormu] = useState(false);
   const [sakinFormu, setSakinFormu] = useState(false);
+  /*
+   * Malik devri ve kiraci tahliyesi, o dayanaga bagli SAKINLERI de kapatir.
+   *
+   * ⚠️  Ozet SAYFADA tutulur, eylem bileseninde degil: devir/tahliyeden sonra
+   *     kayit "gecerli degil" olur ve o bilesen `null` doner — ozet yazildigi
+   *     anda kaybolurdu. Kaybolan bir bildirim, hic verilmemis bildirimdir.
+   */
+  const [sakinCikisi, setSakinCikisi] =
+    useState<DayanakKapanisSonucu['sakinCikisi'] | null>(null);
 
   const yukle = useCallback(() => {
     setYukleniyor(true);
@@ -234,11 +246,15 @@ export default function DaireKartiSayfasi({
                   )}
 
                   {/* Devret ve Duzelt AYRI eylemlerdir — bkz. malik-eylemleri.tsx */}
-                  <MalikEylemleri bolumId={params.bolumId} malik={m} onDegisti={yukle} />
+                  <MalikEylemleri bolumId={params.bolumId} malik={m} onDegisti={yukle}
+                                  onSakinCikisi={setSakinCikisi} />
                 </div>
               ))}
             </div>
           )}
+
+          {/* Devrin sakinlere etkisi — devredilen malik karti solsa da kalir. */}
+          <DayanakKapanisOzeti sonuc={sakinCikisi} />
         </div>
       </SekmePaneli>
 
@@ -296,11 +312,15 @@ export default function DaireKartiSayfasi({
                     {k.tahliyeGerekcesi}
                   </p>
                 )}
-                <KiraciTahliyeEylemi bolumId={params.bolumId} kiraci={k} onDegisti={yukle} />
+                <KiraciTahliyeEylemi bolumId={params.bolumId} kiraci={k} onDegisti={yukle}
+                                     onSakinCikisi={setSakinCikisi} />
               </div>
             ))}
           </div>
         )}
+
+        {/* Tahliyenin sakinlere etkisi — tahliye edilen kart solsa da kalir. */}
+        <DayanakKapanisOzeti sonuc={sakinCikisi} />
         </div>
       </SekmePaneli>
 
@@ -357,6 +377,13 @@ export default function DaireKartiSayfasi({
             ))}
           </div>
         )}
+
+        {/*
+          Ozet ASIL BURADA gerekli: devir/tahliyeden sonra kullanici sakin
+          listesine bakip "bunlar neden kapandi" diye sorar; cevabi listenin
+          yaninda bulur.
+        */}
+        <DayanakKapanisOzeti sonuc={sakinCikisi} />
         </div>
       </SekmePaneli>
 

@@ -26,8 +26,21 @@ import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
 import {
   kisiyiCoz, plakalariYaz, type HizliKayitSonucu,
 } from '../../common/kayit/hizli-kayit';
+import {
+  dayanakSakinleriniCikar, type OtomatikCikisSonucu,
+} from '../../common/kayit/sakin-otomatik-cikis';
 import type { KiraciDuzeltDto, KiraciEkleDto, KiraciTahliyeDto } from './dto/kiraci.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
+
+/**
+ * Tahliye sonucu — kaç sakinin otomatik çıkarıldığını TAŞIR.
+ *
+ * ⚠️  Sayı yanıta konmasaydı kullanıcı dört kişiyi de sessizce listeden
+ *     düşürmüş olurdu; ekranda hiçbir iz kalmazdı.
+ */
+export interface TahliyeSonucu extends KomutSonucu {
+  readonly sakinCikisi: OtomatikCikisSonucu;
+}
 
 @Injectable()
 export class KiraciCommandService {
@@ -244,13 +257,20 @@ export class KiraciCommandService {
     });
   }
 
-  /** Tahliye — sözleşme kapanır, kayıt silinmez. */
+  /**
+   * Tahliye — sözleşme kapanır, kayıt silinmez.
+   *
+   * ⚠️  KİRACIYA DAYANAN SAKİNLER DE OTOMATİK ÇIKARILIR. Kiracı taşındıysa
+   *     eşi ve çocukları da taşınmıştır; kayıtları açık bırakılsaydı daire
+   *     kartında "hâlen oturuyor" görünür, acil durum listesi ve doluluk
+   *     raporu yanlış kalırdı (bkz. `dayanakSakinleriniCikar`).
+   */
   async tahliyeEt(
     bolumId: string,
     kiraciId: string,
     dto: KiraciTahliyeDto,
     principal: Principal,
-  ): Promise<KomutSonucu> {
+  ): Promise<TahliyeSonucu> {
     const baglam = mevcutBaglamiZorunluKil('kiraci.tahliye');
     const tahliyeTarihi = takvimTarihi(dto.tahliyeTarihi);
 
@@ -289,11 +309,22 @@ export class KiraciCommandService {
         },
       });
 
+      // Bu kiracıya dayanan sakinler AYNI İŞLEMDE çıkarılır: tahliye ile
+      // sakinlerin çıkışı ya birlikte olur ya hiç olmaz.
+      const sakinCikisi = await dayanakSakinleriniCikar(
+        tx, this.audit, this.outbox, principal, baglam,
+        { bolumId, kiraciId, cikisTarihi: tahliyeTarihi, sebep: 'kiracı tahliyesi' },
+      );
+
       await this.audit.yaz(tx, {
         tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
         varlik: 'Kiraci', varlikId: kiraciId,
         oncekiDeger: { bitis: takvimTarihiniOkuVeyaNull(kayit.bitis), tahliyeTarihi: null },
-        sonrakiDeger: { bitis: tahliyeTarihi, tahliyeTarihi },
+        sonrakiDeger: {
+          bitis: tahliyeTarihi, tahliyeTarihi,
+          otomatikCikarilanSakin: sakinCikisi.cikarilan,
+          cikarilamayanSakin: sakinCikisi.cikarilamayan.length,
+        },
         gerekce: dto.tahliyeGerekcesi,
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
@@ -303,10 +334,13 @@ export class KiraciCommandService {
         eventType: 'apartman.kiraci.tahliye_edildi', eventVersion: 1,
         tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
         aggregate: { tip: 'Kiraci', id: kiraciId, version: 2 },
-        payload: { bolumId, kisiId: kayit.kisiId, tahliyeTarihi },
+        payload: {
+          bolumId, kisiId: kayit.kisiId, tahliyeTarihi,
+          otomatikCikarilanSakin: sakinCikisi.cikarilan,
+        },
       });
 
-      return { id: kiraciId, durum: 'TAHLIYE_EDILDI' };
+      return { id: kiraciId, durum: 'TAHLIYE_EDILDI', sakinCikisi };
     });
   }
 }

@@ -166,6 +166,24 @@ export function prismaHatasiniCevir(hata: unknown): Error | null {
           'Girilen değer alan için çok uzun.',
           'Daha kısa bir değer girin.',
         );
+      case 'P2023':
+        /*
+         * BİÇİMİ BOZUK KİMLİK → 404. UUID bekleyen bir alana "undefined",
+         * "12" ya da elle kırpılmış bir metin geldiğinde Prisma bunu
+         * "Inconsistent column data: Error creating UUID" olarak atar.
+         *
+         * ⚠️  ÇEVRİLMESEYDİ bütün uygulamada 500 dönerdi: adres çubuğundaki
+         *     kimliği bozuk her bağlantı, eksik bir değişken taşıyan her
+         *     istemci çağrısı "sistem bozuldu" gösterirdi. Oysa sunucu
+         *     sağlamdır; ARANAN KAYIT YOKTUR.
+         *
+         * ⚠️  400 değil 404: kimliği tahmin etmeye çalışan birine "bu biçim
+         *     yanlış" demek, var olan bir kimliğin biçimini de doğrular.
+         *     Bulunamadı cevabı her iki durumda aynıdır.
+         */
+        return new KayitBulunamadi(
+          'Aradığınız kayıt bulunamadı; bağlantıdaki kimlik geçerli değil.',
+        );
       default:
         return null;
     }

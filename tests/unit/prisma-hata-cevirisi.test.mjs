@@ -96,6 +96,26 @@ test('P2000: deger cok uzun -> 422', () => {
 });
 
 /*
+ * ⚠️  BICIMI BOZUK KIMLIK. Adres cubugundaki kimligi kirpilmis her baglanti ve
+ *     eksik degisken tasiyan her istemci cagrisi ("/kiracilar/undefined/...")
+ *     bu koda duser. Cevrilmeseydi butun uygulamada 500 "sistem bozuldu"
+ *     gorunurdu; oysa sunucu saglamdir, ARANAN KAYIT YOKTUR.
+ */
+test('P2023: bozuk UUID -> 404 (500 DEGIL)', () => {
+  const h = prismaHatasiniCevir(bilinen(
+    'P2023',
+    'Inconsistent column data: Error creating UUID, invalid character: ' +
+      'expected an optional prefix of `urn:uuid:` followed by [0-9a-fA-F-], ' +
+      'found `u` at 1',
+  ));
+  assert.notEqual(h, null);
+  assert.equal(h.httpDurum, 404);
+  // Kimligin BICIMI hakkinda bilgi sizdirilmez — var olan bir kimligin
+  // bicimini de dogrulamis olurduk.
+  assert.doesNotMatch(h.message, /UUID/u);
+});
+
+/*
  * ⚠️  Taninmayan Prisma kodu `null` DONER ve cagiran 500'e duser. Bilinmeyen
  *     bir hata icin 4xx uydurulsaydi gercek bir sistem arizasi "kullanici
  *     hatasi" gibi gorunur ve kimse bakmazdi.

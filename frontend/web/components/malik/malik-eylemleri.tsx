@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useBildirim } from '@/components/bildirim';
-import { servis, type Malik } from '@/lib/servis';
+import { servis, type DayanakKapanisSonucu, type Malik } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
 const TAPU_TURLERI = [
@@ -29,11 +29,18 @@ const girdiSinifi =
   'px-3 h-[var(--rowh)] rounded-[var(--rs)] border border-[color:var(--line)] bg-transparent w-full';
 
 export function MalikEylemleri({
-  bolumId, malik, onDegisti,
+  bolumId, malik, onDegisti, onSakinCikisi,
 }: {
   readonly bolumId: string;
   readonly malik: Malik;
   readonly onDegisti: () => void;
+  /**
+   * Devre bagli otomatik sakin cikislarini SAYFAYA bildirir.
+   *
+   * ⚠️  Ozet burada tutulamaz: devirden sonra `gecerliMi` false olur ve bu
+   *     bilesen `null` doner — ozet, yazildigi anda kaybolurdu.
+   */
+  readonly onSakinCikisi: (sonuc: DayanakKapanisSonucu['sakinCikisi']) => void;
 }) {
   const t = useTranslations('malik');
   const tg = useTranslations('genel');
@@ -63,7 +70,7 @@ export function MalikEylemleri({
                      kapat={() => setAcik('yok')} onDegisti={onDegisti} />
       )}
       {acik === 'devret' && (
-        <DevretFormu bolumId={bolumId} malik={malik}
+        <DevretFormu bolumId={bolumId} malik={malik} onSakinCikisi={onSakinCikisi}
                      kapat={() => setAcik('yok')} onDegisti={onDegisti} />
       )}
 
@@ -153,15 +160,17 @@ function DuzeltFormu({
 
 /** Tapu dönemini kapatır. Kayıt SİLİNMEZ. */
 function DevretFormu({
-  bolumId, malik, kapat, onDegisti,
+  bolumId, malik, kapat, onDegisti, onSakinCikisi,
 }: {
   readonly bolumId: string;
   readonly malik: Malik;
   readonly kapat: () => void;
   readonly onDegisti: () => void;
+  readonly onSakinCikisi: (sonuc: DayanakKapanisSonucu['sakinCikisi']) => void;
 }) {
   const t = useTranslations('malik');
   const tg = useTranslations('genel');
+  const ts = useTranslations('sakinYonetim');
   const bildirim = useBildirim();
 
   const [tapuBitis, setTapuBitis] = useState('');
@@ -181,8 +190,12 @@ function DevretFormu({
     setHata(null);
     setGonderiliyor(true);
     try {
-      await servis.malikDevret(bolumId, malik.id, tapuBitis);
+      const sonuc = await servis.malikDevret(bolumId, malik.id, tapuBitis);
       bildirim.basari(t('devredildi'));
+      onSakinCikisi(sonuc.sakinCikisi);
+      if (sonuc.sakinCikisi.cikarilan > 0) {
+        bildirim.bilgi(ts('otomatikCikisBildirim', { adet: sonuc.sakinCikisi.cikarilan }));
+      }
       kapat();
       onDegisti();
     } catch (h) {

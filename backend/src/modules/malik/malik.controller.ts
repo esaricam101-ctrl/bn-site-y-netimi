@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
 import { AktifPrincipal, RequirePermission } from '../../common/decorators';
-import { MalikCommandService } from './malik.command.service';
+import { MalikCommandService, type DevirSonucu } from './malik.command.service';
 import { MalikQueryService, type HisseRaporu, type MalikSatiri } from './malik.query.service';
 import { MalikDevretDto, MalikDuzeltDto, MalikEkleDto } from './dto/malik.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
@@ -98,14 +98,18 @@ export class MalikController {
     summary: 'Tapu dönemini kapat (devir/satış)',
     description:
       'Kayıt SİLİNMEZ, dönemi kapanır. Borç sorumluluğu borcun oluştuğu anda ' +
-      'çözülüp yazılır; geçmiş tapu kaydını silmek o borcun dayanağını yok eder.',
+      'çözülüp yazılır; geçmiş tapu kaydını silmek o borcun dayanağını yok eder.\n\n' +
+      'Bu malike DAYANAN sakinlere aynı işlemde OTOMATİK ÇIKIŞ verilir (çıkış ' +
+      'tarihi = tapu bitişi). Kaç kişinin çıkarıldığı `sakinCikisi.cikarilan` ' +
+      'alanında döner; girişi tapu bitişinden sonra olduğu için çıkarılamayan ' +
+      'kayıtlar `sakinCikisi.cikarilamayan` içinde gerekçesiyle listelenir.',
   })
   devret(
     @Param('bolumId') bolumId: string,
     @Param('malikId') malikId: string,
     @Body() dto: MalikDevretDto,
     @AktifPrincipal() principal: Principal,
-  ): Promise<KomutSonucu> {
+  ): Promise<DevirSonucu> {
     return this.command.devret(bolumId, malikId, dto.tapuBitis, principal);
   }
 }

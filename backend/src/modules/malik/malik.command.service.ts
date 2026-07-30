@@ -27,8 +27,21 @@ import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
 import {
   kisiyiCoz, plakalariYaz, type HizliKayitSonucu,
 } from '../../common/kayit/hizli-kayit';
+import {
+  dayanakSakinleriniCikar, type OtomatikCikisSonucu,
+} from '../../common/kayit/sakin-otomatik-cikis';
 import type { MalikDuzeltDto, MalikEkleDto } from './dto/malik.dto';
 import type { KomutSonucu } from '../tenant/tenant.command.service';
+
+/**
+ * Devir sonucu — kaç sakinin otomatik çıkarıldığını TAŞIR.
+ *
+ * ⚠️  Sayı yanıta konmasaydı kullanıcı üç kişiyi de sessizce listeden düşürmüş
+ *     olurdu; "neden daire boş göründü" sorusunun cevabı ekranda olmazdı.
+ */
+export interface DevirSonucu extends KomutSonucu {
+  readonly sakinCikisi: OtomatikCikisSonucu;
+}
 
 @Injectable()
 export class MalikCommandService {
@@ -260,13 +273,20 @@ export class MalikCommandService {
     });
   }
 
-  /** Tapu dönemini kapatır. Kayıt silinmez — tarihçe korunur. */
+  /**
+   * Tapu dönemini kapatır. Kayıt silinmez — tarihçe korunur.
+   *
+   * ⚠️  MALİKE DAYANAN SAKİNLER DE OTOMATİK ÇIKARILIR. Malik devrolduysa
+   *     onun yakınlarının o dairede oturma dayanağı da bitmiştir. Elle
+   *     yapılması beklenseydi unutulur, daire kartı ve acil durum listesi
+   *     aylarca yanlış kalırdı (bkz. `dayanakSakinleriniCikar`).
+   */
   async devret(
     bolumId: string,
     malikId: string,
     tapuBitisMetni: string,
     principal: Principal,
-  ): Promise<KomutSonucu> {
+  ): Promise<DevirSonucu> {
     const baglam = mevcutBaglamiZorunluKil('malik.devret');
     const tapuBitis = takvimTarihi(tapuBitisMetni);
 
@@ -291,10 +311,22 @@ export class MalikCommandService {
         data: { tapuBitis: takvimTarihiniYaz(tapuBitis) },
       });
 
+      // Bu malike dayanan sakinler AYNI İŞLEMDE çıkarılır: devir ile
+      // sakinlerin çıkışı ya birlikte olur ya hiç olmaz.
+      const sakinCikisi = await dayanakSakinleriniCikar(
+        tx, this.audit, this.outbox, principal, baglam,
+        { bolumId, malikId, cikisTarihi: tapuBitis, sebep: 'malik devri' },
+      );
+
       await this.audit.yaz(tx, {
         tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
         varlik: 'Malik', varlikId: malikId,
-        oncekiDeger: { tapuBitis: oncekiBitis }, sonrakiDeger: { tapuBitis },
+        oncekiDeger: { tapuBitis: oncekiBitis },
+        sonrakiDeger: {
+          tapuBitis,
+          otomatikCikarilanSakin: sakinCikisi.cikarilan,
+          cikarilamayanSakin: sakinCikisi.cikarilamayan.length,
+        },
         correlationId: baglam.correlationId,
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
       });
@@ -303,10 +335,13 @@ export class MalikCommandService {
         eventType: 'apartman.malik.devredildi', eventVersion: 1,
         tenantId: principal.tenantId, principal, correlationId: baglam.correlationId,
         aggregate: { tip: 'Malik', id: malikId, version: 2 },
-        payload: { bolumId, kisiId: kayit.kisiId, tapuBitis },
+        payload: {
+          bolumId, kisiId: kayit.kisiId, tapuBitis,
+          otomatikCikarilanSakin: sakinCikisi.cikarilan,
+        },
       });
 
-      return { id: malikId, durum: 'DEVREDILDI' };
+      return { id: malikId, durum: 'DEVREDILDI', sakinCikisi };
     });
   }
 }
