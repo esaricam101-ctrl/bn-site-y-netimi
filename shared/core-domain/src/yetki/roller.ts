@@ -40,8 +40,8 @@ export const ROLLER: readonly RolTanimi[] = [
       // yöneticisi platforma sınırsız yeni tenant açabiliyordu.
       I.TENANT_GORUNTULE, I.TENANT_YONET,
       I.KISI_GORUNTULE, I.KISI_YONET, I.BOLUM_GORUNTULE, I.BOLUM_YONET,
-      I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK, I.FINANS_TAHSILAT,
-      I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_AYAR,
+      I.FINANS_OZET, I.FINANS_BINA_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK,
+      I.FINANS_TAHSILAT, I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_AYAR,
       I.TALEP_GORUNTULE, I.TALEP_YONET, I.BELGE_GORUNTULE, I.BELGE_YUKLE,
       // İletişim (0019). Yerleşkeyi fiilen yöneten taraf duyuru yapar;
       // toplu gönderim ve belge paylaşımı da işin doğal parçasıdır.
@@ -63,8 +63,8 @@ export const ROLLER: readonly RolTanimi[] = [
       // erişilemez kalırdı.
       I.TENANT_GORUNTULE, I.TENANT_YONET, I.TENANT_KURULUM,
       I.KISI_GORUNTULE, I.KISI_YONET, I.BOLUM_GORUNTULE, I.BOLUM_YONET,
-      I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK, I.FINANS_TAHSILAT,
-      I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_YEVMIYE_GIRIS,
+      I.FINANS_OZET, I.FINANS_BINA_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK,
+      I.FINANS_TAHSILAT, I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_YEVMIYE_GIRIS,
       I.FINANS_DONEM_KAPAT, I.FINANS_AYAR,
       I.TALEP_GORUNTULE, I.TALEP_YONET, I.BELGE_GORUNTULE, I.BELGE_YUKLE,
       I.ILETI_GONDER, I.ILETI_TOPLU_GONDER, I.ILETI_BELGE_PAYLAS, I.ILETI_AYAR,
@@ -76,7 +76,7 @@ export const ROLLER: readonly RolTanimi[] = [
     yalnizcaKendiVerisi: false,
     izinler: [
       I.TENANT_GORUNTULE, I.KISI_GORUNTULE, I.BOLUM_GORUNTULE,
-      I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_DEFTER_GORUNTULE,
+      I.FINANS_OZET, I.FINANS_BINA_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_DEFTER_GORUNTULE,
       I.TALEP_GORUNTULE, I.BELGE_GORUNTULE, I.AI_KULLAN,
       // YALNIZCA TEKİL mesaj. Toplu gönderim ve belge paylaşımı BİLİNÇLİ
       // OLARAK VERİLMEDİ: yönetim kurulu denetim organıdır, işletme değil;
@@ -89,7 +89,7 @@ export const ROLLER: readonly RolTanimi[] = [
     yalnizcaKendiVerisi: false,
     izinler: [
       I.TENANT_GORUNTULE, I.BOLUM_GORUNTULE,
-      I.FINANS_OZET, I.FINANS_DEFTER_GORUNTULE,
+      I.FINANS_OZET, I.FINANS_BINA_OZET, I.FINANS_DEFTER_GORUNTULE,
       I.TALEP_GORUNTULE, I.BELGE_GORUNTULE,
     ],
   },
@@ -99,7 +99,7 @@ export const ROLLER: readonly RolTanimi[] = [
     // Salt okunur. Erisimi de denetlenir (ADR v1.1 §10).
     izinler: [
       I.TENANT_GORUNTULE, I.BOLUM_GORUNTULE,
-      I.FINANS_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_DEFTER_GORUNTULE,
+      I.FINANS_OZET, I.FINANS_BINA_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_DEFTER_GORUNTULE,
       I.BELGE_GORUNTULE, I.AUDIT_GORUNTULE,
     ],
   },
@@ -108,6 +108,9 @@ export const ROLLER: readonly RolTanimi[] = [
     yalnizcaKendiVerisi: true,
     izinler: [
       I.KISI_GORUNTULE, I.BOLUM_GORUNTULE, I.FINANS_OZET,
+      // KMK md. 38-39: kat maliki yonetimin hesabini DENETLER. Kiracinin
+      // boyle bir hakki yoktur; ayrim bu izinle kurulur.
+      I.FINANS_BINA_OZET,
       I.TALEP_OLUSTUR, I.TALEP_GORUNTULE, I.BELGE_GORUNTULE, I.BELGE_YUKLE,
     ],
   },

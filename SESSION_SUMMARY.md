@@ -1305,6 +1305,107 @@ Docker Desktop kapalıysa önce başlatılmalı:
 ölçütü karşılandı: uygulama beyan edilen yoldan ayağa kalkıyor, `/saglik` 200
 dönüyor, giriş ucu 6. denemede 429 + `Retry-After` veriyor.
 
+### ⚠️ AÇIK İŞ — satır kapsamı (31 Temmuz, oturum ortasında kesildi)
+
+**Durum: kod ve migration YAZILDI ve UYGULANDI; 0025 sonrası testler
+KOŞULMADI.** Sonraki oturumun ilk işi budur.
+
+#### Tamamlananlar
+
+| İş | Durum |
+|---|---|
+| CT-13 `satir-kapsami.spec.ts` (14 test) | ✅ yazıldı · 0024'e kadar yeşil |
+| CT-14 `kapsam-kenar-durumlari.spec.ts` (12 test) | ✅ yazıldı · 0024'e kadar yeşil |
+| Migration 0022 — kapsam ekseni, 15 RESTRICTIVE politika | ✅ uygulandı |
+| Migration 0023 — kiraya verilen mülkte yalnızca borç/ödeme | ✅ uygulandı |
+| Migration 0024 — hisseli mülkiyette yalnızca kendi payı | ✅ uygulandı |
+| Migration 0025 — InitPlan sarmalama | ✅ uygulandı |
+| `docs/SATIR-KAPSAMI-KANITI.md` — 55 tablonun kapsam envanteri | ✅ |
+| Git geçmişi sızıntı taraması (67 commit) | ✅ **temiz** |
+
+#### 🔴 0025 SONRASI TESTLER KOŞULMADI
+
+50 sözleşme testi **0024 durumunda** yeşildi. `0025_kapsam_initplan`
+politika ifadelerini yeniden yazdı ve **ondan sonra hiçbir test koşulmadı**.
+İlk iş: `pnpm test:contract` → 50/50 beklenir. Kırmızı çıkarsa DUR ve bildir.
+
+#### ⚠️ `= ANY ((SELECT dizi))` YAZILAMAZ — 42883
+
+Talimatta yazılan biçim PostgreSQL'de **çalışmaz**:
+
+```sql
+id = ANY ((SELECT app_kapsam_kisileri()))
+-- ERROR 42883: operator does not exist: uuid = uuid[]
+```
+
+PostgreSQL bunu *alt sorgu biçimi* sanıp `uuid = uuid[]` operatörü arar.
+0025'te kullanılan geçerli biçim:
+
+```sql
+id IN (SELECT unnest(app_kapsam_kisileri()))
+```
+
+Bu da amaca ulaşır: plan `hashed SubPlan` üretir, fonksiyon sorgu başına
+**bir kez** çalışır. Skaler çağrılar (`app_kapsam_serbest`,
+`app_kapsam_kisi_id`) `(SELECT f())` ile sarılabilir ve InitPlan olur.
+
+#### Ölçüm — 0025 öncesi/sonrası (uygulama rolü `bnos_app`)
+
+Sentetik: 5.000 bağımsız bölüm · 5.000 kişi · 5.000 malik.
+
+| Senaryo | Execution ÖNCE | SONRA | Buffers ÖNCE | SONRA |
+|---|---|---|---|---|
+| Kısıtsız | 0,295 ms | 1,474 ms | 54 | 54 |
+| 1 daireli malik | 280,483 ms | 12,700 ms | 15.194 | 5.023 |
+| 200 daireli malik | **39.227 ms** | **10,639 ms** | **545.390** | **1.709** |
+| 5.000 daireli malik | 10 dk'da bitmedi | ölçülemedi (çıktı kesildi) | — | 10.057 |
+
+Plan artık `InitPlan 1/2` + `hashed SubPlan 3` düğümlerini gösteriyor.
+Kısıtsız yol 0,295 → 1,474 ms yavaşladı (InitPlan yöneticide de kuruluyor);
+mutlak değer küçük ama gerçek.
+
+`set_config` boyutu **değişmedi**: 200 daire = 7.399 bayt, 5.000 daire =
+184.999 bayt.
+
+#### Ürün sahibi kararları (bu oturumda alındı)
+
+| Konu | Karar |
+|---|---|
+| Reşit olmayan | Yalnızca **başka hane** gizlenir; veli kendi çocuğunu görür |
+| KİRACI bina finansı | Yeni izin `FINANS_BINA_OZET` — MALİK'te var, KİRACI'da yok |
+| Kiraya verilen mülk | Malik yalnızca **borç + ödeme** görür (KMK md. 22) |
+| Hisseli mülkiyet | Her malik **yalnızca kendi payını** görür (0024) |
+| Çok rollü kişi | Birleşim korunur — bir rolü kısıtsızsa kapsam kurulmaz |
+| SECURITY DEFINER (Adım 2) | ❌ **GERİ ÇEKİLDİ** — ADR-0002 ile çelişiyor |
+| Ayar boyutunu küçültme | ❌ şimdilik yapılmayacak |
+
+#### Sonraki oturumun sırası
+
+1. `pnpm test:contract` — 50/50 doğrula (0025 sonrası ilk koşu).
+2. Ölçümü tekrarla: 30 kişi · 5.000 kişi · 200 daireli malik. 5.000 daireli
+   senaryonun `Execution Time`'ı **hâlâ eksik**.
+3. **Analiz soruları** (§ aşağıda) yanıtlandı; kararı ürün sahibi verecek.
+4. Veri temizliği: `prisma migrate reset` + seed. Ters kayıt KULLANILMAZ —
+   yerel fikstür muhasebe kaydı değildir.
+5. Ters kayıt / soft delete / toplu geri alma için **ayrı** testler.
+6. CI kilitleme ve README:151 — politika DDL'i durulana kadar **beklemede**.
+
+#### Veritabanında duran artıklar
+
+- `perf-5000` tenant'ı (5.000 bölüm · 5.000 kişi · 5.000 malik)
+- `malik-test@guzel-apartmani.test` kullanıcısı
+- 2026-03 dönemi tahakkuku (4 borç kaydı)
+- CT-13/CT-14 tenant'ları (denetim kaydı olanlar silinemedi — trigger)
+
+Hepsi `migrate reset` ile gidecek. Veritabanı **yerel**, paylaşımlı değil.
+
+#### 🔴 Depo PUBLIC
+
+`90d085b` · `e7543f7` · `3220c3b` commit'leri kapatılmamış açığın tarifini
+yayımladı. Ürün sahibi depoyu private yapacağını bildirdi. Geçmiş
+**yeniden yazılmayacak** (önbellek ve çatallar kalır); sızmış bir sır
+bulunmadığı için iptal edilecek anahtar da yok.
+
 ### İLK GÖREV — sırada ne var
 
 1. **`yalnizcaKendiVerisi` zorlaması** (§3.F P0-1). Denetimdeki **en ağır**

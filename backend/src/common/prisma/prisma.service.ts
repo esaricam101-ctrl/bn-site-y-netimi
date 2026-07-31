@@ -76,10 +76,37 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       );
     }
 
+    /*
+     * SATIR KAPSAMI — tenant izolasyonunun İKİNCİ EKSENİ (aynı katman).
+     *
+     * ⚠️  BURASI TEK NOKTADIR. Kapsam uç uç `where` koşullarına serpiştirilmez;
+     *     tenant izolasyonunun serpiştirilmemesiyle AYNI GEREKÇEYLE: unutulan
+     *     bir `where` derleme hatası vermez, lint hatası vermez, test kırmazsa
+     *     hiç görünmez. `yalnizcaKendiVerisi` bayrağının aylarca tanımlı olup
+     *     hiç okunmaması tam olarak bu sınıfın hatasıydı.
+     *
+     * ⚠️  DEĞERİ BURASI KOYAR, KURALI VERİTABANI ZORLAR. Politikalar
+     *     migration 0022'dedir ve RESTRICTIVE'dir: tenant politikasıyla
+     *     VE'lenir, OR'lanmaz — yani kapsam tenant izolasyonunu gevşetemez.
+     *
+     * ⚠️  KISITSIZLIK AÇIKÇA YAZILIR (boş metin), atlanmaz. Ayar hiç
+     *     yazılmasaydı `current_setting(..., true)` NULL döner ve politika
+     *     kısıtsız davranırdı; yani bir kod yolu ayarı unutunca koruma sessizce
+     *     kalkardı. Her transaction'da açıkça yazmak bu yolu kapatır.
+     */
+    const kapsam = mevcutBaglam()?.kapsam;
+    const kapsamKisi = kapsam?.kisiId ?? '';
+    // OTURULAN: tam hane görünürlüğü. MÜLK: yalnızca borç/ödeme.
+    const oturulan = (kapsam?.oturulanBolumler ?? []).join(',');
+    const mulk = (kapsam?.mulkBolumler ?? []).join(',');
+
     return this.$transaction(async (tx) => {
       // SET LOCAL: yalnızca bu transaction için geçerlidir, havuzdaki
       // bağlantıya sızmaz. Parametre bağlama ile SQL enjeksiyonu engellenir.
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tid}::text, true)`;
+      await tx.$executeRaw`SELECT set_config('app.kapsam_kisi_id', ${kapsamKisi}::text, true)`;
+      await tx.$executeRaw`SELECT set_config('app.kapsam_bolumler', ${oturulan}::text, true)`;
+      await tx.$executeRaw`SELECT set_config('app.kapsam_mulk_bolumler', ${mulk}::text, true)`;
       return fn(tx);
     });
   }

@@ -30,6 +30,9 @@ export default defineConfig({
     testTimeout: 30_000,
     // Kök `.env` yüklenir; olmadan her test yapılandırma hatasıyla düşer.
     setupFiles: [paket('./test/setup.ts')],
+    // İstek sınırı sayaçları koşu başında sıfırlanır — gerekçe dosyanın
+    // kendi başlığındadır.
+    globalSetup: [paket('./test/global-setup.ts')],
   },
   resolve: {
     alias: {

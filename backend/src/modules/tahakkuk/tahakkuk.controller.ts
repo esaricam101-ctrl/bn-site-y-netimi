@@ -62,8 +62,21 @@ export class TahakkukController {
   }
 
   @Get('donemler')
-  @RequirePermission(IZINLER.FINANS_OZET)
-  @ApiOperation({ summary: 'Dönem bazlı tahakkuk ve tahsilat özeti' })
+  /*
+   * ⚠️  `FINANS_OZET` DEĞİL, `FINANS_BINA_OZET`.
+   *
+   *     Bu uç BÜTÜN bölümlerin tahakkuk toplamını döner — tek bir hanenin
+   *     değil. `FINANS_OZET` ile korunduğunda KİRACI da bina geneli finansı
+   *     görüyordu (canlı doğrulamada `borcSayisi: 4 · toplamTutar: 10000.00`
+   *     dönmüştü). Kiracının yönetimi denetleme hakkı yoktur.
+   *
+   *     KAT MALİKİNİN hakkı ise KAPATILMAZ: KMK md. 38-39 uyarınca yönetimin
+   *     hesabını denetlemek onun yasal hakkıdır ve bina geneli özet bu hakkın
+   *     kapsamındadır. Ayrım satır kapsamıyla değil İZİNLE kurulur — çünkü
+   *     burada sızan şey satır değil, TOPLAMDIR.
+   */
+  @RequirePermission(IZINLER.FINANS_BINA_OZET)
+  @ApiOperation({ summary: 'Dönem bazlı tahakkuk ve tahsilat özeti (bina geneli)' })
   donemler(@AktifPrincipal() principal: Principal): Promise<readonly DonemOzeti[]> {
     return this.query.donemOzetleri(principal);
   }

@@ -64,6 +64,91 @@ export class TenantOkuyucu {
   }
 
   /**
+   * SATIR KAPSAMI — görüntüleyenin bağlı olduğu bölümler.
+   *
+   * ⚠️  ÖNBELLEKLENMEZ. Bir kiracının sözleşmesi bittiğinde ya da bir malik
+   *     devrettiğinde kapsam DARALIR; bu bir yetki kaldırmadır ve 5 dakika
+   *     geçerli görünmesi kabul edilemez (devir kaydıyla aynı gerekçe).
+   *
+   * ⚠️  YALNIZCA BUGÜN GEÇERLİ ilişkiler sayılır. Tapusu devredilmiş malik ya
+   *     da tahliye olmuş kiracı, eski dairesinin verisini görmeye DEVAM
+   *     ETMEMELİDİR — tarihçede kalması görünürlük vermez.
+   *
+   * ⚠️  Bu sorgu KAPSAM KURULMADAN ÖNCE koşar (bağlamda `kapsam` henüz yok),
+   *     dolayısıyla kapsam politikası kendisini süzmez. Sıra tersine dönerse
+   *     kullanıcı kendi bölümlerini bulamaz ve HİÇBİR ŞEY göremez.
+   */
+  async kapsamBolumleri(
+    tid: TenantId, kisiId: string,
+  ): Promise<{ readonly oturulan: readonly string[]; readonly mulk: readonly string[] }> {
+    const bugun = new Date(new Date().toISOString().slice(0, 10));
+
+    const [malikler, kiracilar, sakinler, kiradakiler] = await this.prisma.tenantIslemi(
+      (tx) => Promise.all([
+        tx.malik.findMany({
+          where: {
+            tenantId: tid, kisiId,
+            tapuBaslangic: { lte: bugun },
+            OR: [{ tapuBitis: null }, { tapuBitis: { gte: bugun } }],
+          },
+          select: { bolumId: true },
+        }),
+        tx.kiraci.findMany({
+          where: {
+            tenantId: tid, kisiId, tahliyeTarihi: null,
+            baslangic: { lte: bugun },
+            OR: [{ bitis: null }, { bitis: { gte: bugun } }],
+          },
+          select: { bolumId: true },
+        }),
+        tx.sakin.findMany({
+          where: {
+            tenantId: tid, kisiId,
+            girisTarihi: { lte: bugun },
+            OR: [{ cikisTarihi: null }, { cikisTarihi: { gte: bugun } }],
+          },
+          select: { bolumId: true },
+        }),
+        // Kişinin MALİK olduğu bölümlerde BAŞKASININ kiracı olup olmadığı.
+        tx.kiraci.findMany({
+          where: {
+            tenantId: tid,
+            kisiId: { not: kisiId },
+            tahliyeTarihi: null,
+            baslangic: { lte: bugun },
+            OR: [{ bitis: null }, { bitis: { gte: bugun } }],
+          },
+          select: { bolumId: true },
+        }),
+      ]),
+      tid,
+    );
+
+    const malikBolumler = new Set(malikler.map((m) => m.bolumId));
+    const kiradaOlanlar = new Set(kiradakiler.map((k) => k.bolumId));
+
+    /*
+     * ⚠️  KENDİ MÜLKÜ AMA KİRADA → yalnızca BORÇ/ÖDEME (mulk).
+     *     Kirada DEĞİLSE malik orada oturuyor kabul edilir → tam hane
+     *     görünürlüğü (oturulan).
+     *
+     *     Ayrım "kirada mı" sorusuyla kurulur çünkü hukuki menfaat orada
+     *     değişir: kiracı varken malikin menfaati aidat borcudur (KMK md. 22
+     *     müteselsil sorumluluk), kiracının ev hayatı değildir.
+     */
+    const oturulan = new Set<string>([
+      ...kiracilar.map((k) => k.bolumId),
+      ...sakinler.map((s) => s.bolumId),
+      ...[...malikBolumler].filter((b) => !kiradaOlanlar.has(b)),
+    ]);
+    const mulk = new Set<string>(
+      [...malikBolumler].filter((b) => kiradaOlanlar.has(b)),
+    );
+
+    return { oturulan: [...oturulan], mulk: [...mulk] };
+  }
+
+  /**
    * DEVREDİLMİŞ PROJE ERİŞİMİ — Kapı 2'nin ikinci yolu (ADR-0009).
    *
    * Yönetim firmasının kullanıcısı, yönettiği projede AYRI BİR `kullanici`

@@ -33,3 +33,6 @@ if (kok !== null) {
 // Testler uygulama rolüyle koşar: RLS politikaları BU testlerin sınadığı
 // şeydir. Migrator rolüyle koşulsaydı izolasyon testi her koşulda geçerdi.
 delete process.env['MIGRATE_DATABASE_URL'];
+
+// İstek sınırı sayaçlarının sıfırlanması `global-setup.ts` içindedir:
+// buradaki dosya CommonJS'e derlenir ve üst düzey `await` kabul etmez.

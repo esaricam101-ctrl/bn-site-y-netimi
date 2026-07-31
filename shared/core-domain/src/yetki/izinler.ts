@@ -22,6 +22,19 @@ export const IZINLER = {
 
   // --- Finans (ADR-0003) ---
   FINANS_OZET: 'finance.summary.view',
+  /**
+   * BİNA GENELİ finans özeti — kat malikinin denetim hakkı (KMK md. 38-39).
+   *
+   * ⚠️  `FINANS_OZET`TEN AYRIDIR ve ayrılması gerekiyordu. `/tahakkuk/donemler`
+   *     ucu bütün bölümlerin tahakkuk toplamını döner; `FINANS_OZET` ile
+   *     korunduğunda KİRACI da bina geneli finansı görüyordu — kiracının
+   *     yönetimi denetleme hakkı yoktur, kat malikinin vardır.
+   *
+   *     Alternatif `FINANS_OZET`i kiracıdan almaktı; o da kiracıyı gider türü
+   *     ve sayaç uçlarından koparırdı. Bina geneli olan tek şeyi ayırmak daha
+   *     dar bir müdahaledir.
+   */
+  FINANS_BINA_OZET: 'finance.building.summary.view',
   FINANS_BORCLU_DETAY: 'finance.debtor.view',
   FINANS_TAHAKKUK: 'finance.assessment.generate',
   FINANS_TAHSILAT: 'finance.collection.manage',

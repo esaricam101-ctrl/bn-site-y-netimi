@@ -21,9 +21,10 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { tenantId, type Principal, type TenantBaglami } from '@bnos/kernel';
+import { rolTanimi, type RolKodu } from '@bnos/core-domain';
 import { PUBLIC_ANAHTARI, TENANTSIZ_ANAHTARI } from '../decorators';
-import { mevcutBaglam } from '../context/request-context';
-import { TenantOkuyucu } from '../prisma/tenant.reader';
+import { mevcutBaglam, type KapsamBaglami } from '../context/request-context';
+import { TenantOkuyucu, type UyelikBilgisi } from '../prisma/tenant.reader';
 
 /** Devir geçerliliği TAKVİM GÜNÜNE göre bakılır (BFS v1 §4.2). */
 function bugun(): string {
@@ -45,7 +46,13 @@ export class TenantGuard implements CanActivate {
       return true;
     }
 
-    const istek = ctx.switchToHttp().getRequest<Request & { principal?: Principal; tenant?: TenantBaglami }>();
+    const istek = ctx.switchToHttp().getRequest<
+      Request & {
+        principal?: Principal;
+        tenant?: TenantBaglami;
+        kapsam?: KapsamBaglami;
+      }
+    >();
     const principal = istek.principal;
     if (!principal) {
       // Kapı 1 çalışmadıysa burası da geçilemez — sıra korunur.
@@ -99,8 +106,55 @@ export class TenantGuard implements CanActivate {
       saatDilimi: saatDilimi as string,
     };
     istek.tenant = tenant;
+
+    /*
+     * SATIR KAPSAMI — tenant izolasyonunun ikinci ekseni.
+     *
+     * ⚠️  KARAR BURADA VERİLİR, çağrı yerlerinde değil. Kapsamın kısıtlı olup
+     *     olmadığı ROLDEN türetilir (`yalnizcaKendiVerisi`); bir uç yazarı
+     *     "bu sorgu kısıtlı mı" diye düşünmek zorunda kalmaz — düşünmek
+     *     zorunda kalsaydı biri unuturdu ve hata SESSİZ olurdu. Nitekim öyle
+     *     oldu: bayrak aylarca tanımlıydı ve hiç okunmadı.
+     *
+     * ⚠️  BİR ROL BİLE KISITSIZSA KAPSAM KURULMAZ. Aynı kullanıcı hem MALİK
+     *     hem APARTMAN_YONETICISI olabilir; yöneticilik hakkı maliklik
+     *     kısıtıyla daraltılamaz. Kesişim değil BİRLEŞİM alınır.
+     */
+    const kapsam = await this.kapsamiCoz(principal, uyelik);
+    if (kapsam) istek.kapsam = kapsam;
+
     const baglam = mevcutBaglam();
-    if (baglam) Object.assign(baglam, { tenant });
+    if (baglam) Object.assign(baglam, { tenant, ...(kapsam ? { kapsam } : {}) });
     return true;
+  }
+
+  /** Kısıtlıysa kapsamı kurar; kısıtsızsa `null` döner. */
+  private async kapsamiCoz(
+    principal: Principal,
+    uyelik: UyelikBilgisi | null | undefined,
+  ): Promise<KapsamBaglami | null> {
+    // Devirle gelen firma kullanıcısının PROJEDE `kullanici` kaydı yoktur;
+    // o zaten yönetim rolündedir ve kısıtlanmaz (ADR-0009).
+    if (!uyelik) return null;
+
+    // Rolsüz kullanıcı KISITSIZ SAYILMAZ; hiçbir izni olmadığı için Kapı 3
+    // zaten geçirmez, ama burada kısıtsız dönmek yanlış bir varsayım olurdu.
+    if (uyelik.roller.length === 0) {
+      return { kisiId: uyelik.kisiId, oturulanBolumler: [], mulkBolumler: [] };
+    }
+
+    const kisitli = uyelik.roller.every(
+      (kod) => rolTanimi(kod as RolKodu)?.yalnizcaKendiVerisi === true,
+    );
+    if (!kisitli) return null;
+
+    const { oturulan, mulk } = await this.okuyucu.kapsamBolumleri(
+      principal.tenantId, uyelik.kisiId,
+    );
+    return {
+      kisiId: uyelik.kisiId,
+      oturulanBolumler: oturulan,
+      mulkBolumler: mulk,
+    };
   }
 }
