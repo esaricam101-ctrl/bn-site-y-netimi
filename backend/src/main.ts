@@ -9,15 +9,33 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // `NestExpressApplication`: `set('trust proxy', …)` bu tipte TANIMLIDIR.
+  // Taban tip üzerinden `getHttpAdapter().getInstance()` `any` döner ve yazım
+  // hatası derleme zamanında görünmez olurdu.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   const logger = new Logger('Bootstrap');
 
   const prefix = process.env['API_PREFIX'] ?? '/api/v1';
   app.setGlobalPrefix(prefix.replace(/^\//, ''));
+
+  /*
+   * TERS VEKİL GÜVENİ — istek sınırının ve denetim kaydındaki IP'nin doğruluğu
+   * buna bağlıdır (bkz. env.schema.ts `TRUST_PROXY`).
+   *
+   * Varsayılan 0'dır: `X-Forwarded-For` başlığına GÜVENİLMEZ. Yük dengeleyici
+   * arkasına konurken açıkça ayarlanmalıdır — aksi hâlde bütün istekler tek
+   * adresten geliyor görünür ve IP sayacı bir sitenin tamamını kilitler.
+   */
+  const vekilGuveni = Number(process.env['TRUST_PROXY'] ?? 0);
+  if (vekilGuveni > 0) {
+    app.set('trust proxy', vekilGuveni);
+    logger.log(`Ters vekil güveni: ${vekilGuveni} katman`);
+  }
 
   app.use(helmet());
   app.enableCors({

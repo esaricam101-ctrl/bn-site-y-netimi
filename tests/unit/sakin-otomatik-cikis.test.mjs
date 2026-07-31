@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const MODUL = new URL(
-  '../../backend/dist/src/common/kayit/sakin-otomatik-cikis.js',
+  '../../backend/dist/common/kayit/sakin-otomatik-cikis.js',
   import.meta.url,
 );
 const require = createRequire(MODUL);

@@ -39,7 +39,8 @@ tip denetiminden geçiyordu.
 | `ded0cc3` | **Sakin dayanak kuralı** (0021) — sakin artık malike ya da kiracıya bağlı |
 | `cdbe92d` | **Dayanağı biten sakine otomatik çıkış** — malik devri · kiracı tahliyesi + **bozuk kimlik artık 500 değil 404** |
 | `90d085b` | **Altyapı ve ölçeklenebilirlik denetimi** — salt okunur, kod değişmedi (§3.F) |
-| _bu commit_ | **Oturum kapanışı** — devredilen iki düzeltme kayda geçti (§3.G) |
+| `e7543f7` | Oturum kapanışı — devredilen iki düzeltme kayda geçti (§3.G) |
+| _bu commit_ | **§3.G'deki iki düzeltme UYGULANDI** — konteyner giriş noktası + istek sınırı |
 
 ### Bu commit'te yapılan — dayanağı sona eren sakine otomatik çıkış
 
@@ -1122,7 +1123,12 @@ gönderilmiyor**.
 performans bütçesi bulunmuyor. Rakamlar kod yapısından yapılan mühendislik
 tahminidir ve gerçek ölçümle değiştirilmelidir.
 
-### G. Sonraki oturuma DEVREDİLEN iki düzeltme — ürün sahibi kararı
+### G. ✅ KAPATILDI — devredilen iki düzeltme uygulandı
+
+> Aşağıdaki bölüm bulguyu ve gerekçesini tarihçe olarak korur. **İkisi de bu
+> commit'te kapatıldı**; nasıl kapatıldığı §3.H'dedir.
+
+
 
 30-31 Temmuz 2026 oturumu kapatılırken ürün sahibi, denetimde çıkan iki küçük
 ama **üretime çıkışı doğrudan engelleyen** düzeltmenin sonraki oturumda ele
@@ -1171,6 +1177,114 @@ uygulanmıyor — KVKK açığı) bu iki maddenin **dışındadır** ve hâlâ a
 Denetimdeki en ağır bulgu odur; küçük bir düzeltme olmadığı için bu ikisiyle
 birlikte gruplanmadı. Önceliklendirmesi ürün sahibine aittir.
 
+### H. Bu commit'te yapılan — iki düzeltmenin uygulanması
+
+#### 1. Konteyner giriş noktası — ÇÖZÜM: çıktı düzeltildi, beyan değil
+
+İki seçenek vardı (§3.G). **İkincisi seçildi:** yolları `dist/src/main.js`'e
+çekmek yerine, derleme çıktısı `dist/` köküne düzleştirildi. Gerekçe: birinci
+seçenek `dist/test/` klasörünün de üretim imajına kopyalanmasını **sürdürürdü**
+— test kodu üretim imajında işi olmayan bir yüktür.
+
+- `backend/tsconfig.build.json` (yeni) — `test` ve `**/*.spec.ts` hariç tutulur.
+- `backend/nest-cli.json` — `tsConfigPath` bu dosyaya bağlandı.
+- Sonuç: çıktı artık `backend/dist/main.js`. `package.json` ve
+  `Dockerfile.backend` **hiç değişmedi**; zaten doğru yolu gösteriyorlardı.
+- `pnpm typecheck` hâlâ ana `tsconfig.json`'u kullanır → **testler tip
+  denetiminden geçmeye devam eder**. `vitest` swc kullanır, tsc çıktısına
+  bağlı değildir → sözleşme testleri etkilenmez (24/24 doğrulandı).
+- `tests/unit/*.mjs` içindeki iki `dist/src/...` yolu güncellendi.
+
+**Tekrarı önleyen denetim** (§3.G'nin istediği): `scripts/config-check.mjs`'e
+yedinci adım eklendi — `package.json` "start" ile Dockerfile CMD'si birbiriyle
+**ve** varsa gerçek derleme çıktısıyla karşılaştırılır. `pnpm verify` zincirinde
+ve CI'ın ilk işinde koşar.
+
+⚠️  **Denetleyici NEGATİF TESTLE kanıtlandı:** `dist/main.js` geçici olarak
+başka bir ada alındı, `config-check.mjs` çıkış kodu **1** verdi ve
+*"Giris noktasi derleme ciktisinda YOK … Konteyner acilista MODULE_NOT_FOUND ile
+duser"* yazdı. Kontrolün gerçekten çalıştığı, "yeşil yanıyor" ile değil
+**kırmızı yakılarak** doğrulandı.
+
+⚠️  Bu, imaj duman testinin **ucuz ikamesidir, yerine geçmez.** `docker build`
++ bir kez açılış hâlâ CI'a eklenmeli; bu kontrol yalnızca yol tutarlılığını
+görür, imajın gerçekten açıldığını değil.
+
+#### 2. İstek sınırı — `common/guards/istek-siniri.guard.ts` (yeni)
+
+`@nestjs/throttler` **kullanılmadı**, iki nedenle: (a) kurulu değil ve depoda
+scrypt'in bcrypt yerine seçilme gerekçesiyle aynı çizgide gereksiz bağımlılık
+eklenmiyor; (b) varsayılan deposu **bellek içidir** ve çok örnekli dağıtımda
+sessizce yanlış çalışır — 3 replikada etkin sınır 3× olur, koruma "var"
+görünürken üçte bir gücündedir. Sayaç **Redis'tedir** (`ioredis` zaten var).
+
+| Uç | IP | Kimlik | Pencere |
+|---|---|---|---|
+| `POST /oturum/giris` | 20 | 5 (e-posta) | 300 sn |
+| `POST /oturum/yenile` | 60 | — | 300 sn |
+
+Zorlanan kurallar:
+
+- **İşaretsiz uç sınırlanmaz.** `@IstekSiniri(...)` taşımayan uç dokunulmadan
+  geçer (`@RequirePermission` deseni). Genel bir sınır, toplu tahakkuk ve toplu
+  gönderim gibi meşru yoğun işleri sessizce keserdi.
+- **Sınır Üç Kapı'dan ÖNCE** çalışır ama bir kapı değildir. Sonda olsaydı
+  reddedilen istek yine de JWT doğrulaması ve veritabanı okuması yaptırırdı.
+- **Atomik Lua sayacı.** `INCR` + `EXPIRE` iki gidiş-dönüş olarak yazılamaz:
+  arada bağlantı koparsa anahtar **ömürsüz** kalır ve o kimlik KALICI olarak
+  kilitlenir — kullanıcı "şifremi unuttum" akışında da kilitli kalır.
+- **429 hangi sayacın dolduğunu SÖYLEMEZ.** "Bu e-posta için sınır doldu"
+  demek, e-postanın kayıtlı olduğunu doğrulardı ve giriş ucunun kullanıcı
+  numaralandırmayı engelleme çabasını boşa çıkarırdı.
+- **Ham e-posta anahtara yazılmaz**, SHA-256 özeti konur: sayaç kişisel veri
+  deposu değildir (KVKK).
+- **Fail-open + ERROR log.** Redis düşerse istek geçer. Fail-closed seçilseydi
+  bir Redis kesintisi **tam bir kimlik kesintisine** dönüşürdü. Kabul edilen
+  bedel açıkça loglanır — alarm kurulacak yer orasıdır.
+- **Bağlantı tembeldir** (`lazyConnect`). Eager bağlanan yapıcı sınıfı birim
+  testinde kurulamaz kılıyordu: soket açılıyor, olay döngüsü ayakta kalıyor ve
+  **test asılıyordu** (yaşandı). Ayrıca fail-open politikasıyla da çelişirdi.
+
+**scrypt parametrelerine DOKUNULMADI.** `N=2^17` OWASP 2024 asgarisidir;
+düşürmek DoS'u hafifletirken parola kırmayı ucuzlatırdı — bir açığı kapatıp
+daha kötüsünü açmak olurdu.
+
+#### Yanında kapatılan: `TRUST_PROXY`
+
+IP sayacı, doğru istemci adresi olmadan **anlamsızdır**: yük dengeleyici
+arkasında bütün istekler tek adresten geliyor görünür ve sayaç bir sitenin
+tamamını kilitler. Bu yüzden `TRUST_PROXY` ortam değişkeni eklendi
+(`env.schema.ts` + `main.ts` + `.env.example`).
+
+⚠️  **Varsayılan 0 (kapalı).** İki yönde de sessiz hata var: yanlış **açmak**
+korumayı tümüyle kaldırır (doğrudan erişilen sunucuda istemci
+`X-Forwarded-For`'u kendisi yazar ve her istekte farklı "IP" görünür); yanlış
+**kapatmak** meşru kullanıcıyı kilitler. Dağıtım topolojisi bilinerek verilir.
+
+#### ⚠️ KAPANMAYAN kalan boşluk — dürüstçe
+
+**İstek sınırı HIZI sınırlar, EŞZAMANLILIĞI değil.** Pencere başına 20 istek,
+o 20 isteğin aynı anda gelemeyeceği anlamına gelmez: en kötü durumda 20
+eşzamanlı scrypt ≈ **2,7 GB**. Sınırsız hâle göre büyük kazanç, ama sıfır risk
+değil. Kalan boşluk scrypt çağrılarına bir **eşzamanlılık kapısı (semafor)**
+koymakla kapanır; bu ayrı bir iştir ve bu düzeltmenin kapsamında değildi.
+Buraya yazılmasının nedeni "çözüldü" sanılmamasıdır.
+
+#### Doğrulama
+
+- Birim: `tests/unit/istek-siniri.test.mjs` (**14**) → toplam **331** birim testi.
+- Sözleşme: **24/24** (Docker ayağa kaldırılıp koşuldu).
+- `pnpm verify` **9/9** · lint temiz · `lint:md` temiz.
+- **Canlı 13/13** — kabul ölçütü karşılandı:
+  - Backend `node backend/dist/main.js` ile **ayağa kalktı** (beyan edilen yol).
+  - `/saglik` → **200**, `veritabani: açık`.
+  - İşaretsiz uç sınırlanmadı (30 sağlık isteği geçti).
+  - Giriş: `401 401 401 401 401` → **6.'da 429**, `Retry-After: 297`.
+  - 429 gövdesi sayaç adını sızdırmıyor, `correlationId` taşıyor.
+  - Farklı e-posta ayrı sayıldı; IP sayacı da bağımsız tetiklendi (20'de).
+- Denetleyici negatif testi: giriş noktası saklandığında `config-check` **1**
+  döndü.
+
 ---
 
 ## 4. Sonraki oturum — ilk komut ve ilk görev
@@ -1185,22 +1299,24 @@ Beklenen: `14 migrations found` · `Database schema is up to date` ·
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
 
-### İLK GÖREV — devredilen iki düzeltme (ürün sahibi kararı)
+### ✅ Önceki ilk görev TAMAMLANDI
 
-Ekran üretimine geçmeden önce **§3.G**'deki iki madde kapatılacak:
+§3.G'deki iki düzeltme uygulandı ve doğrulandı (ayrıntı: **§3.H**). Kabul
+ölçütü karşılandı: uygulama beyan edilen yoldan ayağa kalkıyor, `/saglik` 200
+dönüyor, giriş ucu 6. denemede 429 + `Retry-After` veriyor.
 
-1. **Konteyner giriş noktası** — `backend/package.json:9` ve
-   `Dockerfile.backend` CMD'si `dist/src/main.js`'i göstermeli.
-   Yanına **imaj duman testi** (build + bir kez açılış) CI'a bağlanmalı;
-   bu hata "hiç çalıştırılmadığı için" fark edilmedi.
-2. **Rate limiting** — en az `/oturum/giris` ve `/oturum/yenile`.
-   IP başına **ve** e-posta başına ayrı sayaç (yalnız IP, NAT arkasındaki bir
-   siteyi toptan kilitler). **scrypt parametreleri düşürülmeyecek** —
-   `N=2^17` OWASP asgarisi ve bilinçli seçim.
+### İLK GÖREV — sırada ne var
 
-Doğrulama ölçütü: `docker compose --profile uygulama up -d backend` ile
-konteyner **ayağa kalkmalı** ve `/api/v1/saglik` 200 dönmeli; giriş ucuna
-art arda istek 429 almalı.
+1. **`yalnizcaKendiVerisi` zorlaması** (§3.F P0-1). Denetimdeki **en ağır**
+   açık madde: malik/kiracı/sakin bugün tüm sitenin kişi ve bölüm listesini
+   çekebiliyor, README:151 tersini iddia ediyor. KVKK. Bayrak zaten tanımlı,
+   yalnızca query servislerine bağlanmamış.
+2. **İmaj duman testi CI'a** — `config-check` yol tutarlılığını görür, imajın
+   gerçekten açıldığını görmez. `docker build` + bir kez açılış eklenmeli.
+3. **scrypt eşzamanlılık kapısı** (§3.H'deki kapanmayan boşluk) — istek sınırı
+   hızı sınırlıyor, eşzamanlılığı değil.
+
+Sonra ekran üretimine (§3.A) dönülebilir.
 
 ### Muhasebe/Banka talebinin EKSİK KALAN bölümleri
 

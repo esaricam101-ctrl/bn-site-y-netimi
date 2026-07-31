@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { ortamSemasi } from './config/env.schema';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { IstekSiniriGuard } from './common/guards/istek-siniri.guard';
 import { AuthGuard } from './common/guards/auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
@@ -96,6 +97,19 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     AuditSorguModule,
   ],
   providers: [
+    /*
+     * İSTEK SINIRI ÜÇ KAPIDAN ÖNCE gelir ve bir "kapı" DEĞİLDİR.
+     *
+     * Kapılar "bu kişi bunu yapabilir mi" sorusunu yanıtlar; sınır "bu kadar
+     * sık yapılabilir mi" sorusunu. Sıra önemlidir: sınır en sonda olsaydı,
+     * reddedilen istek yine de JWT doğrulaması ve veritabanı okuması yaptırırdı
+     * — korumanın engellemeye çalıştığı maliyetin bir kısmı zaten ödenmiş
+     * olurdu.
+     *
+     * Yalnızca `@IstekSiniri(...)` taşıyan uçlar etkilenir; ötekiler dokunmadan
+     * geçer.
+     */
+    { provide: APP_GUARD, useClass: IstekSiniriGuard },
     // ÜÇ KAPI — sıra değişmez (ADR-0006 · BFS v1 §3).
     // NestJS global guard'ları kayıt sırasıyla çalıştırır.
     { provide: APP_GUARD, useClass: AuthGuard },        // Kapı 1 — Kimlik

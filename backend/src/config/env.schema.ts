@@ -10,6 +10,25 @@ const sema = z.object({
   API_PREFIX: z.string().default('/api/v1'),
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
 
+  /**
+   * Kaç ters vekil katmanına güvenileceği. `0` = hiç (varsayılan).
+   *
+   * ⚠️  VARSAYILAN KAPALI OLMAK ZORUNDA. Açıkken Express `X-Forwarded-For`
+   *     başlığına güvenir; doğrudan erişilebilen bir sunucuda bu başlığı İSTEMCİ
+   *     yazar ve istediği adresi uydurabilir. Sonuç: istek sınırı her istekte
+   *     farklı bir "IP" görür ve HİÇ tetiklenmez — koruma açık görünürken
+   *     tümüyle işlevsizdir.
+   *
+   * ⚠️  YÜK DENGELEYİCİ ARKASINDA AYARLANMAK ZORUNDA. Kapalı bırakılırsa bütün
+   *     istekler dengeleyicinin adresinden geliyor görünür; IP sayacı bir sitenin
+   *     TAMAMINI kilitler ve denetim kaydındaki IP de yanlış olur.
+   *
+   * Yani iki yönde de sessiz bir hata var: yanlış açmak korumayı kaldırır,
+   * yanlış kapatmak meşru kullanıcıyı kilitler. Dağıtım topolojisi bilinerek
+   * verilir — genelde `1`.
+   */
+  TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+
   DATABASE_URL: z.string().min(1, 'DATABASE_URL zorunludur'),
   MIGRATE_DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().min(1, 'REDIS_URL zorunludur'),

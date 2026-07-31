@@ -91,6 +91,66 @@ for (const [ad, hedefler] of Object.entries(taban.compilerOptions?.paths ?? {}))
 }
 bilgi.push('tsconfig paths hedefleri dogrulandi');
 
+/*
+ * 7. GIRIS NOKTASI — beyan edilen yol, derlemenin URETTIGI yol mu?
+ *
+ * NEDEN VAR: `package.json` "start" ve Dockerfile CMD'si `dist/main.js`
+ * diyordu, ama `backend/tsconfig.json` testleri de kapsadigi icin tsc rootDir'i
+ * `backend/` seciyor ve cikti `dist/src/main.js` altina dusuyordu. Iki yol da
+ * MODULE_NOT_FOUND verirdi — yani konteyner ACILISTA duserdi.
+ *
+ * Hata AYLARCA fark edilmedi cunku hicbir sey imaji bir kez bile calistirmadi:
+ * derleme geciyor, lint geciyor, testler geciyor. Yalnizca `docker run`
+ * gosterebilirdi ve o hic kosulmadi.
+ *
+ * Bu kontrol o boslugu kapatir: beyan edilen iki yol birbiriyle VE varsa
+ * gercek derleme ciktisiyla karsilastirilir. Tam guvence icin CI'da imaj bir
+ * kez ayaga kaldirilmalidir; bu kontrol onun ucuz ve bagimliliksiz ikamesidir.
+ */
+{
+  const arka = JSON.parse(readFileSync(KOK + 'backend/package.json', 'utf8'));
+  const baslat = arka.scripts?.start ?? '';
+  const pkgYol = /node\s+(\S+\.js)/u.exec(baslat)?.[1] ?? null;
+
+  const dockerfile = KOK + 'infrastructure/docker/Dockerfile.backend';
+  const dockerMetni = existsSync(dockerfile) ? readFileSync(dockerfile, 'utf8') : '';
+  const dockerYol = /CMD\s*\[\s*"node"\s*,\s*"([^"]+)"/u.exec(dockerMetni)?.[1] ?? null;
+
+  if (pkgYol === null) {
+    hatalar.push('backend/package.json "start" betiginden giris noktasi okunamadi');
+  }
+  if (dockerYol === null) {
+    hatalar.push('Dockerfile.backend CMD satirindan giris noktasi okunamadi');
+  }
+
+  if (pkgYol !== null && dockerYol !== null) {
+    // Dockerfile depo kokunden, package.json backend/ icinden yazar.
+    const pkgKokten = 'backend/' + pkgYol.replace(/^\.\//u, '');
+    const dockerKokten = dockerYol.replace(/^\.\//u, '');
+    if (pkgKokten !== dockerKokten) {
+      hatalar.push(
+        `Giris noktasi uyusmuyor: package.json -> ${pkgKokten}, ` +
+          `Dockerfile -> ${dockerKokten}`,
+      );
+    }
+
+    // Derleme yapilmissa gercek ciktiyla da karsilastir. `dist` yoksa bu adim
+    // ATLANIR ve bu bir basari degildir — atlandigi acikca yazilir.
+    if (existsSync(KOK + 'backend/dist')) {
+      if (!existsSync(KOK + pkgKokten)) {
+        hatalar.push(
+          `Giris noktasi derleme ciktisinda YOK: ${pkgKokten}. ` +
+            'Konteyner acilista MODULE_NOT_FOUND ile duser.',
+        );
+      } else {
+        bilgi.push(`Giris noktasi dogrulandi: ${pkgKokten} (derleme ciktisinda var)`);
+      }
+    } else {
+      bilgi.push(`Giris noktasi beyanlari tutarli: ${pkgKokten} (dist yok, varlik denetlenmedi)`);
+    }
+  }
+}
+
 for (const b of bilgi) console.log(`  ok  ${b}`);
 if (hatalar.length) {
   console.error('\nYAPILANDIRMA HATASI\n');

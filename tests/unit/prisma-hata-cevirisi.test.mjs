@@ -20,7 +20,7 @@ import { createRequire } from 'node:module';
  * Cozum tabani tests/ olsaydi modul bulunamazdi.
  */
 const CEVIRICI = new URL(
-  '../../backend/dist/src/common/errors/prisma-hata-cevirisi.js',
+  '../../backend/dist/common/errors/prisma-hata-cevirisi.js',
   import.meta.url,
 );
 const require = createRequire(CEVIRICI);

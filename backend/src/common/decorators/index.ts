@@ -17,6 +17,27 @@ export const IZIN_ANAHTARI = 'bnos:izin';
 export const RequirePermission = (...izinler: Izin[]): MethodDecorator =>
   SetMetadata(IZIN_ANAHTARI, izinler);
 
+/**
+ * İstek sınırı tanımı — pahalı ve kötüye kullanılabilir uçlar için.
+ *
+ * İki sayaç birden uygulanır ve İKİSİ DE geçilmelidir:
+ *   · `ipLimiti`      — kaynak adres başına. NAT arkasındaki bir sitenin
+ *                       tamamı tek adresten çıkabileceği için GEVŞEK tutulur.
+ *   · `kimlikLimiti`  — gövdedeki kimlik alanı başına (e-posta gibi). Hedefli
+ *                       parola denemesini kesen asıl sayaç budur, SIKI tutulur.
+ */
+export interface IstekSiniriTanimi {
+  readonly ipLimiti: number;
+  readonly kimlikLimiti: number;
+  readonly pencereSn: number;
+  /** Gövdede sayılacak alan adı. Verilmezse yalnızca IP sayılır. */
+  readonly kimlikAlani?: string;
+}
+
+export const SINIR_ANAHTARI = 'bnos:istek-siniri';
+export const IstekSiniri = (tanim: IstekSiniriTanimi): MethodDecorator =>
+  SetMetadata(SINIR_ANAHTARI, tanim);
+
 /** Çözülmüş principal. */
 export const AktifPrincipal = createParamDecorator(
   (_veri: unknown, ctx: ExecutionContext): Principal => {
