@@ -17,7 +17,9 @@
  * yine tek tenant bağlamında koşar ve devir kaydı silinse bile RLS ayakta
  * kalır — güvenlik iki bağımsız katmandadır (ADR-0002'nin yazdığı yol).
  */
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate, ExecutionContext, ForbiddenException, Injectable, Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { tenantId, type Principal, type TenantBaglami } from '@bnos/kernel';
@@ -33,6 +35,11 @@ function bugun(): string {
 
 @Injectable()
 export class TenantGuard implements CanActivate {
+  /** Bu sayının üstünde kapsam, performans bozulmasının habercisidir (ADR-0011). */
+  private static readonly GENIS_KAPSAM_ESIGI = 300;
+
+  private readonly logger = new Logger('Kapsam');
+
   constructor(
     private readonly reflector: Reflector,
     private readonly okuyucu: TenantOkuyucu,
@@ -151,10 +158,36 @@ export class TenantGuard implements CanActivate {
     const { oturulan, mulk } = await this.okuyucu.kapsamBolumleri(
       principal.tenantId, uyelik.kisiId,
     );
+    this.genisKapsamiBildir(oturulan.length + mulk.length);
     return {
       kisiId: uyelik.kisiId,
       oturulanBolumler: oturulan,
       mulkBolumler: mulk,
     };
+  }
+
+  /**
+   * GENİŞ KAPSAM ERKEN UYARISI.
+   *
+   * ⚠️  Kapsam listesi her transaction'da `set_config` ile gönderilir ve
+   *     politika ifadesinde çözülür. Ölçüm (ADR-0011): 200 bölüm p95 11,6 ms ·
+   *     500 bölüm p95 27 ms · 800 bölümde tek atış planlama 500 ms. Bozulma
+   *     kademelidir — bir gün "sistem yavaşladı" şikâyeti gelir ve sebebi
+   *     görünmez.
+   *
+   *     Eşik 500'de değil 300'de: uyarı geldiğinde müdahale payı kalsın.
+   *     500'e konsaydı uyarı, sorun zaten başladıktan sonra gelirdi.
+   *
+   * ⚠️  KİŞİSEL VERİ LOGLANMAZ. Yalnızca SAYI, tenant kimliği ve korelasyon
+   *     kimliği yazılır — kişi kimliği, adı ya da bölüm listesi ASLA. Log
+   *     satırı da bir veri işleme faaliyetidir (KVKK md. 4).
+   */
+  private genisKapsamiBildir(bolumSayisi: number): void {
+    if (bolumSayisi <= TenantGuard.GENIS_KAPSAM_ESIGI) return;
+    const baglam = mevcutBaglam();
+    this.logger.warn(
+      `Geniş kapsam: ${bolumSayisi} bölüm (eşik ${TenantGuard.GENIS_KAPSAM_ESIGI}) · ` +
+        `correlation=${baglam?.correlationId ?? 'yok'}`,
+    );
   }
 }
