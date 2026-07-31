@@ -59,6 +59,26 @@ function baglamda<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<
 const gun = (d: Date): Date => new Date(d.toISOString().slice(0, 10));
 const BUGUN = gun(new Date());
 
+/**
+ * Kapsam önbelleğini temizler — doğrudan veritabanına yazan fikstürler için.
+ *
+ * Üretimde bu iş komut servislerindeki `kapsamiTazele` ile yapılır; test
+ * onları atladığı için burada elle yapılır.
+ */
+async function kapsamOnbelleginiTemizle(): Promise<void> {
+  const { Redis } = await import('ioredis');
+  const redis = new Redis(process.env['REDIS_URL'] ?? 'redis://localhost:6379', {
+    maxRetriesPerRequest: 1, lazyConnect: true,
+  });
+  try {
+    const anahtarlar = await redis.keys(`t:${TENANT}:kapsam:*`);
+    // eslint-disable-next-line bnos/require-tenant-cache-key
+    if (anahtarlar.length > 0) await redis.del(...anahtarlar);
+  } finally {
+    redis.disconnect();
+  }
+}
+
 interface SayfaliKisi { readonly kayitlar: readonly { readonly ad: string }[] }
 
 describe('CT-14 · Kapsam kenar durumları', () => {
@@ -293,6 +313,17 @@ describe('CT-14 · Kapsam kenar durumları', () => {
       where: { tenantId: TENANT, kisiId: K.sinir },
       data: { bitis: gun(dun) },
     }));
+    /*
+     * ⚠️  KAPSAM ÖNBELLEĞİ ELLE TEMİZLENİR — bu bir test fikstürü gereğidir,
+     *     ürün kusuru değil. Yukarıdaki yazma DOĞRUDAN veritabanınadır ve
+     *     `KiraciCommandService`'i atlar; üretimde tahliye/düzeltme o servisten
+     *     geçer ve `kapsamiTazele` önbelleği siler.
+     *
+     *     Temizlenmezse test, önbelleğin 5 dk TTL'i yüzünden BAYAT kapsam
+     *     görür. Bu satır kaldırılırsa test kırılır ve kırılma sebebi
+     *     "kapsam çalışmıyor" gibi okunur — oysa sebep fikstürdür.
+     */
+    await kapsamOnbelleginiTemizle();
     const taze = await gir(E.sinir);
     const y = await request(sunucu())
       .get('/api/v1/kisiler?limit=100').set('Authorization', `Bearer ${taze}`);

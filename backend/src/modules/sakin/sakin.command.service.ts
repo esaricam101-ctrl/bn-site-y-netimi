@@ -20,12 +20,13 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
   takvimTarihi, takvimTarihiniOku, takvimTarihiniOkuVeyaNull, takvimTarihiniYaz,
-  type Principal,
+  type Principal, type TenantId,
 } from '@bnos/kernel';
 import { IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
+import { TenantOkuyucu } from '../../common/prisma/tenant.reader';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
 import {
   kisiyiCoz, plakalariYaz, type HizliKayitSonucu,
@@ -156,6 +157,14 @@ export class SakinCommandService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditServisi,
     private readonly outbox: OutboxServisi,
+    /*
+     * KAPSAM ONBELLEGI GECERSIZLESTIRME (ADR-0011).
+     *
+     * Bu servis ILISKI DONEMINI degistirir; kapsam listesi o donemden
+     * turetilir. Onbellek silinmezse tahliye edilmis kiraci ya da
+     * devretmis malik dairesini TTL suresince (5 dk) gormeye devam eder.
+     */
+    private readonly okuyucu: TenantOkuyucu,
   ) {}
 
   async ekle(
@@ -263,6 +272,8 @@ export class SakinCommandService {
         payload: { bolumId, kisiId, girisTarihi },
       });
 
+      // Yeni ilişki kapsamı GENİŞLETİR; önbellek eski dar listeyi tutmamalı.
+      await this.kapsamiTazele(principal.tenantId, kisiId);
       return {
         id,
         durum: 'AKTIF',
@@ -291,7 +302,8 @@ export class SakinCommandService {
       const kayit = await tx.sakin.findFirst({
         where: { id: sakinId, bolumId, tenantId: principal.tenantId },
         select: {
-          id: true, yakinlikDerecesi: true, yakinlikAciklamasi: true,
+          // `kisiId` KAPSAM GEÇERSİZLEŞTİRME için gerekir.
+          id: true, kisiId: true, yakinlikDerecesi: true, yakinlikAciklamasi: true,
           malikId: true, kiraciId: true,
           girisTarihi: true, cikisTarihi: true,
           acilDurumKisiAdi: true, acilDurumTelefon: true,
@@ -370,6 +382,7 @@ export class SakinCommandService {
         ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
       });
 
+      await this.kapsamiTazele(principal.tenantId, kayit.kisiId);
       return { id: sakinId, durum: 'GUNCELLENDI' };
     });
   }
@@ -420,7 +433,20 @@ export class SakinCommandService {
         payload: { bolumId, kisiId: kayit.kisiId, cikisTarihi },
       });
 
+      await this.kapsamiTazele(principal.tenantId, kayit.kisiId);
       return { id: sakinId, durum: 'CIKIS_VERILDI' };
     });
   }
+
+  /**
+   * Kapsam önbelleğini tazeler — ilişki dönemi değiştiğinde ZORUNLU.
+   *
+   * ⚠️  TRANSACTION DIŞINDA çağrılır: silme başarısız olsa bile domain
+   *     yazması geri alınmamalıdır. Silme kaçarsa TTL (5 dk) ağdır ve
+   *     `OnbellekServisi.sil` bunu ERROR olarak loglar — sessiz kalmaz.
+   */
+  private async kapsamiTazele(tenantId: TenantId, kisiId: string): Promise<void> {
+    await this.okuyucu.kapsamiGecersizKil(tenantId, kisiId);
+  }
+
 }

@@ -30,6 +30,19 @@ bağımsız bölümlerin malikidir ve KMK md. 20 uyarınca ortak giderden soruml
 800 daireli bir sitede ilk yıl 500 daire satılmamış olabilir — bu **normal
 durumdur**, uç senaryo değil.
 
+### ★ 800 BÖLÜM — BİLİNEN KIRILMA NOKTASI
+
+**Üst sınır değildir; gerçek kullanımda karşılaşılır.** Teslim öncesi müteahhit,
+dairelerin TAMAMININ malikidir: 800 daireli bir sitede ilk satış yapılmadan
+önce tek kişi 800 bölümlük kapsam taşır. Bu **her yeni projenin açılış
+günüdür**.
+
+Ölçülen: **p95 923,4 ms** · medyan 692 ms · en kötü 998 ms.
+
+**Hata vermez — sessizce yavaşlar.** Kullanıcı `HTTP 200` alır, 521 ms bekler
+ve tek kişilik (152 baytlık) bir liste görür. Zaman aşımı yok, hata yok, log
+yok (300 eşiği WARN üretir ama kullanıcı onu görmez).
+
 ## Ölçüm
 
 **Donanım:** Windows 10 · Docker Desktop · `postgres:16` konteyneri ·
@@ -49,7 +62,61 @@ ve 5.000 bölüm · 5.000 kişi (`perf-5000`).
 | 800 | 29.599 bayt |
 | 5.000 | 184.999 bayt |
 
-### Süre — `GET /kisiler?limit=50`
+### ★ ÖLÇÜM YOLU KURALI
+
+**psql ölçümü üretim yolunu TEMSİL ETMEZ.** Kapsam kurulumu, transaction
+hazırlığı ve serileştirme ölçüm dışında kalır. Bu projede **tüm performans
+ölçütleri uçtan uca HTTP üzerinden alınır.**
+
+Aynı senaryoda iki yol 12 kat ayrışıyor ve fark açıklanamadı (ayrıntı aşağıda);
+bu yüzden kural katıdır: psql sayıları yalnızca *göreli* karşılaştırma
+(önce/sonra) için kullanılır, mutlak eşik olarak ASLA.
+
+### Süre — `GET /kisiler?limit=50` · UÇTAN UCA HTTP (geçerli sayılar)
+
+n=100, ilk 10 ısınma atıldı. Kapsam önbelleği **etkin** (5 dk TTL + aktif
+geçersizleştirme).
+
+| Senaryo | medyan | **p95** | std | min | maks |
+|---|---|---|---|---|---|
+| Kısıtsız (yönetici) | 30,0 | **69,0** | 17,4 | 15,1 | 136,1 |
+| 500 bölüm (müteahhit) | 93,4 | **121,7** | 14,7 | 36,7 | 164,4 |
+| **800 bölüm (açılış günü)** | 692,0 | **923,4** | 132,5 | 518,6 | 998,5 |
+
+Kapsam önbelleği öncesi/sonrası (aynı koşum, n=100):
+
+| Senaryo | p95 ÖNCE | p95 SONRA | Kazanç |
+|---|---|---|---|
+| 500 bölüm | 146,0 ms | 121,7 ms | %17 |
+| 800 bölüm | 924,0 ms | 923,4 ms | **yok** |
+
+Önbellek 500'de işe yarıyor, 800'de yaramıyor: faz ölçümü maliyetin **%89'unun
+asıl sorguda** olduğunu gösterdi, önbellek onu değiştirmiyor.
+
+### Faz ölçümü — 800 bölüm, n=30 (nerede harcanıyor)
+
+| Faz | medyan | Pay |
+|---|---|---|
+| **asıl sorgu** | **620,6 ms** | **%89** |
+| `set_config` bölümler (30 KB) | 45,5 ms | %6,5 |
+| kapsam kurulumu (4 sorgu) | 27,2 ms | %3,9 |
+| JWT · serileştirme · transaction · öteki `set_config` | ~7 ms | %1 |
+
+### ⚠️ GEÇERSİZ — eski psql sayıları (kayıt için korunur)
+
+Aşağıdaki tablo **ölçüm yolu üretimi temsil etmediği için geçersizdir**.
+Silinmiyor çünkü ADR'nin ilk hâlinde karar dayanağı olarak kullanıldı.
+
+| Senaryo | psql p95 | Gerçek (HTTP) p95 |
+|---|---|---|
+| kısıtsız | 6,64 ms | 69,0 ms |
+| 200 bölüm | 11,57 ms | ölçülmedi |
+| 500 bölüm | 26,95 ms | **121,7 ms** |
+| 800 bölüm | 23,94 ms | **923,4 ms** |
+
+800 satırı özellikle yanıltıcı: psql 24 ms gösteriyor, gerçek 923 ms.
+
+### Süre — psql (yalnızca göreli karşılaştırma için)
 
 **psql, plan önbellekli, 10 tekrar (ms):**
 

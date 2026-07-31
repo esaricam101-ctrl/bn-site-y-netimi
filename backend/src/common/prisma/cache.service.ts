@@ -47,6 +47,32 @@ export class OnbellekServisi implements OnModuleDestroy {
     }
   }
 
+  /**
+   * TEK anahtarı siler — aktif geçersizleştirme.
+   *
+   * ⚠️  `desenSil` DEĞİL bu kullanılır: `KEYS` taraması Redis'i tek iş
+   *     parçacığı boyunca bloke eder ve yetki değişimi sıcak yolda olur.
+   *     Hangi anahtarın silineceği biliniyorsa taramaya gerek yoktur.
+   */
+  async sil(anahtar: OnbellekAnahtari): Promise<void> {
+    try {
+      // Markalı tip; ham string GEÇİLEMEZ (imza düzeyinde zorlanır).
+      // eslint-disable-next-line bnos/require-tenant-cache-key
+      await this.redis.del(anahtar);
+    } catch (hata) {
+      /*
+       * ⚠️  SESSİZ KALINMAZ. Yazma başarısızlığı isteği bozmaz ama SİLME
+       *     başarısızlığı YETKİ KALDIRMANIN GEÇMEMESİ demektir: tahliye
+       *     edilmiş kiracı en çok TTL kadar (5 dk) daireyi görmeye devam
+       *     eder. TTL ağdır, ama ağa düştüğümüzü bilmemiz gerekir.
+       */
+      this.logger.error(
+        `Önbellek anahtarı silinemedi: ${(hata as Error).message}. ` +
+          'Yetki değişikliği en çok TTL kadar gecikecek.',
+      );
+    }
+  }
+
   /** Geçersizleştirme domain event'lerle yapılır; TTL'e bel bağlanmaz (§37 kural 2). */
   async desenSil(desen: string): Promise<void> {
     const anahtarlar = await this.redis.keys(desen);
