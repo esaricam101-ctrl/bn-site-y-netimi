@@ -25,6 +25,11 @@ Ayar boyutu bölüm sayısıyla doğrusal büyür: UUID metni + virgül = **37 b
 **Kapsam ayarı, tenant başına en çok ~500 bölümlük bir malik varsayımıyla
 tasarlanmıştır.** Bu bir *varsayımdır*, ölçülmüş bir üst sınır değil.
 
+⚠️ **31 Temmuz düzeltmesi — varsayım eksik eksen içeriyordu.** Ölçek yalnızca
+kapsamın büyüklüğüne bağlı değil: kapsam **kurulumunun** maliyeti tenant'ın
+kişi sayısıyla büyür (O(tenant)). 1 daireli sıradan bir malik de 13.000 kişilik
+bir tenant'ta ≈39 ms öder. Ayrıntı: "GEÇERLİ SAYILAR" bölümü.
+
 Varsayımın dayanağı ürün gerçeğidir: müteahhit, yeni bir sitede satılmamış
 bağımsız bölümlerin malikidir ve KMK md. 20 uyarınca ortak giderden sorumludur.
 800 daireli bir sitede ilk yıl 500 daire satılmamış olabilir — bu **normal
@@ -62,17 +67,90 @@ ve 5.000 bölüm · 5.000 kişi (`perf-5000`).
 | 800 | 29.599 bayt |
 | 5.000 | 184.999 bayt |
 
-### ★ ÖLÇÜM YOLU KURALI
+### ★ ÖLÇÜM YÖNTEMİ — İKİ KALICI KURAL
 
-**psql ölçümü üretim yolunu TEMSİL ETMEZ.** Kapsam kurulumu, transaction
-hazırlığı ve serileştirme ölçüm dışında kalır. Bu projede **tüm performans
-ölçütleri uçtan uca HTTP üzerinden alınır.**
+Bu iki kural, üç ayrı turda yanlış sonuç ürettikleri için ADR'ye kalıcı madde
+olarak yazılmıştır. Yeni bir performans sayısı üretilirken ikisi de geçerlidir.
 
-Aynı senaryoda iki yol 12 kat ayrışıyor ve fark açıklanamadı (ayrıntı aşağıda);
-bu yüzden kural katıdır: psql sayıları yalnızca *göreli* karşılaştırma
-(önce/sonra) için kullanılır, mutlak eşik olarak ASLA.
+**Kural 1 — psql üretim yolunu TEMSİL ETMEZ.**
+Kapsam kurulumu, transaction hazırlığı ve serileştirme psql ölçümünün dışında
+kalır. Bu projede **tüm performans ölçütleri uçtan uca HTTP üzerinden alınır.**
+psql sayıları yalnızca *göreli* karşılaştırma (önce/sonra) için kullanılır,
+mutlak eşik olarak ASLA. Somut kanıt: psql'de kapsam kurulumu 12,6 ms ölçüldü;
+aynı kurulumun HTTP'deki soğuk maliyeti ≈39 ms çıktı.
 
-### Süre — `GET /kisiler?limit=50` · UÇTAN UCA HTTP (geçerli sayılar)
+**Kural 2 — kapsam ÖNBELLEKLİDİR (300 sn).**
+Ölçüm döngüsü önbelleği temizlemezse **isabet** ölçer, **maliyet** ölçmez.
+n=110'luk bir döngünün 109 isteği önbellekten döner. **Soğuk ve sıcak sayılar
+ayrı ayrı raporlanır**; tek bir sayı verilecekse hangisi olduğu yazılır.
+Somut kanıt: aynı uç, aynı kullanıcı — sıcak 29,2 ms, soğuk 77,7 ms.
+
+### ★ GEÇERLİ SAYILAR — 31 Temmuz, gerçek üretim dağılımı
+
+**Bu bölüm ADR'nin geçerli ölçüm dayanağıdır.** Aşağıdaki eski bölümler
+kayıt için korunuyor; çelişki varsa **bu bölüm geçerlidir**.
+
+Veri seti `database/perf/gercek-dagilim.sql` — tenant `gercek-5000`:
+5.000 bölüm · 13.000 kişi · 4.985 malik kaydı (4.700 tekil) · 3.000 kiracı ·
+5.300 sakin. Malik dağılımı 4.500×1 daire · 150×2 · 45×3 · 5×10. Karşılaştırma
+tabanı `guzel-apartmani` (4 bölüm · 30 kişi). Üretim derlemesi
+(`node dist/main.js`), uçtan uca HTTP.
+
+#### Maliyet O(tenant), O(kapsam) DEĞİL
+
+Önceki turlarda ölçek ekseni *kapsamın büyüklüğü* (müteahhit, 800 bölüm)
+sanılıyordu. Gerçek dağılımda **1 daireli sıradan bir malik de** aynı bedeli
+ödüyor, çünkü kapsam kurulumu tenant'ın tamamını tarıyor.
+
+`/tahakkuk/donemler`, n=40, her istekten önce kapsam anahtarı silinerek:
+
+| Kullanıcı | soğuk medyan | sıcak medyan | fark |
+|---|---|---|---|
+| gercek-5000 · MALİK 1 daire | 77,7 | 29,2 | **+48,5** |
+| gercek-5000 · MALİK 10 daire | 78,4 | 30,4 | +48,0 |
+| gercek-5000 · KİRACI (403 alıyor) | 62,3 | 9,6 | +52,7 |
+| gercek-5000 · SAKİN (403 alıyor) | 60,9 | 16,0 | +44,9 |
+| **gercek-5000 · YÖNETİCİ (kapsamsız — kontrol)** | 27,1 | 17,4 | **+9,7** |
+| guzel-apartmani · MALİK 1 daire | 47,7 | 24,0 | +23,7 |
+
+Yöneticinin kapsamı önbelleğe hiç yazılmaz; onun +9,7 ms'i sıralama
+yanlılığıdır. Çıkarıldığında **kapsam kurulumu 13.000 kişilik tenant'ta
+≈39 ms, 30 kişilik tenant'ta ≈14 ms** (≈2,8×). Kapsamın kendisi iki durumda da
+**1 bölüm**.
+
+Kök sebep `backend/src/common/prisma/tenant.reader.ts:113` (`kisiId: { not: … }`)
+ve `:150`: 3.000 satır çekilip JS tarafında `Set` kesişimi yapılıyor. psql'de
+bu dördüncü sorgu tek başına 10,1 ms ve 2.964 tampon — kapsam kurulumunun
+%80'i.
+
+**TenantGuard, PermissionGuard'dan önce koşar:** reddedilecek bir istek bile
+bu bedeli öder (SAKİN'in 403'ü soğukta 61 ms).
+
+#### Eşzamanlılık — doygunluk
+
+`/kisiler?limit=50`, 20 sn/seviye, farklı 1 daireli malikler:
+
+| eşzamanlı | p50 | p95 | p99 | istek/sn |
+|---|---|---|---|---|
+| 1 | 71,3 | 128,8 | 148,2 | 13,0 |
+| 10 | 211,8 | 340,6 | 420,8 | 44,2 |
+| 25 | 533,3 | 804,2 | 1.131 | 44,5 |
+| 50 | 1.763 | 2.280 | 4.639 | 25,9 |
+
+Doygunluk 10 eşzamanlıda. Bağlantılar çoğunlukla `idle in transaction` —
+`tenantIslemi` her isteği interaktif işleme sarıyor ve `set_config`
+gidiş-dönüşleri boyunca bağlantıyı tutuyor. Yüksek eşzamanlılıkta işlem
+başlatılamıyor ve istek 500 dönüyor. GC darboğaz değil (duraklama 6,7 → 20 ms,
+RSS 215 → 216 MB).
+
+Ayrıntı ve arıza kipleri: `SESSION_SUMMARY.md` §3.I.
+
+### Süre — `GET /kisiler?limit=50` · UÇTAN UCA HTTP (SICAK YOL)
+
+⚠️ **Bu tablo Kural 2 uyarınca SICAK yolu ölçer** — kapsam önbelleği etkin,
+istekler önbellek isabeti. Soğuk maliyeti içermez; "kapsam kurulumu ne kadar
+sürüyor" sorusunun yanıtı **değildir**. Kapsamın büyüklüğüne bağlı sorgu
+maliyetini göstermesi bakımından geçerlidir.
 
 n=100, ilk 10 ısınma atıldı. Kapsam önbelleği **etkin** (5 dk TTL + aktif
 geçersizleştirme).
@@ -142,7 +220,22 @@ Silinmiyor çünkü ADR'nin ilk hâlinde karar dayanağı olarak kullanıldı.
 | 500 | 184,8 ms | **214,8 ms** |
 | 800 | 1.086,7 ms | **500,5 ms** |
 
-### ⚠️ ÇÖZÜLMEMİŞ ÇELİŞKİ — üç koşum farklı sonuç veriyor
+### ✅ ÇÖZÜLDÜ (31 Temmuz) — 12× farkın yeri bulundu
+
+Aşağıdaki çelişki **kapandı**. İki sebep birlikte açıklıyor:
+
+1. **Fark sorguda değil, sorgudan ÖNCE.** Maliyet kapsam *kurulumundadır* ve
+   O(tenant)'tır — fikstürün kişi sayısı büyüdükçe artar, kapsamın bölüm
+   sayısıyla değil. `ct15` fikstürü (600 kişi) ile `perf-muteahhit` (1.901
+   kişi) karşılaştırması bu yüzden beklenenin tersi görünüyordu: ölçülen
+   şey aynı şey değildi.
+2. **Bazı koşumlar önbellek isabetini ölçüyordu** (Kural 2). psql koşumu
+   önbelleği hiç kullanmaz, HTTP koşumu ısındıktan sonra hep kullanır.
+
+Bu yüzden aşağıdaki tablo **geçersizdir** — üç satır üç ayrı şeyi ölçüyor,
+karşılaştırılabilir değiller. Kayıt için korunuyor.
+
+### ⚠️ GEÇERSİZ — üç koşum farklı şeyleri ölçüyordu
 
 Aynı senaryo (500 bölümlük kapsam, `/kisiler` eşdeğeri) üç ayrı koşumda
 **birbiriyle bağdaşmayan** süreler verdi:
@@ -157,10 +250,11 @@ Aynı senaryo (500 bölümlük kapsam, `/kisiler` eşdeğeri) üç ayrı koşumd
 verdi — yani fark transaction kurulumundan DEĞİL. Daha küçük fikstürde
 (600 kişi ↔ 1.901 kişi) daha yavaş olması da beklenenin tersidir.
 
-**Sebep bulunamadı.** Bu yüzden veritabanı katmanı için sayısal eşik
-KONULMADI: doğrulayamadığım bir sayıya eşik koymak, yanlış bir güvence
-üretirdi. Regresyon testi bu çelişki çözülene kadar beklemededir
-(`kapsam-performans.spec.ts` depoya alınmadı).
+**Sebep artık biliniyor** (yukarıdaki "ÇÖZÜLDÜ" notu). Veritabanı katmanı için
+sayısal eşik yine de KONULMADI: eşik, düzeltme yapılmadan konulursa bugünkü
+O(tenant) davranışını *kalıcı hâle getirir*. Regresyon testi
+(`kapsam-performans.spec.ts`) hâlâ depoda değildir; eşiği düzeltme sonrası
+ölçümle birlikte önerilecektir.
 
 **Güvenilen sayı uçtan uca HTTP ölçümüdür** (iki bağımsız koşumda 125 ve
 181 ms): kullanıcının gerçekten yaşadığı süre odur ve yinelenebilirdir.
@@ -186,6 +280,7 @@ edildi ve hata vermedi. Yani **sert bir duvar yok**, yalnızca yavaşlama var.
 
 | Tetikleyici | Yapılacak |
 |---|---|
+| **Tenant'ta kişi sayısı > 5.000** | ★ 31 Temmuz'da eklendi. Kapsam kurulumu O(tenant)'tır; kapsam küçük olsa bile maliyet buradan gelir. `tenant.reader.ts:113`/`:150` yeniden ele alınır |
 | Kapsam **> 300 bölüm** | `TenantGuard` WARN logu üretir (uygulandı). Log görülürse bu ADR gözden geçirilir |
 | Kapsam **> 800 bölüm** | Ölçüm yinelenir. Tek atış planlama 500 ms'yi aştığı nokta burasıdır |
 | Uçtan uca p95 **> 250 ms** | Regresyon testi kırmızı yanar; seçenek B (EXISTS) değerlendirilir |

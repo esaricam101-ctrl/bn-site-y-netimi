@@ -1287,6 +1287,102 @@ Buraya yazılmasının nedeni "çözüldü" sanılmamasıdır.
 
 ---
 
+### I. Gerçekçi dağılım ölçümü — 5.000 bölüm / 4.700 malik (31 Temmuz 2026)
+
+Bu tur **yalnızca ölçümdür**; ürün kodu değişmedi. Veri seti:
+`database/perf/gercek-dagilim.sql` (tenant `gercek-5000`) — 5.000 bölüm ·
+13.000 kişi · 4.985 malik kaydı (4.700 tekil kişi) · 3.000 kiracı · 5.300
+sakin. Malik dağılımı 4.500×1 daire · 150×2 · 45×3 · 5×10. Parti tavanı için
+ikinci fikstür: `database/perf/parti-tavani.sql` (tenant `perf-parti`,
+25/50/100/200/300/400 bölümlük bloklar).
+
+Bütün sayılar **uçtan uca HTTP** ölçümüdür (`node dist/main.js`, üretim
+derlemesi). psql sayıları artık ölçüt olarak kullanılmıyor — gerekçe ADR-0011.
+
+#### ★ P0-İŞLEVSEL — toplu tahakkuk hedef ölçekte KIRIK
+
+**Bu bir performans sorunu değil; çekirdek özellik 5.000 bölümlük bir sitede
+hiç çalışmıyor.**
+
+`POST /tahakkuk/calistir` tüm siteye aidat yazarken **5 saniyelik işlem
+sınırını aşıyor ve 500 dönüyor**. İşlem tümüyle geri alınıyor: **sıfır borç,
+sıfır outbox olayı**. Yönetici hiçbir şey yazılmadığını yalnızca opak bir
+hata mesajından anlıyor.
+
+Parti büyüklüğü taraması (`perf-parti`, BLOK_BAZLI):
+
+| bölüm | HTTP | süre | borç | outbox |
+|---|---|---|---|---|
+| 25 | 201 | 437 ms | +25 | +1 |
+| 50 | 201 | 700 ms | +50 | +1 |
+| 100 | 201 | 1.263 ms | +100 | +1 |
+| 200 | 201 | 2.386 ms | +200 | +1 |
+| 300 | 201 | 4.002 ms | +300 | +1 |
+| **400** | 201 | **4.789 ms** | +400 | +1 |
+| 500 | **500** | ~5.020 ms | **+0** | **+0** |
+
+Doğrusal: bölüm başına **≈11,6 ms**. 5.000 ms'lik sınır **≈420 bölümde**
+doluyor. 400 bölüm zaten **%96 dolulukta** — daha yavaş bir makinede o da
+düşer. Tek blok (500 bölüm) üç denemede de 500 döndü.
+
+Yan bulgular: outbox olayı **tahakkuk başına 1** (bölüm başına değil), relay
+gecikmesi ortalama 1,3 sn, yeniden deneme 0 — outbox geride kalmıyor.
+10 eşzamanlı okuyucu varken toplu tahakkuk koşarsa okuma p95 282,8 → 319,7 ms
+(+%13).
+
+Karar taslağı: **ADR-0013** (yalnızca sorular; karar verilmedi).
+
+#### P0-ÖLÇEK — havuz ve işlem sarmalama
+
+- **DB bağlantı havuzu 5** (Prisma varsayılanı; `DATABASE_URL` içinde
+  `connection_limit` verilmemiş).
+- **Doygunluk 10 eşzamanlı kullanıcıda.** Verim tavanı ~44 istek/sn; 25'e
+  çıkınca verim aynı kalıp gecikme 2,5×, 50'de verim düşüyor.
+- Yük altında bağlantılar çoğunlukla **`idle in transaction`**:
+  `PrismaService.tenantIslemi` **her isteği** interaktif işleme sarıyor ve
+  4 `set_config` gidiş-dönüşü boyunca bağlantı tutuluyor. Havuz meşgul
+  görünüyor ama sorgu koşmuyor.
+- Yüksek eşzamanlılıkta arıza yavaş sorgu değil, **işlem başlatma açlığı**:
+  Prisma işlemi verilen sürede başlatamıyor ve istek **500** dönüyor. Kullanıcı
+  önce bekliyor, sonra opak `BEKLENMEYEN_HATA` alıyor.
+- GC darboğaz **değil**: duraklamalar boştaki 6,7 ms medyandan 20 ms'e çıkıyor,
+  RSS 215 → 216 MB, yığın büyümüyor.
+
+#### P1
+
+- **Kapsam kurulumu O(tenant)** — O(kapsam) değil. Uçtan uca soğuk maliyet:
+  13.000 kişilik tenant'ta **≈39 ms**, 30 kişilik tenant'ta **≈14 ms**
+  (kapsamsız YÖNETİCİ kontrol ölçümü çıkarılmış hâliyle). Kök sebep
+  `backend/src/common/prisma/tenant.reader.ts:113` (`kisiId: { not: … }`) ve
+  `:150` — 3.000 satır çekilip JS tarafında `Set` kesişimi yapılıyor.
+- **TenantGuard, PermissionGuard'dan ÖNCE koşuyor.** Reddedilecek bir istek
+  bile bu bedeli ödüyor: SAKİN'in 403 aldığı uç soğuk kapsamda **61 ms**.
+- Sıcak/soğuk farkı büyük: aynı uç önbellek isabetinde 15–30 ms, ıskada
+  60–78 ms. Rol bazlı uçların ölçümü bu yüzden iki ayrı sayı ister.
+- **MANUEL tahakkuk doğrulaması** eksik bölümlerin tamamını tek `detail`
+  metnine yazıyor; 5.000 bölümde binlerce isim döndürüyor.
+
+#### ★ AÇIK SORU — yarın ilk iş
+
+**Kapsam önbelleği 300 sn TTL** (`tenant.reader.ts:82`). Süresi dolmuş bir
+yetki bu pencerede hâlâ erişim veriyor olabilir.
+
+A0.7'deki **17. negatif test** geçiyorsa, muhtemelen önbellekli yoldan
+**GEÇMİYOR**. Doğrulanacak: test önbellekli yolu mu, doğrudan yolu mu ölçüyor?
+Geçiyorsa **test yanlış güvence veriyor** ve düzeltilmesi gereken testtir.
+
+#### Ölçüm koşulları (tekrar üretmek için)
+
+- İstek sınırı sayaçları giriş öncesi Redis'ten temizlendi. Bu bir **fikstür
+  engeli**dir (IP başına 20 giriş / 5 dk), ölçülen uç değil.
+- DB havuzu örneklemesi **ayrı bir süreçte** koştu. İlk denemede aynı süreçte
+  senkron örnekleme olay döngüsünü blokladı ve gecikmeleri bozdu; o koşum
+  atıldı.
+- `pg_stat_activity.state` yalnızca süper kullanıcıya görünür; `bnos_migrator`
+  ile örneklerken bütün alanlar NULL geldi.
+
+---
+
 ## 4. Sonraki oturum — ilk komut ve ilk görev
 
 ```bash
@@ -1406,18 +1502,25 @@ yayımladı. Ürün sahibi depoyu private yapacağını bildirdi. Geçmiş
 **yeniden yazılmayacak** (önbellek ve çatallar kalır); sızmış bir sır
 bulunmadığı için iptal edilecek anahtar da yok.
 
-### İLK GÖREV — sırada ne var
+### İLK GÖREV — sırada ne var (1 Ağustos 2026)
 
-1. **`yalnizcaKendiVerisi` zorlaması** (§3.F P0-1). Denetimdeki **en ağır**
-   açık madde: malik/kiracı/sakin bugün tüm sitenin kişi ve bölüm listesini
-   çekebiliyor, README:151 tersini iddia ediyor. KVKK. Bayrak zaten tanımlı,
-   yalnızca query servislerine bağlanmamış.
-2. **İmaj duman testi CI'a** — `config-check` yol tutarlılığını görür, imajın
-   gerçekten açıldığını görmez. `docker build` + bir kez açılış eklenmeli.
-3. **scrypt eşzamanlılık kapısı** (§3.H'deki kapanmayan boşluk) — istek sınırı
-   hızı sınırlıyor, eşzamanlılığı değil.
+Ölçüm turu bitti; sıradaki üç iş ölçüm sonuçlarından çıktı (§3.I).
 
-Sonra ekran üretimine (§3.A) dönülebilir.
+1. **★ Kapsam önbelleği TTL güvenlik doğrulaması.** `tenant.reader.ts:82`
+   300 sn TTL koyuyor. Süresi dolmuş bir yetki bu pencerede hâlâ erişim
+   veriyor olabilir. A0.7'deki 17. negatif test geçiyorsa muhtemelen
+   önbellekli yoldan geçmiyor — testin hangi yolu ölçtüğü doğrulanacak.
+   Geçiyorsa düzeltilecek olan **testtir**, ürün değil. Bu bir güvenlik
+   maddesi olduğu için ölçek işlerinin önünde.
+2. **ADR-0013 kararı** — toplu tahakkuk partileme. Beş soru taslakta hazır;
+   karar ürün sahibiyle birlikte verilecek. Karar çıkmadan kod yazılmayacak.
+   Bu, hedef ölçekte kırık olan tek çekirdek özellik.
+3. **P0-ÖLÇEK kararı** — DB havuzu ve `tenantIslemi` işlem sarmalaması.
+   Havuz boyutu bir yapılandırma sorusu, `set_config` gidiş-dönüşleri bir
+   tasarım sorusu; ikisi ayrı ayrı ele alınacak.
+
+Bunlardan sonra sırayla: `yalnizcaKendiVerisi` uçlarının kalan denetimi,
+imaj duman testi CI'a, scrypt eşzamanlılık kapısı, sonra ekran üretimi (§3.A).
 
 ### Muhasebe/Banka talebinin EKSİK KALAN bölümleri
 
