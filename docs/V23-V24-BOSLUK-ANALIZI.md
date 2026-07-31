@@ -186,12 +186,55 @@ teknik olarak çalışan ama hukuken kullanılamayan bir özellik olur.
 | 11 | Responsive denetim (360/390/768) | ⚠️ | Responsive yazıldı, ölçülmedi |
 | 11 | Bottom-sheet · 44px dokunma · pull-to-refresh | ❌ | |
 | 12 | MFA (TOTP+SMS) | ❌ | |
-| 12 | Oturum yönetimi · cihaz listesi | ⚠️ | Refresh var; cihaz listesi yok |
-| 12 | Şifre politikası · sızıntı denetimi | ⚠️ | Argon2 hash var; politika yok |
-| 12 | Kimlik uçlarında hız sınırı | ⚠️ | Genel throttle var; uca özel kilit yok |
+| 12 | Oturum yönetimi · cihaz listesi | ⚠️ | Refresh var; **iptal/rotasyon YOK** (`jti` üretiliyor, saklanmıyor); cihaz listesi yok |
+| 12 | Şifre politikası · sızıntı denetimi | ⚠️ | **scrypt** hash var (Argon2 DEĞİL — aşağıdaki düzeltmeye bakın); politika yok |
+| 12 | Kimlik uçlarında hız sınırı | ⚠️ | **Uca özel sınır VAR** (`0f5d7c1`); genel throttle yok, hesap kilidi yok — aşağıdaki düzeltmeye bakın |
 | 12 | KVKK altyapısı (envanter · saklama · aydınlatma) | ⚠️ | Saklama süreleri belge modülünde var; envanter/aydınlatma yok |
 | 13 | Build pipeline · code splitting · sanallaştırma | ⚠️ | Next.js derliyor; liste sanallaştırma yok |
 | 13 | `prefers-reduced-motion` | ✅ | |
+
+### ⚠️ §12 satırlarında iki DÜZELTME (31 Temmuz 2026)
+
+Bu belgenin ilk yazımında güvenlik satırlarındaki iki tespit **koda
+bakılmadan** yazılmıştı. İkisi de yanlıştı ve ikisi de plan kararını etkiler:
+
+**1. "Argon2 hash var" → HAYIR, scrypt.**
+
+`backend/src/common/security/sifre.ts` `node:crypto` scrypt kullanır ve
+dosyanın kendi başlığı bunu **bilinçli bir tercih** olarak yazar: bcrypt/argon2
+native derleme gerektiren bir bağımlılık ekler, scrypt Node çekirdeğindedir
+(ADR-0007 ile aynı gerekçe).
+
+Bu bir isim yanlışı değil, **planlama hatası kaynağıdır**: "Şifre politikası"
+işi Argon2 varsayımıyla boyutlandırılırsa yanlış parametre ekseninde
+(memory/time/parallelism) çalışılır. scrypt'in ekseni `N · r · p`'dir ve mevcut
+değer `N=2^17, r=8` — **istek başına ≈134 MB**. Politika yazarken bu maliyet
+hesaba katılmalıdır.
+
+**2. "Genel throttle var; uca özel kilit yok" → TAM TERSİ.**
+
+Yazıldığı sırada depoda **hiçbir hız sınırı yoktu** (31 Temmuz denetimi,
+SESSION_SUMMARY §3.F P0-3: `throttle|rate-limit` araması 0 sonuç). Bugün ise
+durum satırın söylediğinin tersidir:
+
+| | Belgenin dediği | Gerçek (`0f5d7c1` sonrası) |
+|---|---|---|
+| Genel throttle | var | **yok** (bilinçli — işaretsiz uç sınırlanmaz) |
+| Uca özel sınır | yok | **var** — `/oturum/giris` IP 20 · e-posta 5 / 5 dk |
+
+⚠️  **"Hız sınırı" ile "hesap kilidi" AYNI ŞEY DEĞİLDİR** ve v23 §12'nin
+istediği ikisidir. Bugün yapılan hız sınırıdır: pencere dolunca 429 döner ve
+pencere kayınca kendiliğinden açılır. Hesap kilidi ise başarısız denemelerden
+sonra hesapta **kalıcı durum** bırakır ve açılması yönetici ya da doğrulanmış
+bir akış ister. Kilit **HÂLÂ YOK**; bu satır kapanmış sayılmamalıdır.
+
+⚠️  Hız sınırı **hızı** sınırlar, **eşzamanlılığı** değil: en kötü durumda 20
+eşzamanlı scrypt ≈ 2,7 GB. Kalan boşluk SESSION_SUMMARY §3.H'de yazılıdır.
+
+**Ders:** bu iki satır, belgenin kendi §6 kuralına (*"referans ile mevcut kodu
+madde madde karşılaştır"*) uymadan yazılmış. Durum sütunu kodla
+doğrulanmadığında, boşluk analizinin kendisi boşluk üretir — üstelik "analiz
+yapıldı" görüntüsü altında.
 
 ---
 
@@ -248,6 +291,30 @@ consume."* Buna ve mevcut boşluklara göre:
    KVKK aydınlatma ve saklama süresi tanımlanmalı.
 7. **v23 pano derinliği** — widget kayıt defteri, kayıtlı görünüm, komut
    paleti, KPI trend.
+
+### ⚠️ Bu sıralama ÖZELLİK sıralamasıdır — önünde bir PLATFORM maddesi var
+
+31 Temmuz altyapı denetimi (SESSION_SUMMARY §3.F), bu listedeki hiçbir maddenin
+görmediği bir açık buldu ve **yukarıdaki 1. maddenin önüne geçer**:
+
+> **`yalnizcaKendiVerisi` uygulanmıyor.** `RolTanimi.yalnizcaKendiVerisi` ve
+> `KENDI_VERISI_KISITLI` tanımlı ama **hiçbir yerde okunmuyor**. Bugün
+> `MALIK`/`KIRACI`/`SAKIN` rolündeki bir kullanıcı, taşıdığı
+> `KISI_GORUNTULE` + `BOLUM_GORUNTULE` izinleriyle `GET /kisiler` ve
+> `GET /bolumler` uçlarından **tüm sitenin listesini** çekebiliyor. README:151
+> bunun tersini iddia ediyor. KVKK açığıdır.
+
+⚠️  **Sıralama gerekçesi:** bu listedeki maddeler ekran ekler; ekranlar aynı
+okuma uçlarını kullanır. Yetki kısıtı konmadan eklenen her ekran, açığın
+yüzeyini **büyütür** — sonra hepsini birden geri gitmek gerekir. Kısıt önce
+konursa yeni ekranlar doğduğu anda doğru davranır.
+
+⚠️  Bu iki belge **AYNI ÜRÜNÜN farklı eksenleridir** ve ayrı ayrı okunursa
+çelişirler: burası *"hangi özellik eksik"*, §3.F *"var olan ne kadar sağlam"*
+sorusunu yanıtlar. Örtüştükleri yerler var — v24 §13 satırındaki
+*"Outbox var, tüketici yok"* ile §3.F'nin kuyruk bulgusu **aynı boşluktur**.
+Birini kapatıp ötekini güncellememek, kapanmış bir maddeyi açık göstermeye
+devam eder (yukarıdaki §12 düzeltmelerinin sebebi tam olarak budur).
 
 ---
 

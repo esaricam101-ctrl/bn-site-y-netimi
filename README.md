@@ -113,7 +113,7 @@ Tam doğrulama raporu: [`VALIDATION_REPORT.md`](VALIDATION_REPORT.md) — çalı
 ```bash
 pnpm verify         # bağımlılıksız zincir — kurulum gerektirmez
 pnpm test:negative  # denetleyicilerin gerçekten çalıştığını kanıtlar (12 test)
-pnpm test:unit      # 57 duman testi
+pnpm test:unit      # 331 birim testi
 pnpm verify:all     # verify + negative + belge lint
 pnpm test:contract  # sözleşme testleri (PostgreSQL gerekir)
 pnpm lint           # ESLint + özel önbellek anahtarı kuralı
@@ -148,7 +148,16 @@ Tek giriş ekranı, rol bazlı yönlendirme. Apartman Yöneticisi · Yönetim Ş
 
 Yetki matrisi: [`shared/core-domain/src/yetki/roller.ts`](shared/core-domain/src/yetki/roller.ts)
 
-Malik, Kiracı ve Sakin `yalnizcaKendiVerisi` kısıtı taşır: sakinler birbirinin borç, iletişim ve kişisel bilgisine erişemez (KVKK). Denetçi salt okunurdur ve erişimi de denetlenir.
+> 🔴 **Bu satır YANLIŞTI ve düzeltildi (31 Temmuz 2026).** Önceki hâli
+> *"Malik, Kiracı ve Sakin `yalnizcaKendiVerisi` kısıtı taşır: sakinler
+> birbirinin borç, iletişim ve kişisel bilgisine erişemez (KVKK)"* diyordu.
+> **Kod bunu yapmıyor.**
+
+`RolTanimi.yalnizcaKendiVerisi` ve `KENDI_VERISI_KISITLI` **tanımlıdır ama hiçbir yerde okunmaz** — backend ve frontend genelinde sıfır kullanım. Bugün `MALIK`/`KIRACI`/`SAKIN` rolündeki bir kullanıcı, taşıdığı `KISI_GORUNTULE` + `BOLUM_GORUNTULE` izinleriyle `GET /kisiler` ve `GET /bolumler` uçlarından **tenant'ın tamamını** listeleyebilir. Satır düzeyi kısıt uygulanmamıştır ve bu bir **KVKK açığıdır**.
+
+Bayrak duruyor, yalnızca sorgu servislerine bağlanmamış; açık madde olarak [`SESSION_SUMMARY.md`](SESSION_SUMMARY.md) §3.F P0-1'de izleniyor. **Bu satır kapatılmadan uyum değerlendirmesinde dayanak alınmamalıdır.**
+
+Denetçi salt okunurdur ve erişimi de denetlenir.
 
 ---
 
