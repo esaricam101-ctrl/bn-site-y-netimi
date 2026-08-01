@@ -87,8 +87,16 @@ jobs:
         run: pnpm typecheck
       - name: Lint
         run: pnpm lint
+      # GECICI — TANI AMACLI. pnpm katmani atlanir: alt surec ciktisini
+      # yutuyor olabilir; node dogrudan cagrildiginda hata metni adim
+      # ciktisinda gorunur ve log indirme yetkisi gerekmez.
+      # ADIM YINE KIRMIZI KALIR — `|| true` YOK. Amac gecmesi degil,
+      # hatayi gormek. Sebep bulununca `pnpm test:unit`e geri donulecek.
       - name: Birim testleri
-        run: pnpm test:unit
+        run: |
+          node --version
+          ls -la tests/unit/ | head -20
+          node --test --test-reporter=spec tests/unit/*.mjs
 
       - name: Veritabani semasi
         run: pnpm db:migrate
