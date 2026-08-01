@@ -22,8 +22,66 @@ Bu belge *nerede durduğumuzu* söyler. Ayrıntılı devir notu
 | **`set_config` birleştirmesi** — dört ayrı gidiş-dönüş bağlantıyı `idle in transaction` tutuyordu | Tek sorguda; doygunlukta boş bekleme %23,2 → %13,0, verim +%26, p95 −%21 | `SESSION_SUMMARY` §3.K |
 | **Isıtma/yakıt çakışması** — aynı dönemde ikisi tahakkuk edilirse ısınma gideri iki kez yansıyordu | Engelleme değil **uyarı**: `uyarilar[]` + denetim kaydı; çakışma tanımı veri | ADR-0014 §2c · 0030 · CT-17 |
 | **Satır kapsamı** — malik/kiracı/sakin tüm sitenin verisini çekebiliyordu | RESTRICTIVE RLS politikaları, tek noktada kurulan kapsam | ADR-0011 · 0022–0025 · CT-13/CT-14 |
+| **`prisma migrate reset` kırık** | Kök sebep **şema sahipliği** — `bnos_migrator` şemayı düşüremiyordu. Sahiplik + veritabanı üzerinde `CREATE` verildi | [docs/VERITABANI-KURULUM.md](docs/VERITABANI-KURULUM.md) |
+| **CI hiç çalışmıyordu** | Tetikleyicide `master` yoktu; ayrıca CI süper kullanıcıyla koşuyordu ve RLS testleri anlamsızdı | `.github/workflows/ci.yml` |
 
 Sözleşme paketi: **69 test, 9 dosya.**
+
+---
+
+## ⚠️ Çürütülen varsayımlar
+
+Kayıt için tutuluyor: yanlış bir kök sebebe göre iş yapılsaydı ne olacaktı.
+
+### "`migrate reset`'i çapraz tablo politikaları kırıyor" → **YANLIŞ**
+
+Hata mesajı politikaları gösteriyordu:
+
+```text
+ERROR: cannot drop table borc because other objects depend on it
+DETAIL: policy tahsilat_kapsam on table tahsilat depends on table borc
+```
+
+**Gerçek kök sebep şema sahipliğiydi.** Prisma reset önce
+`DROP SCHEMA public CASCADE` dener; `bnos_migrator` şemanın sahibi olmadığı
+için bu adım *"must be owner of schema public"* ile düşüyor ve Prisma
+**CASCADE'siz** tek tek düşürmeye geri düşüyordu. Politikalar, hiç
+kullanılmaması gereken o yolun takıldığı engeldi.
+
+Kanıt — aynı zincir, iki veritabanı:
+
+| veritabanı | şema sahibi | `DROP SCHEMA` | reset |
+|---|---|---|---|
+| `bnos_apartman` | `pg_database_owner` → postgres | ❌ yetki yok | ❌ geri düşüş, hata |
+| deneme veritabanı | `bnos_migrator` | ✅ 118 nesne | ✅ çalıştı |
+
+**Bu ayrım neden önemliydi:** politikaları yeniden yazmak seçeneklerden
+biriydi. Seçilseydi `tahsilat_kapsam` ve `borc_sorumlusu_kapsam`'ın kapsam
+mantığı değişecek, **güvenlik davranışı gereksiz yere riske girecek** ve
+A0.7'deki 17 negatif testin tamamı yeniden kanıtlanmak zorunda kalacaktı.
+Kök sebep doğru bulunduğu için tek satırlık bir yetki düzeltmesi yetti;
+hiçbir politikaya dokunulmadı.
+
+### "Şema sahipliği tek başına yeter" → **YANLIŞ**
+
+Sahiplik verilince `DROP SCHEMA` çalıştı ama ardından gelen
+`CREATE SCHEMA public` *"no schema has been selected to create in"* ile düştü
+ve **veritabanı şemasız kaldı**. Şema yaratmak, şema üzerinde değil
+**veritabanı** üzerinde `CREATE` yetkisi ister. İkisi birlikte gerekiyor.
+
+### "CI yeşil, demek ki her şey doğrulanıyor" → **YANLIŞ**
+
+CI hiç çalışmıyordu: tetikleyici `main`/`develop` idi, çalışılan dal
+`master`. Üstelik çalışsaydı bile veritabanına **süper kullanıcı** olarak
+bağlanıyordu — süper kullanıcı RLS'i baştan atlar. Yerelde CI'ın tam
+yapılandırmasıyla koşturulduğunda CT-01'in 5 testinden **4'ü düştü**:
+
+```text
+× B tenant, A tenant kaydını GÖREMEZ        → 16 satır gördü
+× B tenant, A tenant kaydına yazamaz        → yazabildi
+× bağlam kurulmadan sorgu HATA verir        → vermedi
+× uygulama rolünün BYPASSRLS yetkisi yoktur → expected true to be false
+```
 
 ---
 
@@ -46,6 +104,24 @@ Ayrıntı: [`docs/KAPASITE.md`](docs/KAPASITE.md).
 
 ---
 
+## 🔒 CI kapıları
+
+| iş | ne doğrular |
+|---|---|
+| `mimari` | paket sınırı · önbellek anahtarı · yapılandırma tutarlılığı |
+| `kalite` | derleme · tip · lint · birim + **sözleşme testleri (uygulama rolüyle)** |
+| `migration` | boş veritabanına zincirin tamamı · her migration uygulandı mı · **`migrate reset` geri düşüşe girmeden** · reset sonrası RLS politikaları duruyor mu |
+| `belge` | markdown lint |
+
+`migration` işi bu turda eklendi. `01-roles.sql` artık veritabanı adından
+bağımsızdır ve CI'da da koşar; iş, şema sahibini ve `BYPASSRLS`
+taşınmadığını **açıkça doğrular**.
+
+Şema bağımlılık envanteri (2 çapraz politika · 1 üretilmiş kolon · 2 trigger ·
+9 fonksiyon · 50 enum · 0 view): [`docs/VERITABANI-KURULUM.md`](docs/VERITABANI-KURULUM.md).
+
+---
+
 ## 🔶 Açık işler
 
 ### Karar bekleyenler
@@ -61,7 +137,7 @@ Ayrıntı: [`docs/KAPASITE.md`](docs/KAPASITE.md).
 | Konu | Öncelik | Not |
 |---|---|---|
 | **Kapsam kurulumu O(tenant)** | P1 | `tenant.reader.ts:113` (`kisiId not` sorgusu `bolum_id` ile kısıtlanabilir) ve `:150` (3.000 satırlık JS `Set` kesişimi). Analiz `SESSION_SUMMARY` §3.K'da; ölçüm tahmini verilmedi. |
-| **`prisma migrate reset` kırık** | P1 | Kapsam politikalarının tablolar arası bağımlılığı; Prisma CASCADE'siz drop deniyor. **Üretim `migrate deploy` yolunu etkilemez** — geliştirme ve CI ortamlarını etkiler. Üç düzeltme seçeneği `SESSION_SUMMARY` §3.I'de. |
+| **Prisma şeması ↔ migration sürüklenmesi** | **P1** | `migrate diff` 162 satır fark buluyor: **7 enum değeri** (`BelgeVarlikTipi` veritabanında 16, `schema.prisma`'da 9 — `YEVMIYE_FISI` gibi bir değer okunursa istemci hata verir), **11 unique indeks**, **8 yabancı anahtar**, 47 indeks adı (kozmetik). Sürüklenme kapısı CI'a bu düzeltilmeden konulamaz; konulsaydı kalıcı kırmızı olurdu. |
 | **`referans` geçici köprü** | P2 | Gider/fatura varlığı geldiğinde faturaya bağlanmalı, serbest metin değerler göç ettirilmeli. |
 | **Soft delete uzantısı bağlı değil** | P2 | `$extends` dönüşü atılıyor; bağlanırsa sütunu olmayan 15 model kırılır. Doğru çözüm muafiyeti `Prisma.dmmf`'ten türetmek. |
 | **8 tabloda kapsam politikası yok** | P2 | `belge`, `belge_iliskisi`, `belge_etiketi`, `sayac_okumasi`, `site_personeli`, `personel_sertifikasi`, `personel_zimmeti`, `audit_kaydi`. |

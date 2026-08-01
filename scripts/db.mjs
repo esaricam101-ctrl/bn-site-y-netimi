@@ -117,8 +117,50 @@ function calistir(adim, komutArgv, komutUrl) {
 const sonuc = calistir(komut, argv, url);
 if ((sonuc.status ?? 1) !== 0) process.exit(sonuc.status ?? 1);
 
+/**
+ * SIFIRLAMA SONRASI YETKI ONARIMI.
+ *
+ * ⚠️  `prisma migrate reset` semayi DUSURUP YENIDEN YARATIR. Yeniden
+ *     yaratilan sema, `database/init/01-roles.sql` icindeki
+ *     `GRANT USAGE ON SCHEMA public TO bnos_app` satirini TASIMAZ — o izin
+ *     eski sema nesnesine baglidi. Init betigi de yalnizca bos bir veri
+ *     dizininde kostugu icin tekrar calismaz.
+ *
+ *     Sonuc olculdu: sifirlamadan sonra tohum `permission denied for schema
+ *     public` ile duser. Izin uygulama rolunun BUTUN sorgularini etkiler,
+ *     yani hata tohuma ozgu degildir.
+ *
+ *     Tablo ve dizi izinleri migration'lardan geri gelir; SEMA izni
+ *     gelmez. Burada aciklikla geri verilir.
+ *
+ *     Rol adi SABIT YAZILMAZ, uygulama URL'inden turetilir.
+ */
+function semaYetkileriniOnar() {
+  const rol = UYGULAMA_URL.replace(/^postgresql:\/\/([^:]+).*$/u, '$1');
+  const sql = [
+    `GRANT USAGE ON SCHEMA public TO ${rol};`,
+    `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${rol};`,
+    `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${rol};`,
+  ].join('\n');
+  console.log(`db.mjs · sema yetkileri onariliyor · hedef rol: ${rol}`);
+  return spawnSync(
+    process.platform === 'win32' ? 'npx.cmd' : 'npx',
+    ['prisma', 'db', 'execute', '--url', MIGRATE_URL, '--stdin'],
+    {
+      cwd: VERITABANI,
+      env: { ...process.env, ...ortam, DATABASE_URL: MIGRATE_URL },
+      input: sql,
+      stdio: ['pipe', 'inherit', 'inherit'],
+      shell: process.platform === 'win32',
+    },
+  );
+}
+
 // Sifirlama sonrasi tohum AYRI adimda ve UYGULAMA rolüyle koşar.
 if (komut === 'reset') {
+  const onarim = semaYetkileriniOnar();
+  if ((onarim.status ?? 1) !== 0) process.exit(onarim.status ?? 1);
+
   const tohum = calistir('seed', ARGUMANLAR.seed, UYGULAMA_URL);
   process.exit(tohum.status ?? 1);
 }

@@ -1,7 +1,7 @@
 name: CI
 
 on:
-  push: { branches: [main, develop] }
+  push: { branches: [main, master, develop] }
   pull_request:
 
 concurrency:
@@ -57,6 +57,29 @@ jobs:
       - name: Prisma istemcisi
         run: pnpm --filter @bnos/database generate
 
+      # ROLLER — testlerin ANLAMLI olmasi buna baglidir.
+      # Suru kullaniciyla kosulursa RLS BASTAN ATLANIR ve CT-01 yanlis
+      # yesil verir. Ayni init betigi gelistirme ortaminda da kosar.
+      - name: Veritabani rolleri (01-roles.sql)
+        run: psql -f database/init/01-roles.sql
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: bnos_test
+      - name: Rol kurulumu dogrulamasi
+        run: |
+          OWNER=$(psql -At -c "SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='public'")
+          BYPASS=$(psql -At -c "SELECT bool_or(rolbypassrls) FROM pg_roles WHERE rolname LIKE 'bnos_%'")
+          echo "sema sahibi=$OWNER  bypassrls=$BYPASS"
+          test "$OWNER" = "bnos_migrator" || { echo "::error::public sema sahibi bnos_migrator degil"; exit 1; }
+          test "$BYPASS" = "f" || { echo "::error::bnos rollerinden biri BYPASSRLS tasiyor — ADR-0002 ihlali"; exit 1; }
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: bnos_test
+
       - name: shared derleme
         run: pnpm build:shared
       - name: Tip denetimi
@@ -67,14 +90,16 @@ jobs:
         run: pnpm test:unit
 
       - name: Veritabani semasi
-        run: pnpm --filter @bnos/database migrate
+        run: pnpm db:migrate
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bnos_test
+          MIGRATE_DATABASE_URL: postgresql://bnos_migrator:bnos_migrator_dev@localhost:5432/bnos_test
+          DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_test
 
+      # UYGULAMA ROLU ile kosar — RLS gercekten sinanir.
       - name: Sozlesme testleri — BFS v1 §14.1
         run: pnpm test:contract
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bnos_test
+          DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_test
           REDIS_URL: redis://localhost:6379
 
       - name: Uygulama derlemesi
@@ -91,3 +116,69 @@ jobs:
         with: { node-version: '22', cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint:md
+
+  # 3) MIGRATION ZINCIRI — bos veritabanina bastan sona uygulanabiliyor mu.
+  #
+  # NEDEN AYRI IS: migration'larin tek tek calismasi, ZINCIR OLARAK
+  # uygulanabilir olduklari anlamina gelmez. 0026-0030 arasi bes migration
+  # eklendiginde zincir hic bos bir veritabaninda kosulmamisti.
+  #
+  # `migrate reset` de burada sinanir: sema sahipligi yanlis kurulursa reset
+  # sessizce kirilir ve bu yalnizca birinin elle denemesiyle fark edilirdi.
+  migration:
+    name: Migration zinciri · reset
+    runs-on: ubuntu-latest
+    needs: mimari
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: bnos_migration_test }
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        ports: ['5432:5432']
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: bnos_migration_test
+      MIGRATE_DATABASE_URL: postgresql://bnos_migrator:bnos_migrator_dev@localhost:5432/bnos_migration_test
+      DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_migration_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @bnos/database generate
+
+      - name: Veritabani rolleri (01-roles.sql)
+        run: psql -f database/init/01-roles.sql
+
+      - name: BOS veritabanina zincirin tamami
+        run: pnpm db:migrate
+
+      - name: Her migration uygulandi mi
+        run: |
+          DOSYA=$(ls -d database/prisma/migrations/*/ | wc -l)
+          UYGULANAN=$(psql -At -c "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL")
+          GERI=$(psql -At -c "SELECT count(*) FROM _prisma_migrations WHERE rolled_back_at IS NOT NULL")
+          echo "dosya=$DOSYA uygulanan=$UYGULANAN geri_alinan=$GERI"
+          test "$DOSYA" = "$UYGULANAN" || { echo "::error::migration sayisi tutmuyor"; exit 1; }
+          test "$GERI" = "0" || { echo "::error::geri alinmis migration var"; exit 1; }
+
+      # ★ REGRESYON: reset GERI DUSUS yoluna girmeden calismali.
+      # Cikti 'fallback' iceriyorsa sema sahipligi bozulmus demektir.
+      - name: migrate reset — geri dususe girmeden
+        run: |
+          pnpm db:reset 2>&1 | tee reset.log
+          if grep -qi 'fallback' reset.log; then
+            echo "::error::reset GERI DUSUS yolunu kullandi — sema sahipligi yanlis kurulmus"
+            exit 1
+          fi
+
+      - name: Reset sonrasi sema butunlugu
+        run: |
+          POL=$(psql -At -c "SELECT count(*) FROM pg_policy")
+          echo "RLS politikasi: $POL"
+          test "$POL" -gt 0 || { echo "::error::reset sonrasi RLS politikasi yok"; exit 1; }
