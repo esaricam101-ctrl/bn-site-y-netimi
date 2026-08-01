@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
+        with: { node-version: '24' }
       - name: Paket siniri — ADR v1.1 §40
         run: node scripts/boundary.mjs
       - name: Onbellek anahtari — ADR-0005 · §37
@@ -52,7 +52,7 @@ jobs:
       # `version` da verilirse action-setup@v4 cakisma hatasi verir.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: pnpm }
+        with: { node-version: '24', cache: pnpm }
 
       - run: pnpm install --frozen-lockfile
       - name: Prisma istemcisi
@@ -115,7 +115,7 @@ jobs:
       # `version` da verilirse action-setup@v4 cakisma hatasi verir.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: pnpm }
+        with: { node-version: '24', cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint:md
 
@@ -151,7 +151,7 @@ jobs:
       # `version` da verilirse action-setup@v4 cakisma hatasi verir.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: pnpm }
+        with: { node-version: '24', cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @bnos/database generate
 

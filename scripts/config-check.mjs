@@ -151,6 +151,62 @@ bilgi.push('tsconfig paths hedefleri dogrulandi');
   }
 }
 
+/*
+ * 8. NODE SURUMU TEK KAYNAKTA MI
+ *
+ * ⚠️  NEDEN VAR: CI `node-version: '22'` kullaniyordu, gelistirme makinesi
+ *     Node 24'tu. Yerelde 331/331 gecen birim testleri CI'da dusuyordu ve
+ *     fark AYLARCA gorunmezdi — cunku iki taraf da kendi icinde tutarliydi.
+ *
+ *     `engines` ">=20.11" idi: her seye izin veren bir alt sinir, ayrismayi
+ *     ENGELLEMEZ. Uc yer (.nvmrc · engines · ci.yml) birbirini tutmak
+ *     ZORUNDADIR; tutmuyorsa burasi kirmizi yanar.
+ */
+const nvmrcYol = KOK + '.nvmrc';
+if (!existsSync(nvmrcYol)) {
+  hatalar.push('.nvmrc yok — yerel ve CI Node surumu sabitlenemez.');
+} else {
+  const nvmrc = readFileSync(nvmrcYol, 'utf8').trim().replace(/^v/u, '');
+  const anaSurum = nvmrc.split('.')[0];
+
+  const kokPaket = JSON.parse(readFileSync(KOK + 'package.json', 'utf8'));
+  const engines = kokPaket.engines?.node ?? '';
+  // Beklenen bicim: ">=24 <25" — hem alt hem UST sinir tasimali.
+  const altSinir = /(?:^|\s)>=\s*(\d+)/u.exec(engines)?.[1];
+  const ustSinir = /(?:^|\s)<\s*(\d+)/u.exec(engines)?.[1];
+
+  if (altSinir === undefined || ustSinir === undefined) {
+    hatalar.push(
+      `package.json engines.node ("${engines}") ust sinir tasimiyor. ` +
+        'Yalnizca alt sinir vermek surum ayrismasini engellemez; ' +
+        `">=${anaSurum} <${Number(anaSurum) + 1}" bicimi kullanilmali.`,
+    );
+  } else if (altSinir !== anaSurum || Number(ustSinir) !== Number(anaSurum) + 1) {
+    hatalar.push(
+      `Node surumu uyusmuyor: .nvmrc=${nvmrc} ama engines.node="${engines}".`,
+    );
+  }
+
+  const isAkislari = ['.github/workflows/ci.yml', '.github/workflows/dependency-boundary.yml'];
+  for (const y of isAkislari) {
+    const tam = KOK + y;
+    if (!existsSync(tam)) continue;
+    const icerik = readFileSync(tam, 'utf8');
+    const surumler = [...icerik.matchAll(/node-version:\s*'?(\d+)/gu)].map((m) => m[1]);
+    const yanlis = [...new Set(surumler)].filter((s) => s !== anaSurum);
+    if (yanlis.length > 0) {
+      hatalar.push(
+        `${y} icinde node-version ${yanlis.join(', ')} kullaniliyor ` +
+          `ama .nvmrc ${anaSurum} diyor. Yerelde gecen test CI'da duser.`,
+      );
+    }
+  }
+
+  if (!hatalar.some((h) => h.includes('.nvmrc') || h.includes('node-version') || h.includes('engines.node'))) {
+    bilgi.push(`Node surumu tek kaynakta: ${anaSurum} (.nvmrc · engines · is akislari)`);
+  }
+}
+
 for (const b of bilgi) console.log(`  ok  ${b}`);
 if (hatalar.length) {
   console.error('\nYAPILANDIRMA HATASI\n');
