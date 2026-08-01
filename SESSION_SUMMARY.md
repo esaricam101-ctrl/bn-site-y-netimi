@@ -1019,6 +1019,17 @@ elle yazılmış kısmî unique index'ler (`arac_plaka_donem_uq`,
 9. **C-4 hukuki görüş** (KMK emredici hükümler, genel kurul yeter sayısı,
    vekâlet sınırları).
 
+   ★ **Eklendi (2 Ağustos 2026) — yenileme fonunun amaca özgülüğü (KMK md. 72).**
+   Yenileme fonu hesabından işletme hesabına aktarım meşru mudur?
+   - Fondan harcama hangi karar/onayla yapılabilir?
+   - Aktarım sistemde **engellenmeli** mi, yoksa **uyarı + gerekçe** ile izin
+     mi verilmeli?
+   - Ters yön (işletmeden fona) serbest mi?
+
+   ⚠️ Cevap gelmeden bu yola teknik kısıt KONULMAMALIDIR: yanlış yönde katı
+   bir kural meşru işlemi bloklar, gevşek bir kural fonun amaç dışı
+   kullanımını sessizleştirir. Bağlam: [ADR-0016](docs/adr/log/ADR-0016-virman.md) §A.
+
 ### F. Altyapı ve ölçeklenebilirlik denetimi (31 Temmuz 2026)
 
 Ürün sahibi talebiyle **salt okunur** bir denetim yapıldı: 443 dosya, 55 model,

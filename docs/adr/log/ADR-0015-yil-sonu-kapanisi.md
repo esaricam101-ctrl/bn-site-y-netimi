@@ -34,11 +34,29 @@ kuralları olacaktır.
    ayrı fişler mi yoksa tek bir fiş mi olmalı? Kapanış kaydı geri alınabilir
    bir kayıt mıdır, yoksa yalnızca ters kayıtla mı düzeltilir?
 
-2. **Dönem kilitleme nasıl çalışır, kim açabilir?**
-   Kilit hangi seviyededir — muhasebe dönemi mi, takvim yılı mı? Kilitli bir
-   döneme yazma denemesi hangi katmanda durdurulur (uygulama mı, veritabanı
-   kısıtı mı — ADR-0002'nin gerekçesi burada da geçerli mi)? Kilidi açma
-   yetkisi hangi rolde ve bu bir denetim kaydı üretir mi?
+2. **Dönem kilitleme — MEKANİZMA VAR, eksik olan ne?**
+
+   ⚠️ **Düzeltme (2 Ağustos 2026):** bu soru ilk yazıldığında "kilit var mı"
+   diye soruyordu. **Vardır ve çalışır** — tarama ile doğrulandı:
+   `MuhasebeDonemi.durum` (`ACIK`/`KAPALI`), `donem.service.ts:261 kapat()`,
+   kapalı döneme fiş işlenemez
+   ([fis.command.service.ts:227](../../../backend/src/modules/muhasebe/fis.command.service.ts#L227)),
+   kapalı dönemde yevmiye yeniden numaralandırılamaz
+   ([donem.service.ts:192](../../../backend/src/modules/muhasebe/donem.service.ts#L192)).
+
+   Açık kalan sorular şunlardır:
+   - Kilit **uygulama katmanında** duruyor. ADR-0002'nin gerekçesi
+     ("değeri uygulama koyar, kuralı veritabanı zorlar") burada da geçerli
+     mi — kapalı döneme yazma bir veritabanı kısıtıyla da engellenmeli mi?
+   - **Kilidi açma yolu var mı?** `kapat()` var; geri alma yok. Kapanış
+     "geri alınamaz" olarak yazılmış — bu bilinçli mi, yoksa henüz
+     yazılmamış mı?
+   - Kapanış hangi rolün yetkisinde ve denetim kaydı üretiyor mu?
+     (`kapatanKullanici` alanı var; yetki kuralı doğrulanmadı.)
+   - ⚠️ **Virman kapalı döneme yazılabiliyor mu?** Bugün `POST /banka/virman`
+     yevmiye fişi üretmediği için dönem kilidine **takılmıyor**
+     ([ADR-0016](ADR-0016-virman.md) §A). Kapanış kararı bu boşlukla
+     birlikte ele alınmalı.
 
 3. **Kapanmış dönemde düzeltme gerekirse ne olur?**
    Kilit açılıp yeniden mi kapatılır, yoksa düzeltme cari döneme mi yazılır?
