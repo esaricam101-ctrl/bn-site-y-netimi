@@ -146,17 +146,46 @@ export class TahakkukCommandService {
        *
        * Kapsam PROJE bütünüdür; blok benzersizliğin parçası değildir.
        */
+      /*
+       * İKİ SINIF, İKİ EKSEN (0027):
+       *
+       *   DÖNEMSEL   aidat, yıl sonu kapanışı — dönemde TEK. İkincisi
+       *              mükerrerdir; açık `ekTahakkuk` beyanı ister.
+       *   OLAY BAZLI demirbaş alımı gibi bir defalık giderler — dönemde
+       *              birden çok kez koşabilir. Ayırt eden şey dönem değil,
+       *              GİDER OLAYIDIR; bu yüzden `referans` zorunludur ve
+       *              benzersizlik onun üzerindedir.
+       */
+      const olayBazli = turKaydi.tahakkukSikligi === 'OLAY_BAZLI';
+      const referans = dto.referans?.trim();
+      if (olayBazli && !referans) {
+        throw new IsKuraliIhlali(
+          `'${gider.kod}' olay bazlı bir giderdir; hangi gider olayına ait ` +
+            'olduğu belirtilmeden tahakkuk edilemez.',
+          'Fatura ya da karar numarasını `referans` alanına yazın.',
+        );
+      }
+      if (!olayBazli && referans) {
+        throw new IsKuraliIhlali(
+          `'${gider.kod}' dönemsel bir giderdir ve dönemde bir kez tahakkuk ` +
+            'edilir; gider olayı referansı almaz.',
+          'Referans gerekiyorsa gider türünü olay bazlı olarak tanımlayın.',
+        );
+      }
+
       const ekTahakkuk = dto.ekTahakkuk === true;
       let calismaId = '';
       if (!onizleme) {
-        const sonSira = await tx.tahakkukCalismasi.aggregate({
+        // Sıra yalnızca DÖNEMSEL zincirde anlamlıdır; olay bazlı her çalışma
+        // kendi gider olayıdır ve sira=1 ile açılır.
+        const sonSira = olayBazli ? { _max: { sira: 0 } } : await tx.tahakkukCalismasi.aggregate({
           where: {
             tenantId: principal.tenantId, giderTuruKodu: gider.kod,
-            donem: new Date(donem),
+            donem: new Date(donem), referans: null,
           },
           _max: { sira: true },
         });
-        if (!ekTahakkuk && (sonSira._max.sira ?? 0) > 0) {
+        if (!olayBazli && !ekTahakkuk && (sonSira._max.sira ?? 0) > 0) {
           throw new CakismaHatasi(
             `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş.`,
             'Ek bir gider geldiyse "Ek Tahakkuk" işlemini başlatın; ' +
@@ -169,8 +198,9 @@ export class TahakkukCommandService {
             data: {
               id: calismaId, tenantId: principal.tenantId, giderTuruKodu: gider.kod,
               donem: new Date(donem),
-              tip: ekTahakkuk ? 'EK' : 'ASIL',
-              sira: ekTahakkuk ? (sonSira._max.sira ?? 0) + 1 : 1,
+              tip: !olayBazli && ekTahakkuk ? 'EK' : 'ASIL',
+              sira: !olayBazli && ekTahakkuk ? (sonSira._max.sira ?? 0) + 1 : 1,
+              ...(referans ? { referans } : {}),
               toplamTutar: new Prisma.Decimal(apiBicimi(toplam)),
               bolumSayisi: 0,
             },
@@ -179,7 +209,10 @@ export class TahakkukCommandService {
           // P2002: benzersizlik ihlali — eşzamanlı ikinci çalıştırma.
           if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
             throw new CakismaHatasi(
-              `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş.`,
+              referans
+                ? `'${gider.kod}' için ${referans} referanslı gider ${donem} ` +
+                    'döneminde zaten tahakkuk edilmiş.'
+                : `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş.`,
               'Aynı tahakkuk başka bir istekte çalıştırılmış olabilir. ' +
                 'Sonucu görmek için tahakkuk listesini yenileyin.',
             );

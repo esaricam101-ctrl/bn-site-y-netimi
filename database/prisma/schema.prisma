@@ -731,6 +731,18 @@ model GiderTuru {
   paylasimKurali PaylasimKurali @map("paylasim_kurali")
   sorumlulukTipi SorumlulukTipi @map("sorumluluk_tipi")
   kuralKaynagi   KuralKaynagi   @map("kural_kaynagi")
+
+  /// TAHAKKUK SIKLIĞI — mükerrer korumasının hangi eksende kurulacağını
+  /// belirler (0027 · ADR-0014).
+  ///
+  /// DONEMSEL   aidat, yıl sonu kapanışı. Dönemde TEK koşar; ikincisi
+  ///            mükerrerdir. İkinci bir çalıştırma açık `ekTahakkuk` ister.
+  /// OLAY_BAZLI demirbaş alımı, bir defalık gider. Bir OLAYA bağlıdır ve
+  ///            dönemde birden çok kez koşabilir; her çalışma ayırt edici
+  ///            bir `referans` (fatura/karar no) taşımak ZORUNDADIR.
+  ///
+  /// Varsayılan DONEMSEL: sıklık unutulursa davranış SIKI tarafa düşer.
+  tahakkukSikligi TahakkukSikligi @default(DONEMSEL) @map("tahakkuk_sikligi")
   kaynakReferansi String?       @map("kaynak_referansi") @db.VarChar(200)
 
   /// KARMA bileşenleri: [{ kural, yuzde }]. Toplam 100 olmak zorundadır;
@@ -1017,6 +1029,9 @@ model TahakkukCalismasi {
   tip           TahakkukTipi @default(ASIL)
   /// ASIL her zaman 1; ek tahakkuklar 2'den başlar.
   sira          Int          @default(1)
+  /// OLAY BAZLI giderlerde gider olayının iş anahtarı (fatura/karar no).
+  /// DÖNEMSEL çalışmalarda NULL'dır. Benzersizlik kısıtları buna bakar.
+  referans      String?      @db.VarChar(120)
 
   toplamTutar Decimal @map("toplam_tutar") @db.Decimal(18, 4)
   bolumSayisi Int     @map("bolum_sayisi")
@@ -1026,14 +1041,19 @@ model TahakkukCalismasi {
   tenant  Tenant @relation(fields: [tenantId], references: [id])
   borclar Borc[]
 
-  @@unique([tenantId, giderTuruKodu, donem, sira])
   @@index([tenantId, donem])
+  @@index([tenantId, referans])
   @@map("tahakkuk_calismasi")
 }
 
 enum TahakkukTipi {
   ASIL
   EK
+}
+
+enum TahakkukSikligi {
+  DONEMSEL
+  OLAY_BAZLI
 }
 
 /// IDEMPOTENCY-KEY kaydı (0026).

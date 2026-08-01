@@ -79,6 +79,45 @@ AÇILMAZ."* Malik/kiracı `borc_sorumlusu` snapshot'ında tutulur.
 Kişi bazlı benzersizlik **yanlış olurdu**: üç daireli bir malik dönemde üç kez
 borçlanır ve bu KMK md. 20 gereğidir. CT-16(6) bunu ölçer.
 
+### 2b. ★ İKİ TAHAKKUK SINIFI — düzeltme (migration 0027)
+
+**0026 eksikti:** "dönemde tek tahakkuk" kuralını bütün gider türlerine
+uyguluyordu. Bu yalnızca bir sınıf için doğrudur.
+
+| sınıf | örnek | dönemde | mükerrer koruması nerede |
+|---|---|---|---|
+| **DÖNEMSEL** | aidat · **yıl sonu kapanışı** | **TEK** | dönem ekseninde |
+| **OLAY BAZLI** | demirbaş alımı · bir defalık gider | **birden çok** | gider olayı ekseninde |
+
+Yıl sonu kapanışı dönemde bir kez olur; ikincisi mükerrerdir ve mali veriyi
+bozar. Ama demirbaş alımı bir **döneme** değil bir **olaya** karşılıktır: aynı
+ay içinde iki ayrı alım yapılabilir ve **ikisi de meşrudur**. Bunlar
+birbirinin düzeltmesi değildir — `ekTahakkuk` bayrağı onları modellemek için
+yanlış araçtır.
+
+Sınıf, kuralın kendisi gibi **veridir**: `gider_turu.tahakkuk_sikligi`.
+Varsayılan `DONEMSEL` — sıklık unutulursa davranış **sıkı** tarafa düşer.
+
+Olay bazlı sınıfta ayırt eden şey dönem olamaz; gider olayının iş anahtarıdır.
+Bu yüzden `referans` (fatura / genel kurul karar no) **zorunludur**:
+
+```sql
+-- Dönemsel: referanssız ASIL çalışma dönemde tektir.
+CREATE UNIQUE INDEX tahakkuk_calismasi_donemsel_uq
+  ON tahakkuk_calismasi (tenant_id, gider_turu_kodu, donem)
+  WHERE tip = 'ASIL' AND referans IS NULL;
+
+-- Olay bazlı: aynı gider olayı iki kez yansıtılamaz.
+CREATE UNIQUE INDEX tahakkuk_calismasi_referans_uq
+  ON tahakkuk_calismasi (tenant_id, gider_turu_kodu, donem, referans)
+  WHERE referans IS NOT NULL;
+```
+
+⚠️ **Referansı unutulmuş bir olay bazlı çalışma dönemsel kısıta düşer** —
+yani yapılandırma hatasında davranış gevşek değil **sıkı** taraftadır. Uygulama
+katmanı ayrıca 422 ile uyarır: olay bazlı türde referans zorunlu, dönemsel
+türde kabul edilmez.
+
 ### 3. Kapsam PROJE bütünüdür — blok benzersizliğin parçası DEĞİLDİR
 
 Tahakkuk proje seviyesinde tek sefer koşar; hangi carilere borç yazılacağını
@@ -139,6 +178,12 @@ yazıldı; 6 testin 5'i kırmızıydı.
 | 4 | aynı Idempotency-Key ilkin sonucunu döner | ❌ 422 | ✅ 201 |
 | 5 | ek tahakkuk açıkça istendiğinde geçer | ❌ 422 | ✅ 201 |
 | 6 | cari bölümdür: iki daireli malik iki kez borçlanır | ❌ 2 | ✅ 4 |
+| 7 | olay bazlı gider iki farklı referansla iki kez koşar | — | ✅ 201·201 |
+| 8 | olay bazlı: aynı referans ikinci kez koşamaz | — | ✅ 409 |
+| 9 | olay bazlı gider referanssız tahakkuk edilemez | — | ✅ 422 |
+| 10 | dönemsel gider referans kabul etmez | — | ✅ 422 |
+
+(7–10 migration 0027 ile eklendi; toplam **10 test**, tüm sözleşme paketi 60.)
 
 Test 3 yarışı birebir üretir: bir işlem çalışma satırını yazıp **commit
 etmeden** bekler, bu sırada HTTP üzerinden ikinci tahakkuk gelir. Doğru

@@ -136,6 +136,18 @@ describe('CT-16 · Mükerrer tahakkuk koruması', () => {
           id: randomUUID(), tenantId: TENANT, kod: 'CT16_AIDAT', ad: 'CT-16 Aidat',
           paylasimKurali: 'ESIT', sorumlulukTipi: 'MALIKE_AIT',
           kuralKaynagi: 'KMK_VARSAYILAN', aktifMi: true,
+          tahakkukSikligi: 'DONEMSEL',
+        },
+      });
+      // Demirbaş alımı: bir OLAYA bağlıdır, dönemde birden çok kez olabilir.
+      await tx.giderTuru.create({
+        data: {
+          id: randomUUID(), tenantId: TENANT, kod: 'CT16_DEMIRBAS', ad: 'CT-16 Demirbaş',
+          paylasimKurali: 'ESIT', sorumlulukTipi: 'MALIKE_AIT',
+          // `gider_turu_kaynak_referansi` CHECK'i: karar kaynaklı türlerde
+          // kararın kendisi kayda yazılmak zorundadır.
+          kuralKaynagi: 'GENEL_KURUL_KARARI', kaynakReferansi: '2026/3 sayılı genel kurul kararı',
+          aktifMi: true, tahakkukSikligi: 'OLAY_BAZLI',
         },
       });
 
@@ -244,6 +256,80 @@ describe('CT-16 · Mükerrer tahakkuk koruması', () => {
     expect(y.status).toBe(201);
     // Asıl 3 + ek 3
     expect(await borcSayisi()).toBe(BOLUMLER.length * 2);
+  }, 60_000);
+
+  /*
+   * OLAY BAZLI TAHAKKUK — dönemde birden çok kez koşabilir.
+   *
+   * Aidat ve yıl sonu kapanışı dönemde TEK olur. Ama demirbaş alımı gibi
+   * giderler bir olaya bağlıdır: aynı ay içinde iki ayrı alım yapılabilir ve
+   * ikisi de meşrudur. Bunlar "ek/düzeltme tahakkuku" DEĞİLDİR — ilkinin
+   * düzeltmesi değil, ayrı bir gider olayıdır.
+   *
+   * Mükerrer koruması bu sınıfta DÖNEM üzerinden kurulamaz; ayırt edici olan
+   * gider olayının kendisidir (fatura/karar numarası → `referans`).
+   */
+  it('(7) OLAY BAZLI gider dönemde İKİ FARKLI referansla iki kez tahakkuk edilir', async () => {
+    const D = '2026-08-01';
+    const ilk = await request(sunucu())
+      .post('/api/v1/tahakkuk/calistir')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        giderTuruKodu: 'CT16_DEMIRBAS', toplamTutar: '3000.00',
+        donem: D, vadeTarihi: '2026-08-31', referans: 'FTR-2026-0001',
+      });
+    expect(ilk.status).toBe(201);
+
+    const ikinci = await request(sunucu())
+      .post('/api/v1/tahakkuk/calistir')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        giderTuruKodu: 'CT16_DEMIRBAS', toplamTutar: '1500.00',
+        donem: D, vadeTarihi: '2026-08-31', referans: 'FTR-2026-0002',
+      });
+    expect(ikinci.status).toBe(201);
+
+    const sayi = await baglamda((tx) =>
+      tx.borc.count({ where: { tenantId: TENANT, tahakkukDonemi: new Date(D) } }));
+    expect(sayi).toBe(BOLUMLER.length * 2);
+  }, 60_000);
+
+  it('(8) OLAY BAZLI: AYNI referans ikinci kez tahakkuk EDİLEMEZ', async () => {
+    const y = await request(sunucu())
+      .post('/api/v1/tahakkuk/calistir')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        giderTuruKodu: 'CT16_DEMIRBAS', toplamTutar: '3000.00',
+        donem: '2026-08-01', vadeTarihi: '2026-08-31', referans: 'FTR-2026-0001',
+      });
+    expect(y.status).toBe(409);
+  }, 60_000);
+
+  it('(9) OLAY BAZLI gider referanssız tahakkuk edilemez', async () => {
+    const y = await request(sunucu())
+      .post('/api/v1/tahakkuk/calistir')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        giderTuruKodu: 'CT16_DEMIRBAS', toplamTutar: '3000.00',
+        donem: '2026-09-01', vadeTarihi: '2026-09-30',
+      });
+    expect(y.status).toBe(422);
+  }, 60_000);
+
+  it('(10) DÖNEMSEL gider referans KABUL ETMEZ — dönemde tek koşar', async () => {
+    const y = await request(sunucu())
+      .post('/api/v1/tahakkuk/calistir')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        giderTuruKodu: 'CT16_AIDAT', toplamTutar: '3000.00',
+        donem: '2026-10-01', vadeTarihi: '2026-10-31', referans: 'FTR-9999',
+      });
+    expect(y.status).toBe(422);
   }, 60_000);
 
   it('(6) cari BÖLÜMDÜR: iki daireli malik dönemde İKİ kez borçlanır', async () => {

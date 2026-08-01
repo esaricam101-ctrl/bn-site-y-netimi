@@ -139,4 +139,25 @@ export class TahakkukCalistirDto {
   })
   @IsOptional() @IsBoolean()
   ekTahakkuk?: boolean;
+
+  /**
+   * GİDER OLAYI REFERANSI — olay bazlı giderlerde ZORUNLU.
+   *
+   * Demirbaş alımı gibi giderler bir dönem değil bir OLAY karşılığıdır: aynı
+   * ay içinde iki ayrı alım yapılabilir ve ikisi de meşrudur. Bunları ayıran
+   * şey dönem olamaz; fatura ya da genel kurul karar numarasıdır.
+   *
+   * Aynı referans aynı dönemde ikinci kez tahakkuk edilemez (409) — mükerrer
+   * koruması bu sınıfta bu eksende kurulur.
+   *
+   * Dönemsel giderler (aidat, yıl sonu kapanışı) bu alanı ALMAZ.
+   */
+  @ApiPropertyOptional({
+    example: 'FTR-2026-0001',
+    description:
+      'Gider olayının iş anahtarı (fatura/karar no). Olay bazlı gider ' +
+      'türlerinde zorunlu, dönemsel türlerde kabul edilmez.',
+  })
+  @IsOptional() @IsString() @Length(1, 120)
+  referans?: string;
 }
