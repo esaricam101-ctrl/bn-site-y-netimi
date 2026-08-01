@@ -58,6 +58,32 @@ jobs:
       - name: Prisma istemcisi
         run: pnpm --filter @bnos/database generate
 
+      # ⚠️  ORTAM SOZLESMESI `.env.example`'DAN ALINIR — ELLE LISTE YAZILMAZ.
+      #
+      #     Sozlesme testleri AppModule'u ayaga kaldirir, yani TUM env semasini
+      #     dogrular. ci.yml'e elle bir env blogu yazmak, semaya yarin eklenen
+      #     zorunlu bir anahtarda SESSIZCE saparcli: hata testin sinadigi
+      #     davranisla ilgisiz bir yerde, ayaga kalkma aninda cikardi.
+      #
+      #     `.env.example` sozlesmenin beyanidir; `pnpm verify` icindeki
+      #     env-sozlesme-check semayla senkron kalmasini zorlar.
+      #
+      #     Uzerine yalnizca CI'A OZGU olanlar yazilir. Node'un env-file
+      #     ayristiricisinda SON SATIR kazanir (olculdu), ayrica adim `env:`
+      #     blogu dosyayi ezer (o da olculdu) — iki katman da ayni yone bakar.
+      - name: Ortam dosyasi
+        run: |
+          cp .env.example .env
+          {
+            echo "DATABASE_URL=postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_test"
+            echo "MIGRATE_DATABASE_URL=postgresql://bnos_migrator:bnos_migrator_dev@localhost:5432/bnos_test"
+            echo "REDIS_URL=redis://localhost:6379"
+            # Test degeri KENDINI ELE VERSIN: birinin .env'ine dusup
+            # fark edilmeden kalmasi bu adla mumkun degildir.
+            echo "JWT_SECRET=ci-only-not-a-real-secret-do-not-use-in-production"
+          } >> .env
+
+
       # ROLLER — testlerin ANLAMLI olmasi buna baglidir.
       # Suru kullaniciyla kosulursa RLS BASTAN ATLANIR ve CT-01 yanlis
       # yesil verir. Ayni init betigi gelistirme ortaminda da kosar.

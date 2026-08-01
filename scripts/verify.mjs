@@ -51,6 +51,8 @@ const ADIMLAR = [
   // yesil kalir ve tenant izolasyonu sessizce kalkar.
   { ad: 'RLS politika kapsami (ADR-0002 · ADR-0008)', komut: 'node', argv: [join(BURASI, 'rls-politika-scan.mjs')] },
   { ad: 'Yapilandirma tutarliligi', komut: 'node', argv: [join(BURASI, 'config-check.mjs')] },
+  { ad: 'Ortam sozlesmesi (sema <-> .env.example)', komut: 'node',
+    argv: [join(BURASI, 'env-sozlesme-check.mjs')] },
   { ad: 'Birim testleri (node:test)', komut: 'node', argv: ['--test', ...testDosyalari()] },
 ];
 
