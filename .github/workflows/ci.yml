@@ -48,8 +48,9 @@ jobs:
         ports: ['6379:6379']
     steps:
       - uses: actions/checkout@v4
+      # Surum package.json `packageManager` alanindan okunur.
+      # `version` da verilirse action-setup@v4 cakisma hatasi verir.
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: '22', cache: pnpm }
 
@@ -110,8 +111,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Surum package.json `packageManager` alanindan okunur.
+      # `version` da verilirse action-setup@v4 cakisma hatasi verir.
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: '22', cache: pnpm }
       - run: pnpm install --frozen-lockfile
@@ -145,8 +147,9 @@ jobs:
       DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_migration_test
     steps:
       - uses: actions/checkout@v4
+      # Surum package.json `packageManager` alanindan okunur.
+      # `version` da verilirse action-setup@v4 cakisma hatasi verir.
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
         with: { node-version: '22', cache: pnpm }
       - run: pnpm install --frozen-lockfile

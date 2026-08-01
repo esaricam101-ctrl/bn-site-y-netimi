@@ -20,8 +20,9 @@ jobs:
       - name: Bağımlılık yönü (bağımlılıksız denetleyici)
         run: node scripts/boundary.mjs
 
+      # Surum package.json `packageManager` alanindan okunur.
+      # `version` da verilirse action-setup@v4 cakisma hatasi verir.
       - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - run: pnpm install --frozen-lockfile
       - name: Bağımlılık yönü (dependency-cruiser — AST tabanlı)
         run: pnpm dlx depcruise shared backend --config .dependency-cruiser.cjs
