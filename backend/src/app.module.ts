@@ -9,6 +9,7 @@ import { AuthGuard } from './common/guards/auth.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
+import { IdempotansInterceptor } from './common/idempotans/idempotans.interceptor';
 import { AuditModule } from './common/audit/audit.module';
 import { CorrelationMiddleware } from './common/context/correlation.middleware';
 import { OutboxModule } from './common/outbox/outbox.module';
@@ -115,6 +116,8 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     { provide: APP_GUARD, useClass: AuthGuard },        // Kapı 1 — Kimlik
     { provide: APP_GUARD, useClass: TenantGuard },      // Kapı 2 — Kiracı
     { provide: APP_GUARD, useClass: PermissionGuard },  // Kapı 3 — İzin
+    // Idempotans, audit'ten ONCE: tekrar gelen istek is katmanina hic girmez.
+    { provide: APP_INTERCEPTOR, useClass: IdempotansInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })

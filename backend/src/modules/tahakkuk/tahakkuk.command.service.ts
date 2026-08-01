@@ -26,7 +26,7 @@ import {
   apiBicimi, money, moneyKurustan, takvimTarihi,
   type Principal, type TakvimTarihi,
 } from '@bnos/kernel';
-import { IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
+import { CakismaHatasi, IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
 import {
   BagimsizBolum, borcSorumlulariniCoz, gideriPaylastir, malikBorcunuBol,
   type BolumIliskisi, type GiderTuru, type MalikHissesi, type PaylasimGirdisi,
@@ -126,25 +126,66 @@ export class TahakkukCommandService {
         malikPaylasimi: turKaydi.malikPaylasimi as GiderTuru['malikPaylasimi'],
       };
 
-      // --- 2) Mükerrer tahakkuk denetimi -----------------------------------
-      //
-      // Aynı gider türü aynı dönemde iki kez çalıştırılırsa her daire iki kez
-      // borçlanır. Veritabanı kısıtı bunu yakalayamaz: `borc` üzerindeki
-      // unique index (tenant, tahakkuk_no, bolum_id) tahakkuk NUMARASINA
-      // bakar ve ikinci çalıştırma yeni numara alır.
-      const mevcutSayisi = await tx.borc.count({
-        where: {
-          tenantId: principal.tenantId,
-          giderTuruKodu: gider.kod,
-          tahakkukDonemi: new Date(donem),
-        },
-      });
-      if (mevcutSayisi > 0 && !onizleme) {
-        throw new IsKuraliIhlali(
-          `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş ` +
-            `(${mevcutSayisi} borç kaydı).`,
-          'Önce mevcut tahakkuku iptal edin ya da farklı bir dönem seçin.',
-        );
+      /*
+       * --- 2) ÇALIŞMA KAYDI — MÜKERRER KORUMASI (0026) --------------------
+       *
+       * ⚠️  ESKİ YOL YARIŞA AÇIKTI. Burada `borc.count()` ile bir sayım
+       *     yapılıyordu. Uzun bir tahakkuk ters vekilde kesildiğinde iş arka
+       *     planda sürer, kullanıcı tekrar dener ve ikinci istek ilk işlem
+       *     COMMIT ETMEDEN gelir — sayım commit edilmemiş satırları göremez.
+       *     5.000 bölümlük bir sitede ölçülen sonuç: 10.000 borç satırı.
+       *
+       *     Koruma artık VERİTABANINDADIR. Çalışma satırı işlemin İLK yazması
+       *     olarak eklenir; kısmi benzersiz indeks
+       *     (`tahakkuk_calismasi_asil_uq`) ikinci işlemi kısıt üzerinde
+       *     BLOKLAR ve ilk işlem commit edince ihlalle düşürür. Pencere yok.
+       *
+       *     ÖNCE YAZILMASI ŞARTTIR: dağıtım hesabından sonra yazılsaydı iki
+       *     işlem de hesabı bitirir, kilit yalnızca en sonda alınırdı ve
+       *     boşa geçen iş süresi kadar pencere açık kalırdı.
+       *
+       * Kapsam PROJE bütünüdür; blok benzersizliğin parçası değildir.
+       */
+      const ekTahakkuk = dto.ekTahakkuk === true;
+      let calismaId = '';
+      if (!onizleme) {
+        const sonSira = await tx.tahakkukCalismasi.aggregate({
+          where: {
+            tenantId: principal.tenantId, giderTuruKodu: gider.kod,
+            donem: new Date(donem),
+          },
+          _max: { sira: true },
+        });
+        if (!ekTahakkuk && (sonSira._max.sira ?? 0) > 0) {
+          throw new CakismaHatasi(
+            `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş.`,
+            'Ek bir gider geldiyse "Ek Tahakkuk" işlemini başlatın; ' +
+              'aksi hâlde mevcut tahakkuku iptal edin ya da farklı dönem seçin.',
+          );
+        }
+        calismaId = randomUUID();
+        try {
+          await tx.tahakkukCalismasi.create({
+            data: {
+              id: calismaId, tenantId: principal.tenantId, giderTuruKodu: gider.kod,
+              donem: new Date(donem),
+              tip: ekTahakkuk ? 'EK' : 'ASIL',
+              sira: ekTahakkuk ? (sonSira._max.sira ?? 0) + 1 : 1,
+              toplamTutar: new Prisma.Decimal(apiBicimi(toplam)),
+              bolumSayisi: 0,
+            },
+          });
+        } catch (e) {
+          // P2002: benzersizlik ihlali — eşzamanlı ikinci çalıştırma.
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            throw new CakismaHatasi(
+              `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş.`,
+              'Aynı tahakkuk başka bir istekte çalıştırılmış olabilir. ' +
+                'Sonucu görmek için tahakkuk listesini yenileyin.',
+            );
+          }
+          throw e;
+        }
       }
 
       // --- 3) Bölümler ve ilişkiler ----------------------------------------
@@ -406,6 +447,7 @@ export class TahakkukCommandService {
         await tx.borc.create({
           data: {
             id: borcId, tenantId: principal.tenantId, bolumId: pay.bolumId,
+            calismaId,
             giderTuruKodu: gider.kod, tahakkukNo,
             tutar: new Prisma.Decimal(apiBicimi(pay.tutar)),
             vadeTarihi: new Date(vade),
@@ -446,11 +488,14 @@ export class TahakkukCommandService {
       }
 
       if (!onizleme) {
-        // Tahakkuk ÇALIŞTIRMASI bir varlıktır ve kendi kimliğini taşır.
-        // `${kod}:${donem}` gibi bileşik bir anahtar kullanılamaz: audit
-        // `varlik_id` sütunu `uuid` tipindedir ve yazma anında patlar.
-        // Kod ve dönem denetim gövdesinde zaten yazılıdır.
-        const calistirmaId = randomUUID();
+        // Çalışma satırı artık KALICIDIR (0026) ve denetim kaydı onun
+        // kimliğini taşır: audit `varlik_id` sütunu `uuid` tipindedir ve
+        // `${kod}:${donem}` gibi bileşik bir anahtar yazma anında patlardı.
+        const calistirmaId = calismaId;
+        await tx.tahakkukCalismasi.update({
+          where: { id: calismaId },
+          data: { bolumSayisi: paylar.length },
+        });
 
         await this.audit.yaz(tx, {
           tenantId: principal.tenantId, principal, eylem: 'OLUSTUR',

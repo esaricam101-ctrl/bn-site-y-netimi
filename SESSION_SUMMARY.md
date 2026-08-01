@@ -1371,6 +1371,164 @@ A0.7'deki **17. negatif test** geçiyorsa, muhtemelen önbellekli yoldan
 **GEÇMİYOR**. Doğrulanacak: test önbellekli yolu mu, doğrudan yolu mu ölçüyor?
 Geçiyorsa **test yanlış güvence veriyor** ve düzeltilmesi gereken testtir.
 
+#### P1 — `prisma migrate reset` KIRIK (1 Ağustos 2026)
+
+```
+Error: P3016  The fallback method for database resets failed…
+ERROR: cannot drop table borc because other objects depend on it
+DETAIL: policy tahsilat_kapsam on table tahsilat depends on table borc
+        policy borc_sorumlusu_kapsam on table borc_sorumlusu depends on table borc
+HINT: Use DROP … CASCADE
+```
+
+**Kök sebep bulundu.** Kapsam politikalarından **ikisi** `EXISTS` alt sorgusuyla
+BAŞKA bir tabloya bakıyor; PostgreSQL bunu `pg_depend` kaydı olarak tutuyor:
+
+| politika | tablo | bağımlı olduğu |
+|---|---|---|
+| `borc_sorumlusu_kapsam` | `borc_sorumlusu` | `borc` |
+| `tahsilat_kapsam` | `tahsilat` | `borc`, `tahsilat_tahsisi` |
+
+(`0022_satir_kapsami/migration.sql:141,166` · `0023_kirali_mulk_kapsami/migration.sql:66,87`)
+
+Prisma'nın reset geri düşüş yolu tabloları **CASCADE olmadan** düşürüyor ve bu
+iki bağımlılıkta takılıyor. Diğer 13 kapsam politikası yalnızca kendi tablosuna
+baktığı için sorun çıkarmıyor.
+
+**Etki alanı — üretim riski DEĞİL, doğrulanmadan yazılmasın:** `migrate deploy`
+(üretim yolu) hiçbir şey düşürmez, etkilenmez. Kırılan yollar `migrate reset` ve
+sürüklenme (drift) algılandığında reset çağıran `migrate dev`. Yani risk
+**geliştirme ve CI** ortamlarındadır: temiz kurulum yapılamaz, CI'da sıfırdan
+şema kurma adımı eklenirse ilk günden kırmızı yanar.
+
+**Bugünkü geçici çözüm** (uygulandı, kalıcı değil):
+`DROP SCHEMA public CASCADE` + `CREATE SCHEMA` + `pnpm db:migrate` + `pnpm db:seed`.
+
+**Düzeltme seçenekleri — karar verilmedi:**
+1. `scripts/db.mjs reset` içinde şema düşürmeyi Prisma'ya bırakmayıp doğrudan
+   `DROP SCHEMA … CASCADE` yapmak (en küçük değişiklik, Prisma'ya dokunmaz).
+2. İki politikayı tablolar arası `EXISTS` kullanmayacak biçimde yeniden yazmak
+   (bağımlılığı kaldırır ama kapsam kuralını değiştirir — ADR-0011 konusu).
+3. Reset öncesi politikaları düşüren bir hazırlık adımı.
+
+### K. P0 KAPATILDI — çift tahakkuk (1 Ağustos 2026)
+
+**Ölçülmüş mali veri bozulmasıydı:** 5.000 bölümlük bir sitede beklenen 5.000
+yerine **10.000 borç satırı**. Ayrıntı ve karar:
+[ADR-0014](docs/adr/log/0014-mukerrer-tahakkuk-korumasi.md).
+
+Kapatan şey: **migration 0026** — `tahakkuk_calismasi` tablosu ve kısmi
+benzersiz indeks `tahakkuk_calismasi_asil_uq`. Çalışma satırı işlemin ilk
+yazmasıdır; ikinci işlem kısıt üzerinde bloklanır. `borc.count()` denetimi
+kaldırıldı — okuma/yazma penceresi uygulama katmanında kapatılamıyordu.
+
+Yanında gelen üç şey:
+
+- **`Idempotency-Key` artık OKUNUYOR** (`IdempotansInterceptor` + tablo).
+  BFS v1 §366 zorunlu kılıyordu, depoda hiçbir yer okumuyordu.
+- **Ek/düzeltme tahakkuku** açık `ekTahakkuk` bayrağı ister; `tip='EK'` ile
+  yeni çalışma açar ve kısmi indekse takılmaz.
+- **Migration mevcut bozuk veriyi sessizce düzeltmez** — mükerrer satır varsa
+  durur ve hangi satırların bozuk olduğunu yazar. İlk uygulamada gerçekten
+  tetiklendi.
+
+Testler: **CT-16, 6/6** (`backend/test/contract/mukerrer-tahakkuk.spec.ts`).
+Uygulamadan önce yazıldı, 5'i kırmızıydı.
+
+#### Kalıcılaşan ikinci değişiklik: `set_config` tek sorguda
+
+`tenantIslemi`'ndeki dört `set_config` çağrısı tek `SELECT`'e alındı. Ölçülen
+(50 eşzamanlı, havuz 20): boş bekleme %23,2 → %13,0 · `active` %72,7 → %83,6 ·
+verim 63,9 → 80,7 istek/sn · p95 1.110 → 878 ms.
+
+#### ⚠️ HAVUZ ÖNERİM DEĞİŞTİ — birleştirmeden sonra yeniden ölçüldü
+
+Dün "20 iyi görünüyor, belki 25" demiştim. Birleştirme kalıcılaştıktan sonra
+aynı yük (50 eşzamanlı) dört havuz boyutuyla ölçüldü:
+
+| havuz | p50 | p95 | istek/sn |
+|---|---|---|---|
+| varsayılan (5) | 891 ms | 1.280 ms | 52,8 |
+| 15 | 907 ms | 1.138 ms | 53,4 |
+| 20 | 975 ms | 1.382 ms | 49,3 |
+| 30 | 949 ms | 1.416 ms | 50,7 |
+
+**Fark yok** — dördü de koşum oynaklığı içinde. Havuz büyütmenin dünkü
+kazancı (44 → 70 istek/sn), bağlantıların `set_config` gidiş-dönüşleri boyunca
+tutulmasından kaynaklanıyordu; birleştirme o baskıyı kaldırınca havuz boyutu
+belirleyici olmaktan çıktı.
+
+**Yeni öneri: `connection_limit` şimdilik DEĞİŞTİRİLMESİN.** Ölçüm bir kazanç
+göstermiyor; kanıtsız bir yapılandırma eklemek yalnızca bakım yüküdür. Ölçüm
+yapılandırmadan önce gelir — bu ADR-0011'in 1. yöntem kuralının aynısıdır.
+
+#### Madde 4 analizi — kapsam kurulumu ayrı işlemde (ölçüm YOK, yalnızca analiz)
+
+`tenant.reader.ts:120` kendi `tenantIslemi` çağrısını açar. Soğuk bir istek iki
+interaktif işlem başlatır.
+
+1. **Ana işlemin içine alınabilir mi? — HAYIR, sıra sorunu var.** Kapsam,
+   `set_config` değerlerini ÜRETEN şeydir; ana işlem o değerler yazılmadan
+   açılamaz. Kapsam sorgularının kendisi de kapsam politikalarına tabidir
+   (`malik`, `kiraci`, `sakin` üzerinde RESTRICTIVE politika var) — kapsam
+   kurulmadan koşarlarsa kendilerini süzerler. Bugün bu, kapsamı **kurulmadan
+   önce** ayrı bir işlemde okuyarak çözülüyor ve `tenant.reader.ts:77`
+   yorumu bunu açıkça uyarıyor. Birleştirme, politikaların kapsam kurulumunu
+   muaf tutmasını gerektirirdi; bu ADR-0002'nin tek katmanlı olmama ilkesine
+   dokunur. **Önerilmez.**
+2. **`:113`'teki `kisiId: { not: … }` sorgusu `bolum_id` ile kısıtlanabilir mi?
+   — EVET, ve maliyeti O(tenant)'tan O(kapsam)'a düşürür.** Sorgunun amacı
+   "kişinin MALİK olduğu bölümlerde başkası kiracı mı" sorusudur; yani ilgi
+   alanı zaten **o kişinin malik olduğu bölümlerdir**. Bugün tenant'ın bütün
+   kiracılarını (3.000 satır) çekiyor. `bolumId: { in: malikBolumleri }`
+   eklenmesi sorguyu kapsam boyutuna indirir. Malik sorgusu önce koştuğu için
+   liste zaten elde; iki sorgu `Promise.all` yerine sıraya alınır.
+   **Önerilir.**
+3. **`:150`'deki JS `Set` kesişimi SQL'e taşınabilir mi? — EVET ve 2. madde
+   uygulanırsa GEREKSİZLEŞİR.** 2. madde sonrası dönen satır sayısı kapsam
+   kadar olur (tipik olarak 1–10); kesişimin JS'te yapılması sorun değildir.
+   SQL'e taşımak ancak 2. madde uygulanmazsa anlamlıdır. **Önce 2. madde.**
+
+**Ölçüm tahmini vermiyorum** — 2. maddenin kazancı uygulanıp ölçülmeden
+bilinemez.
+
+### J. İki ayar denemesi ve set_config birleştirme (1 Ağustos 2026)
+
+**Hiçbiri kalıcı değildir.** Ayarlar ölçüm sonrası geri alındı, deneme dalı
+silindi, hiçbir şey commit edilmedi. Sayılar karar içindir.
+
+**Deney 1 — `connection_limit=20` + tahakkuk yolunda `timeout` 110 sn.**
+Havuz 5 → 20; `max_connections` 200, sorun yok. Sonuç: verim tavanı 44 → 70
+istek/sn, 50 eşzamanlıda p95 2.280 → 957 ms, 500'ler sıfırlandı, verim çöküşü
+kalktı. Toplu tahakkuk 5.000 bölümde **çalıştı** (49,6 sn, doğrusal) —
+ADR-0013'ün ilk gerekçesi böyle çürütüldü.
+
+**Deney 2 — `tenantIslemi`'ndeki 4 `set_config` tek sorguda.** Aynı havuzla
+(20) A/B:
+
+| eşzamanlı | idle-in-tx ayrık → birleşik | active ayrık → birleşik | p95 | istek/sn |
+|---|---|---|---|---|
+| 10 | %26,3 → **%19,8** | %51,1 → %53,9 | 256 → 263 | 62,8 → 63,2 |
+| 25 | %24,5 → **%14,7** | %70,4 → %81,3 | 637 → 526 | 66,0 → 78,4 |
+| 50 | %23,2 → **%13,0** | %72,7 → **%83,6** | 1.110 → **878** | 63,9 → **80,7** |
+
+Boş bekleme **yarıya indi**, verim %26 arttı, p95 %21 düştü. Tek satırlık bir
+değişiklik; kalıcı hâle getirilip getirilmeyeceği ürün sahibinin kararı.
+
+**Kapsam kurulumu bu işlemin İÇİNDE DEĞİL.** `tenant.reader.ts:120`
+kapsamı **kendi `tenantIslemi` çağrısında** kuruyor. Yani önbellek ıskalayan bir
+istek **iki interaktif işlem** açıyor: ayrık sürümde 8 `set_config` gidiş-dönüşü,
+birleşik sürümde 2. Soğuk/sıcak faz ölçümü (aynı havuz, kontrol grubu çıkarılmış):
+
+| | soğuk − sıcak | kontrol (kapsamsız yönetici) | düzeltilmiş kapsam maliyeti |
+|---|---|---|---|
+| ayrık `set_config` | 50,7 ms | +10,3 ms | **≈40 ms** |
+| birleşik `set_config` | 34,1 ms | −0,7 ms | **≈35 ms** |
+
+Yani kapsam kurulumunun ≈35 ms'i `set_config` değil, **4 kapsam sorgusu + JS
+`Set` kesişimi**. Birleştirme sıcak yolu iyileştiriyor; soğuk yol için asıl
+düzeltme hâlâ `tenant.reader.ts:113/:150`.
+
 #### Ölçüm koşulları (tekrar üretmek için)
 
 - İstek sınırı sayaçları giriş öncesi Redis'ten temizlendi. Bu bir **fikstür

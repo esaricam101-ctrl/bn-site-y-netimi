@@ -120,4 +120,23 @@ export class TahakkukCalistirDto {
   })
   @IsOptional() @IsBoolean()
   onizleme?: boolean;
+
+  /**
+   * EK / DÜZELTME TAHAKKUKU — açık niyet beyanı.
+   *
+   * Bir dönemde bir gider türü için ASIL tahakkuk yalnızca bir kez koşar
+   * (veritabanı kısıtı `tahakkuk_calismasi_asil_uq`). Sonradan gelen bir fatura
+   * için ikinci bir çalışma gerekiyorsa yönetici bunu AÇIKÇA istemek
+   * zorundadır. Bayrak olmadan ikinci çalıştırma 409 döner — kesilen bir
+   * isteğin ardından yapılan tekrar denemesi ile bilinçli bir ek tahakkuk
+   * ancak böyle ayırt edilebilir.
+   */
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'true ise dönemde ikinci bir tahakkuk ÇALIŞMASI açılır (ek/düzeltme). ' +
+      'Kazayla mükerrer tahakkuku engellemek için varsayılan false.',
+  })
+  @IsOptional() @IsBoolean()
+  ekTahakkuk?: boolean;
 }

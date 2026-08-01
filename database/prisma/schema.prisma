@@ -80,6 +80,8 @@ model Tenant {
   muhasebeDonemleri MuhasebeDonemi[]
   muhasebeParametresi MuhasebeParametresi?
   borclar          Borc[]
+  tahakkukCalismalari TahakkukCalismasi[]
+  idempotansKayitlari IdempotansKaydi[]
   auditKayitlari   AuditKaydi[]
   outboxKayitlari  OutboxKayit[]
   numaraSayaclari  NumaraSayaci[]
@@ -996,10 +998,76 @@ enum SorumlulukSirasi {
   IKINCIL
 }
 
+/// TAHAKKUK ÇALIŞMASI — mükerrer korumanın taşıyıcısı (0026).
+///
+/// ⚠️  Bu tablo bir kayıt defteri DEĞİL, bir KİLİTTİR. `borc.count()` ile
+///     yapılan uygulama denetimi yarışı önleyemiyordu: kesilen bir tahakkuk
+///     arka planda sürerken gelen tekrar denemesi commit edilmemiş satırları
+///     göremiyor ve her daireyi ikinci kez borçlandırıyordu (ölçüldü: 5.000
+///     yerine 10.000 satır). Kısmi benzersiz indeks `tahakkuk_calismasi_asil_uq`
+///     ikinci işlemi kısıt üzerinde BLOKLAR; pencere kalmaz.
+///
+/// Kapsam PROJE bütünüdür; blok benzersizlik anahtarının parçası değildir.
+model TahakkukCalismasi {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  giderTuruKodu String       @map("gider_turu_kodu") @db.VarChar(40)
+  donem         DateTime     @db.Date
+  tip           TahakkukTipi @default(ASIL)
+  /// ASIL her zaman 1; ek tahakkuklar 2'den başlar.
+  sira          Int          @default(1)
+
+  toplamTutar Decimal @map("toplam_tutar") @db.Decimal(18, 4)
+  bolumSayisi Int     @map("bolum_sayisi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id])
+  borclar Borc[]
+
+  @@unique([tenantId, giderTuruKodu, donem, sira])
+  @@index([tenantId, donem])
+  @@map("tahakkuk_calismasi")
+}
+
+enum TahakkukTipi {
+  ASIL
+  EK
+}
+
+/// IDEMPOTENCY-KEY kaydı (0026).
+///
+/// ⚠️  BFS v1 §366 başlığı zorunlu kılıyordu ama hiçbir yer okumuyordu.
+///     Bu tablo beyanı gerçek yapar: aynı anahtarla gelen ikinci istek
+///     işi TEKRAR ÇALIŞTIRMAZ, ilk yanıtı döner.
+model IdempotansKaydi {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  anahtar String @db.VarChar(200)
+  yol     String @db.VarChar(200)
+  /// Gövdenin sha256'sı: aynı anahtar farklı gövdeyle gelirse 409.
+  istekOzeti String @map("istek_ozeti") @db.VarChar(64)
+  durum      Int
+  yanit      Json
+
+  gecerlilikSonu    DateTime @map("gecerlilik_sonu") @db.Timestamptz(6)
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, anahtar])
+  @@index([gecerlilikSonu])
+  @@map("idempotans_kaydi")
+}
+
 model Borc {
   id       String @id @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
   bolumId  String @map("bolum_id") @db.Uuid
+  /// Hangi tahakkuk çalışmasında yazıldı. Mükerrer koruması buradadır.
+  calismaId String @map("calisma_id") @db.Uuid
   giderTuruKodu String @map("gider_turu_kodu") @db.VarChar(40)
   tahakkukNo    String @map("tahakkuk_no") @db.VarChar(32)
 
@@ -1014,8 +1082,9 @@ model Borc {
 
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
 
-  tenant    Tenant          @relation(fields: [tenantId], references: [id])
-  bolum     BagimsizBolum   @relation(fields: [bolumId], references: [id])
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  bolum     BagimsizBolum     @relation(fields: [bolumId], references: [id])
+  calisma   TahakkukCalismasi @relation(fields: [calismaId], references: [id])
   sorumlular BorcSorumlusu[]
   /// ⚠️  `odenen` ARTIK BU SATIRLARDAN TÜRETİLİR (0017 · ADR-0010), elle
   ///     yazılmaz. İki kaynak (kolon + tahsis satırları) bağımsız
@@ -1023,8 +1092,10 @@ model Borc {
   ///     çıkardı — ve `odenen` kolonu ödeme kaydı olmadan da doğru görünür.
   tahsisler TahsilatTahsisi[]
 
+  @@unique([calismaId, bolumId])
   @@index([tenantId, bolumId, kapandiMi])
   @@index([tenantId, vadeTarihi])
+  @@index([tenantId, calismaId])
   @@map("borc")
 }
 
