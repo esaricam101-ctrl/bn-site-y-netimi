@@ -22,8 +22,9 @@ Bu belge *nerede durduğumuzu* söyler. Ayrıntılı devir notu
 | **`set_config` birleştirmesi** — dört ayrı gidiş-dönüş bağlantıyı `idle in transaction` tutuyordu | Tek sorguda; doygunlukta boş bekleme %23,2 → %13,0, verim +%26, p95 −%21 | `SESSION_SUMMARY` §3.K |
 | **Isıtma/yakıt çakışması** — aynı dönemde ikisi tahakkuk edilirse ısınma gideri iki kez yansıyordu | Engelleme değil **uyarı**: `uyarilar[]` + denetim kaydı; çakışma tanımı veri | ADR-0014 §2c · 0030 · CT-17 |
 | **Satır kapsamı** — malik/kiracı/sakin tüm sitenin verisini çekebiliyordu | RESTRICTIVE RLS politikaları, tek noktada kurulan kapsam | ADR-0011 · 0022–0025 · CT-13/CT-14 |
-| **`prisma migrate reset` kırık** | Kök sebep **şema sahipliği** — `bnos_migrator` şemayı düşüremiyordu. Sahiplik + veritabanı üzerinde `CREATE` verildi | [docs/VERITABANI-KURULUM.md](docs/VERITABANI-KURULUM.md) |
-| **CI hiç çalışmıyordu** | Tetikleyicide `master` yoktu; ayrıca CI süper kullanıcıyla koşuyordu ve RLS testleri anlamsızdı | `.github/workflows/ci.yml` |
+| **`prisma migrate reset` kırık** | Kök sebep **şema sahipliği** — `bnos_migrator` şemayı düşüremiyordu. Sahiplik + veritabanı üzerinde `CREATE` verildi. **Gerçek CI'da doğrulandı:** `migrate reset — geri dususe girmeden` adımı geçti; adım çıktıda `fallback` görürse `exit 1` verir | [docs/VERITABANI-KURULUM.md](docs/VERITABANI-KURULUM.md) · koşu `78c8277` |
+| **CI veritabanı yanlış rollerle kuruluyordu** | `01-roles.sql` veritabanı adından bağımsızlaştırıldı, CI'da da koşuyor. **Gerçek CI'da doğrulandı:** `Rol kurulumu dogrulamasi` adımı geçti; şema sahibi `bnos_migrator` değilse veya bir `bnos_%` rolü `BYPASSRLS` taşırsa `exit 1` verir | koşu `78c8277` |
+| **CI hiç çalışmıyordu** | Tetikleyicide `master` yoktu. Eklendi; CI ilk kez `f53da93`'te koştu | `.github/workflows/ci.yml` |
 
 Sözleşme paketi: **69 test, 9 dosya.**
 
@@ -69,7 +70,7 @@ Sahiplik verilince `DROP SCHEMA` çalıştı ama ardından gelen
 ve **veritabanı şemasız kaldı**. Şema yaratmak, şema üzerinde değil
 **veritabanı** üzerinde `CREATE` yetkisi ister. İkisi birlikte gerekiyor.
 
-### "CI yeşil, demek ki her şey doğrulanıyor" → **YANLIŞ**
+### "CI'da testler koşuyor ve güvenlik doğrulanıyor" → **YANLIŞ**
 
 CI hiç çalışmıyordu: tetikleyici `main`/`develop` idi, çalışılan dal
 `master`. Üstelik çalışsaydı bile veritabanına **süper kullanıcı** olarak
@@ -82,6 +83,45 @@ yapılandırmasıyla koşturulduğunda CT-01'in 5 testinden **4'ü düştü**:
 × bağlam kurulmadan sorgu HATA verir        → vermedi
 × uygulama rolünün BYPASSRLS yetkisi yoktur → expected true to be false
 ```
+
+### "CI iş akışı eklendi, demek ki koşuyor" → **YANLIŞ**
+
+İş akışı dosyasının var olması, kurulumunun başarılı olduğu anlamına gelmez.
+Tetikleyici düzeltildikten sonraki **ilk gerçek koşu** (`f53da93`), pnpm
+kullanan üç işin hepsinde `pnpm/action-setup@v4` adımında düştü ve bütün
+doğrulama adımları **ATLANDI**:
+
+```text
+=== Derleme · Tip · Lint · Test :: failure
+  HATA Run pnpm/action-setup@v4
+  ATLA Veritabani rolleri (01-roles.sql)
+  ATLA Rol kurulumu dogrulamasi
+  ATLA Sozlesme testleri — BFS v1 §14.1
+```
+
+Yani sonuç **yeşil de kırmızı da değildi — hiç çalışmamıştı.** Yalnızca pnpm
+kullanmayan `mimari` işi geçmişti ve tek başına bakıldığında "CI var, bir
+şeyler geçiyor" görüntüsü veriyordu.
+
+### ★ Genel ders — üçü de aynı sınıftan
+
+Bu üç bulgunun ortak yanı şudur: **güvence mekanizmasının kendisi
+doğrulanmamıştı.** RLS politikaları vardı ama CI onları hiç sınamıyordu;
+CI iş akışı vardı ama hiç koşmuyordu; koştuğunda da kurulum adımında
+düşüyordu.
+
+Bundan sonra her koruma için şu soru cevaplanmalıdır:
+
+> **Bu koruma olmasaydı ne kırılırdı — ve o kırılmayı bir kez gördüm mü?**
+
+**Kırmızı olduğu görülmemiş bir test, yeşil olduğunda bir şey kanıtlamaz.**
+Bu, ADR-0011'deki "psql üretim yolunu temsil etmez" dersinin aynısıdır:
+ölçüm ancak DOĞRU KOŞULLARDA yapıldığında bir şey söyler.
+
+Uygulaması: bu depoda artık her yeni koruma adımı, koruma bozukken
+**gerçekten kırmızı verdiği görülerek** ekleniyor — `migrate reset`
+adımının `fallback` denetimi ve `Rol kurulumu dogrulamasi` adımının
+`exit 1` yolları böyle kuruldu.
 
 ---
 
@@ -113,6 +153,9 @@ Ayrıntı: [`docs/KAPASITE.md`](docs/KAPASITE.md).
 | `migration` | boş veritabanına zincirin tamamı · her migration uygulandı mı · **`migrate reset` geri düşüşe girmeden** · reset sonrası RLS politikaları duruyor mu |
 | `belge` | markdown lint |
 
+Gerçek koşu durumu (`78c8277`): `mimari` ✅ · `belge` ✅ · `migration` ✅ ·
+`kalite` ❌ (`Birim testleri` adımında; sözleşme testleri **atlandı**).
+
 `migration` işi bu turda eklendi. `01-roles.sql` artık veritabanı adından
 bağımsızdır ve CI'da da koşar; iş, şema sahibini ve `BYPASSRLS`
 taşınmadığını **açıkça doğrular**.
@@ -137,6 +180,8 @@ taşınmadığını **açıkça doğrular**.
 | Konu | Öncelik | Not |
 |---|---|---|
 | **Kapsam kurulumu O(tenant)** | P1 | `tenant.reader.ts:113` (`kisiId not` sorgusu `bolum_id` ile kısıtlanabilir) ve `:150` (3.000 satırlık JS `Set` kesişimi). Analiz `SESSION_SUMMARY` §3.K'da; ölçüm tahmini verilmedi. |
+| **Depo PUBLIC** | **P1** | `90d085b`, `e7543f7`, `3220c3b` commit'leri kapatılmış güvenlik açıklarının tarifini taşıyor. Public olmanın sağladığı bir fayda yok — CI logu okumak için bile admin yetkisi gerekiyor (`403 Must have admin rights`). Private yapma kararı ürün sahibinde. |
+| **CI sözleşme testleri henüz koşmadı** | **P1** | `78c8277` koşusunda `Birim testleri` adımı düştü, `Sozlesme testleri` **atlandı**. CT-01'in gerçek CI'da `bnos_app` rolüyle geçtiği **hâlâ kanıtlanmadı**. Yerelde `pnpm test:unit` 331/331 geçiyor → ortam farkı. Ölçülen farklar: Node sürümü (yerel 24 ↔ CI 22) ve `tests/unit/sekme-hata.test.mjs`'in bir `.ts` dosyasını doğrudan import etmesi. |
 | **Prisma şeması ↔ migration sürüklenmesi** | **P1** | `migrate diff` 162 satır fark buluyor: **7 enum değeri** (`BelgeVarlikTipi` veritabanında 16, `schema.prisma`'da 9 — `YEVMIYE_FISI` gibi bir değer okunursa istemci hata verir), **11 unique indeks**, **8 yabancı anahtar**, 47 indeks adı (kozmetik). Sürüklenme kapısı CI'a bu düzeltilmeden konulamaz; konulsaydı kalıcı kırmızı olurdu. |
 | **`referans` geçici köprü** | P2 | Gider/fatura varlığı geldiğinde faturaya bağlanmalı, serbest metin değerler göç ettirilmeli. |
 | **Soft delete uzantısı bağlı değil** | P2 | `$extends` dönüşü atılıyor; bağlanırsa sütunu olmayan 15 model kırılır. Doğru çözüm muafiyeti `Prisma.dmmf`'ten türetmek. |
