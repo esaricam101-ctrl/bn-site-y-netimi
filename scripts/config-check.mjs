@@ -28,6 +28,7 @@ bilgi.push(`${jsonlar.length} JSON dosyasi dogrulandi`);
 
 // 2. YAML is akislari (python yaml ile)
 const yamllar = ['.github/workflows/ci.yml', '.github/workflows/dependency-boundary.yml',
+                 '.github/actions/kosu-ve-raporla/action.yml',
                  'pnpm-workspace.yaml', 'docker-compose.yml'];
 for (const y of yamllar) {
   const tam = KOK + y;

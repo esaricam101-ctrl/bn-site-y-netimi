@@ -1,0 +1,76 @@
+name: Koş ve raporla
+description: >-
+  Komutu çalıştırır; hata verirse çıktısını ::error:: açıklaması olarak
+  yayınlar. Adım KIRMIZI KALIR — çıkış kodu aynen aktarılır.
+
+# ⚠️  NEDEN VAR: GitHub'da adım logu yalnizca ADMIN yetkisiyle okunabiliyor
+#     ("403 Must have admin rights"). Check-run aciklamalari ise genel API'den
+#     okunuyor. Bu ayrim yuzunden bir CI arizasinin sebebini gormek ucuncu
+#     kez tur kaybettirdi: elimizde yalnizca "Process completed with exit
+#     code 1" vardi.
+#
+# ⚠️  KORUMAYI ZAYIFLATMAZ. `|| true` YOKTUR, `continue-on-error` YOKTUR,
+#     cikis kodu YUTULMAZ. Yapilan tek sey, zaten olusmus hatanin metnini
+#     gorunur kilmaktir.
+#
+# ⚠️  SIR SIZDIRMAZ. Depo public; yayinlanan metinde kimlik bilgisi gecmemeli.
+#     Iki katman: (1) URL'lerdeki `kullanici:parola@` maskelenir,
+#     (2) maskelenen degerler ayrica `::add-mask::` ile kayda gecirilir.
+
+inputs:
+  ad:
+    description: Adımın raporda görünecek adı
+    required: true
+  komut:
+    description: Çalıştırılacak kabuk komutu
+    required: true
+  satir:
+    description: Hata durumunda yayınlanacak en fazla satır sayısı
+    required: false
+    default: '40'
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        BNOS_AD: ${{ inputs.ad }}
+        BNOS_KOMUT: ${{ inputs.komut }}
+        BNOS_SATIR: ${{ inputs.satir }}
+      run: |
+        set +e
+        bash -o pipefail -c "$BNOS_KOMUT" > "$RUNNER_TEMP/kosu.log" 2>&1
+        KOD=$?
+        set -e
+
+        # --- MASKELEME ------------------------------------------------------
+        # `scheme://kullanici:parola@host` -> `scheme://***:***@host`
+        sed -i -E 's#([a-zA-Z][a-zA-Z0-9+.-]*://)[^:/@[:space:]]+:[^@[:space:]]+@#\1***:***@#g' \
+          "$RUNNER_TEMP/kosu.log"
+        # Ortamdaki URL benzeri degiskenlerin parolalari kayitli maskeye alinir.
+        for d in DATABASE_URL MIGRATE_DATABASE_URL REDIS_URL; do
+          v="${!d:-}"
+          case "$v" in
+            *://*:*@*)
+              p="${v#*://}"; p="${p%%@*}"; p="${p#*:}"
+              [ -n "$p" ] && echo "::add-mask::$p"
+              ;;
+          esac
+        done
+
+        echo "::group::$BNOS_AD çıktısı"
+        cat "$RUNNER_TEMP/kosu.log"
+        echo "::endgroup::"
+
+        if [ "$KOD" -ne 0 ]; then
+          # `%` GitHub is akisi komutlarinda kacis karakteridir; once o kacilir.
+          grep -nE '✖|not ok|Error|error:|ERR_|Cannot|AssertionError|FAIL|fail [1-9]|failing' \
+            "$RUNNER_TEMP/kosu.log" \
+            | head -n "$BNOS_SATIR" \
+            | while IFS= read -r satir; do
+                satir="${satir//%/%25}"
+                echo "::error::$satir"
+              done
+          echo "::error::$BNOS_AD basarisiz (cikis kodu $KOD)"
+          exit "$KOD"
+        fi

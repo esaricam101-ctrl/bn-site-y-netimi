@@ -88,9 +88,15 @@ jobs:
       - name: Test derlemesi
         run: pnpm build:test
       - name: Tip denetimi
-        run: pnpm typecheck
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: Tip denetimi
+          komut: pnpm typecheck
       - name: Lint
-        run: pnpm lint
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: Lint
+          komut: pnpm lint
       # ⚠️  DERLEME SIRASI BIRIM TESTLERINDEN ONCE GELIR.
       #     Birim testlerinin bir kismi `backend/dist` ve `tests/.derleme`
       #     altindaki DERLENMIS ciktiyi import ediyor. Gelistirme
@@ -99,17 +105,26 @@ jobs:
       #     ERR_MODULE_NOT_FOUND ile dusuyordu.
       #     Bagimliligi acikca soyleyen on kontrol: scripts/test-onkosul.mjs
       - name: Birim testleri
-        run: pnpm test:unit
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: Birim testleri
+          komut: pnpm test:unit
 
       - name: Veritabani semasi
-        run: pnpm db:migrate
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: Veritabani semasi
+          komut: pnpm db:migrate
         env:
           MIGRATE_DATABASE_URL: postgresql://bnos_migrator:bnos_migrator_dev@localhost:5432/bnos_test
           DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_test
 
       # UYGULAMA ROLU ile kosar — RLS gercekten sinanir.
-      - name: Sozlesme testleri — BFS v1 §14.1
-        run: pnpm test:contract
+      - name: Sozlesme testleri
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: Sozlesme testleri
+          komut: pnpm test:contract
         env:
           DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_test
           REDIS_URL: redis://localhost:6379
@@ -126,7 +141,11 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '24', cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint:md
+      - name: Belge lint
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: Belge lint
+          komut: pnpm lint:md
 
   # 3) MIGRATION ZINCIRI — bos veritabanina bastan sona uygulanabiliyor mu.
   #
@@ -168,7 +187,10 @@ jobs:
         run: psql -f database/init/01-roles.sql
 
       - name: BOS veritabanina zincirin tamami
-        run: pnpm db:migrate
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: BOS veritabanina zincirin tamami
+          komut: pnpm db:migrate
 
       - name: Her migration uygulandi mi
         run: |
