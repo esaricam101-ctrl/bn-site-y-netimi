@@ -146,6 +146,16 @@ jobs:
           DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_test
 
       # UYGULAMA ROLU ile kosar — RLS gercekten sinanir.
+      # ⚠️  TOHUM CI'DA DA KOSAR. CT-04 tohum kullanicisiyla giris yapar;
+      #     tohum olmadan `401` doner ve belirti yaniltici olur
+      #     ("expected undefined to be '/yonetim'"). Ayrica bu tohum DEMO
+      #     FIKSTURUNUN kendisidir — CI ile sunum ayni veriyi kullanir.
+      - name: Tohum verisi
+        uses: ./.github/actions/kosu-ve-raporla
+        with:
+          ad: Tohum verisi
+          komut: pnpm db:seed
+
       - name: Sozlesme testleri
         uses: ./.github/actions/kosu-ve-raporla
         with:

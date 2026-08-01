@@ -21,31 +21,84 @@ const prisma = new PrismaClient();
 const GELISTIRME_SIFRE_HASH =
   'scrypt$131072$8$1$06dAft8lIJHsbeHFYucc8Q==$9GdovR26bdPFcpXtV96jbzSTjTcywpYL/6gx4argmiuioNYMtEfo9FApnPK7FopBCy1xw+IJn78EIwJ+SJ0qiA==';
 
+/**
+ * ⚠️  BU TOHUM AYNI ZAMANDA DEMO FİKSTÜRÜDÜR.
+ *
+ *     CI'ın kullandığı tohum ile sunumda gösterilen veri AYNI olmak zorunda:
+ *     iki ayrı fikstür tutulsaydı biri güncellenir, öteki sessizce eskir ve
+ *     demo günü "bende çalışıyordu" denirdi.
+ *
+ *     Bu yüzden isimler söylenebilir, borçlar gerçekçi ve tahakkuk geçmişi
+ *     doludur — sunumda boş ekran çıkmaz.
+ */
+interface BolumTohumu {
+  kapiNo: string;
+  kat: number;
+  m2: number;
+  pay: bigint;
+  /** Malik adı — sunumda okunur. */
+  malik: readonly [string, string];
+  /** Doluysa daire kirada; borç zinciri kiracıyı da kapsar. */
+  kiraci?: readonly [string, string];
+}
+
 interface ApartmanTohumu {
   kod: string;
   ad: string;
-  bolumler: { kapiNo: string; kat: number; m2: number; pay: bigint }[];
+  bolumler: BolumTohumu[];
+  /** Tahakkuk geçmişi üretilsin mi (demo sitesi için). */
+  tahakkukGecmisi?: boolean;
 }
 
 const APARTMANLAR: ApartmanTohumu[] = [
   {
+    // ⚠️  KOD SABİT: CT-04 `yonetici@guzel-apartmani.test` ile giriş yapar.
     kod: 'guzel-apartmani',
     ad: 'Güzel Apartmanı',
+    tahakkukGecmisi: true,
     bolumler: [
-      { kapiNo: '1', kat: 1, m2: 110, pay: 250_000n },
-      { kapiNo: '2', kat: 1, m2: 110, pay: 250_000n },
-      { kapiNo: '3', kat: 2, m2: 130, pay: 250_000n },
-      { kapiNo: '4', kat: 2, m2: 130, pay: 250_000n },
+      { kapiNo: '1',  kat: 1, m2: 105, pay: 80_000n, malik: ['Ayşe', 'Demir'] },
+      { kapiNo: '2',  kat: 1, m2: 105, pay: 80_000n, malik: ['Mehmet', 'Yıldız'],
+        kiraci: ['Elif', 'Kaya'] },
+      { kapiNo: '3',  kat: 1, m2: 120, pay: 90_000n, malik: ['Fatma', 'Şahin'] },
+      { kapiNo: '4',  kat: 2, m2: 105, pay: 80_000n, malik: ['Ali', 'Çelik'] },
+      { kapiNo: '5',  kat: 2, m2: 105, pay: 80_000n, malik: ['Zeynep', 'Aydın'] },
+      { kapiNo: '6',  kat: 2, m2: 120, pay: 90_000n, malik: ['Mustafa', 'Doğan'],
+        kiraci: ['Burak', 'Öztürk'] },
+      { kapiNo: '7',  kat: 3, m2: 105, pay: 80_000n, malik: ['Hatice', 'Arslan'] },
+      { kapiNo: '8',  kat: 3, m2: 105, pay: 80_000n, malik: ['Hüseyin', 'Koç'] },
+      { kapiNo: '9',  kat: 3, m2: 120, pay: 90_000n, malik: ['Emine', 'Kurt'] },
+      { kapiNo: '10', kat: 4, m2: 105, pay: 80_000n, malik: ['İbrahim', 'Özdemir'] },
+      { kapiNo: '11', kat: 4, m2: 105, pay: 80_000n, malik: ['Meryem', 'Aslan'],
+        kiraci: ['Selin', 'Güneş'] },
+      { kapiNo: '12', kat: 4, m2: 145, pay: 65_000n, malik: ['Ahmet', 'Polat'] },
     ],
   },
   {
     kod: 'yesil-vadi-apartmani',
     ad: 'Yeşil Vadi Apartmanı',
     bolumler: [
-      { kapiNo: '1', kat: 1, m2: 95, pay: 500_000n },
-      { kapiNo: '2', kat: 2, m2: 95, pay: 500_000n },
+      { kapiNo: '1', kat: 1, m2: 95, pay: 500_000n, malik: ['Kemal', 'Erdem'] },
+      { kapiNo: '2', kat: 2, m2: 95, pay: 500_000n, malik: ['Nurten', 'Bilgin'] },
     ],
   },
+];
+
+/**
+ * DEMO TAHAKKUK GEÇMİŞİ — sunumda gösterilecek üç dönem.
+ *
+ * Son dönem AÇIK ve VADESİ GEÇMİŞ bırakılır: tahsilat akışı ancak gecikmiş
+ * borç varsa gösterilebilir. Önceki iki dönem kapalıdır (ödenmiş), böylece
+ * ekstre ve yürüyen bakiye de dolu görünür.
+ */
+const DEMO_DONEMLER: readonly {
+  donem: string; vade: string; tutar: number; kapali: boolean;
+}[] = [
+  { donem: '2026-05-01', vade: '2026-05-31', tutar: 1_800, kapali: true },
+  { donem: '2026-06-01', vade: '2026-06-30', tutar: 1_800, kapali: true },
+  // ⚠️ Vadesi geçmiş ve AÇIK — gecikmiş borç listesi ve tahsilat ekranı
+  //    bu satırlar olmadan boş görünür.
+  { donem: '2026-07-01', vade: '2026-07-31', tutar: 1_950, kapali: false },
 ];
 
 /**
@@ -158,6 +211,82 @@ const HESAP_PLANI: { kod: string; ad: string; tip: Prisma.HesapCreateInput['tip'
   { kod: '771', ad: 'Personel Giderleri', tip: 'GIDER' },
   { kod: '772', ad: 'Bakım Onarım Giderleri', tip: 'GIDER' },
 ];
+
+/**
+ * DEMO TAHAKKUK GEÇMİŞİ — üç dönemlik aidat, gerçek yoldan yazılır.
+ *
+ * ⚠️  ÇALIŞMA KAYDI ATLANMAZ. `borc.calisma_id` zorunludur ve mükerrer
+ *     koruması oradadır (ADR-0014 · migration 0026). Borçları çalışma kaydı
+ *     olmadan yazmak, tohumu üretimde imkânsız bir duruma sokardı.
+ *
+ * ⚠️  NUMARA SAYACI DA İLERLETİLİR. Tohum `THK-2026-000001`den başlayıp
+ *     numara verir; sayaç güncellenmezse ilk gerçek tahakkuk aynı numaradan
+ *     başlar ve `borc_tahakkuk_no_uq` ihlaliyle düşerdi.
+ */
+async function tahakkukGecmisiOlustur(
+  tenantId: string,
+  sorumlular: ReadonlyMap<string, { kisiId: string; rol: 'MALIK' | 'KIRACI' }>,
+): Promise<void> {
+  const GIDER = 'KAPICI';                 // KULLANANA_AIT · EŞİT paylaşım
+  const bolumIdler = [...sorumlular.keys()];
+  let sira = 0;
+
+  for (const d of DEMO_DONEMLER) {
+    const calismaId = randomUUID();
+    await prisma.tahakkukCalismasi.create({
+      data: {
+        id: calismaId, tenantId, giderTuruKodu: GIDER,
+        donem: new Date(d.donem), tip: 'ASIL', sira: 1,
+        toplamTutar: d.tutar * bolumIdler.length,
+        bolumSayisi: bolumIdler.length,
+      },
+    });
+
+    for (const bolumId of bolumIdler) {
+      const sorumlu = sorumlular.get(bolumId);
+      if (sorumlu === undefined) continue;
+      sira += 1;
+      const borcId = randomUUID();
+
+      await prisma.borc.create({
+        data: {
+          id: borcId, tenantId, bolumId, calismaId,
+          giderTuruKodu: GIDER,
+          tahakkukNo: `THK-2026-${String(sira).padStart(6, '0')}`,
+          tutar: d.tutar,
+          odenen: d.kapali ? d.tutar : 0,
+          vadeTarihi: new Date(d.vade),
+          tahakkukDonemi: new Date(d.donem),
+          kapandiMi: d.kapali,
+        },
+      });
+
+      await prisma.borcSorumlusu.create({
+        data: {
+          id: randomUUID(), tenantId, borcId, kisiId: sorumlu.kisiId,
+          sira: 'ASIL', rol: sorumlu.rol,
+          cozumlemeTarihi: new Date(d.donem),
+          pay: d.tutar, agirlik: 1n,
+        },
+      });
+    }
+  }
+
+  // Sayaç, tohumun verdiği son numaranın üstüne kurulur.
+  await prisma.numaraSayaci.create({
+    data: {
+      id: randomUUID(), tenantId, seriKodu: 'TAHAKKUK',
+      kapsamAnahtari: `${tenantId}:TAHAKKUK:2026`,
+      mevcutDeger: BigInt(sira),
+    },
+  });
+
+  const acik = DEMO_DONEMLER.filter((d) => !d.kapali).length * bolumIdler.length;
+  console.log(
+    `     tahakkuk: ${DEMO_DONEMLER.length} dönem · ${sira} borç kaydı · ` +
+      `${acik} tanesi AÇIK ve vadesi geçmiş`,
+  );
+}
 
 async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
   const tenantId = randomUUID();
@@ -287,6 +416,9 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     });
   }
 
+  /** Tahakkuk geçmişi için: bölüm → borcun yazılacağı kişi. */
+  const borcSorumlusuHaritasi = new Map<string, { kisiId: string; rol: 'MALIK' | 'KIRACI' }>();
+
   for (const b of t.bolumler) {
     const bolumId = randomUUID();
     const malikId = randomUUID();
@@ -294,7 +426,7 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     await prisma.kisi.create({
       data: {
         id: malikId, tenantId,
-        ad: `Malik${b.kapiNo}`, soyad: t.kod.split('-')[0] ?? 'Test',
+        ad: b.malik[0], soyad: b.malik[1],
         eposta: `malik${b.kapiNo}@${t.kod}.test`,
       },
     });
@@ -324,6 +456,37 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
         rol: 'MALIK', baslangic: new Date('2024-01-01'), bitis: null,
       },
     });
+
+    borcSorumlusuHaritasi.set(bolumId, { kisiId: malikId, rol: 'MALIK' });
+
+    // KİRACI — aidat KULLANANA_AIT olduğunda borç zincirinde ASIL odur.
+    if (b.kiraci !== undefined) {
+      const kiraciId = randomUUID();
+      await prisma.kisi.create({
+        data: {
+          id: kiraciId, tenantId,
+          ad: b.kiraci[0], soyad: b.kiraci[1],
+          eposta: `kiraci${b.kapiNo}@${t.kod}.test`,
+        },
+      });
+      await prisma.kiraci.create({
+        data: {
+          id: randomUUID(), tenantId, bolumId, kisiId: kiraciId,
+          baslangic: new Date('2025-01-01'),
+        },
+      });
+      await prisma.bolumIliskisi.create({
+        data: {
+          id: randomUUID(), tenantId, bolumId, kisiId: kiraciId,
+          rol: 'KIRACI', baslangic: new Date('2025-01-01'), bitis: null,
+        },
+      });
+      borcSorumlusuHaritasi.set(bolumId, { kisiId: kiraciId, rol: 'KIRACI' });
+    }
+  }
+
+  if (t.tahakkukGecmisi === true) {
+    await tahakkukGecmisiOlustur(tenantId, borcSorumlusuHaritasi);
   }
 
   console.log(`  ${t.ad}  (1 blok · ${katNolari.length} kat · ${t.bolumler.length} bağımsız bölüm)`);
