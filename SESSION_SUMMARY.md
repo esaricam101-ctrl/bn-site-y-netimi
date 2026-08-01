@@ -1671,25 +1671,75 @@ yayımladı. Ürün sahibi depoyu private yapacağını bildirdi. Geçmiş
 **yeniden yazılmayacak** (önbellek ve çatallar kalır); sızmış bir sır
 bulunmadığı için iptal edilecek anahtar da yok.
 
-### İLK GÖREV — sırada ne var (1 Ağustos 2026)
+### L. CI yeşile döndü · virman analizi (1–2 Ağustos 2026)
 
-Ölçüm turu bitti; sıradaki üç iş ölçüm sonuçlarından çıktı (§3.I).
+**CI ilk kez koştu ve tam yeşile döndü.** Depo kurulduğundan beri hiç
+çalışmamıştı; tetikleyicide `master` yoktu. Beş turda beş ayrı sınıf arıza
+çıktı — ayrıntı ve **ortak sebep** [`YOL-HARITASI.md`](YOL-HARITASI.md)
+"Çürütülen varsayımlar" bölümündedir.
 
-1. **★ Kapsam önbelleği TTL güvenlik doğrulaması.** `tenant.reader.ts:82`
-   300 sn TTL koyuyor. Süresi dolmuş bir yetki bu pencerede hâlâ erişim
-   veriyor olabilir. A0.7'deki 17. negatif test geçiyorsa muhtemelen
-   önbellekli yoldan geçmiyor — testin hangi yolu ölçtüğü doğrulanacak.
-   Geçiyorsa düzeltilecek olan **testtir**, ürün değil. Bu bir güvenlik
-   maddesi olduğu için ölçek işlerinin önünde.
-2. **ADR-0013 kararı** — toplu tahakkuk partileme. Beş soru taslakta hazır;
-   karar ürün sahibiyle birlikte verilecek. Karar çıkmadan kod yazılmayacak.
-   Bu, hedef ölçekte kırık olan tek çekirdek özellik.
-3. **P0-ÖLÇEK kararı** — DB havuzu ve `tenantIslemi` işlem sarmalaması.
-   Havuz boyutu bir yapılandırma sorusu, `set_config` gidiş-dönüşleri bir
-   tasarım sorusu; ikisi ayrı ayrı ele alınacak.
+Son durum (koşu `f7aeacf`): `mimari` ✅ · `belge` ✅ · `migration` ✅ ·
+`kalite` ✅ — sözleşme testleri **uygulama rolüyle** koşuyor, yani CT-01
+gerçekten RLS'i sınıyor.
 
-Bunlardan sonra sırayla: `yalnizcaKendiVerisi` uçlarının kalan denetimi,
-imaj duman testi CI'a, scrypt eşzamanlılık kapısı, sonra ekran üretimi (§3.A).
+**Kalıcı kapılar (hepsi bozukken kırmızı verdiği görülerek eklendi):**
+
+| Kapı | Ne yakalar |
+|---|---|
+| `config-check` · Node sürümü | `.nvmrc` · `engines` · iş akışları ayrışırsa |
+| `scripts/test-onkosul.mjs` | derlenmiş çıktı yoksa `ERR_MODULE_NOT_FOUND` yerine açık mesaj |
+| `scripts/env-sozlesme-check.mjs` | şemadaki zorunlu anahtar `.env.example`'da yoksa |
+| CI `migration` işi | zincir boş veritabanına uygulanamıyorsa · reset geri düşüşe girerse |
+| `.github/actions/kosu-ve-raporla` | hata metnini `::error::` olarak yayınlar — log admin ister, annotation istemez |
+
+**Tohum artık demo fikstürüdür.** CI'ın kullandığı veri ile sunumda
+gösterilecek veri **aynı**: 12 daire, söylenebilir isimler, 3 kiracı,
+3 dönem tahakkuk geçmişi, 12 açık ve vadesi geçmiş borç (23.400 TL).
+Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
+
+**Virman analizi** — kod yazılmadı, [ADR-0016](docs/adr/log/ADR-0016-virman.md)
+taslağı açıldı. Dört tür ayrıldı (A kasa/banka · B hesap · C cari ·
+D kalem bazlı tahsis) ve taramadan çıkan bulgular:
+
+- ⚠️ **Banka↔banka virmanın iki bacağı BAĞIMSIZ muhasebeleşiyor.** Biri
+  deftere girip öteki girmezse para kaybolmuş görünür, mizan tutmaz.
+  Öneri: virman anında **tek fiş**; karar bekliyor.
+- Kasa ayrı bir varlık değil (hesap planı kalemi) — **kasa↔banka yolu yok**.
+- **Elle kalem tahsisi zaten asıl yoldur**; otomatik FIFO yalnızca öneri ve
+  hiçbir şey yazmıyor. D'nin eksiği motor değil **arayüz**.
+- **İleri dönem tahakkuku bugün mümkün** (tek tarih kuralı `vade >= donem`).
+- **`YevmiyeFisi`'nde belge tarihi alanı yok** — dayanak bilgisi serbest
+  metne sıkışıyor.
+
+ADR-0015'teki dönem kilidi sorusu düzeltildi: **mekanizma var ve çalışıyor.**
+Yenileme fonunun amaca özgülüğü (KMK md. 72) §3.E'deki C-4 listesine eklendi.
+
+### İLK GÖREV — sırada ne var (3 Ağustos 2026)
+
+CI yeşil, demo fikstürü hazır. Sıradaki üç iş:
+
+1. **ADR-0016 · B ve C soru listeleri.** Bölümler açık, taramadan çıkan
+   girdiler içinde, ama ürün sahibinin soru listeleri **gelmedi**. Ayrıca
+   onay bekleyen üç karar var: sebep kodu başlangıç listesi, `DIGER` kodu
+   olsun mu, virmanın taslak kalabilmesi.
+
+2. **★ Virmanın iki bacağının bağımsız muhasebeleşmesi.** ADR-0016 §A'daki
+   açık hata — para kaybolmuş görünüyor. Öneri "tek fiş" yazılı, karar
+   bekliyor. Karar çıkınca bu bir P0 düzeltmesidir.
+
+3. **Demo ekranı.** D bölümünün eksiği motor değil arayüz. Üç aday:
+   Tahakkuk Sihirbazı · `/belgeler` (menüde ölü link) · Sakin paneli.
+   Hangisinin önce yapılacağı seçilmedi.
+
+**Yapısal borç, arka planda duruyor:** yerelde Linux yok. Beş CI arızasının
+beşi de yerelde görünemezdi. WSL2 kurulu ama boş; kapanmazsa altıncısı da
+CI'da bulunacak.
+
+Daha önce sıraya alınmış ve **hâlâ açık** olanlar: kapsam önbelleği TTL
+güvenlik doğrulaması (A0.7'deki 17. negatif testin hangi yolu ölçtüğü),
+ADR-0013 partileme kararı, kapsam kurulumunun O(tenant) maliyeti,
+`yalnizcaKendiVerisi` uçlarının kalan denetimi, şema↔migration sürüklenmesi
+(P1), imaj duman testi.
 
 ### Muhasebe/Banka talebinin EKSİK KALAN bölümleri
 

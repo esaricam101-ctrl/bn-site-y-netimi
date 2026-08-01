@@ -25,6 +25,8 @@ Bu belge *nerede durduğumuzu* söyler. Ayrıntılı devir notu
 | **`prisma migrate reset` kırık** | Kök sebep **şema sahipliği** — `bnos_migrator` şemayı düşüremiyordu. Sahiplik + veritabanı üzerinde `CREATE` verildi. **Gerçek CI'da doğrulandı:** `migrate reset — geri dususe girmeden` adımı geçti; adım çıktıda `fallback` görürse `exit 1` verir | [docs/VERITABANI-KURULUM.md](docs/VERITABANI-KURULUM.md) · koşu `78c8277` |
 | **CI veritabanı yanlış rollerle kuruluyordu** | `01-roles.sql` veritabanı adından bağımsızlaştırıldı, CI'da da koşuyor. **Gerçek CI'da doğrulandı:** `Rol kurulumu dogrulamasi` adımı geçti; şema sahibi `bnos_migrator` değilse veya bir `bnos_%` rolü `BYPASSRLS` taşırsa `exit 1` verir | koşu `78c8277` |
 | **CI hiç çalışmıyordu** | Tetikleyicide `master` yoktu. Eklendi; CI ilk kez `f53da93`'te koştu | `.github/workflows/ci.yml` |
+| **★ CI TAMAMEN YEŞİL** | Dört iş de `success`; sözleşme testleri **uygulama rolüyle** koşuyor | koşu `f7aeacf` |
+| **Tohum = demo fikstürü** | 12 daire · söylenebilir isimler · 3 kiracı · 3 dönem tahakkuk · 12 açık borç (23.400 TL). CI'ın kullandığı veri sunumda gösterilen veri | `database/seeds/seed.ts` |
 
 Sözleşme paketi: **69 test, 9 dosya.**
 
@@ -103,6 +105,40 @@ Yani sonuç **yeşil de kırmızı da değildi — hiç çalışmamıştı.** Ya
 kullanmayan `mimari` işi geçmişti ve tek başına bakıldığında "CI var, bir
 şeyler geçiyor" görüntüsü veriyordu.
 
+### "Yerelde yeşil olan test doğru koşullarda yeşildir" → **YANLIŞ**
+
+CI'ı yeşile döndürmek **beş tur** sürdü ve her turda **başka bir sınıf** arıza
+çıktı. Hiçbiri yerelde görünemezdi:
+
+| # | Arıza | Kök sebep |
+|---|---|---|
+| 1 | pnpm kullanan üç iş kurulumda düştü | `packageManager` varken `version` da verilmesi |
+| 2 | Birim testleri | Node sürümü: yerel 24 ↔ CI 22 |
+| 3 | Birim testleri | Derleme sırası — `backend/dist` ve `tests/.derleme` yoktu |
+| 4 | Birim testleri | `pathname.slice(1)` Windows yamasıydı, Linux'ta mutlak yolu bozuyordu |
+| 5 | Sözleşme testleri | `JWT_SECRET` yok → sonra tohum yok |
+
+**★ ORTAK SEBEP — listeyi değil bunu hatırla:**
+
+> Geliştirme makinesi **Windows**, CI **Linux**. Hiçbir yerel kapı bu farkı
+> göremez. İkisi de kendi içinde tutarlı olduğu için sapma **aylarca**
+> görünmez kalır ve ancak CI koştuğunda ortaya çıkar — tur başına 3–5 dakika.
+
+Aynı sınıfın altıncı örneği ölçüm sırasında çıktı: `config-check`'in YAML
+doğrulayıcısı dosyayı **sistem kodlamasıyla** açıyordu. `ci.yml`'e ASCII dışı
+bir karakter konunca denetim **yalnızca Windows'ta** düştü, Linux'ta geçerdi.
+Kontrolün kendisi platforma bağlıysa, kontrol güvenilmezdir.
+
+Her biri için kalıcı bir kapı bırakıldı: Node sürümü tek kaynakta
+(`config-check`), derleme bağımlılığı açık mesajla (`test-onkosul`), ortam
+sözleşmesi senkron (`env-sozlesme-check`), YAML kodlaması sabit, ve hata metni
+artık **admin yetkisi olmadan** okunabiliyor
+(`.github/actions/kosu-ve-raporla`).
+
+⚠️ **Kalan yapısal boşluk:** yerelde Linux koşturulmuyor. WSL2 **kurulu**
+(Ubuntu 24.04) ama **içi boş** — node/pnpm yok, Docker entegrasyonu kapalı.
+Kapanmazsa yedinci örnek de CI'da bulunacak.
+
 ### ★ Genel ders — üçü de aynı sınıftan
 
 Bu üç bulgunun ortak yanı şudur: **güvence mekanizmasının kendisi
@@ -174,6 +210,7 @@ taşınmadığını **açıkça doğrular**.
 | **ADR-0013 · toplu işlem partileme** | Desen kabul edildi, ayrıntılar açık: parti büyüklüğü, kısmi başarı semantiği, geri alma, ilerleme göstergesi. Gerekçe artık işlem sınırı değil (ölçümle çürütüldü); vekil kesmesi, kesilen isteğin sessizce sürmesi, eşzamanlı tahakkukların çekişmesi ve kullanıcının ilerleme görememesi. |
 | **ADR-0015 · yıl sonu kapanışı** | Altı soru açık: hangi kayıtlar üretilir, dönem kilitleme, kapanmış dönemde düzeltme, devir bakiyesi, denetçi raporu, tebligat/icra zinciri. Karar verilmedi. |
 | **Proje ısınma modeli ayarı** | `PAY_OLCERLI \| PAY_OLCERSIZ`. Geldiğinde ADR-0014 §2c'deki uyarı gerçek kurala dönüşür. |
+| **[ADR-0016](docs/adr/log/ADR-0016-virman.md) · virman** | Dört bölüm açık. **A**: virman iki bacağı bağımsız muhasebeleşiyor (para kaybolmuş görünür) — öneri "tek fiş", karar bekliyor; kasa↔banka yolu yok. **B** ve **C**: ürün sahibinin soru listeleri **henüz gelmedi**. **D**: motor var, arayüz yok. Sebep kodu listesi onay bekliyor. |
 
 ### Teknik borç
 
@@ -181,7 +218,8 @@ taşınmadığını **açıkça doğrular**.
 |---|---|---|
 | **Kapsam kurulumu O(tenant)** | P1 | `tenant.reader.ts:113` (`kisiId not` sorgusu `bolum_id` ile kısıtlanabilir) ve `:150` (3.000 satırlık JS `Set` kesişimi). Analiz `SESSION_SUMMARY` §3.K'da; ölçüm tahmini verilmedi. |
 | **Depo PUBLIC** | **P1** | `90d085b`, `e7543f7`, `3220c3b` commit'leri kapatılmış güvenlik açıklarının tarifini taşıyor. Public olmanın sağladığı bir fayda yok — CI logu okumak için bile admin yetkisi gerekiyor (`403 Must have admin rights`). Private yapma kararı ürün sahibinde. |
-| **CI sözleşme testleri henüz koşmadı** | **P1** | `78c8277` koşusunda `Birim testleri` adımı düştü, `Sozlesme testleri` **atlandı**. CT-01'in gerçek CI'da `bnos_app` rolüyle geçtiği **hâlâ kanıtlanmadı**. Yerelde `pnpm test:unit` 331/331 geçiyor → ortam farkı. Ölçülen farklar: Node sürümü (yerel 24 ↔ CI 22) ve `tests/unit/sekme-hata.test.mjs`'in bir `.ts` dosyasını doğrudan import etmesi. |
+| **Yerelde Linux yok** | **P1** | Beş CI arızasının beşi de yerelde görünemezdi (Windows ↔ Linux). WSL2 kurulu ama boş: node/pnpm yok, Docker entegrasyonu kapalı. Maliyet ~6 dk + depoyu WSL dosya sistemine klonlamak (`/mnt/c` çok yavaş). Karar ürün sahibinde. |
+| **CT-04 tohuma bağımlı** | P2 | CT-04 tohum kullanıcısıyla giriş yapıyor, kendi verisini yaratmıyor; CT-13/14/16/17 ise kendi tenant'ını kuruyor. İkinci desen daha sağlam. CI'a tohum adımı eklendi (A çözümü); testi bağımsızlaştırmak (B) ertelendi. |
 | **Prisma şeması ↔ migration sürüklenmesi** | **P1** | `migrate diff` 162 satır fark buluyor: **7 enum değeri** (`BelgeVarlikTipi` veritabanında 16, `schema.prisma`'da 9 — `YEVMIYE_FISI` gibi bir değer okunursa istemci hata verir), **11 unique indeks**, **8 yabancı anahtar**, 47 indeks adı (kozmetik). Sürüklenme kapısı CI'a bu düzeltilmeden konulamaz; konulsaydı kalıcı kırmızı olurdu. |
 | **`.mjs` testinden `.ts` import'u** | P2 | `tests/unit/sekme-hata.test.mjs:25` doğrudan `frontend/web/lib/sekme-hata.ts` dosyasını import ediyor. Node'un tip soyma davranışına, dolayısıyla **Node sürümüne bağımlı** — kırılgan. Derlenmiş çıktıya ya da `.mjs` kaynağa bağlanmalı. |
 | **`referans` geçici köprü** | P2 | Gider/fatura varlığı geldiğinde faturaya bağlanmalı, serbest metin değerler göç ettirilmeli. |
