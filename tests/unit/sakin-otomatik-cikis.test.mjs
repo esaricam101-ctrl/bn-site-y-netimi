@@ -11,13 +11,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const MODUL = new URL(
   '../../backend/dist/common/kayit/sakin-otomatik-cikis.js',
   import.meta.url,
 );
 const require = createRequire(MODUL);
-const { dayanakSakinleriniCikar } = require(MODUL.pathname.slice(1));
+/*
+ * ⚠️  `fileURLToPath` KULLANILIR, `.pathname.slice(1)` DEGIL.
+ *
+ *     Eski hali Windows'a ozel bir yamaydi: orada `pathname` `/C:/...`
+ *     verir ve bastaki egik cizgi atilmaliydi. LINUX'TA ise `pathname`
+ *     zaten `/home/...`; ayni dilim MUTLAK YOLU BOZAR ve
+ *     `Cannot find module 'home/runner/...'` hatasi verir.
+ *
+ *     Hata yerelde HIC gorunmezdi; yalnizca CI'da (Linux) ortaya cikti.
+ *     Platform ayrimi elle yapilmaz, Node'a birakilir.
+ */
+const { dayanakSakinleriniCikar } = require(fileURLToPath(MODUL));
 
 const PRINCIPAL = { tenantId: 't1', kullaniciId: 'k1', roller: [] };
 const BAGLAM = { correlationId: 'c1', ip: '127.0.0.1', kullaniciAjani: 'test' };

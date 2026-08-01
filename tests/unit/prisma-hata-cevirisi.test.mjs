@@ -12,6 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 /*
  * `require` BACKEND DIST'INDEN kurulur, bu dosyadan degil: cevirici
@@ -24,7 +25,18 @@ const CEVIRICI = new URL(
   import.meta.url,
 );
 const require = createRequire(CEVIRICI);
-const { prismaHatasiniCevir } = require(CEVIRICI.pathname.slice(1));
+/*
+ * ⚠️  `fileURLToPath` KULLANILIR, `.pathname.slice(1)` DEGIL.
+ *
+ *     Eski hali Windows'a ozel bir yamaydi: orada `pathname` `/C:/...`
+ *     verir ve bastaki egik cizgi atilmaliydi. LINUX'TA ise `pathname`
+ *     zaten `/home/...`; ayni dilim MUTLAK YOLU BOZAR ve
+ *     `Cannot find module 'home/runner/...'` hatasi verir.
+ *
+ *     Hata yerelde HIC gorunmezdi; yalnizca CI'da (Linux) ortaya cikti.
+ *     Platform ayrimi elle yapilmaz, Node'a birakilir.
+ */
+const { prismaHatasiniCevir } = require(fileURLToPath(CEVIRICI));
 const { Prisma } = require('@prisma/client');
 
 function bilinen(kod, mesaj, meta) {

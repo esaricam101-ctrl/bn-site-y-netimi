@@ -10,13 +10,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const MODUL = new URL(
   '../../backend/dist/common/guards/istek-siniri.guard.js',
   import.meta.url,
 );
 const require = createRequire(MODUL);
-const { IstekSiniriGuard } = require(MODUL.pathname.slice(1));
+/*
+ * ⚠️  `fileURLToPath` KULLANILIR, `.pathname.slice(1)` DEGIL.
+ *
+ *     Eski hali Windows'a ozel bir yamaydi: orada `pathname` `/C:/...`
+ *     verir ve bastaki egik cizgi atilmaliydi. LINUX'TA ise `pathname`
+ *     zaten `/home/...`; ayni dilim MUTLAK YOLU BOZAR ve
+ *     `Cannot find module 'home/runner/...'` hatasi verir.
+ *
+ *     Hata yerelde HIC gorunmezdi; yalnizca CI'da (Linux) ortaya cikti.
+ *     Platform ayrimi elle yapilmaz, Node'a birakilir.
+ */
+const { IstekSiniriGuard } = require(fileURLToPath(MODUL));
 
 /**
  * Sahte Redis — `eval` cagrilarini SAYAC gibi davranarak yanitlar.
