@@ -33,8 +33,15 @@ for (const y of yamllar) {
   const tam = KOK + y;
   if (!existsSync(tam)) { hatalar.push(`Eksik dosya: ${y}`); continue; }
   try {
-    execFileSync('python3', ['-c', 'import sys,yaml; yaml.safe_load(open(sys.argv[1]))', tam],
-      { stdio: ['ignore','ignore','pipe'] });
+    // ⚠️  KODLAMA ACIKCA VERILIR. `open(...)` sistem varsayilanini kullanir:
+    //     Linux'ta UTF-8, Windows'ta cp1254. ASCII disi bir karakter (orn. bir
+    //     yorumdaki uyari isareti) denetimi YALNIZCA WINDOWS'TA dusururdu —
+    //     yerel ile CI'in ayristigi, bu turda uc kez carptigimiz sinif.
+    execFileSync(
+      'python3',
+      ['-c', 'import sys,yaml; yaml.safe_load(open(sys.argv[1], encoding="utf-8"))', tam],
+      { stdio: ['ignore', 'ignore', 'pipe'] },
+    );
   } catch (e) {
     hatalar.push(`Gecersiz YAML: ${y} — ${String(e.stderr).trim().split('\n').pop()}`);
   }

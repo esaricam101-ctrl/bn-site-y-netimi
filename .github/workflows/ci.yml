@@ -83,32 +83,23 @@ jobs:
 
       - name: shared derleme
         run: pnpm build:shared
+      - name: Uygulama derlemesi
+        run: pnpm build
+      - name: Test derlemesi
+        run: pnpm build:test
       - name: Tip denetimi
         run: pnpm typecheck
       - name: Lint
         run: pnpm lint
-      # GECICI — TANI AMACLI. pnpm katmani atlanir: alt surec ciktisini
-      # yutuyor olabilir; node dogrudan cagrildiginda hata metni adim
-      # ciktisinda gorunur ve log indirme yetkisi gerekmez.
-      # ADIM YINE KIRMIZI KALIR — `|| true` YOK. Amac gecmesi degil,
-      # hatayi gormek. Sebep bulununca `pnpm test:unit`e geri donulecek.
+      # ⚠️  DERLEME SIRASI BIRIM TESTLERINDEN ONCE GELIR.
+      #     Birim testlerinin bir kismi `backend/dist` ve `tests/.derleme`
+      #     altindaki DERLENMIS ciktiyi import ediyor. Gelistirme
+      #     makinesinde bu ciktilar onceki derlemelerden kalmis oluyor ve
+      #     bagimlilik GORUNMUYORDU; temiz bir kopyada testler
+      #     ERR_MODULE_NOT_FOUND ile dusuyordu.
+      #     Bagimliligi acikca soyleyen on kontrol: scripts/test-onkosul.mjs
       - name: Birim testleri
-        run: |
-          set +e
-          node --test --test-reporter=spec tests/unit/*.mjs > birim.log 2>&1
-          KOD=$?
-          set -e
-          if [ "$KOD" -ne 0 ]; then
-            # Hata metni ANNOTATION olarak yazilir. Adim ciktisi (log)
-            # yalnizca admin yetkisiyle okunabiliyor; annotation ise genel
-            # API'den okunur. `|| true` YOK — adim kirmizi kalir.
-            echo "::group::birim test ciktisi"
-            cat birim.log
-            echo "::endgroup::"
-            grep -nE '^not ok|✖|Error|error:|Cannot|ERR_|failing tests|AssertionError' birim.log               | head -40 | while IFS= read -r satir; do echo "::error::$satir"; done
-            exit "$KOD"
-          fi
-          cat birim.log
+        run: pnpm test:unit
 
       - name: Veritabani semasi
         run: pnpm db:migrate
@@ -123,8 +114,6 @@ jobs:
           DATABASE_URL: postgresql://bnos_app:bnos_app_dev@localhost:5432/bnos_test
           REDIS_URL: redis://localhost:6379
 
-      - name: Uygulama derlemesi
-        run: pnpm build
 
   belge:
     name: Belge lint
