@@ -332,6 +332,43 @@ describe('CT-16 · Mükerrer tahakkuk koruması', () => {
     expect(y.status).toBe(422);
   }, 60_000);
 
+  /*
+   * REFERANS NORMALLEŞTİRME.
+   *
+   * `FT-2026-001`, `ft 2026 001` ve `FT.2026/001` veritabanı için üç ayrı
+   * değerdir; ham metin üzerinde kurulan bir benzersizlik kısıtı aynı faturayı
+   * üç kez tahakkuk ettirmeye izin verir. Bu, korumanın olduğunu SANDIĞIMIZ
+   * ama olmadığı bir durumdur.
+   */
+  const referansliTahakkuk = (donem: string, vade: string, referans: string) =>
+    request(sunucu())
+      .post('/api/v1/tahakkuk/calistir')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        giderTuruKodu: 'CT16_DEMIRBAS', toplamTutar: '3000.00',
+        donem, vadeTarihi: vade, referans,
+      });
+
+  it('(11) referans yazımı farklı olsa da AYNI gider olayıdır — 409', async () => {
+    const ilk = await referansliTahakkuk('2026-11-01', '2026-11-30', 'FT-2026-001');
+    expect(ilk.status).toBe(201);
+
+    const bosluklu = await referansliTahakkuk('2026-11-01', '2026-11-30', 'ft 2026 001');
+    expect(bosluklu.status).toBe(409);
+
+    const noktali = await referansliTahakkuk('2026-11-01', '2026-11-30', 'FT.2026/001');
+    expect(noktali.status).toBe(409);
+  }, 60_000);
+
+  it('(12) ★ Türkçe harf: ŞUBAT-2026 ile şubat 2026 aynı referanstır — 409', async () => {
+    const ilk = await referansliTahakkuk('2026-12-01', '2026-12-31', 'ŞUBAT-2026');
+    expect(ilk.status).toBe(201);
+
+    const kucuk = await referansliTahakkuk('2026-12-01', '2026-12-31', 'şubat 2026');
+    expect(kucuk.status).toBe(409);
+  }, 60_000);
+
   it('(6) cari BÖLÜMDÜR: iki daireli malik dönemde İKİ kez borçlanır', async () => {
     const satirlar = await baglamda((tx) => tx.borcSorumlusu.findMany({
       where: { tenantId: TENANT, kisiId: MALIK_COK, borc: { tahakkukDonemi: new Date(DONEM) } },

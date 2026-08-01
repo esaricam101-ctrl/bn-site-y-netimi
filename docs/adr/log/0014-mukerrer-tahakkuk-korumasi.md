@@ -86,10 +86,16 @@ uyguluyordu. Bu yalnızca bir sınıf için doğrudur.
 
 | sınıf | örnek | dönemde | mükerrer koruması nerede |
 |---|---|---|---|
-| **DÖNEMSEL** | aidat · **yıl sonu kapanışı** | **TEK** | dönem ekseninde |
+| **DÖNEMSEL** | aidat · sigorta · yönetim gideri | **TEK** | dönem ekseninde |
 | **OLAY BAZLI** | demirbaş alımı · bir defalık gider | **birden çok** | gider olayı ekseninde |
 
-Yıl sonu kapanışı dönemde bir kez olur; ikincisi mükerrerdir ve mali veriyi
+> ⚠️ **DÜZELTME:** Bu ADR'nin ilk hâli yıl sonu kapanışını "dönemsel gider
+> türü" örneği olarak anıyordu. **Yanlıştır.** Kapanış bir gider türü değil,
+> bir süreçtir (yenileme fonu devri, bakiye aktarımı, kesin hesap, dönem
+> kilitleme) ve gider dağıtımıyla ilgisi yoktur. Ayrı ele alınacaktır:
+> [ADR-0015](ADR-0015-yil-sonu-kapanisi.md) (taslak).
+
+Aidat dönemde bir kez tahakkuk eder; ikincisi mükerrerdir ve mali veriyi
 bozar. Ama demirbaş alımı bir **döneme** değil bir **olaya** karşılıktır: aynı
 ay içinde iki ayrı alım yapılabilir ve **ikisi de meşrudur**. Bunlar
 birbirinin düzeltmesi değildir — `ekTahakkuk` bayrağı onları modellemek için
@@ -117,6 +123,85 @@ CREATE UNIQUE INDEX tahakkuk_calismasi_referans_uq
 yani yapılandırma hatasında davranış gevşek değil **sıkı** taraftadır. Uygulama
 katmanı ayrıca 422 ile uyarır: olay bazlı türde referans zorunlu, dönemsel
 türde kabul edilmez.
+
+#### ★ `referans` GEÇİCİ BİR KÖPRÜDÜR
+
+Bu alan **serbest metindir ve öyle kalmamalıdır.** Gider/fatura varlığı
+eklenene kadar geçerli olan geçici bir iş anahtarıdır.
+
+Fatura kaydı geldiğinde:
+
+1. Bu alan **faturaya bağlanmalıdır** (yabancı anahtar), serbest metin
+   olmaktan çıkmalıdır.
+2. **Mevcut serbest metin değerleri göç ettirilmelidir** — göç sırasında
+   karşılığı bulunamayan referanslar sessizce atılmaz, insan gözüne
+   getirilir. Bir tahakkukun hangi faturaya ait olduğu mali bir kayıttır.
+
+Bu maddeye kadar `referans`, benzersizliğin taşıyıcısıdır; ondan sonra
+benzersizlik fatura kimliğine taşınır.
+
+#### ★ Benzersizlik NORMALLEŞTİRİLMİŞ değer üzerindedir (0028)
+
+0027'nin açığı: kısıt **ham metin** üzerindeydi. `FT-2026-001`, `ft 2026 001`
+ve `FT.2026/001` veritabanı için üç ayrı değerdir — aynı fatura üç kez
+tahakkuk edilebiliyordu. Koruma var **sanılan**, olmayan bir durumdu.
+
+Çözüm, saklanan üretilmiş bir kolondur (ifade indeksi değil — çakışma
+hatasında kullanıcıya "bu referans şununla çakışıyor" diyebilmek için değerin
+görünür olması gerekir):
+
+```sql
+ALTER TABLE tahakkuk_calismasi ADD COLUMN referans_norm text
+  GENERATED ALWAYS AS (
+    upper(translate(regexp_replace(referans, '[[:space:]\-_./\\]', '', 'g'),
+                    'çğıöşüÇĞİÖŞÜ', 'cgiosuCGIOSU') COLLATE "C")
+  ) STORED;
+```
+
+**`COLLATE "C"` determinizm içindir:** yerel ayara bağlı `upper()` üretime
+taşınırken değişebilir; eski satırlar eski normalleştirmeyle kalır ve
+benzersizlik **sessizce delinir**. Mali veride kabul edilemez.
+
+⚠️ **Ama `COLLATE "C"` tek başına Türkçeyi çözmez.** Ölçüldü:
+`upper('şubat-2026' COLLATE "C")` → `şUBAT-2026`, `ŞUBAT 2026` ile
+eşleşmiyor. Bu yüzden büyütmeden **önce** Türkçe harfler `translate()` ile
+ASCII karşılığına çevrilir — deterministik ve yerel ayardan bağımsız.
+
+Bilinerek kabul edilen yan etki: `ÇAM` ile `CAM` aynı anahtara düşer. Bu bir
+**eşleştirme anahtarıdır**, gösterilen değer değil; `referans` kolonu
+kullanıcının yazdığı hâli aynen saklamayı sürdürür.
+
+#### Gider türü sınıflandırması (0029 · seed)
+
+Ölçüt: *"aynı ay içinde bu türden ikinci bir gider normal mi?"*
+
+| OLAY_BAZLI | gerekçe |
+|---|---|
+| `ANA_BAKIM` | Onarım bir olaydır: aynı ay çatı akıntısı **ve** boya işi olabilir. |
+| `SIGORTA` | Poliçe takvim ayına oturmaz; aynı ay asansör sigortası, DASK yenilemesi, ek teminat meşrudur. Referans = poliçe no. |
+| `YAKIT` *(yeni)* | Her tanker dolumu ayrı olaydır. Referans = irsaliye/fatura no. |
+
+Dönemsel olanlar: `KAPICI` · `TEMIZLIK` · `YONETIM` · `ASANSOR_ISLETME` ·
+`YENILEME_FONU` · `ISITMA` · `ELEKTRIK_ORTAK` · `SU`.
+
+**`ISITMA` ↔ `YAKIT` — proje ayarıdır, kod kararı değil.** Merkezi ısıtmada
+pay ölçer zorunluluğu belirli koşullara bağlıdır ve muaf yapılar vardır:
+pay ölçerli site `ISITMA` (dönemsel, tüketim payına göre), pay ölçersiz site
+`YAKIT` (olay bazlı) kullanır. İkisi aynı projede **birlikte
+kullanılmamalıdır** — bunu doğrulayan bir kuralın gerekip gerekmediği açık
+sorudur (aşağıya bakınız).
+
+##### Bilinen sınırlar — geldiğinde yeniden değerlendirilecek
+
+- **`ELEKTRIK_ORTAK` · `SU`:** tek abonelik varsayımıyla `DONEMSEL`. Çok
+  abonelikli sitede (ortak alan + otopark + havuz ayrı sayaç) aynı ay iki
+  fatura gelir ve türün ayrılması gerekir.
+- **`ANA_BAKIM`:** rutin bakım sözleşmesi (dönemsel) ile arıza onarımı (olay
+  bazlı) ileride ayrı türlere bölünebilir. Bugün zorunlu değildir.
+- **Mevcut projelere `YAKIT` otomatik eklenmez.** 0029 yalnızca `ANA_BAKIM`
+  ve `SIGORTA`'yı günceller; `YAKIT` yeni kurulumlara tohum verisiyle gelir.
+  Mevcut bir projeye eklemek, o projenin ısınma modelini bilmeden karar
+  vermek olurdu.
 
 ### 3. Kapsam PROJE bütünüdür — blok benzersizliğin parçası DEĞİLDİR
 
@@ -182,8 +267,11 @@ yazıldı; 6 testin 5'i kırmızıydı.
 | 8 | olay bazlı: aynı referans ikinci kez koşamaz | — | ✅ 409 |
 | 9 | olay bazlı gider referanssız tahakkuk edilemez | — | ✅ 422 |
 | 10 | dönemsel gider referans kabul etmez | — | ✅ 422 |
+| 11 | `FT-2026-001` · `ft 2026 001` · `FT.2026/001` aynı olaydır | ❌ 201 | ✅ 409 |
+| 12 | ★ `ŞUBAT-2026` ile `şubat 2026` aynı olaydır (Türkçe) | ❌ 201 | ✅ 409 |
 
-(7–10 migration 0027 ile eklendi; toplam **10 test**, tüm sözleşme paketi 60.)
+(7–10 migration 0027, 11–12 migration 0028 ile eklendi; toplam **12 test**,
+tüm sözleşme paketi **62**.)
 
 Test 3 yarışı birebir üretir: bir işlem çalışma satırını yazıp **commit
 etmeden** bekler, bu sırada HTTP üzerinden ikinci tahakkuk gelir. Doğru

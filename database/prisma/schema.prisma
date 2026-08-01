@@ -1030,8 +1030,14 @@ model TahakkukCalismasi {
   /// ASIL her zaman 1; ek tahakkuklar 2'den başlar.
   sira          Int          @default(1)
   /// OLAY BAZLI giderlerde gider olayının iş anahtarı (fatura/karar no).
-  /// DÖNEMSEL çalışmalarda NULL'dır. Benzersizlik kısıtları buna bakar.
+  /// DÖNEMSEL çalışmalarda NULL'dır.
   referans      String?      @db.VarChar(120)
+  /// ⚠️  VERİTABANI ÜRETİR — UYGULAMA ASLA YAZMAZ (`GENERATED ALWAYS ... STORED`,
+  ///     migration 0028). Benzersizlik kısıtı ham `referans` üzerinde değil
+  ///     BUNUN üzerindedir: `FT-2026-001` ile `ft 2026 001` aynı gider olayıdır.
+  ///     Bu alana yazma denemesi PostgreSQL tarafından reddedilir — hata
+  ///     sessiz değildir.
+  referansNorm  String?      @map("referans_norm")
 
   toplamTutar Decimal @map("toplam_tutar") @db.Decimal(18, 4)
   bolumSayisi Int     @map("bolum_sayisi")
@@ -1042,7 +1048,7 @@ model TahakkukCalismasi {
   borclar Borc[]
 
   @@index([tenantId, donem])
-  @@index([tenantId, referans])
+  @@index([tenantId, referansNorm])
   @@map("tahakkuk_calismasi")
 }
 

@@ -63,27 +63,58 @@ const APARTMANLAR: ApartmanTohumu[] = [
  * Yanlış atama, kiracıdan tahsil edilemeyecek bir borcu kiracıya yazar ya da
  * malike ait bir gideri kiracıya yükler; ikisi de icra safhasında düşer.
  */
+/*
+ * TAHAKKUK SIKLIĞI ÖLÇÜTÜ (ADR-0014 · migration 0027):
+ *   "Aynı ay içinde bu türden ikinci bir gider NORMAL Mİ?"
+ *   Evetse OLAY_BAZLI — ve o türde `referans` (fatura/poliçe/irsaliye no)
+ *   ZORUNLUDUR; mükerrer koruması dönem ekseninde değil, gider olayı
+ *   ekseninde kurulur.
+ */
 const GIDER_TURLERI: {
   kod: string;
   ad: string;
   paylasimKurali: Prisma.GiderTuruCreateInput['paylasimKurali'];
   sorumlulukTipi: Prisma.GiderTuruCreateInput['sorumlulukTipi'];
+  tahakkukSikligi: Prisma.GiderTuruCreateInput['tahakkukSikligi'];
 }[] = [
   // md. 20/a — kapıcı, kaloriferci, bahçıvan, bekçi giderleri: EŞİT olarak.
-  { kod: 'KAPICI', ad: 'Kapıcı gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
+  { kod: 'KAPICI', ad: 'Kapıcı gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
   // md. 20/b — anagayrimenkulün sigortası, bakımı, korunması: ARSA PAYI oranında.
-  { kod: 'ANA_BAKIM', ad: 'Anagayrimenkul bakım ve onarım', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT' },
-  { kod: 'SIGORTA', ad: 'Bina sigortası', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT' },
+  //
+  // ONARIM BİR OLAYDIR: aynı ay çatı akıntısı VE boya işi olabilir; ikincisi
+  // ilkinin düzeltmesi değildir. İleride rutin bakım sözleşmesi (dönemsel) ile
+  // arıza onarımı (olay bazlı) ayrı türlere bölünebilir — bugün zorunlu değil.
+  { kod: 'ANA_BAKIM', ad: 'Anagayrimenkul bakım ve onarım', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
+  // POLİÇE TAKVİM AYINA OTURMAZ. Aynı ay ikinci poliçe (asansör sigortası,
+  // DASK yenilemesi, ek teminat) meşrudur. Referans = poliçe numarası.
+  { kod: 'SIGORTA', ad: 'Bina sigortası', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
   // Yenileme fonu md. 72 — anagayrimenkule yapılan yatırımdır, malike aittir.
-  { kod: 'YENILEME_FONU', ad: 'Yenileme fonu', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT' },
+  { kod: 'YENILEME_FONU', ad: 'Yenileme fonu', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'DONEMSEL' },
   // Isınma tüketime bağlıdır (5627 sayılı Enerji Verimliliği Kanunu md. 7/c);
   // paylaşım kuralı TUKETIM'dir ve sayaç okuması olmadan hesaplanamaz.
-  { kod: 'ISITMA', ad: 'Isıtma gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT' },
-  { kod: 'SU', ad: 'Su gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT' },
-  { kod: 'ASANSOR_ISLETME', ad: 'Asansör işletme gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
-  { kod: 'ELEKTRIK_ORTAK', ad: 'Ortak alan elektriği', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
-  { kod: 'TEMIZLIK', ad: 'Temizlik gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
-  { kod: 'YONETIM', ad: 'Yönetim gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT' },
+  //
+  // ⚠️  ISITMA ile YAKIT AYNI PROJEDE BİRLİKTE KULLANILMAZ. Merkezi ısıtmada
+  //     pay ölçer zorunluluğu belirli koşullara bağlıdır ve muaf yapılar
+  //     vardır:
+  //       · pay ölçerli site  → ISITMA (dönemsel, tüketim payına göre)
+  //       · pay ölçersiz site → YAKIT  (olay bazlı, her dolum ayrı gider)
+  //     Hangisinin kullanılacağı PROJE AYARIDIR, kod kararı değildir.
+  { kod: 'ISITMA', ad: 'Isıtma gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  // HER TANKER DOLUMU AYRI BİR OLAYDIR; iki dolum birbirinin düzeltmesi
+  // değildir. Referans = irsaliye/fatura numarası.
+  //
+  // Paylaşım kuralı ARSA_PAYI olarak tohumlanır; yönetim planı farklı
+  // diyorsa proje bazında değiştirilir — kural VERİDİR, koda gömülü değildir.
+  { kod: 'YAKIT', ad: 'Yakıt alımı', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
+  // ⚠️  BİLİNEN SINIR (ELEKTRIK_ORTAK · SU): tek abonelik varsayımıyla
+  //     DONEMSEL. Çok abonelikli sitede (ortak alan + otopark + havuz ayrı
+  //     sayaç) aynı ay iki fatura gelir ve türün ayrılması gerekir. Bu durum
+  //     geldiğinde yeniden değerlendirilecektir.
+  { kod: 'SU', ad: 'Su gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { kod: 'ASANSOR_ISLETME', ad: 'Asansör işletme gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { kod: 'ELEKTRIK_ORTAK', ad: 'Ortak alan elektriği', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { kod: 'TEMIZLIK', ad: 'Temizlik gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { kod: 'YONETIM', ad: 'Yönetim gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
 ];
 
 /** KMK bağlamına sadeleştirilmiş hesap planı (ADR-0003 Koşul 3). */
@@ -203,6 +234,7 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
       data: {
         id: randomUUID(), tenantId, kod: g.kod, ad: g.ad,
         paylasimKurali: g.paylasimKurali, sorumlulukTipi: g.sorumlulukTipi,
+        tahakkukSikligi: g.tahakkukSikligi,
         kuralKaynagi: 'KMK_VARSAYILAN', malikPaylasimi: 'HISSE_ORANI',
       },
     });
