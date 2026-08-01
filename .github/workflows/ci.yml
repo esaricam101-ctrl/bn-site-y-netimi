@@ -94,9 +94,21 @@ jobs:
       # hatayi gormek. Sebep bulununca `pnpm test:unit`e geri donulecek.
       - name: Birim testleri
         run: |
-          node --version
-          ls -la tests/unit/ | head -20
-          node --test --test-reporter=spec tests/unit/*.mjs
+          set +e
+          node --test --test-reporter=spec tests/unit/*.mjs > birim.log 2>&1
+          KOD=$?
+          set -e
+          if [ "$KOD" -ne 0 ]; then
+            # Hata metni ANNOTATION olarak yazilir. Adim ciktisi (log)
+            # yalnizca admin yetkisiyle okunabiliyor; annotation ise genel
+            # API'den okunur. `|| true` YOK — adim kirmizi kalir.
+            echo "::group::birim test ciktisi"
+            cat birim.log
+            echo "::endgroup::"
+            grep -nE '^not ok|✖|Error|error:|Cannot|ERR_|failing tests|AssertionError' birim.log               | head -40 | while IFS= read -r satir; do echo "::error::$satir"; done
+            exit "$KOD"
+          fi
+          cat birim.log
 
       - name: Veritabani semasi
         run: pnpm db:migrate
