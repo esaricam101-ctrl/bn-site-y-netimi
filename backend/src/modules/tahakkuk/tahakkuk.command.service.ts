@@ -53,6 +53,20 @@ export interface TahakkukSatiri {
   }[];
 }
 
+/**
+ * Tahakkuk uyarısı — işlem TAMAMLANIR, engellenmez.
+ *
+ * ⚠️  Bu bir hata değil, görünürlük aracıdır. Engellemenin doğru olmadığı
+ *     ama sessizliğin de kabul edilemez olduğu durumlar için: yönetici
+ *     riski o an görür, sakin aylar sonra fark etmek zorunda kalmaz.
+ */
+export interface TahakkukUyarisi {
+  /** `{GRUP_KODU}_CAKISMASI` — gruptan TÜRETİLİR, koda gömülü değildir. */
+  readonly kod: string;
+  readonly mesaj: string;
+  readonly siddet: 'BILGI' | 'DIKKAT';
+}
+
 export interface TahakkukSonucu {
   readonly onizlemeMi: boolean;
   readonly giderTuruKodu: string;
@@ -62,6 +76,11 @@ export interface TahakkukSonucu {
   readonly dagitilanToplam: string;
   readonly bolumSayisi: number;
   readonly satirlar: readonly TahakkukSatiri[];
+  /**
+   * HER ZAMAN döner — uyarı yoksa boş dizi. Alanın bazen var bazen yok
+   * olması istemcide sessiz `undefined` hatası üretirdi.
+   */
+  readonly uyarilar: readonly TahakkukUyarisi[];
 }
 
 @Injectable()
@@ -171,6 +190,53 @@ export class TahakkukCommandService {
             'edilir; gider olayı referansı almaz.',
           'Referans gerekiyorsa gider türünü olay bazlı olarak tanımlayın.',
         );
+      }
+
+      /*
+       * --- 2b) ÇAKIŞMA UYARISI — ENGELLEME DEĞİL ---------------------------
+       *
+       * Karşılıklı dışlayan türler `gider_turu_grubu` altında toplanır
+       * (0030). Soru tek: bu dönemde AYNI GRUPTAN FARKLI bir tür tahakkuk
+       * edilmiş mi? Gider türü kodu burada geçmez — çakışma tanımı veridir.
+       *
+       * İki sıra da doğal olarak çalışır: ikinci çalıştırma birincisini
+       * görür. Farklı dönemlerde uyarı çıkmaz — pay ölçer yıl ortasında
+       * takılabilir ve o geçiş meşrudur.
+       */
+      const uyarilar: TahakkukUyarisi[] = [];
+      if (turKaydi.grupId) {
+        const kardesKodlar = (await tx.giderTuru.findMany({
+          where: {
+            tenantId: principal.tenantId, grupId: turKaydi.grupId,
+            kod: { not: gider.kod },
+          },
+          select: { kod: true },
+        })).map((t) => t.kod);
+
+        if (kardesKodlar.length > 0) {
+          const cakisan = await tx.tahakkukCalismasi.findFirst({
+            where: {
+              tenantId: principal.tenantId, donem: new Date(donem),
+              giderTuruKodu: { in: kardesKodlar },
+            },
+            select: { giderTuruKodu: true },
+          });
+          if (cakisan) {
+            const grup = await tx.giderTuruGrubu.findFirst({
+              where: { id: turKaydi.grupId },
+              select: { kod: true, cakismaSiddeti: true, cakismaAciklamasi: true },
+            });
+            if (grup) {
+              uyarilar.push({
+                kod: `${grup.kod}_CAKISMASI`,
+                mesaj:
+                  `${donem} döneminde '${cakisan.giderTuruKodu}' tahakkuku zaten var; ` +
+                  `şimdi '${gider.kod}' tahakkuk ediliyor. ${grup.cakismaAciklamasi}`,
+                siddet: grup.cakismaSiddeti === 'BILGI' ? 'BILGI' : 'DIKKAT',
+              });
+            }
+          }
+        }
       }
 
       const ekTahakkuk = dto.ekTahakkuk === true;
@@ -538,6 +604,9 @@ export class TahakkukCommandService {
             toplamTutar: apiBicimi(toplam), bolumSayisi: paylar.length,
             paylasimKurali: gider.paylasimKurali,
             sorumlulukTipi: gider.sorumlulukTipi,
+            // Uyarı denetim kaydına da girer: "yönetici bunu görmüştü" sorusu
+            // aylar sonra ancak buradan cevaplanabilir.
+            uyarilar,
           },
           correlationId: baglam.correlationId,
           ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
@@ -564,6 +633,7 @@ export class TahakkukCommandService {
         dagitilanToplam: apiBicimi(moneyKurustan(dagitilanKurus)),
         bolumSayisi: paylar.length,
         satirlar,
+        uyarilar,
       };
     });
   }

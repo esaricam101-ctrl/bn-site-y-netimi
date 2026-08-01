@@ -188,10 +188,57 @@ Dönemsel olanlar: `KAPICI` · `TEMIZLIK` · `YONETIM` · `ASANSOR_ISLETME` ·
 pay ölçer zorunluluğu belirli koşullara bağlıdır ve muaf yapılar vardır:
 pay ölçerli site `ISITMA` (dönemsel, tüketim payına göre), pay ölçersiz site
 `YAKIT` (olay bazlı) kullanır. İkisi aynı projede **birlikte
-kullanılmamalıdır** — bunu doğrulayan bir kuralın gerekip gerekmediği açık
-sorudur (aşağıya bakınız).
+kullanılmamalıdır** — nasıl karşılandığı aşağıdadır.
 
-##### Bilinen sınırlar — geldiğinde yeniden değerlendirilecek
+### 2c. ★ ÇAKIŞMA UYARISI — engelleme değil, görünürlük (0030)
+
+Bu, bir "bilinen sınır" değil; **uyarıyla karşılanan bir risktir.**
+
+İki ısınma modeli aynı dönemde tahakkuk edilirse ısınma gideri sakinlere
+**iki kez** yansır — mükerrer tahakkukla aynı sınıf mali hata, farklı bir
+kapıdan. Yönetici fark etmez; sakin aylar sonra fark eder.
+
+**Neden katı kural DEĞİL:**
+
+1. **Geçiş dönemi meşrudur.** Yıl ortasında pay ölçer takılırsa aynı yıl önce
+   `YAKIT`, sonra `ISITMA` kullanılır. Katı kural bu geçişi bloklar ve
+   yöneticiyi geçmiş tahakkukların bağlı olduğu türü pasifleştirmeye zorlar.
+2. **Kısmi pay ölçerli siteler var** — bazı bloklarda var, bazılarında yok.
+   Bugünkü modelde blok ayrımı yoktur (bkz. 3. madde), yani bunu ifade edecek
+   yer de yoktur.
+3. **Yanlış katman olurdu.** Bu bir *tahakkuk anı* kuralı değil, bir *proje
+   yapılandırması* kuralıdır.
+
+**Ama sessizlik de kabul edilemez.** Tahakkuk yanıtı bu yüzden `uyarilar[]`
+taşır (`{ kod, mesaj, siddet: BILGI | DIKKAT }`). Alan **her zaman** döner —
+uyarı yoksa boş dizi; bazen var bazen yok olması istemcide sessiz `undefined`
+hatası üretirdi. İşlem **tamamlanır**, engellenmez; uyarı denetim kaydına da
+yazılır, çünkü "yönetici bunu görmüştü mü" sorusu aylar sonra ancak oradan
+cevaplanır. Önizlemede de döner — yönetici uygulamadan önce görürse hata hiç
+oluşmaz.
+
+**Çakışma tanımı VERİDİR, koda gömülü değildir.** Karşılıklı dışlayan türler
+`gider_turu_grubu` altında toplanır; uyarının kodu (`{GRUP_KODU}_CAKISMASI`),
+şiddeti ve metni gruptan gelir. Motor tek soru sorar: *bu dönemde aynı gruptan
+farklı bir tür tahakkuk edilmiş mi?*
+
+⚠️ **Neden küme, neden ikili ilişki değil:** `yerineGecenTur` gibi bir kendine
+referans ya da ikili bir çakışma tablosu, simetriyi **elle** sürdürmeyi
+gerektirir. Bir yön yazılıp diğeri unutulursa `ISITMA → YAKIT` uyarır, ters
+sıra **sessizce uyarmaz** — bu depoda tekrar tekrar kapatılan hata sınıfının
+aynısı. Küme üyeliğinde simetri kurgudan gelir; üçüncü bir üye eklemek tek
+satırdır.
+
+**Kalıcı çözüm bu değildir.** Kalıcı çözüm bir **proje ısınma modeli ayarıdır**
+(`PAY_OLCERLI | PAY_OLCERSIZ`). O ayar geldiğinde grup zaten yerinde olacak ve
+uyarı, aynı veriyi okuyan **gerçek bir kurala** dönüşecektir. Bugünkü uyarı, o
+güne kadar riski görünür tutar.
+
+Testler: CT-17 (`backend/test/contract/tahakkuk-uyarilari.spec.ts`), 7 test —
+iki sıra, farklı dönem, yalnız tek tür, gruba ait olmayan tür, önizleme ve
+denetim kaydı.
+
+#### Bilinen sınırlar — geldiğinde yeniden değerlendirilecek
 
 - **`ELEKTRIK_ORTAK` · `SU`:** tek abonelik varsayımıyla `DONEMSEL`. Çok
   abonelikli sitede (ortak alan + otopark + havuz ayrı sayaç) aynı ay iki

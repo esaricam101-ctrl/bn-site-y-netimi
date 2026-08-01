@@ -70,12 +70,38 @@ const APARTMANLAR: ApartmanTohumu[] = [
  *   ZORUNLUDUR; mükerrer koruması dönem ekseninde değil, gider olayı
  *   ekseninde kurulur.
  */
+/*
+ * KARŞILIKLI DIŞLAYAN GİDER TÜRÜ KÜMELERİ (0030).
+ *
+ * Aynı gruba bağlı türler birbirinin ALTERNATİFİDİR. İkisi aynı dönemde
+ * tahakkuk edilirse motor uyarı üretir — ENGELLEMEZ. Çakışma tanımı burada
+ * VERİ olarak durur; motor hiçbir gider türü kodu bilmez.
+ */
+const GIDER_TURU_GRUPLARI: {
+  kod: string;
+  ad: string;
+  cakismaSiddeti: string;
+  cakismaAciklamasi: string;
+}[] = [
+  {
+    kod: 'ISINMA',
+    ad: 'Isınma gideri modeli',
+    cakismaSiddeti: 'DIKKAT',
+    cakismaAciklamasi:
+      'Pay ölçerli sitede ISITMA, pay ölçersiz sitede YAKIT kullanılır. ' +
+      'İkisi aynı dönemde tahakkuk edilirse ısınma gideri sakinlere iki kez ' +
+      'yansımış olabilir. Dönemin tahakkuklarını kontrol edin.',
+  },
+];
+
 const GIDER_TURLERI: {
   kod: string;
   ad: string;
   paylasimKurali: Prisma.GiderTuruCreateInput['paylasimKurali'];
   sorumlulukTipi: Prisma.GiderTuruCreateInput['sorumlulukTipi'];
   tahakkukSikligi: Prisma.GiderTuruCreateInput['tahakkukSikligi'];
+  /** Karşılıklı dışlayan küme. Verilmezse tür hiçbir kümeye ait değildir. */
+  grupKodu?: string;
 }[] = [
   // md. 20/a — kapıcı, kaloriferci, bahçıvan, bekçi giderleri: EŞİT olarak.
   { kod: 'KAPICI', ad: 'Kapıcı gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
@@ -99,13 +125,13 @@ const GIDER_TURLERI: {
   //       · pay ölçerli site  → ISITMA (dönemsel, tüketim payına göre)
   //       · pay ölçersiz site → YAKIT  (olay bazlı, her dolum ayrı gider)
   //     Hangisinin kullanılacağı PROJE AYARIDIR, kod kararı değildir.
-  { kod: 'ISITMA', ad: 'Isıtma gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { kod: 'ISITMA', ad: 'Isıtma gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL', grupKodu: 'ISINMA' },
   // HER TANKER DOLUMU AYRI BİR OLAYDIR; iki dolum birbirinin düzeltmesi
   // değildir. Referans = irsaliye/fatura numarası.
   //
   // Paylaşım kuralı ARSA_PAYI olarak tohumlanır; yönetim planı farklı
   // diyorsa proje bazında değiştirilir — kural VERİDİR, koda gömülü değildir.
-  { kod: 'YAKIT', ad: 'Yakıt alımı', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
+  { kod: 'YAKIT', ad: 'Yakıt alımı', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'OLAY_BAZLI', grupKodu: 'ISINMA' },
   // ⚠️  BİLİNEN SINIR (ELEKTRIK_ORTAK · SU): tek abonelik varsayımıyla
   //     DONEMSEL. Çok abonelikli sitede (ortak alan + otopark + havuz ayrı
   //     sayaç) aynı ay iki fatura gelir ve türün ayrılması gerekir. Bu durum
@@ -229,12 +255,33 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     });
   }
 
+  /*
+   * KARŞILIKLI DIŞLAYAN GRUPLAR. Çakışma tanımı VERİDİR: uyarının kodu
+   * (`{kod}_CAKISMASI`), şiddeti ve metni buradan gelir; tahakkuk motoru
+   * hiçbir gider türü kodu bilmez.
+   */
+  const grupKimlikleri = new Map<string, string>();
+  for (const grup of GIDER_TURU_GRUPLARI) {
+    const id = randomUUID();
+    grupKimlikleri.set(grup.kod, id);
+    await prisma.giderTuruGrubu.create({
+      data: {
+        id, tenantId, kod: grup.kod, ad: grup.ad,
+        cakismaSiddeti: grup.cakismaSiddeti,
+        cakismaAciklamasi: grup.cakismaAciklamasi,
+      },
+    });
+  }
+
   for (const g of GIDER_TURLERI) {
     await prisma.giderTuru.create({
       data: {
         id: randomUUID(), tenantId, kod: g.kod, ad: g.ad,
         paylasimKurali: g.paylasimKurali, sorumlulukTipi: g.sorumlulukTipi,
         tahakkukSikligi: g.tahakkukSikligi,
+        ...(g.grupKodu === undefined
+          ? {}
+          : { grupId: grupKimlikleri.get(g.grupKodu) }),
         kuralKaynagi: 'KMK_VARSAYILAN', malikPaylasimi: 'HISSE_ORANI',
       },
     });

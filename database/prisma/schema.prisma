@@ -82,6 +82,7 @@ model Tenant {
   borclar          Borc[]
   tahakkukCalismalari TahakkukCalismasi[]
   idempotansKayitlari IdempotansKaydi[]
+  giderTuruGruplari   GiderTuruGrubu[]
   auditKayitlari   AuditKaydi[]
   outboxKayitlari  OutboxKayit[]
   numaraSayaclari  NumaraSayaci[]
@@ -743,6 +744,11 @@ model GiderTuru {
   ///
   /// Varsayılan DONEMSEL: sıklık unutulursa davranış SIKI tarafa düşer.
   tahakkukSikligi TahakkukSikligi @default(DONEMSEL) @map("tahakkuk_sikligi")
+
+  /// KARŞILIKLI DIŞLAYAN GRUP (0030). Aynı gruba bağlı türler birbirinin
+  /// ALTERNATİFİDİR; ikisi aynı dönemde tahakkuk edilirse uyarı üretilir.
+  /// NULL ise tür hiçbir alternatif kümesine ait değildir.
+  grupId String? @map("grup_id") @db.Uuid
   kaynakReferansi String?       @map("kaynak_referansi") @db.VarChar(200)
 
   /// KARMA bileşenleri: [{ kural, yuzde }]. Toplam 100 olmak zorundadır;
@@ -762,10 +768,42 @@ model GiderTuru {
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
   guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  grup   GiderTuruGrubu?  @relation(fields: [grupId], references: [id])
 
   @@index([tenantId, kod])
+  @@index([tenantId, grupId])
   @@map("gider_turu")
+}
+
+/// KARŞILIKLI DIŞLAYAN GİDER TÜRÜ KÜMESİ (0030).
+///
+/// ⚠️  Çakışma bir İLİŞKİ değil bir KÜME ÜYELİĞİDİR. İkili çakışma tablosu ya
+///     da `yerineGecenTur` gibi kendine referans KULLANILMADI: ikisi de
+///     simetriyi elle sürdürmeyi gerektirir ve bir yön unutulursa uyarı
+///     SESSİZCE tek yönlü çalışır. Grup üyeliğinde simetri kurgudan gelir.
+///
+/// Uyarının kodu `{kod}_CAKISMASI` olarak buradan TÜRETİLİR; şiddet ve metin
+/// de burada durur. Motor hiçbir gider türü kodu bilmez.
+model GiderTuruGrubu {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  kod String @db.VarChar(40)
+  ad  String @db.VarChar(120)
+
+  /// BILGI | DIKKAT — veritabanı CHECK kısıtı zorlar.
+  cakismaSiddeti    String @default("DIKKAT") @map("cakisma_siddeti") @db.VarChar(16)
+  cakismaAciklamasi String @map("cakisma_aciklamasi")
+
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
+  guncellemeTarihi  DateTime @default(now()) @updatedAt @map("guncelleme_tarihi") @db.Timestamptz(6)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  giderTurleri GiderTuru[]
+
+  @@unique([tenantId, kod])
+  @@map("gider_turu_grubu")
 }
 
 // ===========================================================================
