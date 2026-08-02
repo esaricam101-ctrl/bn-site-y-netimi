@@ -196,11 +196,26 @@ const GIDER_TURLERI: {
   { kod: 'YONETIM', ad: 'Yönetim gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
 ];
 
-/** KMK bağlamına sadeleştirilmiş hesap planı (ADR-0003 Koşul 3). */
-const HESAP_PLANI: { kod: string; ad: string; tip: Prisma.HesapCreateInput['tip'] }[] = [
-  { kod: '100', ad: 'Kasa', tip: 'VARLIK' },
-  { kod: '102', ad: 'Bankalar', tip: 'VARLIK' },
-  { kod: '120', ad: 'Aidat Alacakları', tip: 'VARLIK' },
+/**
+ * KMK bağlamına sadeleştirilmiş hesap planı (ADR-0003 Koşul 3).
+ *
+ * ⚠️  `ozellik` ATLANMAZ. Hangi hesabın kasa, banka, cari kontrol ya da
+ *     yansıtma olduğu hesap KODUNDAN çıkarılmaz — bu alandan okunur (§33
+ *     kural 3). Alan boş bırakılırsa hesap planı dolu görünür ama proje
+ *     ÇALIŞMAZ: tahsilat "Varsayılan kasa hesabı tanımlı değil" ile düşer,
+ *     kasa/banka defteri sessizce boş döner. Ölçüldü, CT-20 ile korunuyor.
+ */
+const HESAP_PLANI: {
+  kod: string; ad: string;
+  tip: Prisma.HesapCreateInput['tip'];
+  ozellik?: Prisma.HesapCreateInput['ozellik'];
+}[] = [
+  { kod: '100', ad: 'Kasa', tip: 'VARLIK', ozellik: 'KASA' },
+  { kod: '102', ad: 'Bankalar', tip: 'VARLIK', ozellik: 'BANKA' },
+  // Yardımcı defterin (bölüm cari bakiyeleri toplamı) mutabık olması gereken
+  // kontrol hesabı — ADR-0010. TEK hesap işaretlenir; ikincisi mutabakatı
+  // anlamsız kılar.
+  { kod: '120', ad: 'Aidat Alacakları', tip: 'VARLIK', ozellik: 'CARI_KONTROL' },
   { kod: '255', ad: 'Demirbaşlar', tip: 'VARLIK' },
   { kod: '320', ad: 'Tedarikçiler', tip: 'BORC' },
   { kod: '340', ad: 'Alınan Avanslar', tip: 'BORC' },
@@ -210,6 +225,10 @@ const HESAP_PLANI: { kod: string; ad: string; tip: Prisma.HesapCreateInput['tip'
   { kod: '770', ad: 'Yönetim Giderleri', tip: 'GIDER' },
   { kod: '771', ad: 'Personel Giderleri', tip: 'GIDER' },
   { kod: '772', ad: 'Bakım Onarım Giderleri', tip: 'GIDER' },
+  // Dönem sonu gider yansıtması (7/A). Demo veri üretmez; hesap planında
+  // TANIMLI olması yeterlidir — karşı hesap kullanıcının seçimidir ve
+  // otomatik tahmin edilmez (donem.service · yansitmaFisiUret).
+  { kod: '781', ad: 'Gider Yansıtma Hesabı', tip: 'GIDER', ozellik: 'YANSITMA' },
 ];
 
 /**
@@ -303,9 +322,56 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
   // RLS altında yazabilmek için tenant bağlamı kurulur.
   await prisma.$executeRawUnsafe(`SELECT set_config('app.tenant_id', '${tenantId}', false)`);
 
+  const hesapIdler = new Map<string, string>();
   await prisma.hesap.createMany({
-    data: HESAP_PLANI.map((h) => ({
-      id: randomUUID(), tenantId, kod: h.kod, ad: h.ad, tip: h.tip,
+    data: HESAP_PLANI.map((h) => {
+      const id = randomUUID();
+      hesapIdler.set(h.kod, id);
+      return { id, tenantId, kod: h.kod, ad: h.ad, tip: h.tip, ozellik: h.ozellik ?? 'NORMAL' };
+    }),
+  });
+
+  /*
+   * MUHASEBE PARAMETRELERİ — kurulumun ikinci yarısı.
+   *
+   * ⚠️  `hesap.ozellik` işaretlemesi TEK BAŞINA YETMEZ. Tahsilat yolu
+   *     varsayılan kasa/banka hesabını özellikten değil BU KAYITTAN okur:
+   *     "KASA özellikli hesap" birden fazla olabilir (ana kasa, şube kasası),
+   *     hangisine nakit yazılacağı bir SEÇİMDİR. Kayıt hiç açılmazsa
+   *     muhasebeleştirme "Varsayılan kasa hesabı tanımlı değil" ile düşer —
+   *     iki ayrı boşluktu, ikisi de kapatıldı.
+   */
+  await prisma.muhasebeParametresi.create({
+    data: {
+      tenantId,
+      varsayilanKasaHesapId: hesapIdler.get('100') ?? null,
+      varsayilanBankaHesapId: hesapIdler.get('102') ?? null,
+      // Dönem kârı hesabı BİLİNÇLİ olarak boş: kâr/zararın hangi özkaynak
+      // hesabına aktarılacağı yönetimin kararıdır, tohum adına verilemez.
+    },
+  });
+
+  /*
+   * MUHASEBE DÖNEMİ — kurulumun üçüncü yarısı; bu da eksikti.
+   *
+   * ⚠️  Hesaplar işaretli ve parametreler dolu olsa bile, İÇİNDE BULUNULAN
+   *     GÜNÜ kapsayan açık dönem yoksa hiçbir fiş kesilemez:
+   *     "2026-08-02 tarihini kapsayan bir muhasebe dönemi yok." Ölçüldü.
+   *
+   * ⚠️  DEMO YILINA SABİTLENMEZ. `DEMO_DONEMLER` 2026'ya sabit ama tohum
+   *     başka bir yılda kurulabilir; o zaman bugünü kapsayan dönem yine
+   *     olmazdı. Bu yüzden kurulum yılı ile demo yılı AYRI AYRI açılır.
+   */
+  const demoYil = new Date(DEMO_DONEMLER[0]?.donem ?? '2026-01-01').getUTCFullYear();
+  const yillar = [...new Set([new Date().getUTCFullYear(), demoYil])];
+  await prisma.muhasebeDonemi.createMany({
+    data: yillar.map((yil) => ({
+      id: randomUUID(), tenantId, maliYil: yil, ad: String(yil),
+      baslangic: new Date(Date.UTC(yil, 0, 1)),
+      bitis: new Date(Date.UTC(yil, 11, 31)),
+      // Hepsi AÇIK: kapalı dönem gösterimi dönem kapanışı akışının konusudur,
+      // tohumun kapalı dönem üretmesi kullanıcıyı çıkışsız bırakır.
+      durum: 'ACIK' as const,
     })),
   });
 

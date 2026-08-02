@@ -1552,6 +1552,99 @@ düzeltme hâlâ `tenant.reader.ts:113/:150`.
 
 ---
 
+### H. Kurulum bütünlüğü — tohumla kurulan proje muhasebe yapamıyordu (2 Ağustos 2026)
+
+Virman çalışması sırasında **ayrı bir bulgu** olarak çıktı, virmanla ilgisi yok.
+Kapatıldı; ama kapatılan **semptomdu, sebep değil** — sebep §H.3'te açık madde
+olarak duruyor.
+
+#### H.1 · Ölçüm — üç boşluk, sırayla ortaya çıktı
+
+Kanıt önce alındı, sonra düzeltildi. Her düzeltme bir sonrakini görünür yaptı:
+
+| # | Boşluk | Ölçülen davranış |
+|---|---|---|
+| 1 | `MuhasebeParametresi` kaydı **hiç açılmıyordu** | `POST /makbuzlar/:id/muhasebelestir` → **422** · *"Varsayılan kasa hesabı tanımlı değil; nakit tahsilat muhasebeleşemez."* |
+| 2 | 12 hesabın **hiçbirinde** `ozellik` yoktu (hepsi `NORMAL`) | `GET /muhasebe/defterler/kasa?ozellik=KASA` → **200 · `[]`** (BANKA da aynı) |
+| 3 | **Hiç muhasebe dönemi açılmıyordu** | 1 ve 2 kapatıldıktan sonra → **422** · *"2026-08-02 tarihini kapsayan bir muhasebe dönemi yok."* |
+
+Üçü de kapatıldıktan sonra uçtan uca kanıt: `POST /makbuzlar` → **201**,
+`POST /makbuzlar/:id/muhasebelestir` → **201 · `YEV-2026-000001`**.
+Kasa defteri artık `[]` değil, hesabı döndürüyor (satırları boş, çünkü fiş
+TASLAK ve `taslakMizanaGirer=false` — beklenen).
+
+> ⚠️ **Boşluk 3, ilk ikisi kapatılmadan GÖRÜNMÜYORDU.** İlk hata sonrakini
+> maskeliyordu. "Bir hata düzelttik, bitti" varsayımının neden ölçümle
+> sınanması gerektiğinin somut örneği.
+
+#### H.2 · YANSITMA — varsayımım yanlış çıktı, düzeltildi
+
+Önceki turda *"yansıtma dönem kapanışına kadar görünmez, muhtemelen o da
+sessiz"* demiştim. **Öyle değil.** `donem.service.ts:632` açık hata veriyor:
+
+```
+422 · "Yansıtılacak hesap hareketi yok."
+      sonrakiEylem: "Hesap planında özelliği YANSITMA olan hesap tanımlı mı?"
+```
+
+Yani aynı eksiklik sınıfı ürünün **iki farklı yerinde iki farklı şekilde**
+davranıyor: yansıtma yolu doğruyu yapıyor, kasa/banka defteri yapmıyor. Bu
+tutarsızlık ölçülmeseydi "hepsi sessiz" ya da "hepsi açık" sanılacaktı.
+
+#### H.3 · ★ Kapatılan semptomdu, sebep değil
+
+Tohum düzeltmesi **tohumu** düzeltir. Sebep şudur:
+
+> Kurulumun tamamlanıp tamamlanmadığını **hiçbir yerde kontrol eden yok.**
+> Eksik kurulmuş proje, hata vermek yerine boş ekran gösteriyor.
+
+Elle kurulan yeni bir tenant aynı duruma **bugün de** düşer. Bu yüzden
+`backend/test/contract/kurulum-butunlugu.spec.ts` (**CT-20 · 7 test**) iki
+bölümlü yazıldı ve **ikinci bölüm kalıcıdır**:
+
+- **Bölüm 1 (5 test)** — tohumun kurulumu tam mı. Düzeltmeden sonra yeşil.
+- **Bölüm 2 (2 test)** — kurulum EKSİKKEN sistem ne yapıyor. Kendi işaretsiz
+  tenant'ını kurar; **tohum düzeltildikten sonra da koşar.** Amacı sessizliğin
+  görünür kalmasıdır. `it.skip` kullanılmadı — atlanan test, olmayan testtir.
+
+#### H.4 · Migration YAZILMADI — gerekçe
+
+Var olan projelerin hesap planına `ozellik` atayan bir migration **bilerek
+yazılmadı**:
+
+> `kod='120'` varsayan bir migration, hesap planını özelleştirmiş projede
+> **yanlış hesabı kontrol hesabı yapar. Sessiz bozulma, işaretsiz kalmaktan
+> kötüdür.**
+
+Hangi hesabın kontrol hesabı olduğu **mali bir karardır** (ADR-0010) ve kod
+adına verilemez. Var olan projeler için doğru yol §H.3'teki kurulum kontrolü:
+eksikliği **söyle**, tahmin etme.
+
+#### H.5 · Yol haritasına eklenen üç madde
+
+- **(b) Defter sorgusu açık hata versin.** `defter.query.service.ts:293-316` —
+  işaretli hesap yoksa `hesaplar` boş kalıyor, döngü hiç dönmüyor, `200 · []`
+  dönüyor. "Hesap işaretlenmemiş" ile "hesapta hareket yok" ayrı iki durumdur;
+  ikisi de aynı yanıtı veriyor. Doğrusu: işaretli hesap yoksa **422 + çıkış
+  yolu**. Düzeltildiğinde CT-20 test (6) *422 bekleyecek şekilde GÜNCELLENİR,
+  silinmez.*
+- **(c) Kurulum tamamlanma kontrolü.** Proje "kullanıma hazır" sayılmadan önce
+  neyin zorunlu olduğunu tek yerde tanımlayan kontrol: parametre kaydı,
+  kasa/banka/cari kontrol/yansıtma işaretleri, bugünü kapsayan açık dönem.
+  Eksikse yönetime **liste hâlinde** göster. Henüz **yapılmadı**, karar bekliyor.
+- **Uç adı tutarsızlığı.** Tahsilat modülünün ucu `POST /makbuzlar`, modül adı
+  `tahsilat`. `POST /tahsilat` **404** veriyor (ölçüldü). İkisinden biri
+  seçilmeli; bu turda dokunulmadı.
+
+#### H.6 · Yan bulgu — testin kendisi de sessiz kalabiliyor
+
+CT-20 test (2) ilk koşumda **yanlış sebeple yeşil** geçti: kayıt yokken
+`p?.varsayilanKasaHesapId` `undefined` üretiyor ve `not.toBeNull()` geçiyor.
+Test dosyasına kural olarak yazıldı: **iddia edilen şeyin varlığı önce
+daraltılır, `?.` ile geçiştirilmez.**
+
+---
+
 ## 4. Sonraki oturum — ilk komut ve ilk görev
 
 ```bash
