@@ -82,6 +82,55 @@ kuralları olacaktır.
    kuruluna sunulmuş rakam ile güncel bakiye arasındaki fark nerede görünür?
    İcra masrafı ve gecikme tazminatı hangi dönemin geliridir?
 
+7. **★ BÜTÇE FARKI NEREYE DÜŞER? — bu ADR'nin asıl konusu (2 Ağustos 2026)**
+
+   ⚠️ **ÖNCE BİR YANLIŞ ÇIKARIMI KAPATALIM: "kâr/zarar yapısal olarak
+   sıfırdır" DOĞRU DEĞİLDİR.**
+
+   Aidat **tahmini bütçeye** göre belirlenir. Gerçek giderler tahmini tutmaz:
+   tasarrufla **artı**, beklenmedik masrafla **eksi** verir. Dönem sonunda
+   toplanan avans ile harcanan gider **EŞİT DEĞİLDİR ve eşit olması
+   beklenemez.**
+
+   Bu fark kâr/zarar değildir — yönetim kâr amacı gütmez — **ama muhasebede
+   bir yere düşmek ZORUNDADIR.** Avans yaklaşımı (ADR-0017 · S2) farkı ortadan
+   kaldırmaz, yalnızca nereye düşeceğini değiştirir.
+
+   **(a) ARTI BAKİYE (tasarruf) ne olur?**
+   - Ertesi döneme **devreder** mi?
+   - Kat maliklerine **iade** mi edilir? (dış araştırma bu görüşü aktarıyor;
+     pratikte genelde devrediliyor)
+   - **Yenileme fonuna** mı aktarılır?
+   - **Genel kurul kararına** mı bağlıdır — yani sistem bir varsayılan
+     dayatmalı mı, yoksa kararı kaydedip ona mı uymalı?
+
+   Muhasebe karşılığı: avans bakiyesi (`349` benzeri) devreder mi, kapatılır
+   mı? Gelir yaklaşımı seçilirse bu bakiye kâra kapanır — ki artı bakiyenin
+   "kâr" sayılması KMK md. 20 ile çelişir.
+
+   **(b) EKSİ BAKİYE (bütçe aşımı) ne olur?**
+   - **Ek tahakkuk** mu çıkarılır?
+   - **Ertesi dönem aidatına** mı yansıtılır?
+   - Yönetimin **başka kaynağından** mı karşılanır (yenileme fonu, yedek akçe)?
+
+   ★ Bu, (a)'dan **daha sık ve daha sancılıdır**: para zaten harcanmıştır,
+   karşılığı yoktur. Muhasebe karşılığı ne olacak — açık borç mu, negatif
+   avans mı, ayrı bir alacak kalemi mi?
+
+   ⛔ Eksi bakiyeyi ek tahakkukla kapatmak, **yeni bir dayanak** gerektirir
+   (ADR-0017 §6): kesinleşmemiş dayanağa tahakkuk yazılamıyorsa yıl sonu farkı
+   da kendiliğinden tahakkuk edemez.
+
+   **(c) Bu iki durum hangi mekanizmayla yapılır?**
+   - ADR-0014'teki **`OLAY_BAZLI`** tahakkukla mı (ayırt edici `referans`
+     taşıyan, dönemde birden çok koşabilen çalışma)?
+   - Yoksa **ayrı bir kapanış işlemi** mi (kendi fiş türü, kendi denetim izi)?
+
+   ★ Ölçüt: yıl sonu farkı bir **gider dağıtımı** mıdır (o zaman tahakkuk
+   motoru doğru yerdir), yoksa bir **kapanış kaydı** mıdır (o zaman dönem
+   servisi doğru yerdir)? İkisi karıştırılırsa fark hem mizanda hem borç
+   listesinde iki kez görünebilir.
+
 ## Karar
 
 **Verilmedi.**

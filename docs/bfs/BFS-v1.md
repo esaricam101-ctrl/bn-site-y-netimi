@@ -379,6 +379,32 @@ Web `next-intl`, mobil aynı sözlüğü paylaşır. Sözlük `packages/ui-token
 
 Domain sözlüğü (aidat, demirbaş, işletme projesi, arsa payı, gecikme tazminatı, kat malikleri kurulu) resmî ve tutarlıdır; AI çıktıları da bu sözlüğe uyar.
 
+### 13.1 Terminoloji — BAĞLAYICI
+
+Kaynak kodda, yorumlarda, i18n değerlerinde, menü ve ekran adlarında geçerlidir.
+
+| Kavram | Ad | ⛔ Kullanılmaz |
+|---|---|---|
+| Tek parselli, tek yapı | **APARTMAN** | "blok", "blok yönetimi" |
+| Toplu yapı | **SITE** | — |
+| Site içindeki yapı birimi | **BLOK** | — |
+
+**"Blok" yalnızca site içindeki yapı birimidir.** Başka hiçbir anlamda
+kullanılmaz. `Blok` tablosunun kendisi doğrudur — yanlış olan, tek yapının
+yönetimine "blok" demektir.
+
+⛔ **"Blok yönetimi" terimi HİÇ KULLANILMAZ** — site bloğuyla karışır. Tek yapı
+yönetimi **APARTMAN YÖNETİMİ**'dir. Modül/menü adları: *Apartman Yönetimi* ·
+*Site Yönetimi*.
+
+★ **Dış kaynaktan alıntıda terim ÇEVRİLİR.** Hukuk literatüründe "blok
+yönetimine geçiş" ifadesi geçer (site yönetiminden ayrılıp her binanın kendi
+yönetimini kurması). BNOS'ta bunun adı **apartman yönetimine geçiş**tir.
+Alıntı yaparken terim olduğu gibi taşınmaz.
+
+`Tenant.tip` enum'u bu ayrımı zaten doğru kuruyor: `APARTMAN · SITE ·
+YONETIM_SIRKETI`. Korunur.
+
 ---
 
 ## 14. Test

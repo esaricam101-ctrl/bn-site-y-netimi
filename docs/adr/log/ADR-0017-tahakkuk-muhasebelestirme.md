@@ -199,8 +199,23 @@ Bu yüzden burada karar YAZILMIYOR. Karara bağlanacak olan:
 
 ★ (iii) seçilirse S1 ve S2 tek mekanizmada birleşir ve iki farklı muhasebe
 görüşü aynı üründe barınır. Maliyeti: yıl sonu davranışı ikiye ayrılır — avans
-bakiyesi **devredilir/iade edilir**, gelir bakiyesi kâr/zarara kapanır.
-ADR-0015'in (yıl sonu kapanışı) altı açık sorusu bu seçime bağlanır.
+bakiyesinin **ne olacağı** ile gelir bakiyesinin **ne olacağı** aynı şey
+değildir.
+
+> ⚠️ **YANLIŞ ÇIKARIM UYARISI — "kâr/zarar yapısal olarak sıfırdır" DEĞİLDİR.**
+>
+> Aidat **tahmini bütçeye** göre belirlenir. Gerçek giderler tahmini tutmaz:
+> tasarrufla artı, beklenmedik masrafla eksi verir. Dönem sonunda **toplanan
+> avans ile harcanan gider EŞİT DEĞİLDİR ve eşit olması beklenemez.**
+>
+> Bu fark kâr/zarar değildir — yönetim kâr amacı gütmez — **ama muhasebede bir
+> yere düşmek ZORUNDADIR.** Avans yaklaşımı bu farkı ortadan kaldırmaz, yalnızca
+> nereye düşeceğini değiştirir.
+>
+> Farkın nereye düşeceği **bu ADR'nin değil, ADR-0015'in konusudur** ve orada
+> açık soru olarak durur.
+
+ADR-0015'in (yıl sonu kapanışı) açık soruları bu seçime bağlanır.
 
 ### 5.3 · S3 (fiş granülerliği) — RAPOR CEVAPLIYOR
 
@@ -260,7 +275,109 @@ birlikte verilmelidir. Yol haritasına madde olarak yazıldı.
 
 ---
 
-## 6 · Bu ADR karara bağlanmadan yapılmayacaklar
+## 6 · ★ TAHAKKUKUN DAYANAĞI — bugün YOK
+
+Bu, ölçülen en ağır boşluktur ve muhasebeleştirmeden önce **kavram olarak**
+yerine oturmalıdır (uygulaması ayrı iştir, ayrı ADR).
+
+### 6.1 · Dayanak iki tarafta da var, biçimi farklı
+
+| | Dayanak | Nasıl kurulur |
+|---|---|---|
+| **SITE** | **İşletme projesi** | Yazılı bütçe, kalem kalem. KMK md. 37: tebliğ → **7 gün itiraz** → kesinleşme |
+| **APARTMAN** | **Kat malikleri kurulu kararı** | Tutar doğrudan kararlaştırılır, **karar defterine** yazılır (KMK md. 32) |
+
+★ **KANUN İKİSİNİ EŞDEĞER TUTAR.** Usulüne uygun kesinleşen işletme projesi
+**VEYA** kat malikleri kurulunun işletme giderlerine ilişkin kararları,
+noterlikçe hazırlanmış **borç senedi kadar güçlüdür** (İİK md. 68 dayanağı).
+İcra takibinde ikisi de kullanılabilir.
+
+### 6.2 · Bugünkü durum — zincir dayanaksız
+
+`TahakkukCalistirDto` (`tahakkuk/dto/tahakkuk.dto.ts:50-82`) şunları alıyor:
+`giderTuruKodu` · `toplamTutar` · `donem` · `vadeTarihi` · `hedefBlokId` ·
+`bolumGirdileri`. **Dayanağa dair hiçbir alan yok.**
+
+Yani bugün: tutar **serbest giriliyor**; hangi bütçeye dayandığı, hangi kararla
+onaylandığı, tebliğ edilip edilmediği, kesinleşip kesinleşmediği **hiçbir yerde
+kayıtlı değil.**
+
+Sonucu tahakkukla sınırlı değildir — **zincirin tamamı dayanaksız kalır:**
+
+```text
+dayanak → tebliğ → 7 gün itiraz → kesinleşme → İİK md. 68 → icra takibi
+```
+
+Kesinleşmemiş işletme projesi icra takibinde dayanak olmaz. Ürün bugün bu
+zincirin **ilk halkasını** tutmuyor.
+
+`IsletmeProjesi` diye bir model şemada **yok** (0 eşleşme).
+
+### 6.3 · Model önerisi — TEK KAVRAM, İKİ TİP
+
+Öneri: `TahakkukDayanagi`, `tip: ISLETME_PROJESI | KURUL_KARARI`. **Ayrı iki
+varlık olmasın.**
+
+**Neden tek kavram — ölçüt "ortak alan ne kadar":**
+
+Ortak olan (her iki tipte de aynı): kimlik · dönem · **karar tarihi ve karar
+defteri referansı** · durum · tahakkukla bağ · denetim izi · RLS · tenant.
+Ayrışan yalnızca iki şey: tebliğ/kesinleşme alanları (site tarafında zorunlu) ve
+bütçe kalemleri ↔ doğrudan tutar.
+
+Belirleyici gerekçe **ortak alan sayısı değil, ORTAK DAVRANIŞ**: tahakkuk her
+iki tipe de aynı şekilde bağlanır ve icra zinciri her iki tipi de aynı şekilde
+kullanır (İİK md. 68 ikisini eşdeğer tutuyor). İki ayrı varlık olsaydı:
+
+- `TahakkukCalismasi` iki ayrı isteğe bağlı yabancı anahtar taşırdı ve
+  "ikisi de dolu" / "ikisi de boş" durumları **veritabanında mümkün** olurdu;
+- icra/tebligat tarafı her yerde iki dal yazardı ve biri düzeltildiğinde öteki
+  **sessizce eski davranmaya** devam ederdi — ADR-0016'daki `GiderTuruGrubu`
+  gerekçesinin aynısı (simetriyi elle sürdürmek);
+- tenant tipi değişen bir projede (apartman → site) geçmiş dayanaklar **başka
+  bir tabloda** kalırdı.
+
+**Tipe göre zorunluluk farkı, ayrı tablo değil KISIT ile kurulur** —
+`GiderTuru.tahakkukSikligi`'nde (0027) uygulanan desenin aynısı:
+
+```text
+CHECK (tip <> 'ISLETME_PROJESI' OR teblig_tarihi IS NOT NULL)   -- örnek
+CHECK (tip <> 'KURUL_KARARI'    OR sabit_tutar   IS NOT NULL)
+```
+
+**Önerilen alanlar** (ürün sahibinin taslağı + üç ekleme):
+
+| Alan | Not |
+|---|---|
+| `id` · `tenantId` | |
+| `tip` | `ISLETME_PROJESI \| KURUL_KARARI` |
+| `donem` | Hangi yıl/dönem için |
+| `kararTarihi` · `kararNo` | Karar defteri referansı — **her iki tipte de** |
+| `tebligTarihi?` · `kesinlesmeTarihi?` | Site tarafında zorunlu (CHECK) |
+| `durum` | `TASLAK \| TEBLIG_EDILDI \| KESINLESTI \| ITIRAZ_VAR` |
+| `kalemler[]?` | Bütçe kalemleri (site) |
+| `sabitTutar?` | Doğrudan tutar (apartman) |
+| ★ `gecerlilikBaslangic` · `gecerlilikBitis` | **EKLEME.** Geçici işletme projesi **en fazla 3 ay** geçerlidir (KMK md. 35/37, 7 Mayıs 2026). Süre alanı olmadan bu kural yazılamaz |
+| ★ `gecici` (boolean) | **EKLEME.** Yöneticinin tek başına hazırladığı geçici proje ile genel kurulca onaylanmış proje aynı şey değildir |
+| ★ `oncekiDayanakId?` | **EKLEME.** İtiraz sonrası düzeltilen proje, öncekinin **yerine geçer**; zincir kaybolmamalı |
+
+⚠️ `durum` alanı ile tarih alanları **aynı bilgiyi iki kez** taşıyor
+(`KESINLESTI` ↔ `kesinlesmeTarihi`). Türetilmiş mi, bağımsız mı — kararla
+birlikte netleşmeli; ikisi bağımsız yazılabilirse biri güncellenmediğinde durum
+**sessizce yanlış** olur.
+
+### 6.4 · Bu ADR'ye etkisi
+
+`TahakkukCalismasi` ileride `dayanakId` taşıyacak ve **KESINLESTI olmayan
+dayanağa tahakkuk yasaklanacaktır.** Tahakkuk muhasebeleştirmesi bugün
+yazılırken bu bağ **kurulmayacak** ama fişin açıklaması ve `kaynakTipi` bu bağ
+geldiğinde kırılmayacak biçimde tasarlanacaktır.
+
+★ `TahakkukDayanagi` **bu turda UYGULANMAZ** — ayrı iş, ayrı ADR.
+
+---
+
+## 7 · Bu ADR karara bağlanmadan yapılmayacaklar
 
 - Virman uygulaması (ADR-0016) — deftere yazan ikinci mekanizma
 - `kontrol-mutabakati` raporunun eşiğe bağlanması — bugün her projede `false`

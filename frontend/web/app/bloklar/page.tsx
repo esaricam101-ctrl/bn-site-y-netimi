@@ -1,7 +1,10 @@
 'use client';
 
 /**
- * Blok yönetimi. `?apartmanId=` ile süzülür — apartman kartından gelinir.
+ * Blok kayıtları. `?apartmanId=` ile süzülür — apartman kartından gelinir.
+ *
+ * ⚠️  "Blok yönetimi" DENMEZ (BFS v1 §13.1). "Blok" yalnızca site içindeki
+ *     yapı birimidir; tek yapının yönetimine APARTMAN YÖNETİMİ denir.
  *
  * Blok seçilince katları aynı ekranda açılır: iki seviye arasında sayfa
  * değiştirmek, kırk daireli bir binada gezinmeyi yorucu kılar.
