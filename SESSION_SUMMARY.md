@@ -1918,15 +1918,61 @@ vurgulamak, arayan tarafın metni bulamamasına yol açıyordu.
 
 ## 4. Sonraki oturum — ilk komut ve ilk görev
 
+> ⚠️ **AŞAĞIDAKİ "ÖNCEKİ İLK GÖREV" VE "AÇIK İŞ" BÖLÜMLERİ ESKİDİR** ve
+> tarihsel kayıt olarak duruyor. **3 Ağustos 2026 itibarıyla güncel devir
+> aşağıdaki kutudur.**
+
+### ▶ DEVİR — 3 Ağustos 2026
+
 ```bash
-pnpm db:up && pnpm db:status && pnpm verify && pnpm test:contract
+pnpm db:up && pnpm db:reset && pnpm verify && pnpm --filter @bnos/backend exec vitest run
 ```
 
-Beklenen: `14 migrations found` · `Database schema is up to date` ·
-`Tum kontroller yesil` · `24 passed`.
+Beklenen: `Tum kontroller yesil` (14 adım) · **122 passed (122)**.
 
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
+
+⚠️ **Geliştirme sunucusunu PowerShell'den başlatın, Git Bash'ten DEĞİL**
+(§J.6): MSYS yol dönüşümü `API_PREFIX` değerini bozar ve bütün rotalar 404
+verir. Şu an ayakta olan süreç `node --env-file=.env backend/dist/main.js` ile
+koşuyor — **derlenmiş çıktı, watch modu YOK**. Geliştirmeye devam etmeden önce
+durdurup kendi `pnpm dev:backend` akışınızı açın.
+
+#### Bu oturumda kapananlar
+
+| Commit | İş |
+|---|---|
+| `ccf8fb0` | Tohum kurulumu tamamlanıyor + CT-20 kurulum bütünlüğü |
+| `f020b0b` | `odenen` tahsis satırlarından türetiliyor + hisseli mülkiyet fikstürü |
+| `a5a3285` | ADR-0017'ye hukuk/muhasebe araştırması + iki atıf düzeltmesi |
+| `48d0647` | Tahakkukun dayanağı kavramı + bütçe farkı soruları + terminoloji kuralı |
+| `9abf128` | Tahakkuk muhasebeleştirmesi + dağıtım ezmesi + muhasebe derinliği |
+| `8e60d11` | SITE tenant muhasebeleşiyor — `mutabikMi: true` |
+| `10950b2` | `verify` uygulama paketlerini tip denetimine aldı |
+| `2ef78f4` | **Cari virman uygulandı** (ADR-0016 §C) — CT-19 18/18 |
+
+#### ★ İLK GÖREV — karar bekleyen üç madde
+
+Kod yazmadan önce bunlar cevaplanmalı; üçü de ürün sahibine ait:
+
+1. **`APARTMAN_YONETICISI` deftere yazamıyor** (yol haritası P1 · ADR-0016
+   C-A1). Rol `FINANS_YEVMIYE_GIRIS` taşımıyor: tahakkuk çalıştırabiliyor ama
+   deftere geçiremiyor, virman da yapamıyor. Alt soru: taşınma virmanı deftere
+   hiç yazmıyorsa ondan da yevmiye izni istemek doğru mu?
+2. **ADR-0016 §A ve §B soru listeleri** — kasa/banka ve hesap virmanı hâlâ
+   açık; ürün sahibinin listeleri gelmedi.
+3. **ADR-0015 soru 7** — yıl sonu artı/eksi bakiye nereye düşer.
+
+#### Sonra sırada (karar gerektirmeyen)
+
+- `TahakkukDayanagi` uygulaması — model kararı verildi (ADR-0017 §6.3), ayrı
+  ADR ile. **Yol haritasında P0**: bugün tahakkuk tutarı serbest giriliyor ve
+  tebligat/icra zincirinin ilk halkası tutulmuyor.
+- `GiderKapsami` / iki kademeli gider paylaşımı — site tarafı bugün ifade
+  edilemiyor.
+- Aidat artış tavanı (YDO) — üründe hiç yok.
+- Apartman tarafının basit gelir-gider ekranı (`BASIT` derinliğin çıktısı).
 
 ### ✅ Önceki ilk görev TAMAMLANDI
 
