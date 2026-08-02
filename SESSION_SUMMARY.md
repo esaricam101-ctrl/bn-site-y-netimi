@@ -1770,7 +1770,91 @@ derinlikte bunların olmaması **eksiklik değildir**. Artık üç bölümlü ve
 yazılıyordu ama **hiçbir fikstür onu temsil etmiyordu**. Papatya Sitesi
 eklendi (2 blok · 8 bölüm · hisseli daire dâhil).
 
-#### J.5 · ★ CT-04 tam süitte kırmızı — sebebi CT-19
+#### J.5 · Canlı ölçüm — her iki taraf
+
+```json
+SITE (Papatya · CIFT_TARAFLI)
+{"yardimciDefterToplami":"15600.0000","kontrolHesabiBakiyesi":"15600.0000",
+ "fark":"0.0000","mutabikMi":true,"bolumSayisi":8}
+
+APARTMAN (Güzel · BASIT) → HTTP 422
+{"detail":"Bu proje basit muhasebe kullanıyor; kontrol hesabı mutabakatı
+ yapılmaz.","sonrakiEylem":"… Alacak takibi ETKİLENMEZ: …"}
+```
+
+#### J.6 · ★ 404 SUNUCU ARIZASI — sebep BENDİM, P0 değil
+
+Bütün rotalar 404 veriyordu, `/api/v1/saglik` dâhil. Teşhis:
+
+```text
+[RoutesResolver] HealthController {/C:/Program Files/Git/api/v1/saglik}
+```
+
+Genel önek `/api/v1` yerine **`/C:/Program Files/Git/api/v1`** olarak
+kaydedilmiş. Sebep: sunucuyu **Git Bash içinden** `set -a && . ./.env` ile
+başlatmıştım; MSYS yol dönüşümü `.env`'deki `API_PREFIX="/api/v1"` değerini
+Windows yoluna çevirdi.
+
+⚠️ **Denetim raporundaki P0 giriş noktası bulgusu DEĞİLDİ ve o bulgu şu an
+yeniden üretmiyor:** `backend/dist/main.js` var ve taze, `dist/src/main.js`
+yok. `config-check.mjs` bunu zaten kapı olarak doğruluyor
+(*"Giris noktasi dogrulandi: backend/dist/main.js"*).
+
+★ **Ders:** Windows'ta bir Node sunucusunu Git Bash'ten ortam yükleyerek
+başlatmayın; eğik çizgiyle başlayan değerler sessizce yola çevrilir. Hata
+mesajı vermez — rota tablosu bozulur.
+
+#### J.7 · ★★ `pnpm verify` UYGULAMA KODUNU HİÇ TİP DENETİMİNDEN GEÇİRMİYORDU
+
+Bu turda üç gerçek hata (`FIS_TURLERI`/`FisTuru` `TAHAKKUK` taşımıyor, gider
+türü ucu zorunlu `muhasebeHesapId`'yi vermiyor) **`pnpm verify` YEŞİLKEN**
+geçti ve ancak sunucu yeniden başlatılınca ortaya çıktı.
+
+**Sebep ölçüldü:**
+
+| Ne | Kapsam |
+|---|---|
+| Kök `tsconfig.json` → `references` | **yalnızca `shared/*`** — `backend` grafikte YOK |
+| `verify` adımı *"TypeScript derleme (tsc -b)"* | kök grafiği derler → uygulama kodunu **görmez** |
+| `verify` adımı *"Test derlemesi"* | `tests/tsconfig.json` → framework bağımsız modüller |
+| Vitest | tip denetimi **yapmaz** |
+| CI `pnpm typecheck` → `pnpm -r typecheck` | backend `tsc --noEmit` — **yakalardı** |
+
+Yani **yerel kapı ile CI aynı şeyi ölçmüyordu.** Adın *"TypeScript derleme"*
+olması bütün deponun tarandığı izlenimi veriyordu; taramıyordu.
+
+**Kapatıldı.** `verify` artık uygulama paketlerini de tarıyor ve **liste elle
+yazılmadı, TÜRETİLDİ**: workspace desenlerinden paketler bulunur,
+`typecheck` betiği `--noEmit` içerenler taranır (`tsc -b` kullananlar kök
+grafikte zaten var). Yeni bir paket eklendiğinde sessizce dışarıda kalmaz.
+
+```text
+GECTI      Tip denetimi — backend
+GECTI      Tip denetimi — frontend/mobile
+GECTI      Tip denetimi — frontend/web
+GECTI      Tip denetimi — database
+```
+
+⚠️ `pnpm -r typecheck` çağrılmadı: `pnpm` Windows'ta `.cmd` shim'idir ve
+`execFileSync` onu kabuk olmadan çalıştıramaz — denendi, adım **boş çıktıyla**
+başarısız oluyordu.
+
+**Negatif test yapıldı** (kapı gerçekten yakalıyor mu):
+
+```text
+FIS_TURLERI'den 'TAHAKKUK' geçici olarak kaldırıldı
+  →  BASARISIZ  Tip denetimi — backend
+dosya yedekten geri alındı (git checkout -- KULLANILMADI)
+```
+
+★ **Ders — "güvence mekanizmasının kendisi doğrulanmamış" sınıfının yeni
+örneği.** Bir kapının adı, neyi kapsadığının kanıtı değildir. Bu oturumda
+aynı sınıf dört kez çıktı: RLS politikaları hiç sınanmamıştı, CI iş akışı hiç
+koşmamıştı, `Idempotency-Key` okunmuyordu, ve şimdi tip kapısı uygulama
+kodunu görmüyordu. **Yeni bir kapı eklendiğinde negatif testi de eklenmeli:
+kapıyı bilerek ihlal et, kırmızıya döndüğünü gör, geri al.**
+
+#### J.8 · ★ CT-04 tam süitte kırmızı — sebebi CT-19
 
 ```text
 virman HARİÇ süit  →  104/104 YEŞİL
