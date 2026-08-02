@@ -17,8 +17,10 @@ import { DogrulamaHatasi } from '@bnos/core-domain';
 export type HesapTipi = 'VARLIK' | 'BORC' | 'OZKAYNAK' | 'GELIR' | 'GIDER';
 export type HesapOzelligi = 'NORMAL' | 'KASA' | 'BANKA' | 'YANSITMA';
 export type FisDurumu = 'TASLAK' | 'ISLENDI' | 'TERS_KAYITLI';
+/** `TAHAKKUK` — ADR-0017 · migration 0032. Dönem kapanışı ve raporlar
+ *  `fisTuru`ne dayanır; `MAHSUP`a sıkıştırılsaydı ayırt edilemezdi. */
 export type FisTuru =
-  | 'ACILIS' | 'MAHSUP' | 'TAHSILAT' | 'TEDIYE' | 'YANSITMA' | 'KAPANIS';
+  | 'ACILIS' | 'MAHSUP' | 'TAHAKKUK' | 'TAHSILAT' | 'TEDIYE' | 'YANSITMA' | 'KAPANIS';
 export type DonemDurumu = 'ACIK' | 'KAPANIS_SURECI' | 'KAPALI';
 
 /**

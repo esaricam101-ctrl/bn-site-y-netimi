@@ -341,6 +341,126 @@ interface BorcTarafi {
   payda: bigint;
 }
 
+/**
+ * TOHUMUN MUHASEBELEŞTİRMESİ — yalnızca CIFT_TARAFLI projede (ADR-0017).
+ *
+ * ⚠️  BU FONKSİYON OLMADAN DEMO BAKİYE FARKI GÖSTERİYORDU. Ölçüldü:
+ *     `kontrol-mutabakati` → `{"fark":"15600.0000","mutabikMi":false}` —
+ *     yani aylardır kapatmaya çalıştığımız şeyin tam tersi ekranda duruyordu.
+ *
+ * ⚠️  ÜRETİLEN BİÇİM, `muhasebelestir` UCUNUN ÜRETTİĞİNİN AYNISIDIR:
+ *     tahakkuk → borç `CARI_KONTROL` / alacak `giderTuru.muhasebeHesapId`,
+ *     tahsilat → borç `KASA` / alacak `CARI_KONTROL`, `fisTuru` ve
+ *     `kaynakTipi`/`kaynakId` dâhil. Tohum ürünün YAPMADIĞI bir şeyi
+ *     göstermez — tahakkuk geçmişinde uygulanan disiplinin aynısı.
+ *
+ * ⚠️  FİŞLER `ISLENDI`: taslak fiş mizana girmez (`taslakMizanaGirer=false`)
+ *     ve girmediği sürece kontrol hesabı boş kalırdı.
+ */
+async function muhasebelestir(
+  tenantId: string, hesapIdler: ReadonlyMap<string, string>,
+): Promise<void> {
+  const donemler = await prisma.muhasebeDonemi.findMany({
+    where: { tenantId }, select: { id: true, maliYil: true },
+  });
+  const donemIdBul = (tarih: Date): string | null =>
+    donemler.find((d) => d.maliYil === tarih.getUTCFullYear())?.id ?? null;
+
+  const kontrolId = hesapIdler.get('120');
+  const kasaId = hesapIdler.get('100');
+  if (kontrolId === undefined || kasaId === undefined) {
+    throw new Error('Kontrol/kasa hesabı yok; tohum muhasebeleştiremez.');
+  }
+
+  let sira = 0;
+  const fisYaz = async (
+    tarih: Date, aciklama: string,
+    fisTuru: 'TAHAKKUK' | 'TAHSILAT', kaynakId: string,
+    borcHesapId: string, alacakHesapId: string, tutar: Prisma.Decimal,
+  ): Promise<string> => {
+    const donemId = donemIdBul(tarih);
+    if (donemId === null) throw new Error(`${tarih.toISOString()} için dönem yok.`);
+    sira += 1;
+    const fisId = randomUUID();
+    await prisma.yevmiyeFisi.create({
+      data: {
+        id: fisId, tenantId,
+        fisNo: `YEV-${tarih.getUTCFullYear()}-${String(sira).padStart(6, '0')}`,
+        tarih, aciklama, fisTuru, kaynakTipi: fisTuru, kaynakId,
+        durum: 'ISLENDI', islenmeAni: new Date(), donemId,
+        satirlar: {
+          create: [
+            { id: randomUUID(), tenantId, hesapId: borcHesapId, borc: tutar, alacak: 0 },
+            { id: randomUUID(), tenantId, hesapId: alacakHesapId, borc: 0, alacak: tutar },
+          ],
+        },
+      },
+    });
+    return fisId;
+  };
+
+  // --- Tahakkuklar: çalışma başına TEK fiş (K3) ------------------------------
+  const calismalar = await prisma.tahakkukCalismasi.findMany({
+    where: { tenantId, yevmiyeFisiId: null },
+    select: { id: true, donem: true, giderTuruKodu: true },
+    orderBy: { donem: 'asc' },
+  });
+  for (const c of calismalar) {
+    // Deftere giren rakam, borçluların GERÇEKTEN borçlandığı rakamdır —
+    // `toplamTutar` istekte gelen tutardır ve kuruş artığıyla ayrışabilir.
+    const toplam = await prisma.borc.aggregate({
+      where: { tenantId, calismaId: c.id }, _sum: { tutar: true },
+    });
+    const tutar = toplam._sum.tutar;
+    if (tutar === null || tutar.isZero()) continue;
+
+    const tur = await prisma.giderTuru.findFirstOrThrow({
+      where: { tenantId, kod: c.giderTuruKodu },
+      select: { ad: true, muhasebeHesapId: true },
+    });
+    const donemMetni = c.donem.toISOString().slice(0, 10);
+    const fisId = await fisYaz(
+      c.donem, `Tahakkuk — ${tur.ad} (${donemMetni} dönemi)`,
+      'TAHAKKUK', c.id, kontrolId, tur.muhasebeHesapId, tutar,
+    );
+    await prisma.tahakkukCalismasi.update({
+      where: { id: c.id }, data: { yevmiyeFisiId: fisId },
+    });
+  }
+
+  // --- Tahsilatlar: makbuz başına fiş ---------------------------------------
+  //
+  // ⚠️  TAHSİLAT DA MUHASEBELEŞMEK ZORUNDA. Yalnızca tahakkuk deftere
+  //     girseydi kontrol hesabı Σ borç'ta kalır, yardımcı defter ise
+  //     Σ(borç − ödenen) olurdu; mutabakat ÖDENEN KADAR sapardı.
+  const tahsilatlar = await prisma.tahsilat.findMany({
+    where: { tenantId, yevmiyeFisiId: null, durum: 'GECERLI' },
+    select: { id: true, makbuzNo: true, tutar: true, tahsilatTarihi: true },
+    orderBy: { tahsilatTarihi: 'asc' },
+  });
+  for (const t of tahsilatlar) {
+    const fisId = await fisYaz(
+      t.tahsilatTarihi, `Tahsilat makbuzu ${t.makbuzNo}`,
+      'TAHSILAT', t.id, kasaId, kontrolId, t.tutar,
+    );
+    await prisma.tahsilat.update({
+      where: { id: t.id }, data: { yevmiyeFisiId: fisId },
+    });
+  }
+
+  await prisma.numaraSayaci.create({
+    data: {
+      id: randomUUID(), tenantId, seriKodu: 'YEVMIYE',
+      kapsamAnahtari: `${tenantId}:YEVMIYE:2026`,
+      mevcutDeger: BigInt(sira),
+    },
+  });
+
+  console.log(
+    `     muhasebe: ${calismalar.length} tahakkuk + ${tahsilatlar.length} tahsilat fişi`,
+  );
+}
+
 interface TahsilEdilecek {
   borcId: string; sorumluId: string; bolumId: string;
   kisiId: string; tutar: number; tarih: string;
@@ -539,6 +659,14 @@ async function tahakkukGecmisiOlustur(
   );
 }
 
+/**
+ * Derinlik VARSAYILANI tipten türetilir, KURAL DEĞİLDİR (0034).
+ * Tek yerde durur ki tohumun iki ayrı noktasında ayrışmasın.
+ */
+function derinlikSec(t: ApartmanTohumu): 'BASIT' | 'CIFT_TARAFLI' {
+  return t.muhasebeDerinligi ?? (t.tip === 'SITE' ? 'CIFT_TARAFLI' : 'BASIT');
+}
+
 async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
   const tenantId = randomUUID();
 
@@ -587,8 +715,7 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
        *     orada da gerekir (apartman kasa ve banka tutar). Açılmaması
        *     "kurulum yapılmamış" ile "basit muhasebe" ayrımını kaybettirirdi.
        */
-      muhasebeDerinligi: t.muhasebeDerinligi
-        ?? (t.tip === 'SITE' ? 'CIFT_TARAFLI' : 'BASIT'),
+      muhasebeDerinligi: derinlikSec(t),
       // Dönem kârı hesabı BİLİNÇLİ olarak boş: kâr/zararın hangi özkaynak
       // hesabına aktarılacağı yönetimin kararıdır, tohum adına verilemez.
     },
@@ -865,9 +992,20 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
 
   if (t.tahakkukGecmisi === true) {
     await tahakkukGecmisiOlustur(tenantId, borcSorumlusuHaritasi);
+
+    /*
+     * ⚠️  YALNIZCA CIFT_TARAFLI PROJEDE. `BASIT` derinlikte yevmiye fişi diye
+     *     bir kavram yoktur ve bunun eksik olması DOĞRU DAVRANIŞTIR
+     *     (docs/APARTMAN-SITE-AYRIMI.md §2.1). Apartman tenant'ında
+     *     muhasebeleştirme yapılsaydı tohum, ürünün o projede REDDETTİĞİ bir
+     *     durumu üretmiş olurdu.
+     */
+    if (derinlikSec(t) === 'CIFT_TARAFLI') {
+      await muhasebelestir(tenantId, hesapIdler);
+    }
   }
 
-  const derinlik = t.muhasebeDerinligi ?? (t.tip === 'SITE' ? 'CIFT_TARAFLI' : 'BASIT');
+  const derinlik = derinlikSec(t);
   console.log(
     `  ${t.ad}  (${t.tip ?? 'APARTMAN'} · ${blokAdlari.length} blok · ` +
       `${katHaritasi.size} kat · ${t.bolumler.length} bağımsız bölüm · ${derinlik})`,
@@ -968,4 +1106,5 @@ main()
     process.exit(1);
   })
   .finally(() => void prisma.$disconnect());
+
 

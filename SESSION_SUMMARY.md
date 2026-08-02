@@ -1727,6 +1727,70 @@ yok**. Yol haritasında **P0** ve virmandan öncedir.
 
 ---
 
+### J. Tahakkuk muhasebeleştirmesi + apartman/site ayrımı (2 Ağustos 2026)
+
+[ADR-0017](docs/adr/log/ADR-0017-tahakkuk-muhasebelestirme.md) karara bağlandı
+ve uygulandı; kapsamı **`CIFT_TARAFLI` muhasebedir**. Ayrımın tamamı tek
+belgede: [docs/APARTMAN-SITE-AYRIMI.md](docs/APARTMAN-SITE-AYRIMI.md).
+
+#### J.1 · Bitişin kanıtı
+
+```json
+SITE (Papatya Sitesi · CIFT_TARAFLI)
+{"yardimciDefterToplami":"15600.0000","kontrolHesabiKodu":"120",
+ "kontrolHesabiBakiyesi":"15600.0000","fark":"0.0000","mutabikMi":true,
+ "bolumSayisi":8}
+```
+
+Önceki hâli `{"fark":"15600.0000","mutabikMi":false}` idi. Tohum artık
+tahakkukları **ve** tahsilatları muhasebeleştiriyor; yalnızca biri
+muhasebeleşseydi kontrol hesabı ödenen kadar sapardı.
+
+⚠️ Tohumun ürettiği fiş, `muhasebelestir` ucunun ürettiğinin **aynı
+biçimidir** (fiş türü · kaynak bağı · iki satır · `ISLENDI`). Elle yevmiye
+fişi yazılmadı — tohum, ürünün yapmadığı bir şeyi göstermez.
+
+#### J.2 · Muhasebe derinliği
+
+`MuhasebeParametresi.muhasebeDerinligi: BASIT | CIFT_TARAFLI` (migration 0034).
+Varsayılanı kurulumda `Tenant.tip`'ten gelir ama **kural değildir** —
+politika koda gömülmediği gibi **yapıya da gömülmez**. `BASIT` projede
+`muhasebelestir` ve `kontrol-mutabakati` **422** verir; alacak takibi
+**etkilenmez**.
+
+#### J.3 · CT-20 yanlış teşhis koyuyordu — düzeltildi
+
+Test, her projede hesap planı + parametre + açık dönem arıyordu. `BASIT`
+derinlikte bunların olmaması **eksiklik değildir**. Artık üç bölümlü ve
+öznesi site tenant'ı: 12/12 yeşil.
+
+#### J.4 · Tohumda hiç SITE yoktu
+
+`seed.ts` içinde `tip: 'SITE'` için 0 eşleşme vardı; site tarafına kod
+yazılıyordu ama **hiçbir fikstür onu temsil etmiyordu**. Papatya Sitesi
+eklendi (2 blok · 8 bölüm · hisseli daire dâhil).
+
+#### J.5 · ★ CT-04 tam süitte kırmızı — sebebi CT-19
+
+```text
+virman HARİÇ süit  →  104/104 YEŞİL
+tam süit           →  CT-04 kırmızı + CT-19'un 14 beklenen kırmızısı
+```
+
+Sebep **CT-19'un uygulanmamış olmasıdır**. Elenenler: istek sınırı (Redis
+boşaltılıp tekrarlandı), eşzamanlılık (`--no-file-parallelism` ile de düştü),
+ikili kombinasyonlar (virman+oturum tek başına geçiyor).
+
+**Virman bittiğinde kapanması bekleniyor — kapanmazsa ayrı bulgu olarak
+açılacak.** `it.skip` konulmadı, CT-04 gevşetilmedi.
+
+★ Yan bulgu: giriş ucu **e-posta başına 5 deneme / 5 dk** sınırlıyor
+(`oturum.controller.ts:23`). CT-20'ye eklenen ikinci giriş önce tohum
+kullanıcısını kullanıyordu ve CT-04'ün bütçesini tüketiyordu. **Paylaşılan
+kimlik, paylaşılan fikstürdür** — CT-20 artık kendi kullanıcısını açıyor.
+
+---
+
 ## 4. Sonraki oturum — ilk komut ve ilk görev
 
 ```bash

@@ -8,7 +8,9 @@ import { Type } from 'class-transformer';
 export const HESAP_TIPLERI = ['VARLIK', 'BORC', 'OZKAYNAK', 'GELIR', 'GIDER'] as const;
 export const HESAP_OZELLIKLERI = ['NORMAL', 'KASA', 'BANKA', 'YANSITMA'] as const;
 export const FIS_TURLERI = [
-  'ACILIS', 'MAHSUP', 'TAHSILAT', 'TEDIYE', 'YANSITMA', 'KAPANIS',
+  // TAHAKKUK (ADR-0017 · 0032): MAHSUP'a sıkıştırılsaydı dönem kapanışı ve
+  // raporlar tahakkuk fişini ayırt edemezdi.
+  'ACILIS', 'MAHSUP', 'TAHAKKUK', 'TAHSILAT', 'TEDIYE', 'YANSITMA', 'KAPANIS',
 ] as const;
 export const FIS_DURUMLARI = ['TASLAK', 'ISLENDI', 'TERS_KAYITLI'] as const;
 

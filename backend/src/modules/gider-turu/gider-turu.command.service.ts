@@ -100,9 +100,33 @@ export class GiderTuruCommandService {
         );
       }
 
+      /*
+       * MUHASEBE KARŞILIĞI ZORUNLUDUR (ADR-0017 · K1).
+       *
+       * ⚠️  HESAP DOĞRULANIR, GÜVENİLMEZ. Yabancı anahtar başka tenant'ın
+       *     hesabını engellemez — `hesap.id` genel benzersizdir ve FK tenant
+       *     bilmez. Doğrulanmasaydı bir projenin tahakkuku BAŞKA bir projenin
+       *     hesabına yazılabilirdi.
+       */
+      const hesap = await tx.hesap.findFirst({
+        where: {
+          id: dto.muhasebeHesapId, tenantId: principal.tenantId,
+          aktif: true, silinmeTarihi: null,
+        },
+        select: { id: true },
+      });
+      if (!hesap) {
+        throw new IsKuraliIhlali(
+          'Seçilen muhasebe hesabı bulunamadı.',
+          'Tahakkuk fişinin alacak tarafı bu hesaba yazılır; hesap planından ' +
+            'aktif bir hesap seçin.',
+        );
+      }
+
       await tx.giderTuru.create({
         data: {
           id, tenantId: principal.tenantId, kod, ad: dto.ad.trim(),
+          muhasebeHesapId: dto.muhasebeHesapId,
           paylasimKurali: dto.paylasimKurali,
           sorumlulukTipi: dto.sorumlulukTipi,
           kuralKaynagi: dto.kuralKaynagi,

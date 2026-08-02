@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString,
-  Length, Max, Min, MinLength, ValidateNested,
+  IsUUID, Length, Max, Min, MinLength, ValidateNested,
 } from 'class-validator';
 
 /**
@@ -61,6 +61,18 @@ export class GiderTuruOlusturDto {
   @ApiProperty({ enum: KURAL_KAYNAKLARI, example: 'GENEL_KURUL_KARARI' })
   @IsIn(KURAL_KAYNAKLARI)
   kuralKaynagi!: (typeof KURAL_KAYNAKLARI)[number];
+
+  @ApiProperty({
+    description:
+      'TAHAKKUK FİŞİNİN ALACAK TARAFI — ZORUNLU (ADR-0017 · K1).\n\n' +
+      'Hesabın niteliğini HESAP PLANI belirler: `349` gösterilirse avans, ' +
+      '`600` gösterilirse gelir yaklaşımı yürür. Ürün bu tercihte taraf ' +
+      'tutmaz (§33 kural 3).\n\n' +
+      'Boş bırakılabilir olsaydı, karşılığı olmayan bir türün tahakkuku ya ' +
+      'sessizce muhasebeleşmez ya da rastgele bir hesaba yazılırdı.',
+  })
+  @IsUUID()
+  muhasebeHesapId!: string;
 
   /**
    * KMK varsayılanı DIŞINDAKİ her kural referans taşımak ZORUNDADIR.
