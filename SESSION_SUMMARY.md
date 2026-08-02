@@ -1645,6 +1645,82 @@ daraltılır, `?.` ile geçiştirilmez.**
 
 ---
 
+### I. Demo akışı ölçümü + tohum tutarlılığı (2 Ağustos 2026)
+
+#### I.1 · Uçtan uca ölçüm — 34 uç, ham çıktı
+
+Tohum yeniden kurulup 34 uç sırayla çağrıldı (ilk koşum kendi kanıt betiğimin
+bıraktığı makbuzla kirlenmişti; `db:reset` sonrası tekrarlandı). Dolu dönenler:
+apartman · blok · kat · bölüm · kişi · malik · ilişki · gider türü ·
+tahakkuk borçları (36) · dönemler (3) · cari ekstre · yaşlandırma · hesaplar ·
+kasa/banka defteri. Boş dönenler: kiracı · sakin · makbuz · fiş · yevmiye ·
+muavin · mizan · sayaç · belge · araç · misafir · daire görevlisi ·
+site personeli · banka hesabı.
+
+`GET /daireler` için aldığım 404 **benim hatamdı** — liste ucu yok, rota
+`/daireler/:bolumId/kart`.
+
+#### I.2 · ★ Tohum kendi kendini yalanlıyordu — kapatıldı
+
+```
+ÖNCE : borc kapandi_mi=true → 24 · Σ odenen = 43.200,00 · tahsilat tablosu → 0 satır
+       cari ekstre: 3 BORÇ satırı, hiç TAHSİLAT satırı yok, tahsilatToplam "0.0000"
+```
+
+`odenen` elle yazılıyordu (`odenen: d.kapali ? d.tutar : 0`) — oysa şema
+`Borc.odenen` notu açıkça *"ARTIK BU SATIRLARDAN TÜRETİLİR (0017 · ADR-0010),
+elle yazılmaz"* diyor. Tohum belgelenmiş bir değişmezi çiğniyordu.
+
+Düzeltildi: tohum artık gerçek `Tahsilat` + `TahsilatTahsisi` kayıtları üretiyor,
+`odenen` ve `kapandiMi` **onlardan türetiliyor**.
+
+```
+SONRA: odenen = 43.200,0000 · tahsis = 43.200,0000 · fark = 0,0000
+       cari ekstre: BORÇ → TAHSİLAT → BORÇ → TAHSİLAT → BORÇ,
+       her ödemeden sonra yürüyen bakiye 0, kapanış 1.950 (tek açık borç)
+```
+
+⚠️ Tahsilatlar **muhasebeleştirilmedi** (`yevmiyeFisiId` boş) ve bu bilinçli:
+tahakkuk deftere düşmediği için yalnızca tahsilatı muhasebeleştirmek 120'yi
+alacaklandırıp mutabakat farkını **büyütürdü**. Bkz. §I.4.
+
+⚠️ Bütün makbuzlar NAKİT. `tahsilat_kanal_banka` CHECK kısıtı BANKA kanalında
+`banka_hareketi_id` zorunlu kılıyor ve tohumda banka hesabı yok. **Kısıt doğru
+çalışıyor** — gevşetilmedi, kanal daraltıldı.
+
+#### I.3 · Hisseli mülkiyet fikstürü — ilk kez var
+
+Ölçüm gösterdi: 12 dairenin **hepsi** tek malikti, hisse `1/1`. Yani
+`borc_sorumlusu.pay` mantığı ve pay bazında tahsis kodda vardı ama **hiçbir
+fikstür ona dokunmuyordu.** Üç daire hisseli yapıldı:
+
+| Daire | Hisse | Borç 1.950 nasıl bölünüyor |
+|---|---|---|
+| 4 | 1/2 + 1/2 (iki kardeş) | 975,00 + 975,00 |
+| 9 | 1/3 × 3 (miras) | 650,00 × 3 |
+| 12 | **3/4 + 1/4** (eşit değil) | **1.462,50 + 487,50** |
+
+Daire 12 bilerek eşit değil: eşit paylı fikstür, `pay = tutar/n` varsayan bir
+hatayı yakalayamaz.
+
+Tohuma iki kontrol eklendi (kontrol **eklendi**, gevşetilmedi):
+Σ hisse ≠ 1 ise tohum **durur**; pay dağıtımında **son hissedar artığı alır** ki
+`Σ pay = borc.tutar` bozulmasın. İkincisi bir dağıtım tekniğidir, yuvarlama
+politikası değil — o karar tohumun işi değildir.
+
+Doğrulama: `Σ pay ≠ tutar` olan borç sayısı **0**.
+
+#### I.4 · ★ DUR VE BİLDİR — tahakkuk deftere hiç düşmüyor
+
+`kontrol-mutabakati` her projede `mutabikMi:false` döner. Sebep yapısal:
+`Borc` modelinde `yevmiyeFisiId` yok, tahakkukta `muhasebelestir` ucu yok.
+Bu **eksik özelliktir, veri eksiği değil** — tohuma elle yevmiye fişi yazmak
+ürünün yapamadığı bir şeyi demoda göstermek olurdu.
+[ADR-0017](docs/adr/log/ADR-0017-tahakkuk-muhasebelestirme.md) açıldı, **karar
+yok**. Yol haritasında **P0** ve virmandan öncedir.
+
+---
+
 ## 4. Sonraki oturum — ilk komut ve ilk görev
 
 ```bash

@@ -38,6 +38,16 @@ interface BolumTohumu {
   pay: bigint;
   /** Malik adı — sunumda okunur. */
   malik: readonly [string, string];
+  /**
+   * HİSSELİ MÜLKİYET — malikin payı. Verilmezse 1/1 (tek malikli daire).
+   *
+   * ⚠️  Bu alan olmadan `borc_sorumlusu.pay` mantığı HİÇ SINANMIYORDU:
+   *     12 dairenin hepsi tek malikti, bütün paylar borcun tamamına eşitti.
+   *     Pay bazında tahsis kodda vardı ama hiçbir fikstür ona dokunmuyordu.
+   */
+  malikHissesi?: readonly [bigint, bigint];
+  /** Ek hissedarlar. Payları malikinkiyle birlikte 1'e TAMAMLANMALIDIR. */
+  ortaklar?: readonly { ad: readonly [string, string]; hisse: readonly [bigint, bigint] }[];
   /** Doluysa daire kirada; borç zinciri kiracıyı da kapsar. */
   kiraci?: readonly [string, string];
 }
@@ -61,17 +71,31 @@ const APARTMANLAR: ApartmanTohumu[] = [
       { kapiNo: '2',  kat: 1, m2: 105, pay: 80_000n, malik: ['Mehmet', 'Yıldız'],
         kiraci: ['Elif', 'Kaya'] },
       { kapiNo: '3',  kat: 1, m2: 120, pay: 90_000n, malik: ['Fatma', 'Şahin'] },
-      { kapiNo: '4',  kat: 2, m2: 105, pay: 80_000n, malik: ['Ali', 'Çelik'] },
+      // HİSSELİ — iki kardeş yarı yarıya. 1.800/2 ve 1.950/2 tam bölünür;
+      // tohum bir yuvarlama politikası ÜRETMEZ (o ayrı bir karardır).
+      { kapiNo: '4',  kat: 2, m2: 105, pay: 80_000n, malik: ['Ali', 'Çelik'],
+        malikHissesi: [1n, 2n],
+        ortaklar: [{ ad: ['Veli', 'Çelik'], hisse: [1n, 2n] }] },
       { kapiNo: '5',  kat: 2, m2: 105, pay: 80_000n, malik: ['Zeynep', 'Aydın'] },
       { kapiNo: '6',  kat: 2, m2: 120, pay: 90_000n, malik: ['Mustafa', 'Doğan'],
         kiraci: ['Burak', 'Öztürk'] },
       { kapiNo: '7',  kat: 3, m2: 105, pay: 80_000n, malik: ['Hatice', 'Arslan'] },
       { kapiNo: '8',  kat: 3, m2: 105, pay: 80_000n, malik: ['Hüseyin', 'Koç'] },
-      { kapiNo: '9',  kat: 3, m2: 120, pay: 90_000n, malik: ['Emine', 'Kurt'] },
+      // HİSSELİ — miras yoluyla üç eşit hissedar.
+      { kapiNo: '9',  kat: 3, m2: 120, pay: 90_000n, malik: ['Emine', 'Kurt'],
+        malikHissesi: [1n, 3n],
+        ortaklar: [
+          { ad: ['Osman', 'Kurt'], hisse: [1n, 3n] },
+          { ad: ['Leyla', 'Kurt'], hisse: [1n, 3n] },
+        ] },
       { kapiNo: '10', kat: 4, m2: 105, pay: 80_000n, malik: ['İbrahim', 'Özdemir'] },
       { kapiNo: '11', kat: 4, m2: 105, pay: 80_000n, malik: ['Meryem', 'Aslan'],
         kiraci: ['Selin', 'Güneş'] },
-      { kapiNo: '12', kat: 4, m2: 145, pay: 65_000n, malik: ['Ahmet', 'Polat'] },
+      // HİSSELİ — EŞİT OLMAYAN paylar. Eşit paylı fikstür, "pay = tutar/n"
+      // varsayan bir hatayı yakalayamaz; bu satır onu yakalar.
+      { kapiNo: '12', kat: 4, m2: 145, pay: 65_000n, malik: ['Ahmet', 'Polat'],
+        malikHissesi: [3n, 4n],
+        ortaklar: [{ ad: ['Sema', 'Polat'], hisse: [1n, 4n] }] },
     ],
   },
   {
@@ -242,13 +266,119 @@ const HESAP_PLANI: {
  *     numara verir; sayaç güncellenmezse ilk gerçek tahakkuk aynı numaradan
  *     başlar ve `borc_tahakkuk_no_uq` ihlaliyle düşerdi.
  */
+/** Borcun yazılacağı taraf. Hisseli mülkiyette bölüm başına birden çok olur. */
+interface BorcTarafi {
+  kisiId: string;
+  rol: 'MALIK' | 'KIRACI';
+  pay: bigint;
+  payda: bigint;
+}
+
+interface TahsilEdilecek {
+  borcId: string; sorumluId: string; bolumId: string;
+  kisiId: string; tutar: number; tarih: string;
+}
+
+/**
+ * DEMO TAHSİLAT GEÇMİŞİ — kapanmış borçların KARŞILIĞI.
+ *
+ * ⚠️  BU FONKSİYON OLMADAN TOHUM TUTARSIZDI. Ölçüldü: 24 borç `kapandi_mi`
+ *     işaretliydi ve `Σ odenen = 43.200` idi, ama `tahsilat` tablosu BOŞTU.
+ *     Cari ekstre bunu ekranda gösteriyordu — üç BORÇ satırı, hiç TAHSİLAT
+ *     satırı yok, `tahsilatToplam: "0.0000"`. Yani `odenen` alanı ile
+ *     ekstrenin kendisi birbirini yalanlıyordu.
+ *
+ * ⚠️  `odenen` ve `kapandiMi` BURADAN, tahsis satırlarından türetilir; borç
+ *     yazılırken elle konmaz. Tek kaynak: `TahsilatTahsisi`.
+ *
+ * ⚠️  MUHASEBELEŞTİRİLMEZ (`yevmiyeFisiId` boş). Bu bilinçlidir ve gerçek bir
+ *     durumdur: "tahsilat kaydedildi, henüz deftere girmedi". Yalnızca
+ *     tahsilatı muhasebeleştirmek 120 kontrol hesabını ALACAKLANDIRIR ve
+ *     mutabakat farkını BÜYÜTÜR — tahakkuk tarafı deftere hiç düşmediği için
+ *     (ADR-0017). Karar verilene kadar defter dürüstçe boş kalır.
+ */
+async function tahsilatGecmisiOlustur(
+  tenantId: string, kayitlar: readonly TahsilEdilecek[],
+): Promise<void> {
+  if (kayitlar.length === 0) return;
+
+  let no = 0;
+  for (const k of kayitlar) {
+    no += 1;
+    const tahsilatId = randomUUID();
+    await prisma.tahsilat.create({
+      data: {
+        id: tahsilatId, tenantId,
+        makbuzNo: `MKB-2026-${String(no).padStart(6, '0')}`,
+        /*
+         * ⚠️ HEPSİ NAKİT — bilinçli. `tahsilat_kanal_banka` CHECK kısıtı
+         *    BANKA kanalında `banka_hareketi_id` ZORUNLU kılıyor ve tohumda
+         *    henüz banka hesabı yok. Kısıt DOĞRU çalışıyor: banka tahsilatı
+         *    hareketine bağlanmazsa mutabakatta görünmez. Gevşetmek yerine
+         *    kanal daraltıldı; banka fikstürü ayrı iştir.
+         */
+        kanal: 'NAKIT',
+        durum: 'GECERLI',
+        tutar: k.tutar,
+        tahsilatTarihi: new Date(k.tarih),
+        aciklama: 'Aidat tahsilatı',
+        odeyenKisiId: k.kisiId,
+      },
+    });
+
+    await prisma.tahsilatTahsisi.create({
+      data: {
+        id: randomUUID(), tenantId, tahsilatId,
+        borcId: k.borcId, borcSorumlusuId: k.sorumluId, tutar: k.tutar,
+      },
+    });
+
+    // Türetilen alanlar — kaynağı yukarıdaki tahsis satırıdır.
+    await prisma.borcSorumlusu.update({
+      where: { id: k.sorumluId }, data: { odenen: k.tutar },
+    });
+  }
+
+  /*
+   * ⚠️  BORÇ DÜZEYİ TAHSİS SATIRLARINDAN TOPLANIR, tek tahsilattan değil.
+   *     Hisseli mülkiyette bir borcu birden çok makbuz kapatır; her makbuzda
+   *     `odenen = k.tutar` yazılsaydı üç hissedarlı dairede borç ilk ödemede
+   *     kapanmış görünürdü — ötekilerin borcu AÇIK kalmalıdır.
+   */
+  const borcIdler = [...new Set(kayitlar.map((k) => k.borcId))];
+  for (const borcId of borcIdler) {
+    const toplam = await prisma.tahsilatTahsisi.aggregate({
+      where: { borcId, tenantId }, _sum: { tutar: true },
+    });
+    const borc = await prisma.borc.findUniqueOrThrow({
+      where: { id: borcId }, select: { tutar: true },
+    });
+    const odenen = toplam._sum.tutar ?? 0;
+    await prisma.borc.update({
+      where: { id: borcId },
+      data: { odenen, kapandiMi: borc.tutar.equals(odenen) },
+    });
+  }
+
+  await prisma.numaraSayaci.create({
+    data: {
+      id: randomUUID(), tenantId, seriKodu: 'MAKBUZ',
+      kapsamAnahtari: `${tenantId}:MAKBUZ:2026`,
+      mevcutDeger: BigInt(no),
+    },
+  });
+
+  console.log(`     tahsilat: ${no} makbuz · muhasebeleşmemiş (ADR-0017)`);
+}
+
 async function tahakkukGecmisiOlustur(
   tenantId: string,
-  sorumlular: ReadonlyMap<string, { kisiId: string; rol: 'MALIK' | 'KIRACI' }>,
+  sorumlular: ReadonlyMap<string, readonly BorcTarafi[]>,
 ): Promise<void> {
   const GIDER = 'KAPICI';                 // KULLANANA_AIT · EŞİT paylaşım
   const bolumIdler = [...sorumlular.keys()];
   let sira = 0;
+  const tahsilEdilecek: TahsilEdilecek[] = [];
 
   for (const d of DEMO_DONEMLER) {
     const calismaId = randomUUID();
@@ -262,8 +392,8 @@ async function tahakkukGecmisiOlustur(
     });
 
     for (const bolumId of bolumIdler) {
-      const sorumlu = sorumlular.get(bolumId);
-      if (sorumlu === undefined) continue;
+      const taraflar = sorumlular.get(bolumId);
+      if (taraflar === undefined || taraflar.length === 0) continue;
       sira += 1;
       const borcId = randomUUID();
 
@@ -273,23 +403,54 @@ async function tahakkukGecmisiOlustur(
           giderTuruKodu: GIDER,
           tahakkukNo: `THK-2026-${String(sira).padStart(6, '0')}`,
           tutar: d.tutar,
-          odenen: d.kapali ? d.tutar : 0,
+          // ⚠️ `odenen` BURADA YAZILMAZ. Tahsis satırlarından TÜRETİLİR
+          //    (0017 · ADR-0010, schema `Borc.odenen` notu). Elle yazıldığında
+          //    ödeme kaydı olmadan da "ödenmiş" görünüyordu — ölçüldü:
+          //    24 borç kapalı, Σ odenen 43.200, `tahsilat` tablosu BOŞTU.
           vadeTarihi: new Date(d.vade),
           tahakkukDonemi: new Date(d.donem),
-          kapandiMi: d.kapali,
         },
       });
 
-      await prisma.borcSorumlusu.create({
-        data: {
-          id: randomUUID(), tenantId, borcId, kisiId: sorumlu.kisiId,
-          sira: 'ASIL', rol: sorumlu.rol,
-          cozumlemeTarihi: new Date(d.donem),
-          pay: d.tutar, agirlik: 1n,
-        },
-      });
+      /*
+       * PAY DAĞITIMI — hisseli mülkiyette borç maliklere BÖLÜNÜR.
+       *
+       * ⚠️  SON HİSSEDAR ARTIĞI ALIR. Σ pay = borc.tutar olmak ZORUNDADIR
+       *     (ADR-0016 tutarlılık kuralı); tek tek yuvarlansaydı toplam
+       *     kuruş kadar sapar ve borcun bir kısmı hiç kimseye yazılmazdı.
+       *     Bu bir DAĞITIM tekniğidir, yuvarlama POLİTİKASI değil — politika
+       *     kararı tohumun işi değildir.
+       */
+      const kurus = BigInt(Math.round(d.tutar * 100));
+      let dagitilan = 0n;
+      for (const [i, taraf] of taraflar.entries()) {
+        const sonMu = i === taraflar.length - 1;
+        const payKurus = sonMu
+          ? kurus - dagitilan
+          : (kurus * taraf.pay) / taraf.payda;
+        dagitilan += payKurus;
+
+        const sorumluId = randomUUID();
+        await prisma.borcSorumlusu.create({
+          data: {
+            id: sorumluId, tenantId, borcId, kisiId: taraf.kisiId,
+            sira: 'ASIL', rol: taraf.rol,
+            cozumlemeTarihi: new Date(d.donem),
+            pay: Number(payKurus) / 100, agirlik: taraf.pay,
+          },
+        });
+
+        if (d.kapali) {
+          tahsilEdilecek.push({
+            borcId, sorumluId, bolumId, kisiId: taraf.kisiId,
+            tutar: Number(payKurus) / 100, tarih: d.vade,
+          });
+        }
+      }
     }
   }
+
+  await tahsilatGecmisiOlustur(tenantId, tahsilEdilecek);
 
   // Sayaç, tohumun verdiği son numaranın üstüne kurulur.
   await prisma.numaraSayaci.create({
@@ -482,8 +643,14 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     });
   }
 
-  /** Tahakkuk geçmişi için: bölüm → borcun yazılacağı kişi. */
-  const borcSorumlusuHaritasi = new Map<string, { kisiId: string; rol: 'MALIK' | 'KIRACI' }>();
+  /**
+   * Tahakkuk geçmişi için: bölüm → borcun yazılacağı kişi(ler).
+   *
+   * ⚠️  DİZİ, tek kayıt değil. Hisseli mülkiyette borç maliklere BÖLÜNÜR ve
+   *     bir malik kendi payını ödediğinde ötekilerin borcu AÇIK kalmalıdır
+   *     (schema · `TahsilatTahsisi.borcSorumlusuId` notu).
+   */
+  const borcSorumlusuHaritasi = new Map<string, BorcTarafi[]>();
 
   for (const b of t.bolumler) {
     const bolumId = randomUUID();
@@ -507,23 +674,54 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
       },
     });
 
-    // Malik kaydı — hisse TAM (1/1); tek malikli daire.
-    await prisma.malik.create({
-      data: {
-        id: randomUUID(), tenantId, bolumId, kisiId: malikId,
-        hissePay: 1n, hissePayda: 1n,
-        tapuTuru: 'KAT_MULKIYETI', tapuBaslangic: new Date('2024-01-01'),
-      },
-    });
+    const [malikPay, malikPayda] = b.malikHissesi ?? [1n, 1n];
+    const hissedarlar: { kisiId: string; pay: bigint; payda: bigint }[] = [
+      { kisiId: malikId, pay: malikPay, payda: malikPayda },
+    ];
 
-    await prisma.bolumIliskisi.create({
-      data: {
-        id: randomUUID(), tenantId, bolumId, kisiId: malikId,
-        rol: 'MALIK', baslangic: new Date('2024-01-01'), bitis: null,
-      },
-    });
+    for (const [i, o] of (b.ortaklar ?? []).entries()) {
+      const ortakId = randomUUID();
+      await prisma.kisi.create({
+        data: {
+          id: ortakId, tenantId, ad: o.ad[0], soyad: o.ad[1],
+          eposta: `ortak${b.kapiNo}-${i + 1}@${t.kod}.test`,
+        },
+      });
+      hissedarlar.push({ kisiId: ortakId, pay: o.hisse[0], payda: o.hisse[1] });
+    }
 
-    borcSorumlusuHaritasi.set(bolumId, { kisiId: malikId, rol: 'MALIK' });
+    /*
+     * ⚠️ TOPLAM 1 OLMAK ZORUNDA. Eksik hisse, borcun bir kısmının HİÇ KİMSEYE
+     *    yazılmaması demektir; fazlası bölümü olduğundan borçlu gösterir.
+     *    Tohum hatalı fikstür üretmektense DURUR.
+     */
+    const ortakPayda = hissedarlar.reduce((a, h) => a * h.payda, 1n);
+    const toplamPay = hissedarlar.reduce((a, h) => a + (h.pay * ortakPayda) / h.payda, 0n);
+    if (toplamPay !== ortakPayda) {
+      throw new Error(
+        `Daire ${b.kapiNo}: hisse toplamı 1 değil (${toplamPay}/${ortakPayda}).`,
+      );
+    }
+
+    for (const h of hissedarlar) {
+      await prisma.malik.create({
+        data: {
+          id: randomUUID(), tenantId, bolumId, kisiId: h.kisiId,
+          hissePay: h.pay, hissePayda: h.payda,
+          tapuTuru: 'KAT_MULKIYETI', tapuBaslangic: new Date('2024-01-01'),
+        },
+      });
+      await prisma.bolumIliskisi.create({
+        data: {
+          id: randomUUID(), tenantId, bolumId, kisiId: h.kisiId,
+          rol: 'MALIK', baslangic: new Date('2024-01-01'), bitis: null,
+        },
+      });
+    }
+
+    borcSorumlusuHaritasi.set(bolumId, hissedarlar.map((h) => ({
+      kisiId: h.kisiId, rol: 'MALIK' as const, pay: h.pay, payda: h.payda,
+    })));
 
     // KİRACI — aidat KULLANANA_AIT olduğunda borç zincirinde ASIL odur.
     if (b.kiraci !== undefined) {
@@ -547,7 +745,15 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
           rol: 'KIRACI', baslangic: new Date('2025-01-01'), bitis: null,
         },
       });
-      borcSorumlusuHaritasi.set(bolumId, { kisiId: kiraciId, rol: 'KIRACI' });
+      /*
+       * ⚠️ KİRACI HİSSELİ MÜLKİYETİ EZER. Aidat KULLANANA_AIT olduğunda borç
+       *    tek kişiye — kiracıya — yazılır; malikler arasındaki hisse dağılımı
+       *    bu borcu bölmez. Malikin hissesi mülkiyetin ölçüsüdür, kullanımın
+       *    değil.
+       */
+      borcSorumlusuHaritasi.set(bolumId, [
+        { kisiId: kiraciId, rol: 'KIRACI', pay: 1n, payda: 1n },
+      ]);
     }
   }
 
