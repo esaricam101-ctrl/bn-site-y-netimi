@@ -131,12 +131,22 @@ describe('CT-16 · Mükerrer tahakkuk koruması', () => {
         });
       }
 
+      // Gider türü ZORUNLU muhasebe hesabı taşır (ADR-0017 · K1); bu fikstür
+      // muhasebeyle ilgilenmiyor ama bağ olmadan tür yazılamaz.
+      const hesapId = randomUUID();
+      await tx.hesap.create({
+        data: {
+          id: hesapId, tenantId: TENANT, kod: '349',
+          ad: 'Alınan Ortak Gider Avansları', tip: 'BORC',
+        },
+      });
+
       await tx.giderTuru.create({
         data: {
           id: randomUUID(), tenantId: TENANT, kod: 'CT16_AIDAT', ad: 'CT-16 Aidat',
           paylasimKurali: 'ESIT', sorumlulukTipi: 'MALIKE_AIT',
           kuralKaynagi: 'KMK_VARSAYILAN', aktifMi: true,
-          tahakkukSikligi: 'DONEMSEL',
+          tahakkukSikligi: 'DONEMSEL', muhasebeHesapId: hesapId,
         },
       });
       // Demirbaş alımı: bir OLAYA bağlıdır, dönemde birden çok kez olabilir.
@@ -147,7 +157,7 @@ describe('CT-16 · Mükerrer tahakkuk koruması', () => {
           // `gider_turu_kaynak_referansi` CHECK'i: karar kaynaklı türlerde
           // kararın kendisi kayda yazılmak zorundadır.
           kuralKaynagi: 'GENEL_KURUL_KARARI', kaynakReferansi: '2026/3 sayılı genel kurul kararı',
-          aktifMi: true, tahakkukSikligi: 'OLAY_BAZLI',
+          aktifMi: true, tahakkukSikligi: 'OLAY_BAZLI', muhasebeHesapId: hesapId,
         },
       });
 
@@ -215,9 +225,9 @@ describe('CT-16 · Mükerrer tahakkuk koruması', () => {
       await tx.$executeRawUnsafe(`
         INSERT INTO tahakkuk_calismasi
           (id, tenant_id, gider_turu_kodu, donem, tip, sira, toplam_tutar,
-           bolum_sayisi, olusturulma_tarihi)
+           bolum_sayisi, kullanilan_paylasim_kurali, olusturulma_tarihi)
         VALUES ('${randomUUID()}', '${TENANT}', 'CT16_AIDAT', DATE '${DONEM2}',
-                'ASIL', 1, 3000, 3, now())`);
+                'ASIL', 1, 3000, 3, 'ESIT', now())`);
       await new Promise<void>((c) => { acikIslemiBitir = c; });
     }, { timeout: 60_000 });
 

@@ -1,16 +1,40 @@
 # ADR-0017 · Tahakkukun muhasebeleştirilmesi
 
 **Tarih:** 2 Ağustos 2026
-**Statü:** 🟡 TASLAK — **KARAR YOK**
+**Statü:** 🟢 **KARARA BAĞLANDI** (2 Ağustos 2026)
 **Öneren:** —
-**Onaylayan:** —
+**Onaylayan:** Ürün sahibi
 **İlgili:** [ADR-0003](0003-muhasebe-cift-tarafli.md) (çift taraflı kayıt) ·
 [ADR-0010](0010-cari-hesap-bolum-yardimci-defteri.md) (cari = bağımsız bölüm) ·
 [ADR-0014](0014-mukerrer-tahakkuk-korumasi.md) (mükerrer koruması) ·
 [ADR-0016](ADR-0016-virman.md) (virman — bu karardan SONRA)
 
-> ⚠️ Bu dosya bilinçli olarak **eksiktir**. Yalnızca **ölçülmüş mevcut durum**
-> ve **cevaplanacak sorular** vardır; tercih yazılmaz.
+> ⚠️ **OKUMA SIRASI:** §0-§6 kararın **gerekçesidir** ve karar anındaki
+> bilgiyi olduğu gibi korur — sorular oradan silinmedi. **Kararlar §7'dedir.**
+> §2'deki "cevaplanacak" ibareleri o soruların hangi bilgiyle sorulduğunu
+> gösterir; cevapları §7'de.
+
+---
+
+> ## ⚠️ KAPSAM: BU ADR YALNIZCA `CIFT_TARAFLI` MUHASEBE İÇİNDİR
+>
+> Muhasebe derinliği **projenin ayarıdır**, tipinden türetilmez
+> (`MuhasebeParametresi.muhasebeDerinligi` — bkz.
+> [APARTMAN-SITE-AYRIMI §2.1](../../APARTMAN-SITE-AYRIMI.md)). Varsayılanı
+> kurulumda `Tenant.tip`'ten gelir: `SITE → CIFT_TARAFLI`,
+> `APARTMAN → BASIT`.
+>
+> `BASIT` derinlikte hesap planı, yevmiye fişi ve mizan **yoktur** ve bu bir
+> eksiklik DEĞİLDİR. Bu yüzden burada karara bağlanan her şey —
+> `muhasebelestir` ucu, kontrol mutabakatı, `GiderTuru.muhasebeHesapId` — o
+> projelerde **aranmaz**:
+>
+> - `BASIT` projede `muhasebelestir` → **422 + açıklama** (sessiz sonuç değil)
+> - `BASIT` projede `kontrol-mutabakati` → **422** (`mutabikMi: null` değil)
+>
+> ⚠️ **TAHAKKUK VE ALACAK TAKİBİ İKİ TARAFTA DA VARDIR.** Fark yalnızca
+> deftere düşüp düşmemesidir. "Apartman muhasebe yapmaz" denemez — apartman
+> **çift taraflı kayıt** yapmaz.
 
 ---
 
@@ -361,10 +385,29 @@ CHECK (tip <> 'KURUL_KARARI'    OR sabit_tutar   IS NOT NULL)
 | ★ `gecici` (boolean) | **EKLEME.** Yöneticinin tek başına hazırladığı geçici proje ile genel kurulca onaylanmış proje aynı şey değildir |
 | ★ `oncekiDayanakId?` | **EKLEME.** İtiraz sonrası düzeltilen proje, öncekinin **yerine geçer**; zincir kaybolmamalı |
 
-⚠️ `durum` alanı ile tarih alanları **aynı bilgiyi iki kez** taşıyor
-(`KESINLESTI` ↔ `kesinlesmeTarihi`). Türetilmiş mi, bağımsız mı — kararla
-birlikte netleşmeli; ikisi bağımsız yazılabilirse biri güncellenmediğinde durum
-**sessizce yanlış** olur.
+#### ★ ÇELİŞKİ KARARI — `durum` TÜRETİLİR, bağımsız yazılamaz
+
+`durum` ile tarih alanları aynı bilgiyi iki kez taşıyordu. **Karar: tarihler
+gerçektir, `durum` onlardan HESAPLANIR.**
+
+```text
+kesinlesmeTarihi dolu                    → KESINLESTI
+tebligTarihi dolu, kesinleşme yok        → TEBLIG_EDILDI
+hiçbiri yok                              → TASLAK
+```
+
+**Gerekçe:** iki kaynak varsa biri güncellenmez ve **sessizce yalan söyler.**
+Bu, aynı turda üç kez kapatılan sınıfın tam olarak kendisidir:
+
+- `borc.odenen` elle yazılıyordu, tahsis satırları boştu → borç ödenmiş
+  görünüyordu (SESSION_SUMMARY §I.2)
+- hesap `ozellik`i işaretsizdi, defter `200 · []` dönüyordu (§H.1)
+- CT-20 test (2) `p?.alan` yüzünden yanlış sebeple yeşildi (§H.6)
+
+⚠️ Uygulama notu: `ITIRAZ_VAR` bu üçlüden türetilemez — itiraz **ayrı bir
+olgudur**, tarihten çıkmaz. Ya kendi tarihini taşır (`itirazTarihi`) ve durum
+dörtlüden türetilir, ya da itiraz ayrı bir kayıt olur. `TahakkukDayanagi`
+uygulanırken çözülecek; bu ADR'nin kapsamı dışında.
 
 ### 6.4 · Bu ADR'ye etkisi
 
@@ -377,10 +420,155 @@ geldiğinde kırılmayacak biçimde tasarlanacaktır.
 
 ---
 
-## 7 · Bu ADR karara bağlanmadan yapılmayacaklar
+## 7 · KARARLAR
 
-- Virman uygulaması (ADR-0016) — deftere yazan ikinci mekanizma
-- `kontrol-mutabakati` raporunun eşiğe bağlanması — bugün her projede `false`
-- Tohuma **elle yevmiye fişi yazmak** ⛔ ürünün yapamadığı bir şeyi demoda
-  göstermek olurdu; ayrıca yalnızca tahsilatı muhasebeleştirmek 120'yi
-  alacaklandırıp farkı **büyütür**
+### K1 · Karşı hesap — `GiderTuru.muhasebeHesapId` (S1 + S2 birlikte)
+
+Gider türü **zorunlu** bir muhasebe hesabı taşır. `BankaHesabi.muhasebeHesapId`
+emsalinin birebir aynısı.
+
+★ **Bu tek alan S2'yi de çözer ve ürün 600 ↔ 349 tartışmasında TARAF TUTMAZ.**
+Hesabın niteliğini **hesap planı** belirler: tenant `349`u gösterirse avans
+yaklaşımı, `600`ü gösterirse gelir yaklaşımı yürür. §33 kural 3: politika koda
+gömülmez, veridir. Dış araştırma da bunu destekliyor — *"standart zorunlu bir
+eşleşme yoktur; her yönetim kendi gider kalemlerini kurar"* (§5.4).
+
+⚠️ **Alan ZORUNLU.** Boş bırakılabilir olsaydı, karşılığı olmayan bir türün
+tahakkuku ya sessizce muhasebeleşmezdi ya da rastgele bir hesaba yazılırdı —
+ikisi de bu turda kapatılan sessiz boşluk sınıfı.
+
+⚠️ Ad `gelirHesapId` **değil** `muhasebeHesapId` seçildi: `349` bir gelir hesabı
+değildir ve alan adı bir muhasebe görüşünü dayatmamalıdır.
+
+### K2 · Borç tarafı — `CARI_KONTROL`
+
+Tahsilatın alacak tarafı neyse (`cariKontrolHesabi()`), tahakkukun borç tarafı
+odur. Fiş: **borç `CARI_KONTROL` / alacak `giderTuru.muhasebeHesapId`**.
+Tahsilat bunun tersini yazar; ikisi birlikte cari hesabı açıp kapatır.
+
+### K3 · Granülerlik — çalışma başına TEK fiş
+
+Dış araştırma (§5.3) ve ADR-0010 aynı yeri gösteriyor: yevmiyede toplam, daire
+kırılımı yardımcı defterde. 5.000 bölümde **1 fiş**, 5.000 değil.
+
+Fiş tarihi: **`tahakkukDonemi`**. Vade seçilseydi gider ile karşılığı farklı
+döneme düşebilirdi.
+
+⚠️ Fişin satır sayısı bölüm sayısına değil, çalışmadaki **gider türü sayısına**
+bağlıdır. Bir çalışma tek gider türü işlediğinden bugün daima 2 satır.
+
+### K4 · `500 Yenileme Fonu` → `BORC`
+
+Tip `OZKAYNAK`tan `BORC`a çevrilir. Fon kat maliklerine ait **iade edilebilir
+emanettir**, özkaynak değil (§5.5). VUK md. 328'in teknik "yenileme fonu"yla
+karıştırılmaz.
+
+### K5 · `FisTuru.TAHAKKUK`
+
+Yeni enum değeri. `MAHSUP`a sıkıştırılsaydı dönem kapanışı ve raporlar tahakkuk
+fişini ayırt edemezdi.
+
+### K6 · Geriye dönük muhasebeleştirme YAPILMAZ
+
+Var olan fişsiz borçlar için otomatik toplu kayıt üretilmez (§4'teki gerekçe
+aynen geçerli). Muhasebeleştirme **çalışma bazında, elle tetiklenir**.
+
+### ★ K6b · Fiş bağı `TahakkukCalismasi`'ndadır, `Borc`'ta DEĞİL
+
+⚠️ **Bu, uygulama talimatından bilinçli bir SAPMADIR ve gerekçesi ürün
+sahibinin az önce `durum` için verdiği kararın aynısıdır.**
+
+Talimat `Borc.yevmiyeFisiId` diyordu. Ama K3 uyarınca **çalışma başına tek fiş**
+vardır; bir çalışmanın bütün borçları aynı fişe bağlıdır. `Borc.yevmiyeFisiId`
+eklenirse:
+
+- aynı bilgi **iki kaynakta** durur (`borc.calismaId → calisma.yevmiyeFisiId`
+  zaten cevabı veriyor);
+- 5.000 borçlu bir çalışmada 5.000 satır güncellenir, biri düşerse **borçların
+  bir kısmı muhasebeleşmiş görünür**;
+- mükerrer koruması hangi alandan okunacağı belirsiz kalır.
+
+> *"İki kaynak varsa biri güncellenmez ve sessizce yalan söyler."*
+
+Bu yüzden alan **`TahakkukCalismasi.yevmiyeFisiId`**'dir. Bir borcun
+muhasebeleşip muhasebeleşmediği çalışması üzerinden **türetilir**.
+
+★ İleride bir borç tek başına deftere girerse (virman · yıl sonu farkı) o kayıt
+kendi fişini üretir ve **kendi varlığına** bağlanır; `Borc`'a fiş alanı o zaman
+da eklenmez.
+
+### K7 · Dağıtım yöntemi — türde varsayılan, tahakkukta ezilebilir
+
+`GiderTuru.paylasimKurali` **varsayılan** kalır.
+`TahakkukCalistirDto.paylasimKurali` **isteğe bağlı ezme** olarak eklenir.
+
+**(a) Kullanılan kural `TahakkukCalismasi`'na YAZILIR — zorunlu alan.**
+`kullanilanPaylasimKurali`. Ezme yapılmasa bile yazılır: *"varsayılan
+kullanıldı"* ile *"ezildi"* ayrımı `paylasimKuraliEzildi` bayrağıyla görünür.
+
+Gerekçe: geçmiş bir tahakkukun **neden öyle dağıtıldığı** cevaplanabilir
+olmalıdır. Gider türü sonradan değişirse eski tahakkuk yine doğru okunur. Bu,
+`borcSorumlusu.cozumlemeTarihi`'nin snapshot mantığının aynısıdır.
+
+**(b) Ezme her kurala serbest DEĞİL.** Ölçüt: kural **ek veri** gerektiriyor mu?
+Tablo `paylastir.ts:52-102`'den türetildi, varsayılmadı:
+
+| Kural | Ağırlık nereden gelir | Ek veri? | Ezme |
+|---|---|---|---|
+| `ESIT` | sabit `1n` | — | ✅ serbest |
+| `ARSA_PAYI` | `bolum.arsaPayiAgirligi()` | — (bölüm kaydında zorunlu) | ✅ serbest |
+| `BRUT_M2` · `METREKARE` | `bolum.metrekareAgirligi()` | — | ✅ serbest |
+| `NET_M2` | `bolum.netMetrekareAgirligi()` | — | ✅ serbest |
+| `TUKETIM` | `girdi.tuketim` | **bölüm başına ölçüm** | ⛔ veri şart |
+| `KULLANIM_BAZLI` | `girdi.kullaniyorMu` | **bölüm başına kullanım** | ⛔ veri şart |
+| `SABIT_TUTAR` | `girdi.sabitAgirlik` | **bölüm başına ağırlık** | ⛔ veri şart |
+| `MANUEL` | `girdi.manuelTutar` | **bölüm başına tutar** | ⛔ veri şart |
+| `BLOK_BAZLI` | `secenekler.hedefBlokId` | **hedef blok** | ⛔ veri şart |
+| `KARMA` | bileşen tanımı | **`karmaBilesenler`** — türe ait, tahakkukta verilemez | ⛔ ezilemez |
+
+★ Serbest olanların ortak yanı: ağırlık **bölüm kaydından okunur**, istekten
+gelmez. `arsaPayiPay/Payda`, `brutM2`, `netM2` şemada `NOT NULL`.
+
+**(c) Reddedilen ezme AÇIK HATA verir — hangi bölümlerde eksik olduğunu
+sayarak.** Bugün `paylastir.ts` eksik veriyi **ilk bölümde** yakalayıp atıyor;
+yönetici hatayı tek tek görüyor. Ezme yolunda **ön kontrol** eklenir ve eksik
+bölümler **liste hâlinde** döner:
+
+```text
+422 · "TUKETIM dağıtımı için dönem sayaç okuması gerekli."
+      sonrakiEylem: "Şu bölümlerde okuma yok: 3, 7, 11 — sayaç okumalarını
+                     tamamlayın ya da varsayılan kuralla devam edin."
+```
+
+`cariKontrolHesabi()` deseninin aynısı: karşılığı yoksa **tahmin etme, dur ve
+çıkış yolunu söyle.**
+
+### K8 · Derinlik kapısı — `BASIT` projede muhasebe uçları 422 verir
+
+`muhasebelestir` ve `kontrol-mutabakati`, `MuhasebeParametresi.muhasebeDerinligi`
+`BASIT` ise **422** döner. Gerekçeler
+[APARTMAN-SITE-AYRIMI §2.6](../../APARTMAN-SITE-AYRIMI.md)'da.
+
+⚠️ **Derinlik `Principal`'a GÖMÜLMEZ**, uçta okunur. Jetona gömülseydi ayar
+değiştiğinde elindeki eski jetonla gelen kullanıcı **yanlış tarafa düşerdi** ve
+ayar değişimi jeton iptalini zorunlu kılardı. Okuma noktası zaten tenant başına
+tek satır olan `MuhasebeParametresi`'dir; tahsilat yolu onu hâlihazırda okuyor.
+
+### K9 · `TahakkukDayanagi` bu turda UYGULANMAZ
+
+Ayrı iş, ayrı ADR. `TahakkukCalismasi`'na ileride `dayanakId` geleceği **yorum
+olarak** yazılır; şema alanı açılmaz.
+
+---
+
+## 8 · Kararın kanıtı — bitişin tek ölçütü
+
+Bu ADR, `GET /makbuzlar/rapor/kontrol-mutabakati` **`mutabikMi: true`** dönene
+kadar uygulanmış sayılmaz. Ham çıktı `SESSION_SUMMARY`'ye yazılır.
+
+⚠️ Karar öncesi engellenenlerden ikisi **hâlâ geçerlidir**:
+
+- Tohuma elle yevmiye fişi yazmak ⛔ — tohum artık gerçek yoldan
+  muhasebeleştirir, elle fiş yazmaz
+- `kontrol-mutabakati` raporunun bir eşiğe bağlanması — mutabakat yeşile
+  döndükten sonra ayrıca değerlendirilir

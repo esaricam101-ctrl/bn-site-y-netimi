@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
@@ -7,7 +7,7 @@ import { TahakkukCommandService, type TahakkukSonucu } from './tahakkuk.command.
 import {
   TahakkukQueryService, type BorcSatiri, type DonemOzeti,
 } from './tahakkuk.query.service';
-import { TahakkukCalistirDto } from './dto/tahakkuk.dto';
+import { TahakkukCalistirDto, TahakkukMuhasebelestirDto } from './dto/tahakkuk.dto';
 
 @ApiTags('Tahakkuk')
 @ApiBearerAuth()
@@ -36,6 +36,30 @@ export class TahakkukController {
     @AktifPrincipal() principal: Principal,
   ): Promise<TahakkukSonucu> {
     return this.command.calistir(dto, principal);
+  }
+
+  @Post('calismalar/:id/muhasebelestir')
+  @RequirePermission(IZINLER.FINANS_YEVMIYE_GIRIS)
+  @ApiOperation({
+    summary: 'Tahakkuku deftere geçir (ADR-0017)',
+    description:
+      'Fiş: **borç Cari Kontrol / alacak gider türünün muhasebe hesabı**. ' +
+      'Tahsilat tam tersini yazar; ikisi birlikte cari hesabı açar ve kapatır.\n\n' +
+      'ÇALIŞMA BAŞINA TEK FİŞ: yevmiyede toplam durur, daire kırılımı yardımcı ' +
+      'defterdedir (ADR-0010). Borç başına fiş üretilseydi 5.000 bölümlü bir ' +
+      'sitede tek tahakkuk yevmiyeye 5.000 satır yazardı.\n\n' +
+      'FİŞ TARİHİ tahakkuk dönemidir, vade değil.\n\n' +
+      'MÜKERRER muhasebeleştirme reddedilir; düzeltme storno ile yapılır.',
+  })
+  muhasebelestir(
+    @Param('id') id: string,
+    @Body() dto: TahakkukMuhasebelestirDto,
+    @AktifPrincipal() principal: Principal,
+  ): Promise<{
+    readonly id: string; readonly durum: string;
+    readonly fisId: string; readonly fisNo: string;
+  }> {
+    return this.command.muhasebelestir(id, dto, principal);
   }
 
   @Get('borclar')

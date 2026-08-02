@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tohum verisi — Faz 0 dikey dilimi.
  *
  * İKİ tenant oluşturur. Bu kasıtlıdır: tenant izolasyon testinin
@@ -50,14 +50,31 @@ interface BolumTohumu {
   ortaklar?: readonly { ad: readonly [string, string]; hisse: readonly [bigint, bigint] }[];
   /** Doluysa daire kirada; borç zinciri kiracıyı da kapsar. */
   kiraci?: readonly [string, string];
+  /** Site tarafında hangi blok. Verilmezse ilk blok. */
+  blok?: string;
 }
 
 interface ApartmanTohumu {
   kod: string;
   ad: string;
+  /**
+   * ⚠️  VARSAYILAN `APARTMAN`. Tohumda uzun süre HİÇ `SITE` yoktu ve bu bir
+   *     sessiz boşluktu: çift taraflı muhasebe, iki kademeli gider paylaşımı
+   *     ve işletme projesi zinciri SİTE tarafının konusudur — hiçbir fikstür
+   *     o tarafı temsil etmiyordu. Site için yazılan kod test edilemiyordu.
+   */
+  tip?: 'APARTMAN' | 'SITE';
+  /**
+   * MUHASEBE DERİNLİĞİ (0034 · docs/APARTMAN-SITE-AYRIMI.md §2.1).
+   * Verilmezse tipten TÜRETİLİR: `SITE → CIFT_TARAFLI`, `APARTMAN → BASIT`.
+   * Bu bir VARSAYILANDIR, kural değil.
+   */
+  muhasebeDerinligi?: 'BASIT' | 'CIFT_TARAFLI';
   bolumler: BolumTohumu[];
   /** Tahakkuk geçmişi üretilsin mi (demo sitesi için). */
   tahakkukGecmisi?: boolean;
+  /** Blok adları — birden çoksa site yapısı kurulur. */
+  bloklar?: readonly string[];
 }
 
 const APARTMANLAR: ApartmanTohumu[] = [
@@ -104,6 +121,39 @@ const APARTMANLAR: ApartmanTohumu[] = [
     bolumler: [
       { kapiNo: '1', kat: 1, m2: 95, pay: 500_000n, malik: ['Kemal', 'Erdem'] },
       { kapiNo: '2', kat: 2, m2: 95, pay: 500_000n, malik: ['Nurten', 'Bilgin'] },
+    ],
+  },
+  /*
+   * ★ TOPLU YAPI — çift taraflı muhasebenin FİKSTÜRÜ.
+   *
+   * ⚠️  BU TENANT OLMADAN SİTE TARAFI TEST EDİLEMİYORDU. Tohumda uzun süre
+   *     yalnızca `APARTMAN` tipi vardı; çift taraflı muhasebe, iki kademeli
+   *     gider paylaşımı ve işletme projesi zinciri site tarafının konusudur
+   *     ve hiçbir fikstür o tarafı temsil etmiyordu (docs/
+   *     APARTMAN-SITE-AYRIMI.md §5).
+   *
+   * İki blok bilinçli: tek bloklu "site" blok bazlı gider ayrımını sınamaz.
+   */
+  {
+    kod: 'papatya-sitesi',
+    ad: 'Papatya Sitesi',
+    tip: 'SITE',
+    muhasebeDerinligi: 'CIFT_TARAFLI',
+    bloklar: ['A Blok', 'B Blok'],
+    tahakkukGecmisi: true,
+    bolumler: [
+      { kapiNo: '1', kat: 1, m2: 110, pay: 120_000n, malik: ['Sinan', 'Yalçın'], blok: 'A Blok' },
+      { kapiNo: '2', kat: 1, m2: 110, pay: 120_000n, malik: ['Derya', 'Tunç'], blok: 'A Blok',
+        kiraci: ['Onur', 'Bayrak'] },
+      { kapiNo: '3', kat: 2, m2: 130, pay: 140_000n, malik: ['Gülay', 'Sezer'], blok: 'A Blok' },
+      { kapiNo: '4', kat: 2, m2: 130, pay: 140_000n, malik: ['Tolga', 'Ekinci'], blok: 'A Blok' },
+      { kapiNo: '5', kat: 1, m2: 100, pay: 110_000n, malik: ['Neriman', 'Aksu'], blok: 'B Blok' },
+      { kapiNo: '6', kat: 1, m2: 100, pay: 110_000n, malik: ['Kadir', 'Uçar'], blok: 'B Blok' },
+      // Sitede de hisseli mülkiyet var: pay mantığı tek fikstüre bağlı kalmasın.
+      { kapiNo: '7', kat: 2, m2: 125, pay: 130_000n, malik: ['Şule', 'Baran'], blok: 'B Blok',
+        malikHissesi: [1n, 2n],
+        ortaklar: [{ ad: ['Cem', 'Baran'], hisse: [1n, 2n] }] },
+      { kapiNo: '8', kat: 2, m2: 125, pay: 130_000n, malik: ['Levent', 'Kara'], blok: 'B Blok' },
     ],
   },
 ];
@@ -179,20 +229,30 @@ const GIDER_TURLERI: {
   tahakkukSikligi: Prisma.GiderTuruCreateInput['tahakkukSikligi'];
   /** Karşılıklı dışlayan küme. Verilmezse tür hiçbir kümeye ait değildir. */
   grupKodu?: string;
+  /**
+   * TAHAKKUK FİŞİNİN ALACAK TARAFI — zorunlu (ADR-0017 · K1).
+   *
+   * ⚠️  TOHUM **AVANS** YAKLAŞIMINI GÖSTERİR (`349`). Gerekçe: KMK md. 20
+   *     aidatı *"toplanacak avans"* olarak adlandırır ve yönetim kâr amacı
+   *     gütmez. Ürün bu tercihi DAYATMAZ — `600 Aidat Gelirleri` hesap
+   *     planında duruyor ve gelir yaklaşımını benimseyen bir proje türleri
+   *     oraya bağlayabilir. Seçim veridir, kod değildir (§33 kural 3).
+   */
+  hesapKodu: string;
 }[] = [
   // md. 20/a — kapıcı, kaloriferci, bahçıvan, bekçi giderleri: EŞİT olarak.
-  { kod: 'KAPICI', ad: 'Kapıcı gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { hesapKodu: '349', kod: 'KAPICI', ad: 'Kapıcı gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
   // md. 20/b — anagayrimenkulün sigortası, bakımı, korunması: ARSA PAYI oranında.
   //
   // ONARIM BİR OLAYDIR: aynı ay çatı akıntısı VE boya işi olabilir; ikincisi
   // ilkinin düzeltmesi değildir. İleride rutin bakım sözleşmesi (dönemsel) ile
   // arıza onarımı (olay bazlı) ayrı türlere bölünebilir — bugün zorunlu değil.
-  { kod: 'ANA_BAKIM', ad: 'Anagayrimenkul bakım ve onarım', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
+  { hesapKodu: '349', kod: 'ANA_BAKIM', ad: 'Anagayrimenkul bakım ve onarım', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
   // POLİÇE TAKVİM AYINA OTURMAZ. Aynı ay ikinci poliçe (asansör sigortası,
   // DASK yenilemesi, ek teminat) meşrudur. Referans = poliçe numarası.
-  { kod: 'SIGORTA', ad: 'Bina sigortası', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
+  { hesapKodu: '349', kod: 'SIGORTA', ad: 'Bina sigortası', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'OLAY_BAZLI' },
   // Yenileme fonu md. 72 — anagayrimenkule yapılan yatırımdır, malike aittir.
-  { kod: 'YENILEME_FONU', ad: 'Yenileme fonu', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { hesapKodu: '500', kod: 'YENILEME_FONU', ad: 'Yenileme fonu', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'MALIKE_AIT', tahakkukSikligi: 'DONEMSEL' },
   // Isınma tüketime bağlıdır (5627 sayılı Enerji Verimliliği Kanunu md. 7/c);
   // paylaşım kuralı TUKETIM'dir ve sayaç okuması olmadan hesaplanamaz.
   //
@@ -202,22 +262,22 @@ const GIDER_TURLERI: {
   //       · pay ölçerli site  → ISITMA (dönemsel, tüketim payına göre)
   //       · pay ölçersiz site → YAKIT  (olay bazlı, her dolum ayrı gider)
   //     Hangisinin kullanılacağı PROJE AYARIDIR, kod kararı değildir.
-  { kod: 'ISITMA', ad: 'Isıtma gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL', grupKodu: 'ISINMA' },
+  { hesapKodu: '349', kod: 'ISITMA', ad: 'Isıtma gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL', grupKodu: 'ISINMA' },
   // HER TANKER DOLUMU AYRI BİR OLAYDIR; iki dolum birbirinin düzeltmesi
   // değildir. Referans = irsaliye/fatura numarası.
   //
   // Paylaşım kuralı ARSA_PAYI olarak tohumlanır; yönetim planı farklı
   // diyorsa proje bazında değiştirilir — kural VERİDİR, koda gömülü değildir.
-  { kod: 'YAKIT', ad: 'Yakıt alımı', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'OLAY_BAZLI', grupKodu: 'ISINMA' },
+  { hesapKodu: '349', kod: 'YAKIT', ad: 'Yakıt alımı', paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'OLAY_BAZLI', grupKodu: 'ISINMA' },
   // ⚠️  BİLİNEN SINIR (ELEKTRIK_ORTAK · SU): tek abonelik varsayımıyla
   //     DONEMSEL. Çok abonelikli sitede (ortak alan + otopark + havuz ayrı
   //     sayaç) aynı ay iki fatura gelir ve türün ayrılması gerekir. Bu durum
   //     geldiğinde yeniden değerlendirilecektir.
-  { kod: 'SU', ad: 'Su gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
-  { kod: 'ASANSOR_ISLETME', ad: 'Asansör işletme gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
-  { kod: 'ELEKTRIK_ORTAK', ad: 'Ortak alan elektriği', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
-  { kod: 'TEMIZLIK', ad: 'Temizlik gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
-  { kod: 'YONETIM', ad: 'Yönetim gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { hesapKodu: '349', kod: 'SU', ad: 'Su gideri', paylasimKurali: 'TUKETIM', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { hesapKodu: '349', kod: 'ASANSOR_ISLETME', ad: 'Asansör işletme gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { hesapKodu: '349', kod: 'ELEKTRIK_ORTAK', ad: 'Ortak alan elektriği', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { hesapKodu: '349', kod: 'TEMIZLIK', ad: 'Temizlik gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
+  { hesapKodu: '349', kod: 'YONETIM', ad: 'Yönetim gideri', paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT', tahakkukSikligi: 'DONEMSEL' },
 ];
 
 /**
@@ -243,7 +303,14 @@ const HESAP_PLANI: {
   { kod: '255', ad: 'Demirbaşlar', tip: 'VARLIK' },
   { kod: '320', ad: 'Tedarikçiler', tip: 'BORC' },
   { kod: '340', ad: 'Alınan Avanslar', tip: 'BORC' },
-  { kod: '500', ad: 'Yenileme Fonu', tip: 'OZKAYNAK' },
+  // ORTAK GİDER AVANSI — tahakkukun karşı tarafı (ADR-0017 · K1).
+  // KMK md. 20 aidatı "toplanacak avans" der; yönetim kâr amacı gütmez.
+  { kod: '349', ad: 'Alınan Ortak Gider Avansları', tip: 'BORC' },
+  // ⚠️ OZKAYNAK DEĞİL, BORC (ADR-0017 · K4). Fon kat maliklerine ait İADE
+  //    EDİLEBİLİR EMANETTİR. VUK md. 328'deki teknik "yenileme fonu"
+  //    (amortismana tabi kıymet satış kârının 549'da izlenmesi) ile
+  //    karıştırılmaz — o, bilanço esasına tabi ticari işletmelere özgüdür.
+  { kod: '500', ad: 'Yenileme Fonu', tip: 'BORC' },
   { kod: '600', ad: 'Aidat Gelirleri', tip: 'GELIR' },
   { kod: '602', ad: 'Gecikme Tazminatı Gelirleri', tip: 'GELIR' },
   { kod: '770', ad: 'Yönetim Giderleri', tip: 'GIDER' },
@@ -386,6 +453,10 @@ async function tahakkukGecmisiOlustur(
       data: {
         id: calismaId, tenantId, giderTuruKodu: GIDER,
         donem: new Date(d.donem), tip: 'ASIL', sira: 1,
+        // DAĞITIM SNAPSHOT'I (ADR-0017 · K7a). Türün kuralı sonradan
+        // değişirse geçmiş tahakkuk yine doğru okunur. Tohum ezme yapmaz.
+        kullanilanPaylasimKurali: 'ESIT',
+        paylasimKuraliEzildi: false,
         toplamTutar: d.tutar * bolumIdler.length,
         bolumSayisi: bolumIdler.length,
       },
@@ -474,7 +545,7 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
   await prisma.tenant.create({
     data: {
       id: tenantId, kod: t.kod, ad: t.ad,
-      tip: 'APARTMAN', durum: 'AKTIF',
+      tip: t.tip ?? 'APARTMAN', durum: 'AKTIF',
       saatDilimi: 'Europe/Istanbul', paraBirimi: 'TRY',
       lisansKodu: 'BNOS-APT-V1',
     },
@@ -507,6 +578,17 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
       tenantId,
       varsayilanKasaHesapId: hesapIdler.get('100') ?? null,
       varsayilanBankaHesapId: hesapIdler.get('102') ?? null,
+      /*
+       * DERİNLİK — VARSAYILAN tipten türetilir, KURAL DEĞİLDİR (0034).
+       * `SITE → CIFT_TARAFLI`, `APARTMAN → BASIT`. Tohum bu varsayılanı
+       * gösterir; proje sonradan değiştirebilir.
+       *
+       * ⚠️  BASIT projede de parametre kaydı AÇILIR: kasa/banka varsayılanları
+       *     orada da gerekir (apartman kasa ve banka tutar). Açılmaması
+       *     "kurulum yapılmamış" ile "basit muhasebe" ayrımını kaybettirirdi.
+       */
+      muhasebeDerinligi: t.muhasebeDerinligi
+        ?? (t.tip === 'SITE' ? 'CIFT_TARAFLI' : 'BASIT'),
       // Dönem kârı hesabı BİLİNÇLİ olarak boş: kâr/zararın hangi özkaynak
       // hesabına aktarılacağı yönetimin kararıdır, tohum adına verilemez.
     },
@@ -565,21 +647,41 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     data: { id: apartmanId, tenantId, ad: t.ad, adres: `${t.ad} — geliştirme adresi` },
   });
 
-  const blokId = randomUUID();
-  await prisma.blok.create({
-    data: { id: blokId, tenantId, apartmanId, ad: 'A Blok' },
-  });
+  /*
+   * BLOK — site tarafında birden çok olur.
+   *
+   * ⚠️  "Blok" YALNIZCA site içindeki yapı birimidir (BFS v1 §13.1). Tek
+   *     yapılı projede de bir blok kaydı açılır çünkü `bagimsiz_bolum.blok_id`
+   *     olmadan kapı no tekilliği kurulamaz — ama o projenin YÖNETİMİNE
+   *     "blok yönetimi" DENMEZ, apartman yönetimi denir.
+   */
+  const blokAdlari = t.bloklar ?? ['A Blok'];
+  const blokHaritasi = new Map<string, string>();
+  for (const ad of blokAdlari) {
+    const id = randomUUID();
+    blokHaritasi.set(ad, id);
+    await prisma.blok.create({ data: { id, tenantId, apartmanId, ad } });
+  }
+  const varsayilanBlokId = blokHaritasi.get(blokAdlari[0] ?? 'A Blok') ?? '';
 
   // Kat kayıtları bölümlerin kat numaralarından türetilir; elle liste tutmak
   // bölüm eklendiğinde güncellenmeyi unutulur.
-  const katNolari = [...new Set(t.bolumler.map((b) => b.kat))].sort((a, b) => a - b);
-  const katHaritasi = new Map<number, string>();
-  for (const no of katNolari) {
-    const katId = randomUUID();
-    katHaritasi.set(no, katId);
-    await prisma.kat.create({
-      data: { id: katId, tenantId, blokId, no, ad: no === 0 ? 'Zemin' : null },
-    });
+  //
+  // ⚠️  KAT BLOĞA AİTTİR. Çok bloklu sitede her bloğun kendi katları vardır;
+  //     tek listeye konsaydı B blokun 3. katındaki daire A blokun katına
+  //     bağlanırdı.
+  const katHaritasi = new Map<string, string>();
+  for (const [blokAdi, blokId] of blokHaritasi) {
+    const katNolari = [...new Set(
+      t.bolumler.filter((b) => (b.blok ?? blokAdlari[0]) === blokAdi).map((b) => b.kat),
+    )].sort((a, b) => a - b);
+    for (const no of katNolari) {
+      const katId = randomUUID();
+      katHaritasi.set(`${blokAdi}|${no}`, katId);
+      await prisma.kat.create({
+        data: { id: katId, tenantId, blokId, no, ad: no === 0 ? 'Zemin' : null },
+      });
+    }
   }
 
   // --- Gider türleri: KMK varsayılanları ------------------------------------
@@ -639,6 +741,7 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
           ? {}
           : { grupId: grupKimlikleri.get(g.grupKodu) }),
         kuralKaynagi: 'KMK_VARSAYILAN', malikPaylasimi: 'HISSE_ORANI',
+        muhasebeHesapId: hesapIdler.get(g.hesapKodu) ?? '',
       },
     });
   }
@@ -664,9 +767,12 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
       },
     });
 
+    const bolumBlokAdi = b.blok ?? blokAdlari[0] ?? 'A Blok';
     await prisma.bagimsizBolum.create({
       data: {
-        id: bolumId, tenantId, blokId, katId: katHaritasi.get(b.kat) ?? null,
+        id: bolumId, tenantId,
+        blokId: blokHaritasi.get(bolumBlokAdi) ?? varsayilanBlokId,
+        katId: katHaritasi.get(`${bolumBlokAdi}|${b.kat}`) ?? null,
         kapiNo: b.kapiNo, kat: b.kat, nitelik: 'MESKEN',
         brutM2: b.m2, netM2: Math.round(b.m2 * 0.85),
         arsaPayiPay: b.pay, arsaPayiPayda: 1_000_000n,
@@ -761,7 +867,11 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
     await tahakkukGecmisiOlustur(tenantId, borcSorumlusuHaritasi);
   }
 
-  console.log(`  ${t.ad}  (1 blok · ${katNolari.length} kat · ${t.bolumler.length} bağımsız bölüm)`);
+  const derinlik = t.muhasebeDerinligi ?? (t.tip === 'SITE' ? 'CIFT_TARAFLI' : 'BASIT');
+  console.log(
+    `  ${t.ad}  (${t.tip ?? 'APARTMAN'} · ${blokAdlari.length} blok · ` +
+      `${katHaritasi.size} kat · ${t.bolumler.length} bağımsız bölüm · ${derinlik})`,
+  );
   console.log(`     giriş: yonetici@${t.kod}.test / bnos1234`);
   return tenantId;
 }
@@ -858,3 +968,4 @@ main()
     process.exit(1);
   })
   .finally(() => void prisma.$disconnect());
+

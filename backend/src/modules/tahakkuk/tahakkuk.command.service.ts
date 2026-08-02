@@ -36,8 +36,12 @@ import { AuditServisi } from '../../common/audit/audit.service';
 import { OutboxServisi } from '../../common/outbox/outbox.service';
 import { NumaraServisi } from '../../common/numbering/numara.service';
 import { SayacServisi } from '../sayac/sayac.service';
+import { FisCommandServisi } from '../muhasebe/fis.command.service';
 import { mevcutBaglamiZorunluKil } from '../../common/context/request-context';
-import type { BolumGirdisiDto, TahakkukCalistirDto } from './dto/tahakkuk.dto';
+import { EZILEBILIR_KURALLAR } from './dto/tahakkuk.dto';
+import type {
+  BolumGirdisiDto, TahakkukCalistirDto, TahakkukMuhasebelestirDto,
+} from './dto/tahakkuk.dto';
 
 export interface TahakkukSatiri {
   readonly bolumId: string;
@@ -92,6 +96,12 @@ export class TahakkukCommandService {
     private readonly numara: NumaraServisi,
     // TUKETIM kuralinda agirliklar sayac okumalarindan gelir.
     private readonly sayac: SayacServisi,
+    /*
+     * Fiş üretimi KOPYALANMAZ, buradan çağrılır. Tahsilat tarafında da aynı
+     * servis kullanılıyor; denklik, kapalı dönem yasağı ve numaralandırma
+     * tek yerde durur.
+     */
+    private readonly fis: FisCommandServisi,
   ) {}
 
   async calistir(dto: TahakkukCalistirDto, principal: Principal): Promise<TahakkukSonucu> {
@@ -124,10 +134,35 @@ export class TahakkukCommandService {
         );
       }
 
+      /*
+       * --- 1b) DAĞITIM EZMESİ (ADR-0017 · K7) -------------------------------
+       *
+       * Gider türünün kuralı VARSAYILANDIR; istek onu ezebilir. Ama ezme
+       * yalnızca EK VERİ GEREKTİRMEYEN kurallara açıktır — ölçüt bu, kuralın
+       * adı değil. Reddin gövdesi eksikleri SAYAR: yönetici dört bölümü dört
+       * denemede öğrenmemelidir (`cariKontrolHesabi()` deseni).
+       */
+      const ezme = dto.paylasimKurali;
+      const ezildi = ezme !== undefined && ezme !== turKaydi.paylasimKurali;
+
+      /*
+       * KARMA tek MUTLAK yasaktır: bileşen tanımı (`karmaBilesenler`) gider
+       * türüne aittir ve istek gövdesinden verilemez. Ötekiler veri gelirse
+       * kabul edilir — kontrol bölümler yüklendikten SONRA yapılır ki eksik
+       * bölümler adlarıyla sayılabilsin (bkz. 3c).
+       */
+      if (ezme === 'KARMA') {
+        throw new IsKuraliIhlali(
+          'KARMA dağıtımı tahakkukta seçilemez.',
+          'KARMA bileşenleri gider türünün tanımına aittir; gider türünü düzenleyin.',
+        );
+      }
+      const etkinKural = ezme ?? turKaydi.paylasimKurali;
+
       const gider: GiderTuru = {
         kod: turKaydi.kod,
         ad: turKaydi.ad,
-        paylasimKurali: turKaydi.paylasimKurali,
+        paylasimKurali: etkinKural,
         sorumlulukTipi: turKaydi.sorumlulukTipi,
         kuralKaynagi: turKaydi.kuralKaynagi,
         kaynakReferansi: turKaydi.kaynakReferansi,
@@ -269,6 +304,13 @@ export class TahakkukCommandService {
               ...(referans ? { referans } : {}),
               toplamTutar: new Prisma.Decimal(apiBicimi(toplam)),
               bolumSayisi: 0,
+              /*
+               * DAĞITIM SNAPSHOT'I (ADR-0017 · K7a). Ezme yapılmasa bile
+               * yazılır: gider türünün kuralı sonradan değişirse geçmiş
+               * tahakkuk yine doğru okunur. `cozumlemeTarihi` mantığı.
+               */
+              kullanilanPaylasimKurali: etkinKural,
+              paylasimKuraliEzildi: ezildi,
             },
           });
         } catch (e) {
@@ -360,6 +402,44 @@ export class TahakkukCommandService {
             bolumId: t.bolumId,
             tuketim: t.tuketim,
           });
+        }
+      }
+
+      /*
+       * --- 3c) EZME ÖN KONTROLÜ (ADR-0017 · K7c) ---------------------------
+       *
+       * ⚠️  NEDEN ÖN KONTROL: `paylastir.ts` eksik veriyi zaten yakalıyor ama
+       *     İLK bölümde durup atıyor. Yönetici dört eksik daireyi dört ayrı
+       *     denemede öğreniyordu. Burada hepsi BİR KEREDE sayılır.
+       *
+       *     Yalnızca EZME yolunda çalışır: gider türünün kendi kuralıyla
+       *     çalıştırılan tahakkuk bugünkü davranışını korur.
+       */
+      if (ezme !== undefined && !EZILEBILIR_KURALLAR.includes(
+        ezme as (typeof EZILEBILIR_KURALLAR)[number],
+      )) {
+        const alan = {
+          TUKETIM: 'tuketim', SABIT_TUTAR: 'sabitAgirlik',
+          KULLANIM_BAZLI: 'kullaniyorMu', MANUEL: 'manuelTutar',
+        }[ezme as 'TUKETIM' | 'SABIT_TUTAR' | 'KULLANIM_BAZLI' | 'MANUEL'];
+
+        const eksikBolumler = bolumKayitlari
+          .filter((b) => {
+            const g = girdiHaritasi.get(b.id) as Record<string, unknown> | undefined;
+            return g === undefined || g[alan] === undefined || g[alan] === null;
+          })
+          .map((b) => b.kapiNo);
+
+        if (eksikBolumler.length > 0) {
+          throw new IsKuraliIhlali(
+            `${ezme} dağıtımı için her bölümün değeri gereklidir.`,
+            `Şu bölümlerde veri yok: ${eksikBolumler.join(', ')}. ` +
+              (ezme === 'TUKETIM'
+                ? 'Sayaç okumalarını tamamlayın ya da `sayacTuru` vererek ' +
+                  'ölçümlerin okumalardan gelmesini sağlayın.'
+                : 'Eksik bölümlerin değerlerini girin.') +
+              ' Eksik bölüme sıfır yazmak, o dairenin payını diğerlerine yükler.',
+          );
         }
       }
 
@@ -636,5 +716,199 @@ export class TahakkukCommandService {
         uyarilar,
       };
     });
+  }
+
+  /**
+   * TAHAKKUKU DEFTERE GEÇİR (ADR-0017).
+   *
+   * Fiş: **borç `CARI_KONTROL` / alacak `giderTuru.muhasebeHesapId`**.
+   * Tahsilat tam tersini yazar (`tahsilat.command.service.ts:390-392`); ikisi
+   * birlikte cari hesabı açar ve kapatır. Mutabakat ancak böyle tutar.
+   *
+   * ⚠️  ÇALIŞMA BAŞINA TEK FİŞ (K3). Yevmiyede toplam durur, daire kırılımı
+   *     yardımcı defterdedir (ADR-0010). Borç başına fiş üretilseydi 5.000
+   *     bölümlü bir sitede tek tahakkuk 5.000 fiş yazardı ve yevmiye defteri
+   *     okunamaz hâle gelirdi.
+   *
+   * ⚠️  FİŞ TARİHİ `tahakkukDonemi`dir, vade DEĞİL. Vade seçilseydi gider ile
+   *     karşılığı farklı döneme düşebilirdi.
+   *
+   * ⚠️  MÜKERRER KORUMASI `calisma.yevmiyeFisiId` alanındadır (K6b) — `borc`ta
+   *     ayrı bir alan YOKTUR. Düzeltme storno ile yapılır.
+   */
+  async muhasebelestir(
+    calismaId: string, dto: TahakkukMuhasebelestirDto, principal: Principal,
+  ): Promise<{
+    readonly id: string; readonly durum: string;
+    readonly fisId: string; readonly fisNo: string;
+  }> {
+    const baglam = mevcutBaglamiZorunluKil('tahakkuk.muhasebelestir');
+
+    return this.prisma.tenantIslemi(async (tx) => {
+      const calisma = await tx.tahakkukCalismasi.findFirst({
+        where: { id: calismaId, tenantId: principal.tenantId },
+        select: {
+          id: true, giderTuruKodu: true, donem: true, toplamTutar: true,
+          tip: true, sira: true, referans: true, yevmiyeFisiId: true,
+        },
+      });
+      if (!calisma) {
+        throw new KayitBulunamadi(`Tahakkuk çalışması bulunamadı: ${calismaId}`);
+      }
+      /*
+       * DERİNLİK KAPISI (ADR-0017 · K8). `BASIT` projede yevmiye fişi diye
+       * bir kavram YOKTUR ve bu bir eksiklik değildir.
+       *
+       * ⚠️  SESSİZ ATLAMA DEĞİL, AÇIK HATA. Ucu menüden kaldırmak bir
+       *     görünürlük önlemidir; doğrudan çağıran biri sessiz sonuç
+       *     almamalıdır.
+       *
+       * ⚠️  Derinlik `Principal`'dan OKUNMAZ, buradan okunur. Jetona
+       *     gömülseydi ayar değiştiğinde elindeki eski jetonla gelen
+       *     kullanıcı yanlış tarafa düşerdi.
+       */
+      await this.ciftTarafliZorunluKil(tx, principal);
+
+      if (calisma.yevmiyeFisiId !== null) {
+        throw new IsKuraliIhlali(
+          'Bu tahakkuk zaten muhasebeleştirilmiş.',
+          'Aynı tahakkuk iki kez muhasebeleştirilse aynı borç iki kez deftere ' +
+            'girer. Düzeltme için ilgili fişi storno edin.',
+        );
+      }
+
+      /*
+       * BORÇ TOPLAMI ÇALIŞMADAN DEĞİL, BORÇ SATIRLARINDAN gelir.
+       * `toplamTutar` istekte gelen tutardır; dağıtımda kuruş artığı son
+       * bölüme verildiği için ikisi teorik olarak ayrışabilir. Deftere giren
+       * rakam, borçluların gerçekten borçlandığı rakam olmalıdır.
+       */
+      const borcToplami = await tx.borc.aggregate({
+        where: { tenantId: principal.tenantId, calismaId },
+        _sum: { tutar: true },
+      });
+      const tutar = borcToplami._sum.tutar;
+      if (tutar === null || tutar.isZero()) {
+        throw new IsKuraliIhlali(
+          'Muhasebeleştirilecek borç yok.',
+          'Bu çalışma hiç borç üretmemiş; önizleme kaydı muhasebeleşmez.',
+        );
+      }
+
+      const tur = await tx.giderTuru.findFirst({
+        where: { tenantId: principal.tenantId, kod: calisma.giderTuruKodu },
+        select: { ad: true, muhasebeHesapId: true },
+      });
+      if (!tur) {
+        throw new KayitBulunamadi(
+          `Gider türü bulunamadı: ${calisma.giderTuruKodu}. ` +
+            'Tahakkukun karşı hesabı türden okunur; tür silinmişse fiş kesilemez.',
+        );
+      }
+
+      /*
+       * Kontrol hesabı KODLA DEĞİL `ozellik` ile bulunur (§33 kural 3):
+       * '120' her tenant'ta alıcılar hesabı olmayabilir. Yoksa TAHMİN
+       * EDİLMEZ — durulur ve çıkış yolu söylenir.
+       */
+      const kontrol = await tx.hesap.findFirst({
+        where: {
+          tenantId: principal.tenantId, ozellik: 'CARI_KONTROL',
+          aktif: true, silinmeTarihi: null,
+        },
+        select: { id: true },
+      });
+      if (!kontrol) {
+        throw new IsKuraliIhlali(
+          'Cari kontrol hesabı tanımlı değil.',
+          'Hesap planında bir hesabı "Cari Kontrol" olarak işaretleyin; ' +
+            'tahakkuk bu hesabı borçlandırır.',
+        );
+      }
+      if (kontrol.id === tur.muhasebeHesapId) {
+        throw new IsKuraliIhlali(
+          'Borç ve alacak tarafı aynı hesap olamaz.',
+          'Gider türünün muhasebe hesabı, cari kontrol hesabıyla aynı seçilmiş.',
+        );
+      }
+
+      const donemMetni = calisma.donem.toISOString().slice(0, 10);
+      const tutarMetni = tutar.toFixed(4);
+      const etiket = calisma.referans === null
+        ? `${donemMetni} dönemi`
+        : `${donemMetni} · ${calisma.referans}`;
+
+      const fis = await this.fis.ekleIslemde(
+        tx,
+        {
+          tarih: donemMetni,
+          aciklama: `Tahakkuk — ${tur.ad} (${etiket})`,
+          fisTuru: 'TAHAKKUK',
+          kaynakTipi: 'TAHAKKUK',
+          kaynakId: calisma.id,
+          ...(dto.hemenIsle === undefined ? {} : { hemenIsle: dto.hemenIsle }),
+          satirlar: [
+            { hesapId: kontrol.id, borc: tutarMetni, aciklama: `Tahakkuk ${etiket}` },
+            {
+              hesapId: tur.muhasebeHesapId, alacak: tutarMetni,
+              aciklama: `${tur.ad} ${etiket}`,
+            },
+          ],
+        },
+        principal,
+        baglam,
+      );
+
+      await tx.tahakkukCalismasi.update({
+        where: { id: calisma.id }, data: { yevmiyeFisiId: fis.id },
+      });
+
+      await this.audit.yaz(tx, {
+        tenantId: principal.tenantId, principal, eylem: 'GUNCELLE',
+        varlik: 'TahakkukCalismasi', varlikId: calisma.id,
+        oncekiDeger: { yevmiyeFisiId: null },
+        sonrakiDeger: {
+          yevmiyeFisiId: fis.id, fisNo: fis.fisNo,
+          giderTuruKodu: calisma.giderTuruKodu, donem: donemMetni,
+          tutar: tutarMetni,
+          borcHesapId: kontrol.id, alacakHesapId: tur.muhasebeHesapId,
+        },
+        correlationId: baglam.correlationId,
+        ip: baglam.ip, kullaniciAjani: baglam.kullaniciAjani,
+      });
+
+      return {
+        id: calisma.id, durum: 'MUHASEBELESTI',
+        fisId: fis.id, fisNo: fis.fisNo,
+      };
+    });
+  }
+
+  /**
+   * MUHASEBE DERİNLİĞİ KAPISI — `BASIT` projede çift taraflı kayıt yoktur.
+   *
+   * Parametre kaydı hiç yoksa da `BASIT` sayılır: kurulum yapılmamış bir
+   * projede yevmiye fişi kesmek, hangi hesaba yazılacağı belirsizken deftere
+   * kayıt üretmek olurdu.
+   */
+  private async ciftTarafliZorunluKil(
+    tx: Prisma.TransactionClient, principal: Principal,
+  ): Promise<void> {
+    const p = await tx.muhasebeParametresi.findFirst({
+      where: { tenantId: principal.tenantId },
+      select: { muhasebeDerinligi: true },
+    });
+    if (p !== null && p.muhasebeDerinligi === 'CIFT_TARAFLI') return;
+
+    throw new IsKuraliIhlali(
+      'Bu proje basit muhasebe kullanıyor; tahakkuk deftere geçirilmez.',
+      p === null
+        ? 'Muhasebe parametreleri henüz kurulmamış. Çift taraflı muhasebe ' +
+          'kullanılacaksa önce hesap planını ve parametreleri tanımlayın.'
+        : 'Basit muhasebede yalnızca kasa ve banka izlenir; hesap planı ve ' +
+          'yevmiye fişi yoktur. Tahakkuk ve alacak takibi ETKİLENMEZ — ' +
+          'yalnızca deftere düşmez. Çift taraflı muhasebeye geçmek için ' +
+          'Muhasebe → Parametreler ekranından derinliği değiştirin.',
+    );
   }
 }

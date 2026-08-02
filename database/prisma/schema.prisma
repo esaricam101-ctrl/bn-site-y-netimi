@@ -758,6 +758,20 @@ model GiderTuru {
   /// Bir bölümün borcunun malikler arasında nasıl bölüneceği.
   malikPaylasimi String @default("HISSE_ORANI") @map("malik_paylasimi") @db.VarChar(20)
 
+  /// TAHAKKUK FİŞİNİN ALACAK TARAFI — ZORUNLU (ADR-0017 · K1).
+  ///
+  /// `BankaHesabi.muhasebeHesapId` emsalinin aynısı. Bu tek alan "aidat gelir
+  /// mi avans mı" tartışmasını da VERİYE taşır: tenant `349`u gösterirse avans,
+  /// `600`ü gösterirse gelir yaklaşımı yürür. **Ürün taraf tutmaz** (§33
+  /// kural 3) — hesabın niteliğini hesap planı belirler.
+  ///
+  /// ⚠️  Ad `gelirHesapId` DEĞİL: `349` bir gelir hesabı değildir ve alan adı
+  ///     bir muhasebe görüşünü dayatmamalıdır.
+  ///
+  /// ⚠️  BOŞ BIRAKILAMAZ. Boş olsaydı karşılığı olmayan bir türün tahakkuku ya
+  ///     sessizce muhasebeleşmez ya da rastgele bir hesaba yazılırdı.
+  muhasebeHesapId String @map("muhasebe_hesap_id") @db.Uuid
+
   aktifMi Boolean @default(true) @map("aktif_mi")
 
   silindiMi      Boolean   @default(false) @map("silindi_mi")
@@ -770,9 +784,11 @@ model GiderTuru {
 
   tenant Tenant           @relation(fields: [tenantId], references: [id])
   grup   GiderTuruGrubu?  @relation(fields: [grupId], references: [id])
+  muhasebeHesabi Hesap    @relation("GiderTuruHesap", fields: [muhasebeHesapId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, kod])
   @@index([tenantId, grupId])
+  @@index([tenantId, muhasebeHesapId])
   @@map("gider_turu")
 }
 
@@ -832,6 +848,10 @@ enum FisDurumu {
 enum FisTuru {
   ACILIS
   MAHSUP
+  /// Tahakkukun deftere geçirilmesi (ADR-0017 · 0032). `MAHSUP`a
+  /// sıkıştırılsaydı dönem kapanışı ve raporlar tahakkuk fişini ayırt
+  /// edemezdi.
+  TAHAKKUK
   TAHSILAT
   TEDIYE
   YANSITMA
@@ -905,8 +925,32 @@ model MuhasebeDonemi {
 /// 
 /// Ayarların koda gömülmesi, iki tenant'ın farklı kasa hesabı kullanmasını
 /// imkânsız kılardı (§33 kural 3).
+/// MUHASEBE DERİNLİĞİ (0034 · docs/APARTMAN-SITE-AYRIMI.md §2.1).
+///
+/// Apartman yönetimlerinin tüzel kişiliği ve vergi mükellefiyeti yoktur; çift
+/// taraflı bilanço esaslı muhasebe KANUNEN ZORUNLU DEĞİLDİR.
+enum MuhasebeDerinligi {
+  /// Yalnızca kasa + banka. Hesap planı, yevmiye fişi, mizan YOK. Bunların
+  /// bulunmaması EKSİKLİK DEĞİLDİR.
+  BASIT
+  /// Hesap planı · yevmiye fişi · mizan · kontrol mutabakatı.
+  CIFT_TARAFLI
+}
+
 model MuhasebeParametresi {
   tenantId String @id @map("tenant_id") @db.Uuid
+
+  /// ⚠️  `Tenant.tip`'TEN TÜRETİLMEZ. Tip YAPISAL bir olgudur (tek yapı /
+  ///     toplu yapı); derinlik POLİTİKA tercihidir. Büyük bir apartman çift
+  ///     taraflı isteyebilir, küçük bir site basit isteyebilir.
+  ///
+  ///     Kurulumda VARSAYILANI tipten gelir (SITE→CIFT_TARAFLI,
+  ///     APARTMAN→BASIT) ama kural değildir; sonradan değiştirilebilir.
+  ///     `BASIT → CIFT_TARAFLI` serbest, ters yön ENGELLİ (yazılmış fişlerin
+  ///     ne olacağı cevapsızdır).
+  ///
+  /// ⚠️  Politika koda gömülmez — YAPIYA DA GÖMÜLMEZ.
+  muhasebeDerinligi MuhasebeDerinligi @default(CIFT_TARAFLI) @map("muhasebe_derinligi")
 
   /// Varsayılan hesaplar. Boş bırakılabilir: kurulum tamamlanmadan tahsilat
   /// fişi kesilmesi engellenmeli ama parametre kaydı yine açılabilmeli.
@@ -970,6 +1014,9 @@ model Hesap {
   bankaParamMasraf    BankaParametresi[] @relation("BankaParamMasraf")
   bankaParamKomisyon  BankaParametresi[] @relation("BankaParamKomisyon")
 
+  /// Bu hesabı tahakkuk karşılığı olarak kullanan gider türleri (ADR-0017 · K1).
+  giderTurleri GiderTuru[] @relation("GiderTuruHesap")
+
   @@index([tenantId, kod])
   @@index([tenantId, ozellik])
   @@map("hesap")
@@ -1013,6 +1060,9 @@ model YevmiyeFisi {
   bankaHareketleri BankaHareketi[]
   /// Bu fişin dayandığı tahsilatlar (0017).
   tahsilatlar      Tahsilat[]
+  /// Bu fişin dayandığı tahakkuk çalışmaları (ADR-0017 · 0033). Çalışma
+  /// başına TEK fiş vardır; daire kırılımı yardımcı defterde durur.
+  tahakkukCalismalari TahakkukCalismasi[]
 
   @@index([tenantId, tarih])
   @@index([tenantId, donemId])
@@ -1080,13 +1130,43 @@ model TahakkukCalismasi {
   toplamTutar Decimal @map("toplam_tutar") @db.Decimal(18, 4)
   bolumSayisi Int     @map("bolum_sayisi")
 
+  /// DAĞITIM SNAPSHOT'I (ADR-0017 · K7a). Gider türünün kuralı sonradan
+  /// değişirse eski tahakkuk yine doğru okunur —
+  /// `borcSorumlusu.cozumlemeTarihi` mantığının aynısı.
+  ///
+  /// ⚠️  EZME YAPILMASA BİLE YAZILIR. Yalnızca ezmede yazılsaydı NULL iki
+  ///     farklı anlama gelirdi: "ezilmedi" ve "eski kayıt".
+  ///
+  /// ⚠️  NULL yalnızca gider türü SİLİNMİŞ eski kayıtlarda olabilir; o
+  ///     durumda kural bilinmiyor ve UYDURULMAZ (0033).
+  kullanilanPaylasimKurali PaylasimKurali? @map("kullanilan_paylasim_kurali")
+  paylasimKuraliEzildi     Boolean @default(false) @map("paylasim_kurali_ezildi")
+
+  /// MUHASEBELEŞTİRME BAĞI (ADR-0017 · K3 · K6b). Boşsa çalışma henüz deftere
+  /// girmemiştir; mükerrer koruması bu alandadır.
+  ///
+  /// ⚠️  BAĞ BURADADIR, `Borc`ta DEĞİL. Çalışma başına TEK fiş vardır; bir
+  ///     borcun muhasebeleşip muhasebeleşmediği buradan TÜRETİLİR.
+  ///     `Borc.yevmiyeFisiId` eklenseydi aynı bilgi iki kaynakta dururdu ve
+  ///     5.000 borçlu bir çalışmada biri güncellenmediğinde borçların bir
+  ///     kısmı muhasebeleşmiş GÖRÜNÜRDÜ.
+  yevmiyeFisiId String? @map("yevmiye_fisi_id") @db.Uuid
+
+  /// ⚠️  İLERİDE: `dayanakId` — tahakkukun hangi işletme projesine ya da kat
+  ///     malikleri kurulu kararına dayandığı (ADR-0017 §6). Bugün tutar
+  ///     serbest giriliyor ve dayanağı kayıtlı değil; `TahakkukDayanagi`
+  ///     ayrı bir ADR ile gelecek ve KESINLESTI olmayan dayanağa tahakkuk
+  ///     yasaklanacak.
+
   olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi") @db.Timestamptz(6)
 
   tenant  Tenant @relation(fields: [tenantId], references: [id])
   borclar Borc[]
+  yevmiyeFisi YevmiyeFisi? @relation(fields: [yevmiyeFisiId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, donem])
   @@index([tenantId, referansNorm])
+  @@index([tenantId, yevmiyeFisiId])
   @@map("tahakkuk_calismasi")
 }
 

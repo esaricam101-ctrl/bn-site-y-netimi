@@ -13,7 +13,7 @@ import { Prisma } from '@prisma/client';
 import {
   apiBicimi, money, takvimTarihi, type Principal, type TakvimTarihi,
 } from '@bnos/kernel';
-import { KayitBulunamadi } from '@bnos/core-domain';
+import { IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
 import {
   alacakYaslandirmasi, cariEkstre, kontrolMutabakati, otomatikTahsis,
   type AcikBorc, type CariEkstreGirdisi,
@@ -640,6 +640,26 @@ export class MakbuzQueryServisi {
     principal: Principal,
   ): Promise<KontrolMutabakatDokumu> {
     return this.prisma.tenantIslemi(async (tx) => {
+      /*
+       * DERİNLİK KAPISI (ADR-0017 · K8 · APARTMAN-SITE-AYRIMI §2.6).
+       *
+       * `BASIT` projede kontrol hesabı diye bir şey yoktur; mutabakat da
+       * yoktur. `mutabikMi: null` DÖNMEZ — null, "hesaplandı ama sonuç yok"
+       * izlenimi verir. Bu proje o hesabı HİÇ YAPMIYOR; ikisi farklı şeydir.
+       */
+      const parametre = await tx.muhasebeParametresi.findFirst({
+        where: { tenantId: principal.tenantId },
+        select: { muhasebeDerinligi: true },
+      });
+      if (parametre === null || parametre.muhasebeDerinligi !== 'CIFT_TARAFLI') {
+        throw new IsKuraliIhlali(
+          'Bu proje basit muhasebe kullanıyor; kontrol hesabı mutabakatı yapılmaz.',
+          'Basit muhasebede yalnızca kasa ve banka izlenir. Alacak takibi ' +
+            'ETKİLENMEZ: bölüm bazlı borç ve tahsilat kayıtları yerindedir, ' +
+            'cari ekstre çalışır. Mutabık tutulacak bir defter yoktur.',
+        );
+      }
+
       const borcToplam = await tx.borc.aggregate({
         where: { tenantId: principal.tenantId },
         _sum: { tutar: true, odenen: true },

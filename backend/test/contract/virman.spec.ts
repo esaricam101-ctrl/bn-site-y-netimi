@@ -152,6 +152,8 @@ describe('CT-19 · Virman', () => {
           id: randomUUID(), tenantId: TENANT, kod: 'CT19_AIDAT', ad: 'Aidat',
           paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT',
           kuralKaynagi: 'KMK_VARSAYILAN', aktifMi: true, tahakkukSikligi: 'DONEMSEL',
+          // ZORUNLU (ADR-0017 · K1): tahakkuk fişinin alacak tarafı.
+          muhasebeHesapId: HESAP.gider,
         },
       });
 
@@ -161,6 +163,8 @@ describe('CT-19 · Virman', () => {
           id: CALISMA, tenantId: TENANT, giderTuruKodu: 'CT19_AIDAT',
           donem: new Date(DONEM), tip: 'ASIL', sira: 1,
           toplamTutar: 500, bolumSayisi: 1,
+          // Dağıtım snapshot'ı ZORUNLU (ADR-0017 · K7a).
+          kullanilanPaylasimKurali: 'ESIT', paylasimKuraliEzildi: false,
         },
       });
       await tx.borc.create({

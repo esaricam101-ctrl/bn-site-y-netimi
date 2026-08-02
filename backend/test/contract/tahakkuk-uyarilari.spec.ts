@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CT-17 · TAHAKKUK UYARILARI — engelleme değil, görünürlük
  *
  * ⚠️  NEDEN VAR: merkezi ısıtmada iki dağıtım modeli vardır ve ikisi AYNI
@@ -124,6 +124,16 @@ describe('CT-17 · Tahakkuk uyarıları', () => {
        * KARŞILIKLI DIŞLAYAN GRUP. Çakışma tanımı VERİDİR: kod, şiddet ve
        * açıklama buradan gelir; motor hiçbir gider türü kodu bilmez.
        */
+      // Gider türü ZORUNLU muhasebe hesabı taşır (ADR-0017 · K1); bu fikstür
+      // muhasebeyle ilgilenmiyor ama bağ olmadan tür yazılamaz.
+      const hesapId = randomUUID();
+      await tx.hesap.create({
+        data: {
+          id: hesapId, tenantId: TENANT, kod: '349',
+          ad: 'Alınan Ortak Gider Avansları', tip: 'BORC',
+        },
+      });
+
       const grupId = randomUUID();
       await tx.giderTuruGrubu.create({
         data: {
@@ -141,20 +151,20 @@ describe('CT-17 · Tahakkuk uyarıları', () => {
             id: randomUUID(), tenantId: TENANT, kod: 'CT17_ISITMA', ad: 'Isıtma',
             paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT',
             kuralKaynagi: 'KMK_VARSAYILAN', aktifMi: true,
-            tahakkukSikligi: 'DONEMSEL', grupId,
+            tahakkukSikligi: 'DONEMSEL', grupId, muhasebeHesapId: hesapId,
           },
           {
             id: randomUUID(), tenantId: TENANT, kod: 'CT17_YAKIT', ad: 'Yakıt alımı',
             paylasimKurali: 'ARSA_PAYI', sorumlulukTipi: 'KULLANANA_AIT',
             kuralKaynagi: 'KMK_VARSAYILAN', aktifMi: true,
-            tahakkukSikligi: 'OLAY_BAZLI', grupId,
+            tahakkukSikligi: 'OLAY_BAZLI', grupId, muhasebeHesapId: hesapId,
           },
           // Gruba AİT DEĞİL — çakışma üretmemeli.
           {
             id: randomUUID(), tenantId: TENANT, kod: 'CT17_TEMIZLIK', ad: 'Temizlik',
             paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT',
             kuralKaynagi: 'KMK_VARSAYILAN', aktifMi: true,
-            tahakkukSikligi: 'DONEMSEL',
+            tahakkukSikligi: 'DONEMSEL', muhasebeHesapId: hesapId,
           },
         ],
       });
@@ -265,3 +275,4 @@ describe('CT-17 · Tahakkuk uyarıları', () => {
     expect((y.body as TahakkukYaniti).uyarilar).toEqual([]);
   }, 60_000);
 });
+

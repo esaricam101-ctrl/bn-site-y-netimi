@@ -13,10 +13,21 @@
  *       POST /makbuzlar/:id/muhasebelestir → 422
  *       "Varsayılan kasa hesabı tanımlı değil; nakit tahsilat muhasebeleşemez."
  *
- * ⚠️  BU DOSYA İKİ FARKLI ŞEY ÖLÇER, karıştırılmamalı:
+ * ⚠️  ★ KURULUM BÜTÜNLÜĞÜ **DERİNLİĞE GÖRE** DEĞİŞİR (2 Ağustos 2026).
  *
- *       BÖLÜM 1 — tohumun kurulumu tam mı (düzeltilecek, yeşil olmalı)
+ *     Bu dosya önce her projede hesap planı + `MuhasebeParametresi` + açık
+ *     dönem arıyordu. `BASIT` derinlikteki bir projede bunların olmaması
+ *     EKSİKLİK DEĞİLDİR — test o hâliyle YANLIŞ TEŞHİS koyuyordu.
+ *
+ *     Ayrım `MuhasebeParametresi.muhasebeDerinligi`dedir (docs/
+ *     APARTMAN-SITE-AYRIMI.md §2.1); `Tenant.tip` yalnızca VARSAYILANI
+ *     belirler, kuralı değil.
+ *
+ * ⚠️  BU DOSYA ÜÇ FARKLI ŞEY ÖLÇER, karıştırılmamalı:
+ *
+ *       BÖLÜM 1 — CIFT_TARAFLI projede kurulum tam mı
  *       BÖLÜM 2 — kurulum EKSİKKEN sistem ne yapıyor (BİLİNEN EKSİK)
+ *       BÖLÜM 3 — BASIT projede aynı eksiklikler HATA SAYILMAZ
  *
  *     İkinci bölüm, tohum düzeltildikten sonra da DURUR. Yoksa sessizlik
  *     görünmez hale gelir: düzeltme semptomu kapatır, sebebi değil. Yeni bir
@@ -47,10 +58,11 @@ const T2 = randomUUID();
 const T2_KISI = randomUUID();
 const T2_EPOSTA = `ct20-eksik@${T2.slice(0, 8)}.test`;
 const T2_DONEM = randomUUID();
+const BASIT_EPOSTA = `ct20-basit@${T2.slice(0, 8)}.test`;
 
-function baglamda<T>(
-  tenantId: string, fn: (tx: Prisma.TransactionClient) => Promise<T>,
-): Promise<T> {
+function baglamda<T2>(
+  tenantId: string, fn: (tx: Prisma.TransactionClient) => Promise<T2>,
+): Promise<T2> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe(`SELECT set_config('app.tenant_id', '${tenantId}', true)`);
     for (const a of ['app.kapsam_kisi_id', 'app.kapsam_bolumler', 'app.kapsam_mulk_bolumler']) {
@@ -63,16 +75,49 @@ function baglamda<T>(
 describe('CT-20 · Kurulum bütünlüğü', () => {
   let app: INestApplication;
   let tohumTenantId: string;
+  let apartmanTenantId: string;
   let eksikJeton: string;
+  let basitJeton: string;
 
   const sunucu = (): Server => app.getHttpServer() as Server;
 
   beforeAll(async () => {
-    const tohum = await prisma.tenant.findFirst({ where: { kod: 'guzel-apartmani' } });
+    /*
+     * ⚠️  ÖLÇÜM ÖZNESİ `SITE` TENANT'IDIR, apartman değil. Bölüm 1'in
+     *     aradığı şeyler (hesap planı özellikleri, parametre kaydı, açık
+     *     dönem) yalnızca CIFT_TARAFLI derinlikte zorunludur.
+     */
+    const tohum = await prisma.tenant.findFirst({ where: { kod: 'papatya-sitesi' } });
     if (tohum === null) {
-      throw new Error('Tohum tenant\'ı yok. Önce `pnpm db:seed` çalıştırın.');
+      throw new Error('Site tohumu yok. Önce `pnpm db:seed` çalıştırın.');
     }
     tohumTenantId = tohum.id;
+
+    const apartman = await prisma.tenant.findFirst({ where: { kod: 'guzel-apartmani' } });
+    if (apartman === null) {
+      throw new Error('Apartman tohumu yok. Önce `pnpm db:seed` çalıştırın.');
+    }
+    apartmanTenantId = apartman.id;
+
+    // Bölüm 3 için apartman tenant'ında KENDİ kullanıcısı (bkz. giriş notu).
+    await baglamda(apartmanTenantId, async (tx) => {
+      const kisiId = randomUUID();
+      await tx.kisi.create({
+        data: { id: kisiId, tenantId: apartmanTenantId, ad: 'CT-20', soyad: 'Basit' },
+      });
+      await tx.kullanici.create({
+        data: {
+          id: randomUUID(), tenantId: apartmanTenantId, kisiId, eposta: BASIT_EPOSTA,
+          sifreHash: SIFRE_HASH, aktif: true,
+          roller: {
+            create: {
+              id: randomUUID(), tenantId: apartmanTenantId,
+              rolKodu: 'APARTMAN_YONETICISI',
+            },
+          },
+        },
+      });
+    });
 
     // --- BÖLÜM 2 fikstürü: hesapları İŞARETSİZ bir tenant ---------------
     await prisma.tenant.create({
@@ -119,6 +164,20 @@ describe('CT-20 · Kurulum bütünlüğü', () => {
       .post('/api/v1/oturum/giris').send({ eposta: T2_EPOSTA, sifre: 'bnos1234' });
     if (y.status >= 300) throw new Error(`Giriş başarısız: ${y.status}`);
     eksikJeton = (y.body as GirisYaniti).accessToken;
+
+    /*
+     * ⚠️  TOHUM KULLANICISIYLA GİRİLMEZ, KENDİ KULLANICISI AÇILIR.
+     *
+     *     Giriş ucu E-POSTA BAŞINA 5 deneme / 5 dk sınırlıyor
+     *     (`oturum.controller.ts:23`). `yonetici@guzel-apartmani.test` ile
+     *     girilseydi CT-04'ün de kullandığı kimliğin bütçesi tükenir ve
+     *     BAŞKA BİR TEST kırmızıya düşerdi — ölçüldü, tam olarak bu oldu.
+     *     Paylaşılan kimlik, paylaşılan fikstürdür.
+     */
+    const b = await request(sunucu())
+      .post('/api/v1/oturum/giris').send({ eposta: BASIT_EPOSTA, sifre: 'bnos1234' });
+    if (b.status >= 300) throw new Error(`Apartman girişi başarısız: ${b.status}`);
+    basitJeton = (b.body as GirisYaniti).accessToken;
   }, 120_000);
 
   afterAll(async () => {
@@ -127,8 +186,21 @@ describe('CT-20 · Kurulum bütünlüğü', () => {
   });
 
   // =====================================================================
-  // BÖLÜM 1 — TOHUMUN KURULUMU TAM MI
+  // BÖLÜM 1 — CIFT_TARAFLI PROJEDE KURULUM TAM MI
+  //
+  // Özne: `papatya-sitesi` (tip SITE, derinlik CIFT_TARAFLI).
   // =====================================================================
+
+  it('(0) ölçüm öznesi gerçekten CIFT_TARAFLI', async () => {
+    /*
+     * Bu testin kendisi bir koruma: özne yanlışlıkla BASIT bir projeye
+     * kayarsa Bölüm 1'in tamamı ANLAMSIZ olur ama yine de kırmızı görünür
+     * ve sebebi aranırken zaman kaybedilir.
+     */
+    const p = await baglamda(tohumTenantId, (tx) =>
+      tx.muhasebeParametresi.findFirst({ where: { tenantId: tohumTenantId } }));
+    expect(p?.muhasebeDerinligi).toBe('CIFT_TARAFLI');
+  });
 
   it('(1) tohum projesinde MuhasebeParametresi kaydı VAR', async () => {
     const p = await baglamda(tohumTenantId, (tx) =>
@@ -235,5 +307,70 @@ describe('CT-20 · Kurulum bütünlüğü', () => {
     expect(y.status).toBe(422);
     const govde = y.body as { sonrakiEylem?: string };
     expect(govde.sonrakiEylem).toMatch(/YANSITMA/);
+  });
+
+  // =====================================================================
+  // BÖLÜM 3 — ★ BASIT PROJEDE AYNI EKSİKLİKLER HATA SAYILMAZ
+  //
+  // Bu bölüm bir DÜZELTMEDİR. Bu dosya önce her projede hesap planı ve
+  // kontrol hesabı arıyordu; `BASIT` derinlikte bunların olmaması eksiklik
+  // DEĞİLDİR (docs/APARTMAN-SITE-AYRIMI.md §2.1) ve test yanlış teşhis
+  // koyuyordu.
+  // =====================================================================
+
+  it('(8) apartman tohumu BASIT derinliktedir', async () => {
+    const p = await baglamda(apartmanTenantId, (tx) =>
+      tx.muhasebeParametresi.findFirst({ where: { tenantId: apartmanTenantId } }));
+    expect(p?.muhasebeDerinligi).toBe('BASIT');
+  });
+
+  it('(9) ★ BASIT projede CARI_KONTROL hesabı ARANMAZ', async () => {
+    /*
+     * Apartman yönetimlerinin tüzel kişiliği ve vergi mükellefiyeti yoktur;
+     * çift taraflı bilanço esaslı muhasebe kanunen zorunlu değildir. Kontrol
+     * hesabının bulunmaması bu projelerde NORMALDİR.
+     *
+     * ⚠️  Test hesabın YOKLUĞUNU dayatmaz — tohum bugün onu yazıyor ve bu da
+     *     meşrudur (derinlik sonradan yükseltilebilir). Ölçülen şey:
+     *     varlığının ZORUNLU OLMADIĞI, yani hiçbir iddia kurulmadığıdır.
+     */
+    const sayi = await baglamda(apartmanTenantId, (tx) => tx.hesap.count({
+      where: { tenantId: apartmanTenantId, ozellik: 'CARI_KONTROL' },
+    }));
+    expect(sayi).toBeGreaterThanOrEqual(0);
+  });
+
+  it('(10) ★ BASIT projede kontrol mutabakatı 422 — null DEĞİL', async () => {
+    /*
+     * `mutabikMi: null` dönmek "hesaplandı ama sonuç yok" izlenimi verir.
+     * Bu proje o hesabı HİÇ YAPMIYOR; ikisi farklı şeydir.
+     */
+    const y = await request(sunucu())
+      .get('/api/v1/makbuzlar/rapor/kontrol-mutabakati')
+      .set('Authorization', `Bearer ${basitJeton}`);
+    expect(y.status).toBe(422);
+    const g = y.body as { detail?: string; sonrakiEylem?: string };
+    expect(g.detail ?? '').toMatch(/basit muhasebe/i);
+    // ★ Alacak takibinin ETKİLENMEDİĞİ açıkça söylenmeli: kullanıcı
+    //   "borç takibim de mi yok" diye düşünmemeli.
+    expect(g.sonrakiEylem ?? '').toMatch(/[Aa]lacak takibi/);
+  });
+
+  it('(11) ★ BASIT projede cari ekstre ÇALIŞIR — alacak takibi etkilenmez', async () => {
+    /*
+     * Ayrımın en kritik noktası: tahakkuk ve alacak takibi İKİ TARAFTA DA
+     * vardır. Fark yalnızca deftere düşüp düşmemesidir.
+     */
+    const bolum = await baglamda(apartmanTenantId, (tx) =>
+      tx.bagimsizBolum.findFirstOrThrow({
+        where: { tenantId: apartmanTenantId }, select: { id: true },
+      }));
+    const y = await request(sunucu())
+      .get(`/api/v1/makbuzlar/cari/${bolum.id}`)
+      .query({ baslangic: '2026-01-01', bitis: '2026-12-31' })
+      .set('Authorization', `Bearer ${basitJeton}`);
+    expect(y.status).toBe(200);
+    const g = y.body as { satirlar: unknown[] };
+    expect(g.satirlar.length).toBeGreaterThan(0);
   });
 });

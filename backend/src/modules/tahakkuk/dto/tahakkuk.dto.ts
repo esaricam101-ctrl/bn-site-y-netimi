@@ -1,9 +1,38 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsNumberString, IsOptional,
+  ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsNumberString, IsOptional,
   IsString, IsUUID, Length, Matches, ValidateNested,
 } from 'class-validator';
+
+/**
+ * EZİLEBİLİR DAĞITIM KURALLARI (ADR-0017 · K7b).
+ *
+ * Ölçüt tek: kural EK VERİ gerektiriyor mu? Aşağıdakilerin ortak yanı,
+ * ağırlığın **bölüm kaydından** okunmasıdır — `arsaPayiPay/Payda`, `brutM2`,
+ * `netM2` şemada `NOT NULL`'dır ve istek gövdesinden gelmez.
+ *
+ * ⛔ DIŞARIDA KALANLAR ve nedeni (`shared/apartman-domain/src/gider/paylastir.ts`):
+ *   · TUKETIM         → `girdi.tuketim`        (bölüm başına ölçüm)
+ *   · KULLANIM_BAZLI  → `girdi.kullaniyorMu`   (bölüm başına kullanım)
+ *   · SABIT_TUTAR     → `girdi.sabitAgirlik`   (bölüm başına ağırlık)
+ *   · MANUEL          → `girdi.manuelTutar`    (bölüm başına tutar)
+ *   · BLOK_BAZLI      → `hedefBlokId`          (aşağıda ayrıca ele alınır)
+ *   · KARMA           → `karmaBilesenler`      (gider türüne ait, istekte verilemez)
+ *
+ * ⚠️  BLOK_BAZLI listede VARDIR: gerektirdiği veri bölüm başına değil, TEK bir
+ *     alandır (`hedefBlokId`) ve o alan bu DTO'da zaten mevcuttur. Eksikse
+ *     `paylastir.ts` açık hata verir.
+ */
+export const EZILEBILIR_KURALLAR = [
+  'ESIT', 'ARSA_PAYI', 'BRUT_M2', 'NET_M2', 'METREKARE', 'BLOK_BAZLI',
+] as const;
+
+/** Şemadaki `PaylasimKurali` enum'unun tamamı — DTO düzeyinde kabul edilir. */
+export const TUM_KURALLAR = [
+  ...EZILEBILIR_KURALLAR,
+  'TUKETIM', 'SABIT_TUTAR', 'KULLANIM_BAZLI', 'MANUEL', 'KARMA',
+] as const;
 
 /**
  * Bölüme özel tahakkuk girdisi.
@@ -47,6 +76,16 @@ export class BolumGirdisiDto {
   manuelTutar?: string;
 }
 
+export class TahakkukMuhasebelestirDto {
+  @ApiPropertyOptional({
+    description:
+      'true ise fiş aynı işlemde İŞLENİR (deftere girer). Varsayılan TASLAK: ' +
+      'işlenmemiş kayıt mizana girmez.',
+  })
+  @IsOptional() @IsBoolean()
+  hemenIsle?: boolean;
+}
+
 export class TahakkukCalistirDto {
   @ApiProperty({ example: 'ISITMA', description: 'Gider türü KODU — tanımlı ve aktif olmalıdır.' })
   @IsString() @Length(2, 40)
@@ -72,6 +111,26 @@ export class TahakkukCalistirDto {
   })
   @IsOptional() @IsUUID()
   hedefBlokId?: string;
+
+  @ApiPropertyOptional({
+    enum: TUM_KURALLAR,
+    description:
+      'DAĞITIM EZMESİ (ADR-0017 · K7). Verilmezse gider türünün kuralı ' +
+      'kullanılır; kullanılan kural her hâlükârda çalışma kaydına yazılır.\n\n' +
+      'EZME YALNIZCA EK VERİ GEREKTİRMEYEN KURALLARA AÇIKTIR. Veri gerektiren ' +
+      'bir kurala ezme, veri sağlanmadan REDDEDİLİR ve hata EKSİK BÖLÜMLERİ ' +
+      'SAYARAK döner — yönetici eksikleri tek tek denemeyle öğrenmemelidir.\n\n' +
+      'KARMA hiç ezilemez: bileşen tanımı gider türüne aittir, istekte verilemez.',
+  })
+  @IsOptional()
+  /*
+   * ⚠️  BEYAZ LİSTE BURADA DEĞİL, SERVİSTE. Burada `IsIn(EZILEBILIR_KURALLAR)`
+   *     yazılsaydı red 400 olurdu ve gövde yalnızca "geçersiz değer" derdi;
+   *     hangi bölümlerde veri eksik olduğu SÖYLENEMEZDİ. Ezmenin kabul edilip
+   *     edilmeyeceği bir doğrulama değil bir İŞ KURALIDIR (422).
+   */
+  @IsIn(TUM_KURALLAR, { message: 'Geçersiz paylaşım kuralı.' })
+  paylasimKurali?: (typeof TUM_KURALLAR)[number];
 
   @ApiPropertyOptional({
     type: [BolumGirdisiDto],
