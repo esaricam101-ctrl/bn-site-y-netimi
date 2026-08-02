@@ -78,7 +78,13 @@ describe('CT-19 · Virman', () => {
   const gecerliGovde = (): Record<string, unknown> => ({
     tur: 'CARI',
     sebepKodu: 'YANLIS_DAIRE_DUZELTMESI',
-    tarih: '2026-08-20',
+    /*
+     * ⚠️  DÖNEM BAŞI SEÇİLDİ, ay ortası DEĞİL. `fisTarihiniDogrula`
+     *     GELECEK TARİHLİ fişi reddeder ve kural doğrudur — fikstür
+     *     `2026-08-20` kullanıyordu, yani sistem tarihine göre gelecek.
+     *     Testin ölçtüğü şey virman kuralları olmalı, takvim değil.
+     */
+    tarih: DONEM,
     aciklama: 'Kiracı 15 Ağustos\'ta taşındı; aidat payı bölündü.',
     satirlar: [
       { hesapId: HESAP.alacak, bolumId: BOLUM, borc: '250.00', alacak: '0.00' },
@@ -147,6 +153,21 @@ describe('CT-19 · Virman', () => {
         ],
       });
 
+      /*
+       * ⚠️  AÇIK MUHASEBE DÖNEMİ — fikstürde hiç yoktu ve bu bir EKSİKTİ.
+       *     Fiş üreten her virman dönem ister; dönemsiz tenant'ta başarılı
+       *     senaryo hiç koşamazdı ("… tarihini kapsayan bir muhasebe dönemi
+       *     yok"). Testin ölçtüğü şey virman kuralları olmalı, kurulum eksiği
+       *     değil.
+       */
+      await tx.muhasebeDonemi.create({
+        data: {
+          id: randomUUID(), tenantId: TENANT, maliYil: 2026, ad: '2026',
+          baslangic: new Date('2026-01-01'), bitis: new Date('2026-12-31'),
+          durum: 'ACIK',
+        },
+      });
+
       await tx.giderTuru.create({
         data: {
           id: randomUUID(), tenantId: TENANT, kod: 'CT19_AIDAT', ad: 'Aidat',
@@ -183,8 +204,21 @@ describe('CT-19 · Virman', () => {
         },
       });
 
+      /*
+       * ⚠️  ROL `YONETIM_SIRKETI`, `APARTMAN_YONETICISI` DEĞİL.
+       *
+       *     Virman deftere yazabilen bir işlemdir ve `FINANS_YEVMIYE_GIRIS`
+       *     ister. `APARTMAN_YONETICISI` bu izni TAŞIMIYOR (roller.ts:36-50):
+       *     tahakkuk çalıştırabiliyor ama onu deftere geçiremiyor.
+       *
+       *     Bu bir test uyarlaması değil, ÜRÜN SORUSUDUR ve yol haritasına
+       *     yazıldı: kendi sitesini yöneten bir apartman yöneticisi çift
+       *     taraflı muhasebe kullanıyorsa yevmiye yolunun tamamı ona kapalı.
+       *     Karar verilene kadar test, izne SAHİP rolle koşar — izni teste
+       *     uydurmak için rol tanımı gevşetilmedi.
+       */
       for (const [kisiId, eposta, rol] of [
-        [KISI.yonetici, EPOSTA.yonetici, 'APARTMAN_YONETICISI'],
+        [KISI.yonetici, EPOSTA.yonetici, 'YONETIM_SIRKETI'],
         [KISI.denetci, EPOSTA.denetci, 'DENETCI'],
       ] as const) {
         await tx.kullanici.create({
@@ -266,14 +300,34 @@ describe('CT-19 · Virman', () => {
   });
 
   it('(7) kapalı döneme virman → reddedilir', async () => {
+    /*
+     * ⚠️  KAPALI DÖNEM KAPANIŞ ALANLARI OLMADAN YAZILAMAZ
+     *     (`muhasebe_donemi_kapanis_tutarlilik`): kapanış anı, gerekçesi ve
+     *     kapanış fişi ZORUNLUDUR. Kısıt doğrudur — "kapandı" diyen ama
+     *     kapanış kaydı olmayan bir dönem, denetimde neyin kapatıldığını
+     *     cevaplayamaz. Fikstür bu yüzden gerçek bir kapanış fişi yazar.
+     */
     const donemId = randomUUID();
-    await baglamda((tx) => tx.muhasebeDonemi.create({
-      data: {
-        id: donemId, tenantId: TENANT, maliYil: 2025, ad: '2025',
-        baslangic: new Date('2025-01-01'), bitis: new Date('2025-12-31'),
-        durum: 'KAPALI',
-      },
-    }));
+    const kapanisFisId = randomUUID();
+    await baglamda(async (tx) => {
+      await tx.yevmiyeFisi.create({
+        data: {
+          id: kapanisFisId, tenantId: TENANT, fisNo: 'YEV-2025-000001',
+          tarih: new Date('2025-12-31'), aciklama: '2025 kapanış fişi',
+          kaynakTipi: 'MANUEL', fisTuru: 'KAPANIS', durum: 'ISLENDI',
+        },
+      });
+      await tx.muhasebeDonemi.create({
+        data: {
+          id: donemId, tenantId: TENANT, maliYil: 2025, ad: '2025',
+          baslangic: new Date('2025-01-01'), bitis: new Date('2025-12-31'),
+          durum: 'KAPALI',
+          kapanisAni: new Date('2026-01-05'),
+          kapanisGerekcesi: '2025 mali yılı kat malikleri kuruluna sunuldu.',
+          kapanisFisiId: kapanisFisId,
+        },
+      });
+    });
     const g = gecerliGovde();
     g['tarih'] = '2025-06-15';
     expect((await virmanKur(g)).status).toBe(422);
@@ -369,7 +423,7 @@ describe('CT-19 · Virman', () => {
     expect(eski.cozumlemeTarihi.toISOString().slice(0, 10)).toBe(DONEM);
   });
 
-  it('(15) ★ TEK yevmiye fişi üretilmiş ve DENK', async () => {
+  it('(15) ★ BAKİYE TAŞIYAN virman: TEK yevmiye fişi üretilmiş ve DENK', async () => {
     const fisler = await baglamda((tx) => tx.yevmiyeFisi.findMany({
       where: { tenantId: TENANT, kaynakTipi: 'VIRMAN' },
       include: { satirlar: true },
@@ -389,7 +443,44 @@ describe('CT-19 · Virman', () => {
     expect(kayit).not.toBeNull();
   });
 
-  it('(17) ★ ATOMİKLİK: fiş yazılıp cari yazılmazsa İKİSİ DE geri alınır', async () => {
+  it('(17) ★★ SAF TAŞINMA VİRMANI FİŞ ÜRETMEZ — virmanın ikinci davranışı', async () => {
+    /*
+     * ⚠️  BU TEST ADR-0016'DAKİ "İKİ DAVRANIŞ" KURALINI ÖLÇER.
+     *
+     *     Kiracı taşındığında borcun TOPLAMI da, hangi hesapta durduğu da
+     *     DEĞİŞMEZ. Yalnızca `borc_sorumlusu` payları bölünür — yani
+     *     yardımcı defterin İÇİNDEKİ dağılım değişir. Kontrol hesabı
+     *     bakiyesi aynı kaldığı için deftere yazılacak DENK bir kayıt
+     *     yoktur.
+     *
+     *     Zorla fiş üretilseydi aynı hesaba borç ve alacak yazan, bakiyeyi
+     *     değiştirmeyen bir gürültü satırı olurdu ve yevmiye defteri
+     *     taşınma sayısı kadar anlamsız fişle şişerdi.
+     *
+     *     ⛔ "Her virman fiş üretir" varsayımı bu yüzden YANLIŞTIR.
+     */
+    const oncekiFis = await baglamda((tx) => tx.yevmiyeFisi.count({ where: { tenantId: TENANT } }));
+
+    const g = gecerliGovde();
+    delete g['satirlar'];                    // saf taşınma: deftere yazılacak şey yok
+    g['sebepKodu'] = 'TASINMA';
+    const y = await virmanKur(g);
+    expect(y.status).toBe(201);
+    expect((y.body as { fisId: string | null }).fisId).toBeNull();
+
+    const sonrakiFis = await baglamda((tx) => tx.yevmiyeFisi.count({ where: { tenantId: TENANT } }));
+    expect(sonrakiFis).toBe(oncekiFis);
+
+    // ★ Virman kaydının KENDİSİ yine de yazılır: fişsiz olması izsiz olması
+    //   demek değildir.
+    const kayit = await baglamda((tx) => tx.virman.findFirst({
+      where: { tenantId: TENANT, sebepKodu: 'TASINMA' },
+    }));
+    expect(kayit).not.toBeNull();
+    expect(kayit?.yevmiyeFisiId).toBeNull();
+  });
+
+  it('(18) ★ ATOMİKLİK: fiş yazılıp cari yazılmazsa İKİSİ DE geri alınır', async () => {
     /*
      * Var olmayan bir kişiye pay yazılmak istenir: yevmiye tarafı geçerli,
      * cari tarafı FK ihlali verir. Fiş yazılıp cari yazılmadan kalırsa

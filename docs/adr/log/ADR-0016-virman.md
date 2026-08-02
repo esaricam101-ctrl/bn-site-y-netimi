@@ -9,9 +9,130 @@
 [ADR-0010](0010-cari-hesap-bolum-yardimci-defteri.md) (cari = bağımsız bölüm) ·
 [ADR-0015](ADR-0015-yil-sonu-kapanisi.md) (dönem kapanışı)
 
-> ⚠️ Bu dosya bilinçli olarak **eksiktir**. Karar birlikte verilecek; o zamana
-> kadar buraya tercih yazılmaz. Yalnızca **mevcut durum** (dosya + satır) ve
-> **cevaplanacak sorular** vardır.
+> ⚠️ **§A ve §B hâlâ AÇIK** (kasa/banka ve hesap virmanının kendi soru
+> listeleri gelmedi). **§C — cari virman UYGULANDI**; kararları ve gerekçeleri
+> aşağıdaki "§C KARARLARI" bölümündedir. Sorular silinmedi: karar anındaki
+> bilgiyi olduğu gibi korurlar.
+
+---
+
+## §C KARARLARI — cari virman (3 Ağustos 2026, UYGULANDI)
+
+Uygulama: `backend/src/modules/virman/` · migration `0035` · sözleşme testi
+**CT-19 · 18/18 yeşil**.
+
+### C-K1 · TANIM — kayda geçti
+
+> **Virman mevcut borcu İPTAL ETMEK için değil, DOĞRU KİŞİYE AKTARMAK için
+> yapılan muhasebe işlemidir.**
+
+Toplam borç DEĞİŞMEZ; değişen yalnızca borcun muhatabıdır. Servis bu yüzden
+`borc.tutar`, `vadeTarihi` ve `calismaId` alanlarına **hiç yazmaz** ve CT-19
+test (11) bunların değişmediğini ayrıca ölçer.
+
+Bu tanım kayıtta durmalıdır çünkü virmanı bir düzeltme/iptal aracı sanmak
+modeli **silme ya da ters kayıt üretmeye** götürür.
+
+### C-K2 · ★ VİRMANIN İKİ DAVRANIŞI
+
+| `satirlar` | Davranış |
+|---|---|
+| **DOLU** | Deftere fiş yazılır (bakiye taşıyan virman) |
+| **BOŞ** | Fiş **YAZILMAZ** (saf taşınma virmanı) |
+
+**Taşınma virmanı neden fiş üretmez:** kiracı taşındığında borcun toplamı da,
+hangi hesapta durduğu da değişmez. Yalnızca `borc_sorumlusu` payları bölünür —
+yani **yardımcı defterin İÇİNDEKİ** dağılım değişir. Kontrol hesabı bakiyesi
+aynı kaldığı için deftere yazılacak **denk bir kayıt yoktur**; zorla
+üretilseydi aynı hesaba borç ve alacak yazan, bakiyeyi değiştirmeyen bir
+gürültü satırı olur ve yevmiye defteri taşınma sayısı kadar anlamsız fişle
+şişerdi.
+
+⛔ *"Her virman fiş üretir"* varsayımı bu yüzden **yanlıştır**. CT-19 test (17)
+bu davranışı kalıcı olarak ölçer.
+
+★ **Fişsiz olmak izsiz olmak değildir:** virman kaydının kendisi her hâlükârda
+yazılır ve kendi numarasını alır.
+
+### C-K3 · Ayrı `VIRMAN` numara serisi
+
+`VRM-{yıl}-{sıra:6}`, **boşluksuz**. Yevmiye serisine karıştırılsaydı *"kaç
+virman yapıldı"* sorusu fiş türüne bakmadan cevaplanamazdı — ve **taşınma
+virmanı hiç fiş üretmediği için numarasız kalırdı**.
+
+### C-K4 · `Virman` AYRI VARLIK, fişin alanı değil
+
+Doğrudan C-K2'den çıkar: virmanın her zaman fişi olmaz. Fişin bir alanı
+olsaydı fişsiz virman kaydedilemezdi.
+
+### C-K5 · `sira` — taşınmada İKİSİ DE `ASIL`
+
+`ASIL` = bu kişiden istenir · `IKINCIL` = asıldan alınamazsa istenir.
+
+Taşınmada iki kiracı da **kendi oturduğu dönemden doğrudan sorumludur**; biri
+ötekinin kefili değildir. `IKINCIL` yazılsaydı tahsilat ve icra yanlış sıra
+izlerdi. Malikin KMK md. 22 müteselsil sorumluluğu **ayrı bir satırdır** ve bu
+virmanın konusu değildir.
+
+### C-K6 · `cozumlemeTarihi` mevcut satırlarda KORUNUR
+
+O tarih **orijinal çözümlemenin** tarihidir; virmanın tarihi virman kaydında
+durur. Üzerine yazılsaydı borcun ne zaman kime bağlandığı geçmişi kaybolurdu.
+Yeni eklenen sorumlunun çözümlemesi **virman gününde** yapılmıştır.
+
+### C-K7 · Gövde: `satirlar` ve `paylar` AYRI DİZİLER
+
+`satirlar` deftere yazılanı, `paylar` yardımcı deftere yazılanı anlatır. Tek
+dizide toplansaydı her satırın hangi tarafa ait olduğu tip düzeyinde
+belirsizleşir ve doğrulama koşullu dallara bölünürdü.
+
+**Tutarlılık kuralı — bölüm bazında, tutar bazında değil:** her borç için
+**Σ pay = `borc.tutar`** olmak zorundadır. Toplam sapsaydı borcun bir kısmı hiç
+kimseye yazılmamış ya da bölüm olduğundan fazla borçlu gösterilmiş olurdu;
+ikisi de yardımcı defteri kontrol hesabından ayırır.
+
+### C-K8 · ★ Aynı kaynak iki tarafta olamaz — kaynak `(hesapId, bolumId)` ÇİFTİ
+
+Yalnızca `hesapId` ile karşılaştırılsaydı **aynı alacak hesabının 3 nolu
+daireden 7 nolu daireye taşınması** yanlışlıkla reddedilirdi — ki bu cari
+virmanın **en yaygın senaryosudur**.
+
+⚠️ Kural **virmana özeldir**; `fisiDogrula` değiştirilmedi. Genel mahsup fişinde
+aynı hesabın iki tarafta bulunması meşrudur.
+
+### C-K9 · Ödenenin altına inilemez — domain ÖNCE yakalar
+
+Veritabanı kısıtı (`odenen <= pay`) bunu zaten yakalar ama **ham bir CHECK
+ihlali kullanıcıya hiçbir şey anlatmaz**. Domain katmanı önce yakalar, ödenen
+tutarı söyler ve çıkış yolunu gösterir (tahsisi düzelt ya da iade et).
+
+### C-K10 · İki taraf AYNI TRANSACTION'da
+
+Yevmiye fişi ve `borc_sorumlusu` payları birlikte yazılır. Biri yazılıp öteki
+yazılmazsa defter ile cari **kalıcı olarak ayrışır** ve fark hangi virmandan
+geldiği bilinmeden kalır. CT-19 test (18) bunu FK ihlaliyle ölçer.
+
+★ Cari tarafı **fişten önce** doğrulanır: reddedilecekse boşuna fiş numarası
+tüketilmez — boşluksuz seride tüketilen numara geri gelmez.
+
+### C-K11 · Sebep kodu zorunlu, geçerli küme TÜRE göre
+
+Bir türün meşru sebebi ötekinde anlamsızdır (`YANLIS_DAIRE_DUZELTMESI` bir
+kasa/banka virmanında ne demektir?). Tek liste olsaydı hiçbir şey
+engellenmezdi. `aciklama` da zorunludur ve **boşluk kabul etmez** (veritabanı
+CHECK): boş bırakılabilen zorunlu alan zorunlu değildir.
+
+### ⚠️ C-A1 · AÇIK KALAN — kim virman yapabilir?
+
+Uç `FINANS_YEVMIYE_GIRIS` istiyor (virman deftere yazabilir). Ama
+**`APARTMAN_YONETICISI` bu izni taşımıyor** (`roller.ts:36-50`): tahakkuk
+çalıştırabiliyor, deftere geçiremiyor. Kendi sitesini yöneten bir apartman
+yöneticisi çift taraflı muhasebe kullanıyorsa yevmiye yolunun tamamı ona
+kapalı. **Karar verilmedi**; yol haritasında.
+
+★ Alt soru: taşınma virmanı deftere hiç yazmıyorsa ondan da yevmiye izni
+istemek doğru mu? İzin, gövdeye bakılmadan (guard aşamasında) kontrol edilir;
+davranışa göre izin seçmek mimari bir değişikliktir.
 
 ## Neden üç ayrı bölüm
 

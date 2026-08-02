@@ -1,4 +1,4 @@
-import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
+﻿import { Module, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
@@ -29,6 +29,7 @@ import { SakinModule } from './modules/sakin/sakin.module';
 import { DaireModule } from './modules/daire/daire.module';
 import { GiderTuruModule } from './modules/gider-turu/gider-turu.module';
 import { TahakkukModule } from './modules/tahakkuk/tahakkuk.module';
+import { VirmanModule } from './modules/virman/virman.module';
 import { AracModule } from './modules/arac/arac.module';
 import { SayacModule } from './modules/sayac/sayac.module';
 import { StorageModule } from './common/storage/storage.module';
@@ -73,6 +74,7 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
     // Tahakkuk: gideri bölümlere paylaştırıp borç yazar. GiderTuru'nden SONRA
     // gelir — kural olmadan tahakkuk çalıştırılamaz.
     TahakkukModule,
+    VirmanModule,
     // Operasyonel varlıklar — dönemsel kayıtlar, silinmez.
     AracModule,
     // Sayaç: TUKETIM paylaşım kuralının girdisi. Tahakkuk buradan okur.
@@ -133,3 +135,4 @@ export class AppModule implements NestModule {
     consumer.apply(CorrelationMiddleware).forRoutes('*');
   }
 }
+

@@ -81,6 +81,7 @@ model Tenant {
   muhasebeParametresi MuhasebeParametresi?
   borclar          Borc[]
   tahakkukCalismalari TahakkukCalismasi[]
+  virmanlar        Virman[]
   idempotansKayitlari IdempotansKaydi[]
   giderTuruGruplari   GiderTuruGrubu[]
   auditKayitlari   AuditKaydi[]
@@ -1063,11 +1064,64 @@ model YevmiyeFisi {
   /// Bu fişin dayandığı tahakkuk çalışmaları (ADR-0017 · 0033). Çalışma
   /// başına TEK fiş vardır; daire kırılımı yardımcı defterde durur.
   tahakkukCalismalari TahakkukCalismasi[]
+  /// Bu fişi üreten virman (0035). Taşınma virmanı fiş üretmez.
+  virmanlar           Virman[]
 
   @@index([tenantId, tarih])
   @@index([tenantId, donemId])
   @@index([tenantId, fisTuru])
   @@map("yevmiye_fisi")
+}
+
+/// Virmanın hangi varlığa dokunduğu (ADR-0016). Üçü farklı kurala tabidir ve
+/// farklı riski taşır; tek koda konulsaydı en gevşek kural ötekileri belirlerdi.
+enum VirmanTuru {
+  /// Fon taşır (kasa ↔ banka). Bugün `banka_hareketi` üzerinden yürür.
+  KASA_BANKA
+  /// Muhasebe kaydı taşır — yanlış hesaba yazılmış tutar.
+  HESAP
+  /// Borç/alacak taşır — bölüm carisi ve `BorcSorumlusu` payları.
+  CARI
+}
+
+/// VİRMAN (0035 · ADR-0016).
+///
+/// ⚠️  TANIM: virman mevcut borcu İPTAL ETMEK için değil, DOĞRU KİŞİYE
+///     AKTARMAK için yapılan işlemdir. Toplam borç DEĞİŞMEZ; değişen yalnızca
+///     borcun muhatabıdır. Bir düzeltme/iptal aracı sanmak, modeli silme ya da
+///     ters kayıt üretmeye götürürdü.
+///
+/// ⚠️  AYRI VARLIK, fişin bir alanı DEĞİL: virmanın her zaman fişi OLMAZ.
+///     Taşınma virmanı yalnızca payları böler ve hiçbir hesap bakiyesi
+///     değişmediği için deftere yazılacak bir şey yoktur.
+model Virman {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  virmanNo String     @map("virman_no") @db.VarChar(32)
+  tur      VirmanTuru
+  /// Sebep kodu VERİDİR, koda gömülü değildir; her tür kendi geçerli listesini
+  /// taşır (ADR-0016 · R6).
+  sebepKodu String @map("sebep_kodu") @db.VarChar(60)
+  tarih     DateTime @db.Date
+  /// ZORUNLU ve boşluk kabul etmez (veritabanı CHECK). Boş bırakılabilen
+  /// zorunlu alan zorunlu değildir; sebep kodu sınıflandırma, açıklama olgudur.
+  aciklama  String
+
+  /// Boşsa bu virman deftere YAZILMAMIŞTIR — taşınma virmanında normaldir.
+  yevmiyeFisiId String? @map("yevmiye_fisi_id") @db.Uuid
+
+  olusturan        String?  @db.Uuid
+  olusturmaTarihi  DateTime @default(now()) @map("olusturma_tarihi") @db.Timestamptz(6)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  yevmiyeFisi YevmiyeFisi? @relation(fields: [yevmiyeFisiId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, virmanNo], map: "virman_no_uq")
+  @@index([tenantId, tarih])
+  @@index([tenantId, tur])
+  @@index([tenantId, yevmiyeFisiId])
+  @@map("virman")
 }
 
 model YevmiyeSatiri {

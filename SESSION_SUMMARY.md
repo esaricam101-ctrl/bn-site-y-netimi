@@ -1854,24 +1854,65 @@ koşmamıştı, `Idempotency-Key` okunmuyordu, ve şimdi tip kapısı uygulama
 kodunu görmüyordu. **Yeni bir kapı eklendiğinde negatif testi de eklenmeli:
 kapıyı bilerek ihlal et, kırmızıya döndüğünü gör, geri al.**
 
-#### J.8 · ★ CT-04 tam süitte kırmızı — sebebi CT-19
+#### J.8 · ★ CT-04 kırmızısı — İLK TEŞHİSİM YANLIŞTI, sebep ölçüldü
+
+Önce *"sebep CT-19'un uygulanmamış olması; virman bitince kapanır"* demiştim.
+**Kapanmadı:** virman uygulandı, CT-19 18/18 yeşile döndü, CT-04 hâlâ
+kırmızıydı.
+
+Gerçek sebep sayaçlardan okundu:
 
 ```text
-virman HARİÇ süit  →  104/104 YEŞİL
-tam süit           →  CT-04 kırmızı + CT-19'un 14 beklenen kırmızısı
+21 <- sinir:POST:OturumController.giris:ip:::ffff:127.0.0.1     ← sınır 20
+ 2 <- sinir:POST:OturumController.giris:kimlik:…                ← sınır 5
 ```
 
-Sebep **CT-19'un uygulanmamış olmasıdır**. Elenenler: istek sınırı (Redis
-boşaltılıp tekrarlandı), eşzamanlılık (`--no-file-parallelism` ile de düştü),
-ikili kombinasyonlar (virman+oturum tek başına geçiyor).
+**IP başına 20 giriş / 5 dk** sınırı doluyordu; kimlik sayaçlarının en yükseği
+2'ydi. Yani sebep kimlik değil **IP**'ydi ve süit büyüdükçe eşiği aştı. 21'inci
+giriş 429 alıyor, CT-04 `expected undefined to be '/yonetim'` ile düşüyordu —
+**hata, sınadığı davranışla ilgisiz bir yerde çıkıyordu.**
 
-**Virman bittiğinde kapanması bekleniyor — kapanmazsa ayrı bulgu olarak
-açılacak.** `it.skip` konulmadı, CT-04 gevşetilmedi.
+`global-setup.ts` sayaçları zaten sıfırlıyordu ama **koşum başında bir kez**;
+21 girişin hepsi tek koşumda üretiliyor. Sıfırlama **dosya başına** alındı
+(`test/setup.ts`).
 
-★ Yan bulgu: giriş ucu **e-posta başına 5 deneme / 5 dk** sınırlıyor
-(`oturum.controller.ts:23`). CT-20'ye eklenen ikinci giriş önce tohum
-kullanıcısını kullanıyordu ve CT-04'ün bütçesini tüketiyordu. **Paylaşılan
-kimlik, paylaşılan fikstürdür** — CT-20 artık kendi kullanıcısını açıyor.
+⚠️ **SINIR KAPATILMADI, yalnızca sayaç sıfırlanıyor.** Guard testlerde de tam
+olarak üretimdeki kod yolunu koşar. *"Test modunda sınır yok"* bayrağı hem
+üretimde yanlışlıkla açılabilir hem de guard'ı testlerde hiç çalıştırmazdı.
+
+★ **Ders:** bir teşhisi kanıtlamadan yazmak, sonraki turda onu doğru sanmaya
+yol açar. İlk açıklamam makuldü ve **yanlıştı**; ölçüm onu çürüttü.
+
+★ Yan bulgu: aynı sınıftan ikinci bir olay — CT-20'ye eklediğim giriş önce
+tohum kullanıcısını kullanıyordu ve **kimlik** bütçesini tüketiyordu.
+**Paylaşılan kimlik, paylaşılan fikstürdür**; CT-20 artık kendi kullanıcısını
+açıyor.
+
+#### J.9 · VİRMAN uygulandı — CT-19 · 18/18
+
+[ADR-0016 §C](docs/adr/log/ADR-0016-virman.md) karara bağlandı ve uygulandı
+(§A kasa/banka ile §B hesap virmanı **hâlâ açık**).
+
+**★ Virmanın iki davranışı** — asıl kural: `satirlar` doluysa deftere fiş
+yazılır, **boşsa yazılmaz**. Saf taşınma virmanında borcun toplamı da hangi
+hesapta durduğu da değişmez; yalnızca yardımcı defterin içindeki dağılım
+değişir ve deftere yazılacak **denk bir kayıt yoktur**. Zorla üretilseydi
+yevmiye defteri taşınma sayısı kadar anlamsız fişle şişerdi. Test (17) bunu
+kalıcı olarak ölçüyor. *Fişsiz olmak izsiz olmak değildir:* virman kaydı ve
+numarası her hâlükârda yazılır.
+
+**Üç fikstür eksiği ölçülerek bulundu** (ürün hatası değil, testin kendi
+kurulumu):
+
+| Bulgu | Kural doğru muydu |
+|---|---|
+| 2026 muhasebe dönemi hiç yoktu | evet — dönemsiz fiş yazılamaz |
+| `KAPALI` dönem kapanış alanları olmadan yazılmak isteniyordu | evet — `muhasebe_donemi_kapanis_tutarlilik` |
+| Virman tarihi `2026-08-20`, yani **gelecek** | evet — *"Fiş tarihi gelecekte olamaz"* |
+
+★ Ayrıca `/tahsis|iade/i` eşleşmesi Türkçe `İ` yüzünden tutmuyordu
+(`'İ'.toLowerCase()` birleşik karakter üretir). Mesajı büyük harfle
+vurgulamak, arayan tarafın metni bulamamasına yol açıyordu.
 
 ---
 

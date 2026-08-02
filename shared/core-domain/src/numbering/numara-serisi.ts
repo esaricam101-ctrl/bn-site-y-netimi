@@ -33,6 +33,11 @@ export const SERI_KATALOGU: readonly NumaraSerisiTanimi[] = [
   { kod: 'KARAR', kapsam: 'TENANT_YIL', formatSablonu: '{onek}-{yil}-{sira:4}', onek: 'KRR', sifirlama: 'YILLIK', tip: 'BOSLUKSUZ', bosluksuzGerekce: 'Karar defteri butunlugu (ADR v1.1 §15).' },
   { kod: 'TAHAKKUK', kapsam: 'TENANT_YIL', formatSablonu: '{onek}-{yil}-{sira:6}', onek: 'THK', sifirlama: 'YILLIK', tip: 'BOSLUKSUZ', bosluksuzGerekce: 'Mali denetim izi.' },
   { kod: 'YEVMIYE', kapsam: 'TENANT_YIL', formatSablonu: '{onek}-{yil}-{sira:6}', onek: 'YEV', sifirlama: 'YILLIK', tip: 'BOSLUKSUZ', bosluksuzGerekce: 'Defter butunlugu (ADR-0003).' },
+  // VIRMAN AYRI SERIDIR (ADR-0016 · urun sahibi karari). Yevmiye serisine
+  // karistirilsaydi "kac virman yapildi" sorusu fis turune bakmadan
+  // cevaplanamaz, virman kaydi ile fis numarasi da birbirine baglanirdi —
+  // oysa TASINMA VIRMANI HIC FIS URETMEZ ve numarasiz kalirdi.
+  { kod: 'VIRMAN', kapsam: 'TENANT_YIL', formatSablonu: '{onek}-{yil}-{sira:6}', onek: 'VRM', sifirlama: 'YILLIK', tip: 'BOSLUKSUZ', bosluksuzGerekce: 'Denetim izi: virman zinciri bosluk kaldirmaz.' },
   { kod: 'TALEP', kapsam: 'TENANT_YIL', formatSablonu: '{onek}-{yil}-{sira:6}', onek: 'TLP', sifirlama: 'YILLIK', tip: 'BOSLUKLU', bosluksuzGerekce: null },
   { kod: 'BELGE', kapsam: 'TENANT', formatSablonu: '{onek}-{sira:8}', onek: 'BLG', sifirlama: 'YOK', tip: 'BOSLUKLU', bosluksuzGerekce: null },
   { kod: 'IS_EMRI', kapsam: 'TENANT_YIL', formatSablonu: '{onek}-{yil}-{sira:6}', onek: 'IEM', sifirlama: 'YILLIK', tip: 'BOSLUKLU', bosluksuzGerekce: null },

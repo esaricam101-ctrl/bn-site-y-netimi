@@ -16,6 +16,15 @@ export * from './belge/belge.js';
 // `hesap` · `yevmiye_fisi` · `yevmiye_satiri` tablolari 0001'de vardi ama
 // kural katmani yoktu; 0015 ile donem · fis turu · hesap ozelligi eklendi.
 export * from './muhasebe/muhasebe.js';
+/*
+ * VIRMAN (0035 · ADR-0016) — AYRI DOSYA, ayri isim uzayi.
+ *
+ * ⚠️  `banka/banka.ts` icinde ZATEN bir `virmaniDogrula` var ve o KASA/BANKA
+ *     virmanidir (tur A). Buradaki `virmanKaydiniDogrula` cari/hesap virmani
+ *     kayidini dogrular. Ayni ada konulsaydi biri otekini golgeleyip yanlis
+ *     kural sessizce calisirdi.
+ */
+export * from './muhasebe/virman.js';
 // Banka cekirdegi (0016): IBAN mod-97 · hareket yonu · mutabakat eslestirme ·
 // cek/senet durum makinesi. Havale/EFT/FAST/Virman AYRI KAVRAM DEGILDIR;
 // hepsi `BankaIslemTipi` degerleridir.
