@@ -124,8 +124,8 @@ gerekçeli eklemeler yapılmıştır.
 
 > **Eklenme gerekçesi (`KASA_BANKA_YATIRMA`, `BANKA_HESAPLARI_ARASI`):**
 > ürün sahibinin listesinde yalnızca `FON_TRANSFERI` vardı. Üçü tek koda
-> girseydi, KMK md. 72 kısıtı kasadan bankaya para yatırmayı da bloklardı.
-> Kısıt bağlanabilir olsun diye ayrıldılar.
+> girseydi, fonun amaca özgülüğünden doğacak kısıt kasadan bankaya para
+> yatırmayı da bloklardı. Kısıt bağlanabilir olsun diye ayrıldılar.
 
 #### B · Hesap virmanı (muhasebe düzeltmesi)
 
@@ -246,9 +246,17 @@ fiş üretmediği için bu kontrol yoktur; yani bu bir davranış değişikliği
    ayrı bir hareket mi? Kaynak hesaptan mı düşer, hedeften mi?
 
 4. **★ Yenileme fonu hesabından işletme hesabına aktarım meşru mu?**
-   **HUKUK SORUSUDUR — burada cevaplanmaz.** KMK md. 72 uyarınca yenileme
-   fonu amaca özgüdür. `SESSION_SUMMARY` §3.E'deki **C-4 hukuki görüş**
-   listesine eklendi. Alt sorular:
+   **HUKUK SORUSUDUR — burada cevaplanmaz.**
+
+   ⚠️ **DÜZELTME (2 Ağustos 2026):** burada önce *"KMK md. 72 uyarınca
+   yenileme fonu amaca özgüdür"* yazıyordu. **Atıf yanlıştı** — md. 72 toplu
+   yapılarda ortak giderlere katılmayı düzenler, yenileme fonunu değil.
+   Sorunun kendisi geçerliliğini korur; dayanağı, fonun kat maliklerine ait
+   **iade edilebilir emanet** niteliğidir (bkz.
+   [ADR-0017](ADR-0017-tahakkuk-muhasebelestirme.md) §5.5).
+
+   `SESSION_SUMMARY` §3.E'deki **C-4 hukuki görüş** listesine eklendi. Alt
+   sorular:
    - Fondan harcama hangi karar/onayla yapılabilir?
    - Fon hesabından işletme hesabına aktarım sistemde **engellenmeli** mi,
      yoksa **uyarı + gerekçe** ile izin mi verilmeli?

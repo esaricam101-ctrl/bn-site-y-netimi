@@ -162,7 +162,105 @@ dönük soru doğurmaz.
 
 ---
 
-## 5 · Bu ADR karara bağlanmadan yapılmayacaklar
+## 5 · Dış hukuk/muhasebe araştırması — 2 Ağustos 2026
+
+Ürün sahibi tarafından bir araştırma raporu sağlandı. Aşağısı **raporun
+söylediğidir**; hangi soruyu kapattığı ve hangisini kapatmadığı ayrı ayrı
+işaretlenmiştir.
+
+### 5.1 · Çerçeve — bu ADR'nin zeminini değiştiriyor
+
+> Apartman/site yönetimlerinin **tüzel kişiliği ve gelir/kurumlar vergisi
+> mükellefiyeti yoktur.** Kanunen zorunlu tek defter KMK md. 32 karar defteri
+> (noter tasdikli); md. 41 denetim defteri. **Çift taraflı bilanço esaslı
+> muhasebe kanunen zorunlu değildir**; işletme hesabı esası yeterlidir.
+
+★ Bu, ADR-0003'ün (çift taraflı muhasebe) **yanlış olduğu anlamına gelmez** —
+ürünün tercihi olduğu anlamına gelir. Sonucu şudur: *"mevzuat böyle emrediyor"*
+diye savunulan hiçbir kısıt bu alanda **kanuni zorunluluk olarak yazılamaz.**
+Kısıtlar ürün kararı olarak gerekçelendirilmelidir.
+
+### 5.2 · S2 (gelir mi avans mı) — KAPANMADI, ama ağırlık avanstan yana
+
+Rapor: KMK md. 20 aidatı *"toplanacak avans"* olarak adlandırır; yönetim kâr
+amacı gütmez; TDHP karşılığı **349 Alınan Diğer Avanslar**'dır. Gelir yaklaşımı
+*"aidatın avans niteliğiyle çelişir ve teorik olarak tercih edilmemelidir."*
+
+⛔ **Ama rapor kendi sınırını da söylüyor:** hesap-kodu düzeyinde bağlayıcı
+mevzuat, TÜRMOB tebliği veya yerleşik içtihat **bulunamamıştır**; literatür
+boşluğu vardır ve **kesin tercih için SMMM görüşü gerekir.**
+
+Bu yüzden burada karar YAZILMIYOR. Karara bağlanacak olan:
+
+- (i) 349 (avans) — KMK md. 20 lafzıyla tutarlı, raporun önerdiği
+- (ii) 600/602 (gelir) — bugünkü hesap planının varsaydığı
+- (iii) **Tenant ayarı** — hangisinin kullanılacağı `MuhasebeParametresi`'nden
+  okunur. §33 kural 3 ile en tutarlı olan budur: politika koda gömülmez.
+
+★ (iii) seçilirse S1 ve S2 tek mekanizmada birleşir ve iki farklı muhasebe
+görüşü aynı üründe barınır. Maliyeti: yıl sonu davranışı ikiye ayrılır — avans
+bakiyesi **devredilir/iade edilir**, gelir bakiyesi kâr/zarara kapanır.
+ADR-0015'in (yıl sonu kapanışı) altı açık sorusu bu seçime bağlanır.
+
+### 5.3 · S3 (fiş granülerliği) — RAPOR CEVAPLIYOR
+
+> *"TDHP mantığı uygulandığında toplu tahakkuk yevmiyede **tek satır (toplam)**
+> olarak, daire kırılımı ise **yardımcı defterde (cari/muavin)** izlenir; toplam
+> mizanla cari bakiyeler mutabık tutulur."*
+
+Bu, §2/S3'teki *"çalışma başına TEK fiş"* seçeneğidir ve **ADR-0010 ile birebir
+örtüşür** (cari = bağımsız bölüm yardımcı defteri, 120 kontrol hesabı). Ayrıca
+5.000 bölümde 5.000 fiş üretme seçeneğini de eler.
+
+★ Kalan alt soru: fiş tarihi `tahakkukDonemi` mi `vadeTarihi` mi. Rapor bunu
+konuşmuyor.
+
+### 5.4 · S1 (gider türü ↔ hesap bağı) — rapor yönü destekliyor
+
+> *"Standart zorunlu bir eşleşme yoktur; her yönetim/yazılım kendi gider
+> kalemlerini kurar."* Giderler yönetim üretim yapmadığından **770 Genel
+> Yönetim Giderleri** altında alt hesaplarda toplanır.
+
+Yani eşleşme **veridir**, kodda sabit değildir — §33 kural 3 ile aynı yön.
+Seçenek (a)/(c) (tür başına hesap alanı) bu bulguyla uyumlu; kodu varsayan
+türetme elenir. Karar hâlâ verilmedi.
+
+### 5.5 · ★ Raporun BİZİM belgemizi çürüttüğü iki nokta — düzeltildi
+
+**(1) KMK md. 72 yanlış atıf.** ADR-0016 (satır 127 ve 248-249) ve
+`SESSION_SUMMARY` §3.E, yenileme fonunun amaca özgülüğünü **KMK md. 72**'ye
+bağlıyordu. Rapor:
+
+> *"Dikkat — KMK md. 72 'yenileme fonu'nu değil, **toplu yapılarda ortak
+> giderlere katılmayı** düzenler."*
+
+Atıf yanlıştı; düzeltildi. Hukuk sorusunun kendisi (fondan işletmeye aktarım
+meşru mu) **geçerliliğini koruyor**, yalnızca dayanağı yanlış gösterilmişti.
+
+**(2) `500 Yenileme Fonu` hesabının tipi.** Tohumun hesap planında `OZKAYNAK`
+olarak tanımlı. Rapor:
+
+> *"...niteliği itibarıyla kat maliklerine ait, **iade edilebilir bir
+> borç/emanet**tir... özkaynak benzeri bir fon (549 mantığı) yerine
+> **alacaklı/emanet karakterli** bir fon hesabında gösterilmesi niteliğe daha
+> uygundur."*
+
+Ayrıca rapor bunu VUK md. 328'deki teknik "yenileme fonu" ile karıştırmamayı
+ayrıca uyarıyor. ⚠️ Tohumdaki tip **bu ADR karara bağlanana kadar
+DEĞİŞTİRİLMEDİ**: hesap tipi bakiye yönünü ve mizanı etkiler, S2 kararıyla
+birlikte verilmelidir. Yol haritasına madde olarak yazıldı.
+
+### 5.6 · Bu ADR'nin dışında kalan, ama rapordan çıkan üç iş
+
+| Bulgu | Ürün durumu | Nereye |
+|---|---|---|
+| **Aidat artış tavanı (YDO)** — 7 Mayıs 2026 düzenlemesi, KMK md. 35/37; yönetici YDO üstü artış yapamaz, genel kurul onayı şart, geçici işletme projesi en fazla 3 ay | `IsletmeProjesi` diye bir model **YOK** (şemada 0 eşleşme); tavan kavramı hiç yok | Yol haritası — yeni özellik |
+| **Gecikme tazminatı aylık %5** (5711 ile %10'dan indirildi) | Oran doğru biliniyor (`portfoy.service.ts:484`) ama yalnızca **öneri metni**; hesaplayan motor yok | Yol haritası — açık |
+| **Vergisel tetikleyiciler** (dışarıdan yönetim şirketi · ortak alan kira/reklam · sosyal tesis · SMMM/personel stopajı) | Ürün bu eşiklerin hiçbirini tanımıyor | C-4 hukuki görüş listesi |
+
+---
+
+## 6 · Bu ADR karara bağlanmadan yapılmayacaklar
 
 - Virman uygulaması (ADR-0016) — deftere yazan ikinci mekanizma
 - `kontrol-mutabakati` raporunun eşiğe bağlanması — bugün her projede `false`

@@ -1019,7 +1019,13 @@ elle yazılmış kısmî unique index'ler (`arac_plaka_donem_uq`,
 9. **C-4 hukuki görüş** (KMK emredici hükümler, genel kurul yeter sayısı,
    vekâlet sınırları).
 
-   ★ **Eklendi (2 Ağustos 2026) — yenileme fonunun amaca özgülüğü (KMK md. 72).**
+   ★ **Eklendi (2 Ağustos 2026) — yenileme fonunun amaca özgülüğü.**
+
+   ⚠️ **DÜZELTME:** burada önce dayanak olarak **KMK md. 72** gösteriliyordu.
+   Atıf YANLIŞTI — md. 72 toplu yapılarda ortak giderlere katılmayı düzenler,
+   yenileme fonunu değil. Soru geçerli; dayanağı fonun kat maliklerine ait
+   **iade edilebilir emanet** niteliğidir (ADR-0017 §5.5).
+
    Yenileme fonu hesabından işletme hesabına aktarım meşru mudur?
    - Fondan harcama hangi karar/onayla yapılabilir?
    - Aktarım sistemde **engellenmeli** mi, yoksa **uyarı + gerekçe** ile izin
