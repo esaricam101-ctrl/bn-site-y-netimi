@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Servis katmanı — gerçek API ile mock arasında TEK anahtar.
  *
  * Sayfalar `api()` yerine buradan okur. Backend hazır olmadığında (PostgreSQL
@@ -16,23 +16,23 @@ import {
   mockArsaPayiDuzelt, mockBolumTasi, mockBolumTopluOlustur,
   mockGiderTuruEkle, mockGiderTuruGuncelle, mockGiderTurleriniOku, mockGiderTuruSil,
   mockPersonelAyril, mockPersonelEkle, mockPersonelleriOku,
-  type MockPersonelGirdisi, type MockSitePersoneli,
+  type MockPersonelGirdisi, type SitePersoneli,
   mockPortfoyOzeti,
   mockDaireGorevlileriniOku, mockDaireGorevlisiAyril, mockDaireGorevlisiEkle,
   mockMisafirCikis, mockMisafirEkle, mockMisafirleriOku,
-  type MockDaireGorevlisi, type MockMisafir,
-  type MockArsaPayiRaporu, type MockArsaPayiSatiri, type MockTopluBolumSatiri,
-  type MockGiderTuru, type MockGiderTuruGirdisi,
+  type DaireGorevlisi, type Misafir,
+  type ArsaPayiRaporu, type ArsaPayiSatiri, type TopluBolumSatiri,
+  type GiderTuru, type MockGiderTuruGirdisi,
   mockApartmanEkle, mockApartmanGuncelle, mockApartmanlariOku, mockApartmanSil,
   mockBlokEkle, mockBlokGuncelle, mockBloklariOku, mockBlokSil,
   mockMalikDevret, mockMalikDuzelt, mockMalikEkle,
   mockKiraciDuzelt, mockKiraciEkle, mockKiraciTahliye,
   mockSakinCikis, mockSakinDuzelt, mockSakinEkle,
   mockKatEkle, mockKatGuncelle, mockKatlariOku, mockKatSil,
-  type MockApartman, type MockAuditSatiri, type MockBlok, type MockBolum,
-  type MockDaireKarti, type MockHisseRaporu, type MockKat, type MockKiraci,
-  type MockMalik, type MockSakin,
-  type MockYerlesimOzeti, type MockYerlesimSatiri, type SayfaliSonuc,
+  type Apartman, type AuditSatiri, type Blok, type Bolum,
+  type DaireKarti, type HisseRaporu, type Kat, type Kiraci,
+  type Malik, type Sakin,
+  type YerlesimOzeti, type YerlesimSatiri, type SayfaliSonuc,
 } from './mock/veri';
 
 export const MOCK_AKTIF = (process.env['NEXT_PUBLIC_MOCK'] ?? '1') !== '0';
@@ -129,7 +129,7 @@ async function sil(yol: string, govde: unknown, mockEtki: () => void): Promise<v
  * Mock arsa payı raporu. Toplam kesir olarak hesaplanır; ondalığa çevrilmez
  * — 1/3 gibi paylarda ondalık toplam asla tamı etmez (bkz. `lib/kesir.ts`).
  */
-function arsaPayiRaporuUret(): MockArsaPayiRaporu {
+function arsaPayiRaporuUret(): ArsaPayiRaporu {
   const bolumler = mockBolumleriOku();
   const toplam = kesirleriTopla(
     bolumler.map((b) => kesirCoz(b.arsaPayi)).filter((k): k is Kesir => k !== null),
@@ -392,7 +392,7 @@ export interface MisafirGirdisi {
 }
 
 export const servis = {
-  apartmanlar: (): Promise<readonly MockApartman[]> =>
+  apartmanlar: (): Promise<readonly Apartman[]> =>
     getir('/apartmanlar', mockApartmanlariOku()),
 
   apartmanEkle: (dto: ApartmanGirdisi): Promise<void> =>
@@ -409,7 +409,7 @@ export const servis = {
   apartmanSil: (id: string, gerekce: string): Promise<void> =>
     sil(`/apartmanlar/${id}`, { gerekce }, () => { mockApartmanSil(id); }),
 
-  bloklar: (apartmanId?: string): Promise<readonly MockBlok[]> =>
+  bloklar: (apartmanId?: string): Promise<readonly Blok[]> =>
     getir(
       `/bloklar${apartmanId === undefined ? '' : `?apartmanId=${apartmanId}`}`,
       mockBloklariOku(apartmanId),
@@ -428,7 +428,7 @@ export const servis = {
   blokSil: (id: string, gerekce: string): Promise<void> =>
     sil(`/bloklar/${id}`, { gerekce }, () => { mockBlokSil(id); }),
 
-  katlar: (blokId: string): Promise<readonly MockKat[]> =>
+  katlar: (blokId: string): Promise<readonly Kat[]> =>
     getir(`/katlar?blokId=${blokId}`, mockKatlariOku(blokId)),
 
   katEkle: (blokId: string, no: number, ad?: string): Promise<void> =>
@@ -459,7 +459,7 @@ export const servis = {
    * test edilemez, bu bilinçli bir sınırdır.
    */
   bolumler: (suzgec: { readonly blokId?: string; readonly katId?: string } = {}):
-  Promise<SayfaliSonuc<MockBolum>> => {
+  Promise<SayfaliSonuc<Bolum>> => {
     const parametre = new URLSearchParams();
     if (suzgec.blokId !== undefined) parametre.set('blokId', suzgec.blokId);
     if (suzgec.katId !== undefined) parametre.set('katId', suzgec.katId);
@@ -488,7 +488,7 @@ export const servis = {
    */
   bolumTopluOlustur: (
     blokId: string, katId: string | null, kat: number,
-    bolumler: readonly MockTopluBolumSatiri[],
+    bolumler: readonly TopluBolumSatiri[],
   ): Promise<void> =>
     gonder(
       '/bolumler/toplu', 'POST',
@@ -562,7 +562,7 @@ export const servis = {
 
   sitePersonelleri: (
     suzgec: { gorev?: string; durum?: string; arama?: string } = {},
-  ): Promise<readonly MockSitePersoneli[]> => {
+  ): Promise<readonly SitePersoneli[]> => {
     const p = new URLSearchParams();
     if (suzgec.gorev !== undefined) p.set('gorev', suzgec.gorev);
     if (suzgec.durum !== undefined) p.set('durum', suzgec.durum);
@@ -595,7 +595,7 @@ export const servis = {
 
   daireGorevlileri: (
     suzgec: { bolumId?: string; gorev?: string; durum?: string; arama?: string } = {},
-  ): Promise<readonly MockDaireGorevlisi[]> => {
+  ): Promise<readonly DaireGorevlisi[]> => {
     const p = new URLSearchParams();
     if (suzgec.bolumId !== undefined) p.set('bolumId', suzgec.bolumId);
     if (suzgec.gorev !== undefined) p.set('gorev', suzgec.gorev);
@@ -625,7 +625,7 @@ export const servis = {
 
   misafirler: (
     suzgec: { bolumId?: string; icerideMi?: boolean; arama?: string } = {},
-  ): Promise<readonly MockMisafir[]> => {
+  ): Promise<readonly Misafir[]> => {
     const p = new URLSearchParams();
     if (suzgec.bolumId !== undefined) p.set('bolumId', suzgec.bolumId);
     if (suzgec.icerideMi !== undefined) p.set('icerideMi', String(suzgec.icerideMi));
@@ -649,7 +649,7 @@ export const servis = {
 
   // --- Gider türleri (aidat kuralları — KMK md. 20) ---
 
-  giderTurleri: (yalnizcaAktif = false): Promise<readonly MockGiderTuru[]> =>
+  giderTurleri: (yalnizcaAktif = false): Promise<readonly GiderTuru[]> =>
     getir(
       `/gider-turleri${yalnizcaAktif ? '?yalnizcaAktif=true' : ''}`,
       mockGiderTurleriniOku(yalnizcaAktif),
@@ -675,7 +675,7 @@ export const servis = {
    * içindeki kesir aritmetiğiyle aynı olmalı diye tek yerde toplanır ve
    * rapor da oradan türetilir (bkz. `arsaPayiRaporuUret`).
    */
-  arsaPayiDurumu: (): Promise<MockArsaPayiRaporu> =>
+  arsaPayiDurumu: (): Promise<ArsaPayiRaporu> =>
     getir('/bolumler/arsa-payi-durumu', arsaPayiRaporuUret()),
 
   /**
@@ -684,7 +684,7 @@ export const servis = {
    * dokunmaz. Toplam tamı etmiyorsa hiçbir satır yazılmaz.
    */
   arsaPayiDuzelt: (
-    satirlar: readonly MockArsaPayiSatiri[], gerekce: string,
+    satirlar: readonly ArsaPayiSatiri[], gerekce: string,
   ): Promise<void> =>
     gonder('/bolumler/arsa-payi-duzelt', 'POST', { satirlar, gerekce }, () => {
       mockArsaPayiDuzelt(satirlar);
@@ -705,18 +705,18 @@ export const servis = {
       () => { mockBolumTasi(bolumIdler, hedefBlokId, hedefKatId); },
     ),
 
-  yerlesimOzeti: (): Promise<MockYerlesimOzeti> =>
+  yerlesimOzeti: (): Promise<YerlesimOzeti> =>
     getir('/bolumler/yerlesim-ozeti', mockYerlesim),
 
   /** Daire kartı — malik · hisse · kiracı · sakin tek çağrıda. */
-  daireKarti: async (bolumId: string): Promise<MockDaireKarti> => {
+  daireKarti: async (bolumId: string): Promise<DaireKarti> => {
     const mock = mockDaireKarti(bolumId);
     if (MOCK_AKTIF) {
       if (mock === null) throw new Error(`Bölüm bulunamadı: ${bolumId}`);
       return gecikmeli(mock);
     }
     const token = jeton();
-    return api<MockDaireKarti>(`/daireler/${bolumId}/kart`, {
+    return api<DaireKarti>(`/daireler/${bolumId}/kart`, {
       ...(token ? { token } : {}),
     });
   },
@@ -725,7 +725,7 @@ export const servis = {
   auditKayitlari: (
     varlik: string,
     varlikId: string,
-  ): Promise<SayfaliSonuc<MockAuditSatiri>> =>
+  ): Promise<SayfaliSonuc<AuditSatiri>> =>
     getir(`/audit?varlik=${varlik}&varlikId=${varlikId}`, {
       kayitlar: mockAuditKayitlari(varlikId),
       sonrakiImlec: null,
@@ -833,24 +833,24 @@ export const servis = {
 };
 
 export type {
-  MockApartman as Apartman,
-  MockAuditSatiri as AuditSatiri,
-  MockBlok as Blok,
-  MockBolum as Bolum,
-  MockDaireKarti as DaireKarti,
-  MockGiderTuru as GiderTuru,
+  Apartman as Apartman,
+  AuditSatiri as AuditSatiri,
+  Blok as Blok,
+  Bolum as Bolum,
+  DaireKarti as DaireKarti,
+  GiderTuru as GiderTuru,
   MockGiderTuruGirdisi as GiderTuruGirdisi,
-  MockSitePersoneli as SitePersoneli,
+  SitePersoneli as SitePersoneli,
   MockPersonelGirdisi as PersonelGirdisi,
-  MockDaireGorevlisi as DaireGorevlisi,
-  MockMisafir as Misafir,
-  MockHisseRaporu as HisseRaporu,
-  MockKat as Kat,
-  MockKiraci as Kiraci,
-  MockMalik as Malik,
-  MockSakin as Sakin,
-  MockYerlesimOzeti as YerlesimOzeti,
-  MockYerlesimSatiri as YerlesimSatiri,
+  DaireGorevlisi as DaireGorevlisi,
+  Misafir as Misafir,
+  HisseRaporu as HisseRaporu,
+  Kat as Kat,
+  Kiraci as Kiraci,
+  Malik as Malik,
+  Sakin as Sakin,
+  YerlesimOzeti as YerlesimOzeti,
+  YerlesimSatiri as YerlesimSatiri,
   SayfaliSonuc,
 };
 

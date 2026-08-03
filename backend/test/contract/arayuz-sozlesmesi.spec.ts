@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CT-22 · ARAYÜZ SÖZLEŞMESİ — frontend tipleri gerçek API yanıtına uyuyor mu?
  *
  * ⚠️  NEDEN VAR: `frontend/web/lib/mock/veri.ts` içindeki tipler **`Mock`
@@ -25,9 +25,8 @@ import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -59,12 +58,29 @@ interface Alan {
   readonly ad: string;
   /** `?` ile bildirilmiş ya da tipi `| null` içeriyorsa yanıt onu atlayabilir. */
   readonly istegeBagli: boolean;
-  /** İç içe `Mock*` tipi varsa adı — o tip de ayrıca doğrulanır. */
+  /** İç içe sözleşme tipi adayı — `TIPLER` içindeyse o tip de doğrulanır. */
   readonly icTip: string | null;
 }
 
-const BURASI = dirname(fileURLToPath(import.meta.url));
-const VERI_TS = join(BURASI, '..', '..', '..', 'frontend', 'web', 'lib', 'mock', 'veri.ts');
+/**
+ * Depo kökü — `.env` bulunana kadar yukarı yürünür.
+ *
+ * ⚠️  `import.meta` KULLANILMAZ: bu dosya `tsc` ile CommonJS hedefine de
+ *     derlenir ve orada `TS1343` verir (ölçüldü). `test/setup.ts` aynı
+ *     sorunu aynı yolla çözüyor; desen tekrarlanıyor, icat edilmiyor.
+ */
+function kokuBul(): string {
+  let dizin = process.cwd();
+  for (let i = 0; i < 6; i += 1) {
+    if (existsSync(join(dizin, '.env'))) return dizin;
+    const ust = dirname(dizin);
+    if (ust === dizin) break;
+    dizin = ust;
+  }
+  throw new Error('Depo kökü bulunamadı (.env yok).');
+}
+
+const VERI_TS = join(kokuBul(), 'frontend', 'web', 'lib', 'mock', 'veri.ts');
 
 /**
  * `veri.ts` içindeki `export interface Mock… { … }` gövdelerini okur.
@@ -77,7 +93,16 @@ function tipleriOku(): ReadonlyMap<string, readonly Alan[]> {
   const kaynak = readFileSync(VERI_TS, 'utf8');
   const tipler = new Map<string, readonly Alan[]>();
 
-  const arayuz = /export interface (Mock\w+)\s*\{([\s\S]*?)\n\}/gu;
+  /*
+   * ⚠️  DESEN `Mock\w+` DEĞİL, TÜM DIŞA VERİLEN ARAYÜZLER.
+   *
+   *     Tipler önce `Mock` önekiyle yazılmıştı; sözleşme doğrulandıktan
+   *     sonra önek kaldırıldı (ad yanlış bilgi veriyordu: bunlar API
+   *     sözleşmesidir, mock şekli değil). Desen `Mock\w+` kalsaydı
+   *     ayrıştırıcı SIFIR tip bulur ve bütün sözleşme testleri SESSİZCE
+   *     GEÇERDİ — test (0) bu yüzden var ve bu değişikliği o yakaladı.
+   */
+  const arayuz = /export interface (\w+)\s*\{([\s\S]*?)\n\}/gu;
   let e: RegExpExecArray | null;
   while ((e = arayuz.exec(kaynak)) !== null) {
     const ad = e[1] ?? '';
@@ -95,7 +120,13 @@ function tipleriOku(): ReadonlyMap<string, readonly Alan[]> {
 
       const alanAdi = m[1] ?? '';
       const tipMetni = m[3] ?? '';
-      const icTipEsleme = /\b(Mock\w+)\b/u.exec(tipMetni);
+      /*
+       * İç içe tip ADAYI — büyük harfle başlayan ilk ad. `string`/`number`
+       * gibi ilkel tipler küçük harfle başlar, elenirler. Aday `TIPLER`
+       * içinde yoksa `eksikAlanlar` ona İNMEZ (ör. `Date`); yani bilinmeyen
+       * bir ad yanlış hata üretmez.
+       */
+      const icTipEsleme = /\b([A-Z]\w+)\b/u.exec(tipMetni);
 
       alanlar.push({
         ad: alanAdi,
@@ -138,7 +169,8 @@ function eksikAlanlar(
       if (!a.istegeBagli) eksik.push(`${yol}.${a.ad}`);
       continue;
     }
-    if (a.icTip === null) continue;
+    // Bilinmeyen ad (ör. `Date`) bir sözleşme tipi değildir; inilmez.
+    if (a.icTip === null || !TIPLER.has(a.icTip)) continue;
 
     const ic = nesne[a.ad];
     if (Array.isArray(ic)) {
@@ -324,8 +356,8 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
      * hiçbir şey doğrulamadan yeşil bir süit.
      */
     expect(TIPLER.size).toBeGreaterThan(20);
-    expect(TIPLER.has('MockBolum')).toBe(true);
-    expect(TIPLER.has('MockDaireKarti')).toBe(true);
+    expect(TIPLER.has('Bolum')).toBe(true);
+    expect(TIPLER.has('DaireKarti')).toBe(true);
   });
 
   /**
@@ -335,17 +367,17 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
    *     kanıtlamaz; "veri yoktu" ile "şekil uyuyor" karıştırılamaz.
    */
   const SOZLESMELER: readonly [string, string, (g: unknown) => unknown][] = [
-    ['MockApartman', '/apartmanlar', (g) => (g as unknown[])[0]],
-    ['MockBlok', '/bloklar', (g) => (g as unknown[])[0]],
-    ['MockKat', `/katlar?blokId=${kimlik.blokId}`, (g) => (g as unknown[])[0]],
-    ['MockBolum', '/bolumler', (g) => sayfadanIlk(g)],
-    ['MockYerlesimOzeti', '/bolumler/yerlesim-ozeti', (g) => g],
-    ['MockArsaPayiRaporu', '/bolumler/arsa-payi-durumu', (g) => g],
-    ['MockDaireKarti', `/daireler/${kimlik.bolumId}/kart`, (g) => g],
-    ['MockGiderTuru', '/gider-turleri', (g) => (g as unknown[])[0]],
-    ['MockMisafir', '/misafirler', (g) => sayfadanIlk(g)],
-    ['MockSitePersoneli', '/site-personeli', (g) => sayfadanIlk(g)],
-    ['MockDaireGorevlisi', '/daire-gorevlileri', (g) => sayfadanIlk(g)],
+    ['Apartman', '/apartmanlar', (g) => (g as unknown[])[0]],
+    ['Blok', '/bloklar', (g) => (g as unknown[])[0]],
+    ['Kat', `/katlar?blokId=${kimlik.blokId}`, (g) => (g as unknown[])[0]],
+    ['Bolum', '/bolumler', (g) => sayfadanIlk(g)],
+    ['YerlesimOzeti', '/bolumler/yerlesim-ozeti', (g) => g],
+    ['ArsaPayiRaporu', '/bolumler/arsa-payi-durumu', (g) => g],
+    ['DaireKarti', `/daireler/${kimlik.bolumId}/kart`, (g) => g],
+    ['GiderTuru', '/gider-turleri', (g) => (g as unknown[])[0]],
+    ['Misafir', '/misafirler', (g) => sayfadanIlk(g)],
+    ['SitePersoneli', '/site-personeli', (g) => sayfadanIlk(g)],
+    ['DaireGorevlisi', '/daire-gorevlileri', (g) => sayfadanIlk(g)],
   ];
 
   for (const [tip, yol, ornekAl] of SOZLESMELER) {
@@ -362,7 +394,7 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
     }, 30_000);
   }
 
-  it('(MockAuditSatiri) denetim kaydı tipe uyuyor', async () => {
+  it('(AuditSatiri) denetim kaydı tipe uyuyor', async () => {
     /*
      * ⚠️  DENETCI JETONU. `AUDIT_GORUNTULE` YALNIZCA `DENETCI` rolündedir
      *     (`roller.ts:107`); yönetim jetonuyla denendiğinde 403 gelir ve bu
@@ -389,6 +421,7 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
     const g = y.body as { kayitlar?: unknown[] };
     const ornek = (g.kayitlar ?? [])[0];
     expect(ornek, 'Kat oluşturma denetim kaydı üretmemiş').toBeTruthy();
-    expect(eksikAlanlar('MockAuditSatiri', ornek)).toEqual([]);
+    expect(eksikAlanlar('AuditSatiri', ornek)).toEqual([]);
   }, 30_000);
 });
+

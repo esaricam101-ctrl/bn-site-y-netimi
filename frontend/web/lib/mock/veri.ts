@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mock veri — backend çalışmadığında arayüzün geliştirilebilmesi için.
  *
  * NEDEN GEREKLİ: PostgreSQL kurulu değil (DEVLOG TODO-3), dolayısıyla backend
@@ -9,7 +9,7 @@
  * backend'in query servislerinden kopyalanır ve sapma derlemede yakalanır.
  */
 
-export interface MockApartman {
+export interface Apartman {
   readonly id: string;
   readonly ad: string;
   readonly adres: string | null;
@@ -17,7 +17,7 @@ export interface MockApartman {
   readonly blokSayisi: number;
 }
 
-export interface MockBlok {
+export interface Blok {
   readonly id: string;
   readonly ad: string;
   readonly apartmanId: string;
@@ -26,7 +26,7 @@ export interface MockBlok {
   readonly bolumSayisi: number;
 }
 
-export interface MockKat {
+export interface Kat {
   readonly id: string;
   readonly blokId: string;
   readonly no: number;
@@ -34,7 +34,7 @@ export interface MockKat {
   readonly bolumSayisi: number;
 }
 
-export interface MockBolum {
+export interface Bolum {
   readonly id: string;
   readonly kapiNo: string;
   readonly icKapiNo: string | null;
@@ -51,7 +51,7 @@ export interface MockBolum {
 }
 
 /** Malik satırı — gerçek uçla (MalikSatiri) aynı şekil. */
-export interface MockMalik {
+export interface Malik {
   readonly id: string;
   readonly kisiId: string;
   readonly kisiAdi: string;
@@ -67,7 +67,7 @@ export interface MockMalik {
   readonly gecerliMi: boolean;
 }
 
-export interface MockHisseRaporu {
+export interface HisseRaporu {
   readonly gecerli: boolean;
   readonly toplam: string;
   readonly mesaj: string;
@@ -75,7 +75,7 @@ export interface MockHisseRaporu {
   readonly malikSayisi: number;
 }
 
-export interface MockKiraci {
+export interface Kiraci {
   readonly id: string;
   readonly kisiId: string;
   readonly kisiAdi: string;
@@ -90,7 +90,7 @@ export interface MockKiraci {
   readonly gecerliMi: boolean;
 }
 
-export interface MockSakin {
+export interface Sakin {
   readonly id: string;
   readonly kisiId: string;
   readonly kisiAdi: string;
@@ -124,17 +124,17 @@ export interface MockSakin {
 }
 
 /** Daire kartı — gerçek uçla (DaireKarti) aynı şekil. */
-export interface MockDaireKarti {
-  readonly bolum: MockBolum;
-  readonly malikler: readonly MockMalik[];
-  readonly hisseDurumu: MockHisseRaporu;
-  readonly kiracilar: readonly MockKiraci[];
-  readonly sakinler: readonly MockSakin[];
+export interface DaireKarti {
+  readonly bolum: Bolum;
+  readonly malikler: readonly Malik[];
+  readonly hisseDurumu: HisseRaporu;
+  readonly kiracilar: readonly Kiraci[];
+  readonly sakinler: readonly Sakin[];
   readonly tarih: string | null;
 }
 
 /** Denetim kaydı — gerçek uçla (AuditSatiri) aynı şekil. */
-export interface MockAuditSatiri {
+export interface AuditSatiri {
   readonly id: string;
   readonly eylem: string;
   readonly varlik: string;
@@ -154,7 +154,7 @@ export interface SayfaliSonuc<T> {
   readonly sonrakiImlec: string | null;
 }
 
-export interface MockYerlesimSatiri {
+export interface YerlesimSatiri {
   readonly bolumId: string;
   readonly kapiNo: string;
   readonly blokAdi: string | null;
@@ -171,16 +171,16 @@ const APARTMAN_ID = 'ap-1';
 const BLOK_A = 'blok-a';
 const BLOK_B = 'blok-b';
 
-export const mockApartmanlar: readonly MockApartman[] = [
+export const mockApartmanlar: readonly Apartman[] = [
   { id: APARTMAN_ID, ad: 'Güzel Apartmanı', adres: 'Bağdat Cad. No:12, Kadıköy/İstanbul', siteIciKod: null, blokSayisi: 2 },
 ];
 
-export const mockBloklar: readonly MockBlok[] = [
+export const mockBloklar: readonly Blok[] = [
   { id: BLOK_A, ad: 'A Blok', apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı', katSayisi: 4, bolumSayisi: 8 },
   { id: BLOK_B, ad: 'B Blok', apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı', katSayisi: 3, bolumSayisi: 6 },
 ];
 
-export const mockKatlar: readonly MockKat[] = [
+export const mockKatlar: readonly Kat[] = [
   { id: 'kat-a0', blokId: BLOK_A, no: 0, ad: 'Zemin', bolumSayisi: 2 },
   { id: 'kat-a1', blokId: BLOK_A, no: 1, ad: null, bolumSayisi: 2 },
   { id: 'kat-a2', blokId: BLOK_A, no: 2, ad: null, bolumSayisi: 2 },
@@ -195,8 +195,8 @@ const DAIRE_TIPLERI = ['IKI_BIR', 'UC_BIR', 'BIR_BIR', 'DORT_BIR'] as const;
 const DURUMLAR = ['AKTIF', 'AKTIF', 'AKTIF', 'BOS', 'TADILATTA'] as const;
 
 /** 14 bölüm — iki blok, sabit üretilir (rastgelelik testleri kırılganlaştırır). */
-export const mockBolumler: readonly MockBolum[] = mockKatlar.flatMap((kat, ki) =>
-  [1, 2].map((sira, si): MockBolum => {
+export const mockBolumler: readonly Bolum[] = mockKatlar.flatMap((kat, ki) =>
+  [1, 2].map((sira, si): Bolum => {
     const i = ki * 2 + si;
     const blokHarfi = kat.blokId === BLOK_A ? 'A' : 'B';
     return {
@@ -218,16 +218,16 @@ export const mockBolumler: readonly MockBolum[] = mockKatlar.flatMap((kat, ki) =
 );
 
 /** Bina geneli yerleşim özeti — gerçek uçla AYNI şekil. */
-export interface MockYerlesimOzeti {
+export interface YerlesimOzeti {
   readonly bolumSayisi: number;
   readonly malikKaydiOlmayan: number;
   readonly hissesiEksikOlan: number;
   readonly kiracili: number;
   readonly bos: number;
-  readonly satirlar: readonly MockYerlesimSatiri[];
+  readonly satirlar: readonly YerlesimSatiri[];
 }
 
-const yerlesimSatirlari: readonly MockYerlesimSatiri[] = mockBolumler.map((b, i) => ({
+const yerlesimSatirlari: readonly YerlesimSatiri[] = mockBolumler.map((b, i) => ({
   bolumId: b.id,
   kapiNo: b.kapiNo,
   blokAdi: b.blokId === BLOK_A ? 'A Blok' : 'B Blok',
@@ -255,7 +255,7 @@ const yerlesimSatirlari: readonly MockYerlesimSatiri[] = mockBolumler.map((b, i)
  * `malikleriAl` bunu çağırır; `mockDaireKarti` de örtüyü çağırır. İkisi
  * birbirini çağırsaydı sonsuz özyineleme olurdu.
  */
-function varsayilanMalikler(bolumId: string, i: number): MockMalik[] {
+function varsayilanMalikler(bolumId: string, i: number): Malik[] {
   const malikSayisi = i % 5 === 0 ? 0 : i % 3 === 0 ? 2 : 1;
   return Array.from({ length: malikSayisi }, (_, m) => ({
     id: `malik-${bolumId}-${m}`,
@@ -274,7 +274,7 @@ function varsayilanMalikler(bolumId: string, i: number): MockMalik[] {
   }));
 }
 
-export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
+export function mockDaireKarti(bolumId: string): DaireKarti | null {
   const bolum = mockBolumler.find((b) => b.id === bolumId);
   if (bolum === undefined) return null;
 
@@ -285,7 +285,7 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
   const hisseTam = gecerliMalikler.length > 0;
 
   const kiraciVar = i % 3 === 1;
-  const varsayilanKiracilar: MockKiraci[] = kiraciVar
+  const varsayilanKiracilar: Kiraci[] = kiraciVar
     ? [{
         id: `kiraci-${bolumId}`,
         kisiId: `kisi-k-${i}`,
@@ -303,7 +303,7 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
     : [];
 
   const sakinSayisi = i % 4;
-  const varsayilanSakinler: MockSakin[] = Array.from({ length: sakinSayisi }, (_, s) => ({
+  const varsayilanSakinler: Sakin[] = Array.from({ length: sakinSayisi }, (_, s) => ({
     id: `sakin-${bolumId}-${s}`,
     kisiId: `kisi-s-${i}-${s}`,
     kisiAdi: s === 0 ? 'Zeynep Demir' : 'Ali Demir',
@@ -356,9 +356,9 @@ export function mockDaireKarti(bolumId: string): MockDaireKarti | null {
  * SINIR: örtü YALNIZCA bellektedir; sayfa yenilenince başlangıç durumuna
  * döner. Kalıcılık gerçek backend'in işidir ve taklit edilmez.
  */
-const malikOrtusu = new Map<string, MockMalik[]>();
+const malikOrtusu = new Map<string, Malik[]>();
 
-function malikleriAl(bolumId: string, varsayilan: readonly MockMalik[]): MockMalik[] {
+function malikleriAl(bolumId: string, varsayilan: readonly Malik[]): Malik[] {
   const mevcut = malikOrtusu.get(bolumId);
   if (mevcut !== undefined) return mevcut;
   const kopya = [...varsayilan];
@@ -411,12 +411,12 @@ export interface MockMalikEkle {
   readonly tapuYevmiyeNo?: string;
 }
 
-export function mockMalikEkle(bolumId: string, dto: MockMalikEkle): MockMalik {
+export function mockMalikEkle(bolumId: string, dto: MockMalikEkle): Malik {
   const kart = mockDaireKarti(bolumId);
   if (kart === null) throw new Error(`Bölüm bulunamadı: ${bolumId}`);
   const liste = malikleriAl(bolumId, kart.malikler);
 
-  const yeni: MockMalik = {
+  const yeni: Malik = {
     id: `malik-${bolumId}-${liste.length}-${liste.length + 1}`,
     kisiId: `kisi-yeni-${liste.length}`,
     kisiAdi: mockKisiAdiCoz(dto),
@@ -444,7 +444,7 @@ export function mockMalikDevret(
   const i = liste.findIndex((m) => m.id === malikId);
   if (i < 0) throw new Error(`Malik kaydı bulunamadı: ${malikId}`);
   // Kayit SILINMEZ; donemi kapanir ve tarihcede kalir.
-  liste[i] = { ...(liste[i] as MockMalik), tapuBitis, gecerliMi: false };
+  liste[i] = { ...(liste[i] as Malik), tapuBitis, gecerliMi: false };
   return dayanakSakinleriniCikar(bolumId, { malikId }, tapuBitis);
 }
 
@@ -458,7 +458,7 @@ export function mockMalikDuzelt(
   const liste = malikleriAl(bolumId, kart.malikler);
   const i = liste.findIndex((m) => m.id === malikId);
   if (i < 0) throw new Error(`Malik kaydı bulunamadı: ${malikId}`);
-  const mevcut = liste[i] as MockMalik;
+  const mevcut = liste[i] as Malik;
   liste[i] = {
     ...mevcut,
     ...(dto.tapuTuru === undefined ? {} : { tapuTuru: dto.tapuTuru }),
@@ -467,7 +467,7 @@ export function mockMalikDuzelt(
 }
 
 /** Örtü varsa onu, yoksa hesaplanan varsayılanı döner. */
-export function mockMalikleriOku(bolumId: string): readonly MockMalik[] | null {
+export function mockMalikleriOku(bolumId: string): readonly Malik[] | null {
   const kart = mockDaireKarti(bolumId);
   if (kart === null) return null;
   return malikleriAl(bolumId, kart.malikler);
@@ -475,10 +475,10 @@ export function mockMalikleriOku(bolumId: string): readonly MockMalik[] | null {
 
 // --- Kiracı ve Sakin yazma örtüleri (aynı bellek-içi mantık) ---
 
-const kiraciOrtusu = new Map<string, MockKiraci[]>();
-const sakinOrtusu = new Map<string, MockSakin[]>();
+const kiraciOrtusu = new Map<string, Kiraci[]>();
+const sakinOrtusu = new Map<string, Sakin[]>();
 
-function kiracilariAl(bolumId: string, varsayilan: readonly MockKiraci[]): MockKiraci[] {
+function kiracilariAl(bolumId: string, varsayilan: readonly Kiraci[]): Kiraci[] {
   const mevcut = kiraciOrtusu.get(bolumId);
   if (mevcut !== undefined) return mevcut;
   const kopya = [...varsayilan];
@@ -486,7 +486,7 @@ function kiracilariAl(bolumId: string, varsayilan: readonly MockKiraci[]): MockK
   return kopya;
 }
 
-function sakinleriAl(bolumId: string, varsayilan: readonly MockSakin[]): MockSakin[] {
+function sakinleriAl(bolumId: string, varsayilan: readonly Sakin[]): Sakin[] {
   const mevcut = sakinOrtusu.get(bolumId);
   if (mevcut !== undefined) return mevcut;
   const kopya = [...varsayilan];
@@ -536,7 +536,7 @@ export function mockKiraciTahliye(
   const liste = kiraciOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((k) => k.id === kiraciId);
   if (i < 0) throw new Error(`Kiracı kaydı bulunamadı: ${kiraciId}`);
-  const mevcut = liste[i] as MockKiraci;
+  const mevcut = liste[i] as Kiraci;
   // Tahliye sozlesmeyi de kapatir: bitis bos kalirsa iliski suresiz gorunur
   // ve yeni kiraci eklenemez.
   liste[i] = {
@@ -610,7 +610,7 @@ export function mockKiraciDuzelt(
   const liste = kiraciOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((k) => k.id === kiraciId);
   if (i < 0) throw new Error(`Kiracı kaydı bulunamadı: ${kiraciId}`);
-  const mevcut = liste[i] as MockKiraci;
+  const mevcut = liste[i] as Kiraci;
 
   if (mevcut.tahliyeTarihi !== null && dto.bitis !== undefined) {
     throw new Error('Tahliye edilmiş bir sözleşmenin bitiş tarihi değiştirilemez.');
@@ -640,7 +640,7 @@ export function mockSakinDuzelt(
   const liste = sakinOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((s) => s.id === sakinId);
   if (i < 0) throw new Error(`Sakin kaydı bulunamadı: ${sakinId}`);
-  const mevcut = liste[i] as MockSakin;
+  const mevcut = liste[i] as Sakin;
 
   if (
     dto.girisTarihi !== undefined &&
@@ -703,15 +703,15 @@ export function mockSakinEkle(bolumId: string, dto: MockSakinEkle): void {
 
 // --- Apartman ve Blok yazma örtüleri ---
 
-let apartmanOrtusu: MockApartman[] | null = null;
-let blokOrtusu: MockBlok[] | null = null;
+let apartmanOrtusu: Apartman[] | null = null;
+let blokOrtusu: Blok[] | null = null;
 
-export function mockApartmanlariOku(): readonly MockApartman[] {
+export function mockApartmanlariOku(): readonly Apartman[] {
   apartmanOrtusu ??= [...mockApartmanlar];
   return apartmanOrtusu;
 }
 
-export function mockBloklariOku(apartmanId?: string): readonly MockBlok[] {
+export function mockBloklariOku(apartmanId?: string): readonly Blok[] {
   blokOrtusu ??= [...mockBloklar];
   return apartmanId === undefined
     ? blokOrtusu
@@ -743,7 +743,7 @@ export function mockApartmanGuncelle(
     throw new Error(`'${dto.ad}' adında bir apartman bu yerleşkede zaten var.`);
   }
   liste[i] = {
-    ...(liste[i] as MockApartman),
+    ...(liste[i] as Apartman),
     ...(dto.ad === undefined ? {} : { ad: dto.ad }),
     ...(dto.adres === undefined ? {} : { adres: dto.adres }),
     ...(dto.siteIciKod === undefined ? {} : { siteIciKod: dto.siteIciKod }),
@@ -787,7 +787,7 @@ export function mockBlokGuncelle(id: string, ad: string): void {
   const liste = blokOrtusu ?? (blokOrtusu = [...mockBloklar]);
   const i = liste.findIndex((b) => b.id === id);
   if (i < 0) throw new Error(`Blok bulunamadı: ${id}`);
-  const mevcut = liste[i] as MockBlok;
+  const mevcut = liste[i] as Blok;
   if (liste.some((b) => b.id !== id && b.apartmanId === mevcut.apartmanId && b.ad === ad)) {
     throw new Error(`Bu apartmanda '${ad}' adında bir blok zaten var.`);
   }
@@ -807,17 +807,17 @@ export function mockBlokSil(id: string): void {
   const apartmanlar = apartmanOrtusu ?? (apartmanOrtusu = [...mockApartmanlar]);
   const ai = apartmanlar.findIndex((a) => a.id === b.apartmanId);
   if (ai >= 0) {
-    const a = apartmanlar[ai] as MockApartman;
+    const a = apartmanlar[ai] as Apartman;
     apartmanlar[ai] = { ...a, blokSayisi: Math.max(0, a.blokSayisi - 1) };
   }
 }
 
 // --- Kat yazma örtüsü ---
 
-const katOrtusu = new Map<string, MockKat[]>();
+const katOrtusu = new Map<string, Kat[]>();
 
 /** Bloğun katları — örtü varsa o geçerlidir. */
-export function mockKatlariOku(blokId: string): readonly MockKat[] {
+export function mockKatlariOku(blokId: string): readonly Kat[] {
   const mevcut = katOrtusu.get(blokId);
   if (mevcut !== undefined) return mevcut;
   const kopya = mockKatlar.filter((k) => k.blokId === blokId);
@@ -825,9 +825,9 @@ export function mockKatlariOku(blokId: string): readonly MockKat[] {
   return kopya;
 }
 
-function katListesi(blokId: string): MockKat[] {
+function katListesi(blokId: string): Kat[] {
   mockKatlariOku(blokId);
-  return katOrtusu.get(blokId) as MockKat[];
+  return katOrtusu.get(blokId) as Kat[];
 }
 
 export function mockKatEkle(blokId: string, no: number, ad?: string): void {
@@ -852,7 +852,7 @@ export function mockKatGuncelle(
   const liste = katListesi(blokId);
   const i = liste.findIndex((k) => k.id === katId);
   if (i < 0) throw new Error(`Kat bulunamadı: ${katId}`);
-  const mevcut = liste[i] as MockKat;
+  const mevcut = liste[i] as Kat;
 
   if (dto.no !== undefined && dto.no !== mevcut.no) {
     // Bolumu olan katin NUMARASI degistirilemez: bolumlerin `kat` alani bu
@@ -889,13 +889,13 @@ export function mockKatSil(blokId: string, katId: string): void {
 
 // --- Bölüm yazma örtüsü (toplu oluşturma · taşıma) ---
 
-let bolumOrtusu: MockBolum[] | null = null;
+let bolumOrtusu: Bolum[] | null = null;
 
-export function mockBolumleriOku(): readonly MockBolum[] {
+export function mockBolumleriOku(): readonly Bolum[] {
   return bolumOrtusu ?? mockBolumler;
 }
 
-function bolumListesi(): MockBolum[] {
+function bolumListesi(): Bolum[] {
   return bolumOrtusu ?? (bolumOrtusu = [...mockBolumler]);
 }
 
@@ -904,7 +904,7 @@ function sayaclariArtir(blokId: string, katId: string | null, artis: number): vo
   const bloklar = blokOrtusu ?? (blokOrtusu = [...mockBloklar]);
   const bi = bloklar.findIndex((b) => b.id === blokId);
   if (bi >= 0) {
-    const b = bloklar[bi] as MockBlok;
+    const b = bloklar[bi] as Blok;
     bloklar[bi] = { ...b, bolumSayisi: Math.max(0, b.bolumSayisi + artis) };
   }
   if (katId === null) return;
@@ -912,12 +912,12 @@ function sayaclariArtir(blokId: string, katId: string | null, artis: number): vo
   if (katlar === undefined) return;
   const ki = katlar.findIndex((k) => k.id === katId);
   if (ki >= 0) {
-    const k = katlar[ki] as MockKat;
+    const k = katlar[ki] as Kat;
     katlar[ki] = { ...k, bolumSayisi: Math.max(0, k.bolumSayisi + artis) };
   }
 }
 
-export interface MockTopluBolumSatiri {
+export interface TopluBolumSatiri {
   readonly kapiNo: string;
   readonly icKapiNo?: string;
   readonly nitelik?: string;
@@ -936,7 +936,7 @@ export interface MockTopluBolumSatiri {
  */
 export function mockBolumTopluOlustur(
   blokId: string, katId: string | null, kat: number,
-  satirlar: readonly MockTopluBolumSatiri[],
+  satirlar: readonly TopluBolumSatiri[],
 ): number {
   const liste = bolumListesi();
 
@@ -1005,14 +1005,14 @@ export function mockBolumTasi(
       .map((b) => b.kapiNo.toLocaleLowerCase('tr')),
   );
   for (const i of tasinacak) {
-    const b = liste[i] as MockBolum;
+    const b = liste[i] as Bolum;
     if (hedefKapilari.has(b.kapiNo.toLocaleLowerCase('tr'))) {
       throw new Error(`Hedef blokta '${b.kapiNo}' kapı numarası zaten var; hiçbiri taşınmadı.`);
     }
   }
 
   for (const i of tasinacak) {
-    const b = liste[i] as MockBolum;
+    const b = liste[i] as Bolum;
     sayaclariArtir(b.blokId ?? hedefBlokId, b.katId, -1);
     liste[i] = {
       ...b,
@@ -1026,7 +1026,7 @@ export function mockBolumTasi(
 }
 
 /** Gider türü satırı — gerçek uçla (`GiderTuruSatiri`) aynı şekil. */
-export interface MockGiderTuru {
+export interface GiderTuru {
   readonly id: string;
   readonly kod: string;
   readonly ad: string;
@@ -1046,7 +1046,7 @@ export interface MockGiderTuru {
  * Mock ile gerçek uç arasında fark olmaması önemlidir: arayüz mock'ta
  * çalışıp gerçekte çalışmazsa fark ancak sahada görülür.
  */
-const mockGiderTurleriTaban: readonly MockGiderTuru[] = [
+const mockGiderTurleriTaban: readonly GiderTuru[] = [
   ['KAPICI', 'Kapıcı gideri', 'ESIT', 'KULLANANA_AIT'],
   ['ANA_BAKIM', 'Anagayrimenkul bakım ve onarım', 'ARSA_PAYI', 'MALIKE_AIT'],
   ['SIGORTA', 'Bina sigortası', 'ARSA_PAYI', 'MALIKE_AIT'],
@@ -1071,14 +1071,14 @@ const mockGiderTurleriTaban: readonly MockGiderTuru[] = [
   ozelKuralMi: false,
 }));
 
-let giderTuruOrtusu: MockGiderTuru[] | null = null;
+let giderTuruOrtusu: GiderTuru[] | null = null;
 
-export function mockGiderTurleriniOku(yalnizcaAktif = false): readonly MockGiderTuru[] {
+export function mockGiderTurleriniOku(yalnizcaAktif = false): readonly GiderTuru[] {
   const liste = giderTuruOrtusu ?? mockGiderTurleriTaban;
   return yalnizcaAktif ? liste.filter((g) => g.aktifMi) : liste;
 }
 
-function giderTuruListesi(): MockGiderTuru[] {
+function giderTuruListesi(): GiderTuru[] {
   return giderTuruOrtusu ?? (giderTuruOrtusu = [...mockGiderTurleriTaban]);
 }
 
@@ -1160,7 +1160,7 @@ export function mockGiderTuruGuncelle(
   const liste = giderTuruListesi();
   const i = liste.findIndex((g) => g.id === id);
   if (i < 0) throw new Error(`Gider türü bulunamadı: ${id}`);
-  const mevcut = liste[i] as MockGiderTuru;
+  const mevcut = liste[i] as GiderTuru;
 
   const birlesik: MockGiderTuruGirdisi = {
     kod: mevcut.kod,
@@ -1198,7 +1198,7 @@ export function mockGiderTuruSil(id: string): void {
   const i = liste.findIndex((g) => g.id === id);
   if (i < 0) throw new Error(`Gider türü bulunamadı: ${id}`);
   // Kayit SILINMEZ, pasife alinir: gecmis tahakkuklar bu ture baglidir.
-  liste[i] = { ...(liste[i] as MockGiderTuru), aktifMi: false };
+  liste[i] = { ...(liste[i] as GiderTuru), aktifMi: false };
 }
 
 /* ---------------------------- Daire görevlileri ---------------------------- */
@@ -1225,7 +1225,7 @@ export interface MockZimmet {
 }
 
 /** Konut çalışanı satırı — gerçek uçla (`CalisanSatiri`) aynı şekil. */
-export interface MockSitePersoneli {
+export interface SitePersoneli {
   readonly id: string;
   readonly apartmanId: string | null;
   readonly apartmanAdi: string | null;
@@ -1249,7 +1249,7 @@ export interface MockSitePersoneli {
   readonly suresiDolanSertifikaSayisi: number;
 }
 
-const mockPersonellerTaban: readonly MockSitePersoneli[] = [
+const mockPersonellerTaban: readonly SitePersoneli[] = [
   {
     id: 'kc-1', apartmanId: APARTMAN_ID, apartmanAdi: 'Güzel Apartmanı',
     ad: 'Ahmet', soyad: 'Yıldız', adSoyad: 'Ahmet Yıldız',
@@ -1299,11 +1299,11 @@ const mockPersonellerTaban: readonly MockSitePersoneli[] = [
   },
 ];
 
-let personelOrtusu: MockSitePersoneli[] | null = null;
+let personelOrtusu: SitePersoneli[] | null = null;
 
 export function mockPersonelleriOku(
   suzgec: { gorev?: string; durum?: string; arama?: string } = {},
-): readonly MockSitePersoneli[] {
+): readonly SitePersoneli[] {
   const liste = personelOrtusu ?? mockPersonellerTaban;
   const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
   return liste.filter(
@@ -1316,7 +1316,7 @@ export function mockPersonelleriOku(
   );
 }
 
-function personelListesi(): MockSitePersoneli[] {
+function personelListesi(): SitePersoneli[] {
   return personelOrtusu ?? (personelOrtusu = [...mockPersonellerTaban]);
 }
 
@@ -1373,7 +1373,7 @@ export function mockPersonelAyril(id: string, tarih: string): void {
   const liste = personelListesi();
   const i = liste.findIndex((c) => c.id === id);
   if (i < 0) throw new Error(`Görevli bulunamadı: ${id}`);
-  const mevcut = liste[i] as MockSitePersoneli;
+  const mevcut = liste[i] as SitePersoneli;
   if (mevcut.istenAyrilisTarihi !== null) {
     throw new Error(`${mevcut.adSoyad} ${mevcut.istenAyrilisTarihi} tarihinde zaten ayrılmış.`);
   }
@@ -1386,7 +1386,7 @@ export function mockPersonelAyril(id: string, tarih: string): void {
 }
 
 /** Arsa payı raporu — gerçek uçla (`ArsaPayiRaporu`) aynı şekil. */
-export interface MockArsaPayiRaporu {
+export interface ArsaPayiRaporu {
   readonly gecerli: boolean;
   readonly toplam: string;
   readonly mesaj: string;
@@ -1394,7 +1394,7 @@ export interface MockArsaPayiRaporu {
   readonly okunamayanBolumler: readonly string[];
 }
 
-export interface MockArsaPayiSatiri {
+export interface ArsaPayiSatiri {
   readonly bolumId: string;
   readonly arsaPayiPay: string;
   readonly arsaPayiPayda: string;
@@ -1408,7 +1408,7 @@ export interface MockArsaPayiSatiri {
  * Tek bölümün payını değiştirmeye izin vermek binanın toplamını sessizce
  * bozar — bu yüzden `PATCH /bolumler/:id` arsa payına dokunmaz.
  */
-export function mockArsaPayiDuzelt(satirlar: readonly MockArsaPayiSatiri[]): number {
+export function mockArsaPayiDuzelt(satirlar: readonly ArsaPayiSatiri[]): number {
   const liste = bolumListesi();
   const harita = new Map(satirlar.map((s) => [s.bolumId, s]));
 
@@ -1446,7 +1446,7 @@ export function mockArsaPayiDuzelt(satirlar: readonly MockArsaPayiSatiri[]): num
   for (const s of satirlar) {
     const i = liste.findIndex((b) => b.id === s.bolumId);
     liste[i] = {
-      ...(liste[i] as MockBolum),
+      ...(liste[i] as Bolum),
       arsaPayi: `${s.arsaPayiPay}/${s.arsaPayiPayda}`,
     };
   }
@@ -1457,11 +1457,11 @@ export function mockSakinCikis(bolumId: string, sakinId: string, cikisTarihi: st
   const liste = sakinOrtusu.get(bolumId) ?? [];
   const i = liste.findIndex((s) => s.id === sakinId);
   if (i < 0) throw new Error(`Sakin kaydı bulunamadı: ${sakinId}`);
-  liste[i] = { ...(liste[i] as MockSakin), cikisTarihi, gecerliMi: false };
+  liste[i] = { ...(liste[i] as Sakin), cikisTarihi, gecerliMi: false };
 }
 
 /** Denetim kaydı mock'u — bölüm kimliğine göre sabit üretilir. */
-export function mockAuditKayitlari(varlikId: string): readonly MockAuditSatiri[] {
+export function mockAuditKayitlari(varlikId: string): readonly AuditSatiri[] {
   return [
     {
       id: `audit-${varlikId}-2`, eylem: 'GUNCELLE', varlik: 'BagimsizBolum',
@@ -1478,7 +1478,7 @@ export function mockAuditKayitlari(varlikId: string): readonly MockAuditSatiri[]
   ];
 }
 
-export const mockYerlesim: MockYerlesimOzeti = {
+export const mockYerlesim: YerlesimOzeti = {
   bolumSayisi: yerlesimSatirlari.length,
   malikKaydiOlmayan: yerlesimSatirlari.filter((s) => s.malikSayisi === 0).length,
   hissesiEksikOlan: yerlesimSatirlari.filter((s) => !s.hisseTam).length,
@@ -1491,7 +1491,7 @@ export const mockYerlesim: MockYerlesimOzeti = {
 // ===========================================================================
 // DAİRE GÖREVLİSİ — işvereni MALİK / KİRACI / SAKİN olan ev hizmetleri
 //
-// SİTE PERSONELİ İLE KARIŞTIRILMAMALIDIR (`MockSitePersoneli`): orada işveren
+// SİTE PERSONELİ İLE KARIŞTIRILMAMALIDIR (`SitePersoneli`): orada işveren
 // yönetimdir ve SGK · departman · vardiya · zimmet alanları vardır.
 // ===========================================================================
 
@@ -1503,7 +1503,7 @@ export interface MockGorevliAraci {
 }
 
 /** Gerçek uçla (`DaireGorevlisiSatiri`) aynı şekil. */
-export interface MockDaireGorevlisi {
+export interface DaireGorevlisi {
   readonly id: string;
   readonly bolumId: string;
   readonly kapiNo: string;
@@ -1528,7 +1528,7 @@ export interface MockDaireGorevlisi {
   readonly araclari: readonly MockGorevliAraci[];
 }
 
-const mockDaireGorevlileriTaban: readonly MockDaireGorevlisi[] = [
+const mockDaireGorevlileriTaban: readonly DaireGorevlisi[] = [
   {
     id: 'dg-1', bolumId: 'bolum-1', kapiNo: 'A11',
     ad: 'Elif', soyad: 'Demir', adSoyad: 'Elif Demir',
@@ -1567,11 +1567,11 @@ const mockDaireGorevlileriTaban: readonly MockDaireGorevlisi[] = [
   },
 ];
 
-let daireGorevlisiOrtusu: MockDaireGorevlisi[] | null = null;
+let daireGorevlisiOrtusu: DaireGorevlisi[] | null = null;
 
 export function mockDaireGorevlileriniOku(
   suzgec: { bolumId?: string; gorev?: string; durum?: string; arama?: string } = {},
-): readonly MockDaireGorevlisi[] {
+): readonly DaireGorevlisi[] {
   const liste = daireGorevlisiOrtusu ?? mockDaireGorevlileriTaban;
   const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
   return liste.filter(
@@ -1583,7 +1583,7 @@ export function mockDaireGorevlileriniOku(
   );
 }
 
-function daireGorevlisiListesi(): MockDaireGorevlisi[] {
+function daireGorevlisiListesi(): DaireGorevlisi[] {
   return daireGorevlisiOrtusu ?? (daireGorevlisiOrtusu = [...mockDaireGorevlileriTaban]);
 }
 
@@ -1666,7 +1666,7 @@ export function mockDaireGorevlisiAyril(id: string, tarih: string): void {
   const liste = daireGorevlisiListesi();
   const i = liste.findIndex((g) => g.id === id);
   if (i < 0) throw new Error(`Daire görevlisi bulunamadı: ${id}`);
-  const mevcut = liste[i] as MockDaireGorevlisi;
+  const mevcut = liste[i] as DaireGorevlisi;
   if (mevcut.calismaBitis !== null) {
     throw new Error(
       `${mevcut.adSoyad} için çalışma ${mevcut.calismaBitis} tarihinde zaten sonlandırılmış.`,
@@ -1684,7 +1684,7 @@ export function mockDaireGorevlisiAyril(id: string, tarih: string): void {
 // MİSAFİR — hak sahibi DEĞİLDİR; `kisi` kaydı açılmaz (KVKK: kısa ömürlü veri)
 // ===========================================================================
 
-export interface MockMisafir {
+export interface Misafir {
   readonly id: string;
   readonly bolumId: string;
   readonly kapiNo: string;
@@ -1705,7 +1705,7 @@ export interface MockMisafir {
   readonly araclari: readonly MockGorevliAraci[];
 }
 
-const mockMisafirlerTaban: readonly MockMisafir[] = [
+const mockMisafirlerTaban: readonly Misafir[] = [
   {
     id: 'ms-1', bolumId: 'bolum-1', kapiNo: 'A11',
     ad: 'Kemal', soyad: 'Aksoy', adSoyad: 'Kemal Aksoy',
@@ -1728,11 +1728,11 @@ const mockMisafirlerTaban: readonly MockMisafir[] = [
   },
 ];
 
-let misafirOrtusu: MockMisafir[] | null = null;
+let misafirOrtusu: Misafir[] | null = null;
 
 export function mockMisafirleriOku(
   suzgec: { bolumId?: string; icerideMi?: boolean; arama?: string } = {},
-): readonly MockMisafir[] {
+): readonly Misafir[] {
   const liste = misafirOrtusu ?? mockMisafirlerTaban;
   const q = suzgec.arama?.trim().toLocaleLowerCase('tr') ?? '';
   return liste.filter(
@@ -1745,7 +1745,7 @@ export function mockMisafirleriOku(
   );
 }
 
-function misafirListesi(): MockMisafir[] {
+function misafirListesi(): Misafir[] {
   return misafirOrtusu ?? (misafirOrtusu = [...mockMisafirlerTaban]);
 }
 
@@ -1805,7 +1805,7 @@ export function mockMisafirCikis(id: string, tarih: string): void {
   const liste = misafirListesi();
   const i = liste.findIndex((m) => m.id === id);
   if (i < 0) throw new Error(`Misafir bulunamadı: ${id}`);
-  const mevcut = liste[i] as MockMisafir;
+  const mevcut = liste[i] as Misafir;
   if (mevcut.cikisTarihi !== null) {
     throw new Error(`${mevcut.adSoyad} ${mevcut.cikisTarihi} tarihinde zaten çıkış yapmış.`);
   }
