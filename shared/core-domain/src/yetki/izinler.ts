@@ -41,6 +41,21 @@ export const IZINLER = {
   FINANS_MAKBUZ: 'finance.receipt.issue',
   FINANS_DEFTER_GORUNTULE: 'finance.ledger.view',
   FINANS_YEVMIYE_GIRIS: 'finance.journal.post',
+  /**
+   * VİRMAN — borcu doğru kişiye aktarma (ADR-0016 §C).
+   *
+   * ⚠️  `FINANS_YEVMIYE_GIRIS`E BAĞLANMADI ve bu bilinçlidir. **Virman bir
+   *     CARİ işlemdir, muhasebe işlemi değildir**; deftere yazması YAN
+   *     ETKİDİR ve her virmanda olmaz — saf taşınma virmanı hiç fiş üretmez.
+   *
+   *     Yevmiye iznine bağlansaydı, kiracı taşındığı için pay bölen bir site
+   *     yöneticisinden serbest yevmiye fişi kesme yetkisi istenmiş olurdu.
+   *     Farklı işler, farklı yetkiler: muhasebeci yevmiye fişi girer, site
+   *     yöneticisi taşınma virmanı yapar.
+   *
+   * ⚠️  DENETCI'YE VERİLMEZ: denetim, denetlediği kaydı üretemez.
+   */
+  FINANS_VIRMAN: 'finance.transfer.manage',
   FINANS_DONEM_KAPAT: 'finance.period.close',
   FINANS_AYAR: 'finance.settings.manage',
 

@@ -14,11 +14,23 @@ export class VirmanController {
 
   @Post()
   /*
-   * ⚠️  `FINANS_YEVMIYE_GIRIS`. Virman deftere yazabilen bir işlemdir; okuma
-   *     izni yetmez. DENETCI rolü bu izni taşımaz ve taşımamalıdır: denetim
-   *     denetlediği kaydı üretemez.
+   * ⚠️  `FINANS_VIRMAN` — `FINANS_YEVMIYE_GIRIS` DEĞİL.
+   *
+   *     Virman bir CARİ işlemdir, muhasebe işlemi değildir; deftere yazması
+   *     YAN ETKİDİR ve her virmanda olmaz (saf taşınma virmanı hiç fiş
+   *     üretmez). Yevmiye iznine bağlansaydı, kiracı taşındığı için pay bölen
+   *     bir site yöneticisinden serbest yevmiye fişi kesme yetkisi istenmiş
+   *     olurdu.
+   *
+   *     DENETCI bu izni taşımaz ve taşımamalıdır: denetim, denetlediği kaydı
+   *     üretemez.
+   *
+   * ⚠️  AÇIK SORU (yol haritası): fiş ÜRETEN virman için ek kontrol gerekir
+   *     mi? İzin guard aşamasında, gövdeye bakılmadan kontrol edilir; şu an
+   *     satırlı ve satırsız virman aynı izinle yapılıyor. Karar, satırlı
+   *     virmanın pratikte kim tarafından yapıldığı ölçüldükten sonra.
    */
-  @RequirePermission(IZINLER.FINANS_YEVMIYE_GIRIS)
+  @RequirePermission(IZINLER.FINANS_VIRMAN)
   @ApiOperation({
     summary: 'Virman — borcu doğru kişiye aktar (ADR-0016)',
     description:

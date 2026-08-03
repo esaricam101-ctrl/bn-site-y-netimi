@@ -40,6 +40,7 @@ const BOLUM = randomUUID();
 const KISI = {
   yonetici: randomUUID(),
   denetci: randomUUID(),
+  kurulBaskani: randomUUID(),
   eskiKiraci: randomUUID(),
   yeniKiraci: randomUUID(),
   malik: randomUUID(),
@@ -47,6 +48,7 @@ const KISI = {
 const EPOSTA = {
   yonetici: `ct19-yonetici@${TENANT.slice(0, 8)}.test`,
   denetci: `ct19-denetci@${TENANT.slice(0, 8)}.test`,
+  kurulBaskani: `ct19-baskan@${TENANT.slice(0, 8)}.test`,
 };
 const HESAP = { kasa: randomUUID(), alacak: randomUUID(), gider: randomUUID() };
 
@@ -71,6 +73,7 @@ describe('CT-19 · Virman', () => {
   let app: INestApplication;
   let jeton: string;
   let denetciJetonu: string;
+  let baskanJetonu: string;
 
   const sunucu = (): Server => app.getHttpServer() as Server;
 
@@ -131,6 +134,10 @@ describe('CT-19 · Virman', () => {
         data: [
           { id: KISI.yonetici, tenantId: TENANT, ad: 'Yön', soyad: 'Etici', eposta: EPOSTA.yonetici },
           { id: KISI.denetci, tenantId: TENANT, ad: 'Denet', soyad: 'Çi', eposta: EPOSTA.denetci },
+          {
+            id: KISI.kurulBaskani, tenantId: TENANT, ad: 'Kurul', soyad: 'Başkanı',
+            eposta: EPOSTA.kurulBaskani,
+          },
           { id: KISI.eskiKiraci, tenantId: TENANT, ad: 'Eski', soyad: 'Kiracı' },
           { id: KISI.yeniKiraci, tenantId: TENANT, ad: 'Yeni', soyad: 'Kiracı' },
           { id: KISI.malik, tenantId: TENANT, ad: 'Daire', soyad: 'Maliki' },
@@ -205,21 +212,25 @@ describe('CT-19 · Virman', () => {
       });
 
       /*
-       * ⚠️  ROL `YONETIM_SIRKETI`, `APARTMAN_YONETICISI` DEĞİL.
+       * ⚠️  ROL `APARTMAN_YONETICISI` — ve bu bir KARARIN sonucudur.
        *
-       *     Virman deftere yazabilen bir işlemdir ve `FINANS_YEVMIYE_GIRIS`
-       *     ister. `APARTMAN_YONETICISI` bu izni TAŞIMIYOR (roller.ts:36-50):
-       *     tahakkuk çalıştırabiliyor ama onu deftere geçiremiyor.
+       *     Uç önce `FINANS_YEVMIYE_GIRIS` istiyordu; bu rol o izni
+       *     taşımadığı için test 403 alıyordu. Karar: virman bir CARİ
+       *     işlemdir, muhasebe işlemi değildir — deftere yazması yan etkidir
+       *     ve her virmanda olmaz. Ayrı `FINANS_VIRMAN` izni tanımlandı
+       *     (ADR-0016 C-K12).
        *
-       *     Bu bir test uyarlaması değil, ÜRÜN SORUSUDUR ve yol haritasına
-       *     yazıldı: kendi sitesini yöneten bir apartman yöneticisi çift
-       *     taraflı muhasebe kullanıyorsa yevmiye yolunun tamamı ona kapalı.
-       *     Karar verilene kadar test, izne SAHİP rolle koşar — izni teste
-       *     uydurmak için rol tanımı gevşetilmedi.
+       *     ⛔ Rol tanımı "test geçsin" diye gevşetilmedi: kiracı taşındığı
+       *        için pay bölen bir site yöneticisinden serbest yevmiye fişi
+       *        kesme yetkisi istemek YANLIŞTI, düzeltilen buydu.
+       *
+       *     `YK_BASKANI` negatif test için: yönetim kurulu DENETİM organıdır,
+       *     finans okuyabilir ama cari kaydı üretemez.
        */
       for (const [kisiId, eposta, rol] of [
-        [KISI.yonetici, EPOSTA.yonetici, 'YONETIM_SIRKETI'],
+        [KISI.yonetici, EPOSTA.yonetici, 'APARTMAN_YONETICISI'],
         [KISI.denetci, EPOSTA.denetci, 'DENETCI'],
+        [KISI.kurulBaskani, EPOSTA.kurulBaskani, 'YK_BASKANI'],
       ] as const) {
         await tx.kullanici.create({
           data: {
@@ -245,6 +256,7 @@ describe('CT-19 · Virman', () => {
     };
     jeton = await giris(EPOSTA.yonetici);
     denetciJetonu = await giris(EPOSTA.denetci);
+    baskanJetonu = await giris(EPOSTA.kurulBaskani);
   }, 120_000);
 
   afterAll(async () => {
@@ -334,7 +346,46 @@ describe('CT-19 · Virman', () => {
   });
 
   it('(8) DENETCI virman yapamaz → 403', async () => {
+    /*
+     * Denetim, denetlediği kaydı ÜRETEMEZ. `DENETCI` finansı okuyabilir
+     * (`FINANS_DEFTER_GORUNTULE`) ama `FINANS_VIRMAN` taşımaz.
+     */
     expect((await virmanKur(gecerliGovde(), denetciJetonu)).status).toBe(403);
+  });
+
+  it('(8b) ★ FINANS_VIRMAN taşımayan rol virman yapamaz → 403', async () => {
+    /*
+     * ⚠️  İZNİN KENDİSİNİN NEGATİF TESTİ. `YK_BASKANI` finans okuma
+     *     izinlerinin ÇOĞUNU taşır (`FINANS_OZET` · `FINANS_BINA_OZET` ·
+     *     `FINANS_BORCLU_DETAY` · `FINANS_DEFTER_GORUNTULE`) ama
+     *     `FINANS_VIRMAN` taşımaz — yönetim kurulu denetim organıdır,
+     *     işletme değil.
+     *
+     *     Bu test olmadan "izin var" ifadesi YARIM kanıtlanmış olurdu:
+     *     pozitif tarafı geçen bir uç, izni hiç kontrol etmese de geçerdi.
+     */
+    expect((await virmanKur(gecerliGovde(), baskanJetonu)).status).toBe(403);
+  });
+
+  it('(8c) ★ virman izni YEVMİYE iznine bağlı DEĞİL', async () => {
+    /*
+     * Kararın kendisini ölçer: `APARTMAN_YONETICISI` `FINANS_YEVMIYE_GIRIS`
+     * TAŞIMAZ ama virman yapabilir. Virman bir CARİ işlemdir; deftere yazması
+     * yan etkidir ve her virmanda olmaz (test 17).
+     *
+     * ⚠️  Bu test kırmızıya dönerse ya rol tanımı ya da ucun izni sessizce
+     *     değişmiş demektir — ikisi de kararın geri alınmasıdır.
+     */
+    const y = await request(sunucu())
+      .get('/api/v1/muhasebe/fisler').set('Authorization', `Bearer ${jeton}`);
+    expect(y.status).toBe(200);            // defteri OKUYABİLİR
+
+    const yazma = await request(sunucu())
+      .post('/api/v1/muhasebe/fisler')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ tarih: DONEM, aciklama: 'deneme', satirlar: [] });
+    expect(yazma.status).toBe(403);        // ama yevmiye fişi KESEMEZ
   });
 
   it('(9) ★ ödenenin ALTINA pay indirimi → domain hatası (ham CHECK ihlali DEĞİL)', async () => {

@@ -122,17 +122,52 @@ kasa/banka virmanında ne demektir?). Tek liste olsaydı hiçbir şey
 engellenmezdi. `aciklama` da zorunludur ve **boşluk kabul etmez** (veritabanı
 CHECK): boş bırakılabilen zorunlu alan zorunlu değildir.
 
-### ⚠️ C-A1 · AÇIK KALAN — kim virman yapabilir?
+### C-K12 · AYRI İZİN — `FINANS_VIRMAN`
 
-Uç `FINANS_YEVMIYE_GIRIS` istiyor (virman deftere yazabilir). Ama
-**`APARTMAN_YONETICISI` bu izni taşımıyor** (`roller.ts:36-50`): tahakkuk
-çalıştırabiliyor, deftere geçiremiyor. Kendi sitesini yöneten bir apartman
-yöneticisi çift taraflı muhasebe kullanıyorsa yevmiye yolunun tamamı ona
-kapalı. **Karar verilmedi**; yol haritasında.
+Uç `FINANS_YEVMIYE_GIRIS` **istemez**; kendi izni vardır.
 
-★ Alt soru: taşınma virmanı deftere hiç yazmıyorsa ondan da yevmiye izni
-istemek doğru mu? İzin, gövdeye bakılmadan (guard aşamasında) kontrol edilir;
-davranışa göre izin seçmek mimari bir değişikliktir.
+**Gerekçe:** virman bir **CARİ işlemdir, muhasebe işlemi değildir.** Deftere
+yazması **yan etkidir** ve her virmanda olmaz — saf taşınma virmanı hiç fiş
+üretmez (C-K2). Yevmiye iznine bağlansaydı, kiracı taşındığı için pay bölen
+bir site yöneticisinden **serbest yevmiye fişi kesme yetkisi** istenmiş olurdu.
+Farklı işler, farklı yetkiler: muhasebeci yevmiye fişi girer, site yöneticisi
+taşınma virmanı yapar.
+
+| Rol | `FINANS_VIRMAN` |
+|---|---|
+| `APARTMAN_YONETICISI` | ✅ |
+| `YONETIM_SIRKETI` | ✅ |
+| `YK_BASKANI` · `YK_UYESI` | ⛔ denetim organı, işletme değil |
+| `DENETCI` | ⛔ **denetim, denetlediği kaydı üretemez** |
+
+⛔ **Rol tanımı "test geçsin" diye gevşetilmedi.** Düzeltilen şey ucun yanlış
+izne bağlanmış olmasıydı.
+
+CT-19 üç negatif test taşır: DENETCI 403 (8) · `FINANS_VIRMAN` taşımayan rol
+403 (8b) · **virman izninin yevmiye iznine bağlı olmadığı** (8c — aynı
+kullanıcı virman yapabiliyor ama `POST /muhasebe/fisler`'den 403 alıyor).
+
+### ⚠️ C-A1 · AÇIK KALAN — fiş ÜRETEN virman için ek kontrol gerekir mi?
+
+İzin **guard aşamasında, gövdeye bakılmadan** kontrol edilir; şu an satırlı ve
+satırsız virman aynı izinle yapılıyor. Davranışa göre izin seçmek **mimari bir
+değişikliktir** ve şimdi yapılmadı.
+
+★ **Karar ölçüme bağlandı:** satırlı (bakiye taşıyan) virman pratikte kim
+tarafından yapılıyor? Cevap netleşmeden ek kontrol eklenmeyecek. Yol
+haritasında soru olarak duruyor.
+
+> ⚠️ **KAPANDI (3 Ağustos 2026).** Burada önce şu yazıyordu: *"Uç
+> `FINANS_YEVMIYE_GIRIS` istiyor ama `APARTMAN_YONETICISI` bu izni
+> taşımıyor."* Tespit doğruydu, **çözümü yanlış yerde arıyordu**: sorun rolün
+> eksik izni değil, **ucun yanlış izne bağlanmış olmasıydı.** C-K12 ile
+> düzeltildi.
+>
+> ★ Geriye kalan gerçek soru — apartman yöneticisi `CIFT_TARAFLI` muhasebede
+> **yevmiye fişi** kesebilmeli mi — virmandan bağımsızdır ve yol haritasında
+> ayrı madde olarak durur.
+
+---
 
 ## Neden üç ayrı bölüm
 
@@ -403,6 +438,62 @@ fiş üretmediği için bu kontrol yoktur; yani bu bir davranış değişikliği
    olsun, geçmiş kayıtlar için bir geri doldurma mı yapılacak, yoksa
    yalnızca bundan sonrası mı kapsanacak?
 
+   ⚠️ Ölçüm: bu, ADR-0017 K6'daki *"geriye dönük otomatik muhasebeleştirme
+   yapılmaz"* kararıyla **aynı sınıftır** — fişin tarihi bir karardır ve
+   geçmiş virmanın tarihiyle yazmak kapalı döneme yazmak olabilir.
+
+### ★ ÖNERİ (3 Ağustos 2026) — §A yeni virman yoluna BAĞLANSIN
+
+Ürün sahibinin şartı açıktı: **iki ayrı virman yolu istenmiyor.** Öneri:
+`POST /banka/virman` kaldırılmaz ama **`Virman` kaydını da üretir** ve
+`tur = KASA_BANKA` ile yazar.
+
+**Neden birleşme, ama uçların tekleşmesi DEĞİL:**
+
+1. **İki bacak zaten `BankaHareketi` üretmek ZORUNDA.** Banka gerçeği iki
+   hesapta ayrı görünür ve mutabakat bu satırlar üzerinden yürür. Uç tekleşse
+   `POST /virman`'ın gövdesi tür başına tamamen farklı iki şekle bölünürdü
+   (`bankaHesabiId` ↔ `borcId`) — tek dizide iki anlam, bu ADR'nin `satirlar`/
+   `paylar` ayrımında reddettiği şeyin aynısı.
+2. **Ama KAYIT tek olmalı.** Bugün *"kaç virman yapıldı, hangi gerekçeyle"*
+   sorusunun tek bir cevabı yok: cari virman `virman` tablosunda, kasa/banka
+   virmanı `banka_hareketi` içinde. `sebepKodu` zorunluluğu, virman numarası
+   ve denetim izi de yalnızca birinde var.
+3. **Fiş üretimi de o zaman tek yerden gelir** — §A'nın açık hatası
+   (bacakların bağımsız muhasebeleşmesi) bu birleşmenin **doğal sonucu**
+   olarak kapanır: `Virman` kaydı tek `yevmiyeFisiId` taşır.
+
+Yani: **tek KAVRAM ve tek KAYIT, iki uç.** Bedeli §A'da yazılı: virman fiş
+ürettiği için dönem kilidine tabi olur.
+
+★ Bu bir öneridir; **karar verilmedi.**
+
+### ★ ÖNERİ — kasa/banka iki seviye sorunu: `Hesap` tarafı seçilsin
+
+Üç seçenek arasından öneri: **virman bacakları `Hesap` düzeyinde konuşsun**
+(`BankaHesabi` bacağı kendi `muhasebeHesapId`'sine çözülerek).
+
+Gerekçe:
+
+- **`BankaHesabi.muhasebeHesapId` zaten ZORUNLU** (schema:2114 · *"Muhasebe
+  karşılığı — ZORUNLU"*). Yani her banka hesabının bir `Hesap` karşılığı
+  vardır ve dönüşüm **kayıpsızdır**; ters yön (her hesabın banka karşılığı)
+  doğru değildir.
+- `KasaHesabi` varlığı açmak (seçenek 1) sayım · devir · kasiyer sorumluluğu
+  gibi **bugün istenmeyen** bir kavram kümesini beraberinde getirir; ihtiyaç
+  doğduğunda ayrıca açılabilir ve bu öneri onu engellemez.
+- Kasayı sahte `BankaHesabi` yapmak (seçenek 3) **yanlış beyandır**: IBAN,
+  şube, ekstre alanları anlamsız kalır ve banka mutabakatı kasayı da taramaya
+  başlar.
+
+⚠️ **Bedeli açıkça:** hareket üretimi hâlâ `BankaHesabi` ister. Yani bacağın
+banka tarafı için `hesapId → BankaHesabi` çözümü **tek yönlü olarak
+belirsizdir**: aynı muhasebe hesabına bağlı iki banka hesabı varsa hangisinden
+para çıktığı bilinemez. Bu yüzden uç, banka bacağını **`bankaHesabiId` ile**
+almalı; `Hesap` düzeyi yalnızca **fiş tarafında** kullanılmalıdır.
+
+★ Bu da bir öneridir; **karar verilmedi.**
+
 ---
 
 ## B · HESAP VİRMANI — muhasebe düzeltmesi
@@ -426,6 +517,63 @@ Taramadan çıkan girdiler:
 - Elle fiş girişi zaten mümkün (`POST /muhasebe/fisler`), yani düzeltme
   bugün **elle fiş yazarak** yapılabiliyor. Ayrı bir "hesap virmanı" işlemi
   neyi ekler — kolaylık mı, denetlenebilirlik mi?
+
+### Cevaplanacak sorular (3 Ağustos 2026)
+
+1. **★ STORNO'DAN FARKI NE — ve §B gerçekten gerekli mi?**
+
+   Storno fişin **tamamını** ters çevirir; hesap virmanı bir **satırın**
+   hesabını değiştirir. Fark somut bir örnekle:
+
+   > 12 satırlık bir tahsilat fişinde tek satır yanlış hesaba yazılmış.
+   > Storno + yeniden giriş yolunda defterde **3 fiş** olur (asıl, ters,
+   > düzeltme) ve 11 doğru satır iki kez daha yazılır. Hesap virmanı yolunda
+   > **1 fiş** olur: yanlış hesap alacaklanır, doğru hesap borçlanır.
+
+   ★ **Bu ihtimal de değerlendirilmeli: §B HİÇ GEREKMEYEBİLİR.** Mevcut
+   `storno` + elle fiş yolu işlevsel olarak yeterlidir; §B'nin eklediği şey
+   **kolaylık ve niyetin kayda geçmesidir** (`sebepKodu`), doğruluk değil.
+   Eğer düzeltme sıklığı düşükse maliyeti karşılamayabilir.
+
+   Karar ölçütü **ölçüm olmalı**: bugüne kadar kaç storno yazıldı ve kaçı
+   *"tek satır yanlış hesapta"* durumuydu? Bu ölçülmeden §B'ye kod yazmak,
+   kullanılmayan bir yol açmaktır.
+
+2. **Kilitli dönemde ne olur?**
+
+   Yanlış hesap **kapalı bir dönemde** yazılmışsa düzeltme nereye gider?
+   - Kapalı döneme yazmak **yasaktır** (ADR-0003 · en temel koruma).
+   - Cari döneme yazmak, iki dönemin gelir tablosunu birden değiştirir:
+     kapalı dönem yanlış kalır, açık dönem düzeltmeyi taşır.
+
+   ★ Bu, ADR-0015'in (yıl sonu kapanışı) konusuyla kesişir; orada karar
+   verilmeden burada verilmemeli.
+
+3. **Şüpheli hesap çiftleri — engellensin mi, uyarılsın mı?**
+
+   Gelir hesabından varlık hesabına taşıma teknik olarak denk bir fiştir ama
+   **anlamsız** olma ihtimali yüksektir (ör. `600` → `100`: gelir kasaya
+   taşınmaz, tahsilat zaten öyle çalışır).
+
+   ★ **`ISINMA_CAKISMASI` deseni buraya uygulanabilir mi?** O desen (0030)
+   şunu yapıyordu: çakışma tanımı **veridir**, motor hiçbir kod bilmez, ve
+   sonuç **engelleme değil UYARI**dır. Aynısı burada:
+   - şüpheli çift tanımı bir tabloda (`hesap_tipi_x → hesap_tipi_y`) dursun,
+   - motor tip kodu bilmesin,
+   - sonuç `TahakkukUyarisi` gibi bir uyarı olsun, işlem tamamlansın.
+
+   ⚠️ Engelleme seçilirse meşru bir düzeltme bloklanabilir; uyarı seçilirse
+   yanlış taşıma sessizce geçer. İkisi de bedelli — karar ürün sahibinde.
+
+4. **Yenileme fonu (`500`) hesabı özel muamele görmeli mi?**
+
+   Fon kat maliklerine ait **iade edilebilir emanettir** (ADR-0017 §5.5) ve
+   tipi `BORC`a çevrildi (K4). Bir hesap virmanı fondan başka bir hesaba tutar
+   taşıyabilir mi?
+
+   ★ Bu, §A soru 4'ün (fondan işletmeye aktarım) **muhasebe tarafındaki
+   ikizidir** ve aynı hukuki cevaba bağlıdır: fon amaca özgüyse, amacı
+   değiştiren bir hesap virmanı da aynı kısıta tabidir. Ayrı cevaplanmamalı.
 
 ---
 

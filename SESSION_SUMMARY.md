@@ -1914,6 +1914,57 @@ kurulumu):
 (`'İ'.toLowerCase()` birleşik karakter üretir). Mesajı büyük harfle
 vurgulamak, arayan tarafın metni bulamamasına yol açıyordu.
 
+#### J.10 · ★ AYRI İZİN — `FINANS_VIRMAN`
+
+Uç önce `FINANS_YEVMIYE_GIRIS` istiyordu ve `APARTMAN_YONETICISI` bu izni
+taşımıyor. **Tespit doğruydu, çözümü yanlış yerde arıyordum:** sorun rolün
+eksik izni değil, **ucun yanlış izne bağlanmış olmasıydı.**
+
+**Karar:** virman bir **CARİ işlemdir, muhasebe işlemi değildir.** Deftere
+yazması **yan etkidir** ve her virmanda olmaz — saf taşınma virmanı hiç fiş
+üretmez. Yevmiye iznine bağlansaydı, kiracı taşındığı için pay bölen bir site
+yöneticisinden **serbest yevmiye fişi kesme yetkisi** istenmiş olurdu.
+
+| Rol | `FINANS_VIRMAN` |
+|---|---|
+| `APARTMAN_YONETICISI` · `YONETIM_SIRKETI` | ✅ |
+| `YK_BASKANI` · `YK_UYESI` | ⛔ denetim organı |
+| `DENETCI` | ⛔ denetim, denetlediği kaydı üretemez |
+
+⛔ **Rol tanımı "test geçsin" diye gevşetilmedi.**
+
+**Üç negatif test** (CT-19 · 20/20): DENETCI 403 · `FINANS_VIRMAN` taşımayan
+rol 403 · **virman izninin yevmiye iznine bağlı olmadığı** — aynı kullanıcı
+virman yapabiliyor ama `POST /muhasebe/fisler`'den 403 alıyor. Üçüncüsü kararın
+kendisini koruyor: kırmızıya dönerse ya rol ya uç izni sessizce değişmiştir.
+
+★ **Açık bırakılan:** fiş ÜRETEN virman için ek kontrol gerekir mi? İzin guard
+aşamasında, gövdeye bakılmadan kontrol edilir; davranışa göre izin seçmek
+mimari değişikliktir. **Karar ölçüme bağlandı** — satırlı virman pratikte kim
+tarafından yapılıyor?
+
+#### J.11 · ADR-0016 §A ve §B soru listeleri yazıldı
+
+**Karar verilmedi.** İki öneri gerekçesiyle kayda geçti:
+
+- **§A birleşme:** `POST /banka/virman` kaldırılmaz ama `Virman` kaydını da
+  üretir (`tur = KASA_BANKA`). **Tek kavram, tek kayıt, iki uç** — uçları
+  tekleştirmek gövdeyi tür başına iki ayrı şekle bölerdi. §A'nın açık hatası
+  (bacakların bağımsız muhasebeleşmesi) bu birleşmenin doğal sonucu olarak
+  kapanır.
+- **§A kasa/banka iki seviye:** `Hesap` tarafı seçilsin —
+  `BankaHesabi.muhasebeHesapId` zaten zorunlu, dönüşüm **kayıpsız**; ters yön
+  değil. ⚠️ Bedeli açıkça yazıldı: aynı muhasebe hesabına bağlı iki banka
+  hesabı varsa hangisinden para çıktığı bilinemez, bu yüzden uç banka bacağını
+  `bankaHesabiId` ile almalı.
+- **§B belki hiç gerekmiyor:** mevcut `storno` + elle fiş yolu işlevsel olarak
+  yeterli; §B'nin eklediği şey kolaylık ve niyetin kayda geçmesi. ★ Karar
+  ölçütü **ölçüm**: kaç storno *"tek satır yanlış hesapta"* durumuydu?
+- **§B şüpheli hesap çiftleri:** `ISINMA_CAKISMASI` deseni (0030) uygulanabilir
+  — tanım veridir, motor kod bilmez, sonuç **engelleme değil uyarı**.
+- **§B `500` fon hesabı**, §A'nın fon sorusunun **muhasebe tarafındaki
+  ikizidir**; aynı hukuki cevaba bağlı, ayrı cevaplanmamalı.
+
 ---
 
 ## 4. Sonraki oturum — ilk komut ve ilk görev
@@ -1928,7 +1979,7 @@ vurgulamak, arayan tarafın metni bulamamasına yol açıyordu.
 pnpm db:up && pnpm db:reset && pnpm verify && pnpm --filter @bnos/backend exec vitest run
 ```
 
-Beklenen: `Tum kontroller yesil` (14 adım) · **122 passed (122)**.
+Beklenen: `Tum kontroller yesil` (14 adım) · **124 passed (124)**.
 
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
@@ -1952,17 +2003,20 @@ durdurup kendi `pnpm dev:backend` akışınızı açın.
 | `10950b2` | `verify` uygulama paketlerini tip denetimine aldı |
 | `2ef78f4` | **Cari virman uygulandı** (ADR-0016 §C) — CT-19 18/18 |
 
-#### ★ İLK GÖREV — karar bekleyen üç madde
+#### ★ İLK GÖREV — karar bekleyen maddeler
 
-Kod yazmadan önce bunlar cevaplanmalı; üçü de ürün sahibine ait:
+Kod yazmadan önce cevaplanmalı; hepsi ürün sahibine ait:
 
-1. **`APARTMAN_YONETICISI` deftere yazamıyor** (yol haritası P1 · ADR-0016
-   C-A1). Rol `FINANS_YEVMIYE_GIRIS` taşımıyor: tahakkuk çalıştırabiliyor ama
-   deftere geçiremiyor, virman da yapamıyor. Alt soru: taşınma virmanı deftere
-   hiç yazmıyorsa ondan da yevmiye izni istemek doğru mu?
-2. **ADR-0016 §A ve §B soru listeleri** — kasa/banka ve hesap virmanı hâlâ
-   açık; ürün sahibinin listeleri gelmedi.
+1. **ADR-0016 §A · kasa/banka virmanı** (P1). Açık hata duruyor: iki bacak
+   bağımsız muhasebeleşebiliyor, *"paranın yarısı deftere girer"*. **İki öneri
+   gerekçesiyle yazıldı** (birleşme · `Hesap` tarafı), karar bekliyor.
+2. **ADR-0016 §B · hesap virmanı** (P2). ★ İlk soru *"gerekli mi"*: mevcut
+   storno + elle fiş yolu yeterli olabilir. Karar ölçütü ölçüm.
 3. **ADR-0015 soru 7** — yıl sonu artı/eksi bakiye nereye düşer.
+4. **`APARTMAN_YONETICISI` yevmiye fişi kesebilmeli mi?** (P1) Virman kısmı
+   `FINANS_VIRMAN` ile çözüldü; kalan yalnızca yevmiye yetkisi.
+5. **Fiş üreten virman için ek kontrol?** (P2) — karar **ölçüme bağlandı**:
+   satırlı virman pratikte kim tarafından yapılıyor?
 
 #### Sonra sırada (karar gerektirmeyen)
 

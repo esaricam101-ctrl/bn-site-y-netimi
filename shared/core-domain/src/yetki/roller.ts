@@ -42,6 +42,10 @@ export const ROLLER: readonly RolTanimi[] = [
       I.KISI_GORUNTULE, I.KISI_YONET, I.BOLUM_GORUNTULE, I.BOLUM_YONET,
       I.FINANS_OZET, I.FINANS_BINA_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK,
       I.FINANS_TAHSILAT, I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_AYAR,
+      // VİRMAN (ADR-0016 §C) — cari işlemdir, muhasebe işlemi değil. Kiracı
+      // taşındığında payı bölmek yerleşkeyi fiilen yöneten tarafın işidir;
+      // bunun için serbest yevmiye fişi kesme yetkisi istenmez.
+      I.FINANS_VIRMAN,
       I.TALEP_GORUNTULE, I.TALEP_YONET, I.BELGE_GORUNTULE, I.BELGE_YUKLE,
       // İletişim (0019). Yerleşkeyi fiilen yöneten taraf duyuru yapar;
       // toplu gönderim ve belge paylaşımı da işin doğal parçasıdır.
@@ -65,7 +69,7 @@ export const ROLLER: readonly RolTanimi[] = [
       I.KISI_GORUNTULE, I.KISI_YONET, I.BOLUM_GORUNTULE, I.BOLUM_YONET,
       I.FINANS_OZET, I.FINANS_BINA_OZET, I.FINANS_BORCLU_DETAY, I.FINANS_TAHAKKUK,
       I.FINANS_TAHSILAT, I.FINANS_MAKBUZ, I.FINANS_DEFTER_GORUNTULE, I.FINANS_YEVMIYE_GIRIS,
-      I.FINANS_DONEM_KAPAT, I.FINANS_AYAR,
+      I.FINANS_VIRMAN, I.FINANS_DONEM_KAPAT, I.FINANS_AYAR,
       I.TALEP_GORUNTULE, I.TALEP_YONET, I.BELGE_GORUNTULE, I.BELGE_YUKLE,
       I.ILETI_GONDER, I.ILETI_TOPLU_GONDER, I.ILETI_BELGE_PAYLAS, I.ILETI_AYAR,
       I.AI_KULLAN, I.AI_ONERI_KABUL,
