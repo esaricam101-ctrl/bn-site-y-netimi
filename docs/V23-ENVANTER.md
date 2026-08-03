@@ -258,4 +258,123 @@ V23'ün katkısı **görsel dil**dir ve o zaten `globals.css`'e geçmiş durumda
 - **`/belgeler` menü öğesi** bugün 404 veriyor. Sayfa mı yazılacak, menüden
   mi kaldırılacak?
 
+---
+
+## 6. ★ APARTMAN MODÜLÜ — V23'ten uyarlanacak bir şey VAR MI?
+
+**Cevap: HAYIR.** Ürün sahibinin beklentisi ölçümle **doğrulandı**. Aşağıda
+kanıtlar ve iki nüans.
+
+Apartman modülünün kapsamı ([APARTMAN-SITE-AYRIMI §2.1](APARTMAN-SITE-AYRIMI.md)):
+`BASIT` derinlik · yalnızca kasa + banka · gider fişinden hesap seç, tutar yaz ·
+hesap planı/yevmiye/mizan **yok** · çıktı gelir-gider dökümü.
+
+### 6.1 · Prototiplerde bu ölçekte bir ekran YOK
+
+`bn-finance.html` **30 bölüm · 11 görünüm** taşıyor. Tam liste:
+
+> Alacak Yaşlandırma · Aylık Aidat Tahsilatı · Banka Hesapları · Banka
+> Mutabakatı · Borçlar (Vade) · **Bütçe Sapması** · Daire Hesap Ekstresi ·
+> Dönem Kapanış Kontrol Listesi · **e-Belge Durumu** · Finansal Denetim Kaydı ·
+> Finansal Politika · Gecikme Tazminatı · **IBAN Değişikliği · Çift Onay** ·
+> **İşletme Projesi 2026** · Karar Bekleyenler · **KDV Pozisyonu** · Makbuz
+> Serisi · Onay Bekleyen Harcamalar · Sözleşmeler · **Stopaj ve Tevkifat** ·
+> Tahakkuk Üretimi · Tahsilat Kanalları · Tedarikçi Kayıtları · **Üç Yönlü
+> Eşleştirme** · Yasal Takip · Yasal ve Yönetim Raporları · Yenileme Fonu ·
+> **Yevmiye Kaydı** · Yükümlülük Takvimi · **13 Haftalık Nakit Projeksiyonu**
+
+Koyu yazılanlar apartman ölçeğinde **hiç bulunmayan** kavramlardır. Görünümler:
+`pano · tahakkuk · tahsilat(alacak) · gider · fatura · butce · nakit · vergi ·
+tedarikci · rapor · ayar`.
+
+★ **Prototip kendi kapsamını yazıyor** ve apartman değil:
+
+> *"Kurumun kendi kurumlar vergisi ve beyannameleri harici muhasebe paketine
+> aittir; bu modül **site** işletme defterini tutar."*
+
+`bn-dashboard.html` de operasyon panosudur (iş emri · vardiya · temizlik ·
+şikâyet teması · widget kataloğu) — muhasebe ekranı içermez.
+
+**Arama sonucu (ham):** üç prototipte `apartman` · `basit` · `gelir-gider` ·
+`kasa devri` · `aidat listesi` için **0 eşleşme**; yalnızca `bn-finance`'ta
+*"işletme defteri"* 1 kez geçiyor ve o da **site** için.
+
+### 6.2 · Roadmap'te apartman/basit muhasebe bölümü YOK
+
+20 roadmap HTML tarandı. `apartman` · `basit muhasebe` · `single-entry` ·
+`cash book` · `işletme defteri` için **0 eşleşme**.
+
+`gelir-gider` **4 kez** geçiyor ama hepsi **kurumsal raporlama paketinin bir
+kalemi** olarak (V26 ve V28):
+
+> *"Board reporting pack … faaliyet raporu, **gelir-gider tablosu**, aidat
+> tahsilat özeti, iş emri performansı, demirbaş durumu."* — `04-v26.html`
+>
+> *"The full statutory and governance pack: **gelir-gider tablosu**, işletme
+> projesi vs. gerçekleşme, borç-alacak listesi, kasa ve banka raporu, denetçi
+> raporu ekleri."* — `06-v28.html`
+
+★ **Yanıltıcı iki kelime kontrol edildi ve elendi:**
+
+| Kelime | Nerede | Gerçek anlamı |
+|---|---|---|
+| `lightweight` | v31 | *"lightweight custom **objects**"* — özel alan özelliği, ürün katmanı değil |
+| `segment` | v23-v33, 18 kez | *"audience **segmentation**"* — iletişim hedef kitlesi, müşteri segmenti değil |
+
+**Yani roadmap'te "küçük/basit müşteri katmanı" diye bir kavram hiç yok.**
+Hepsi tek bir kurumsal SaaS ölçeğinde yazılmış.
+
+### 6.3 · Uyarlanabilir bileşen — V23'ten DEĞİL, kendi depomuzdan
+
+Prototipler tek dosya HTML + vanilla JS; React bileşeni içermiyor, dolayısıyla
+**kod düzeyinde alınacak bir parça yok.**
+
+Görsel dil ise **zaten aktarılmış**: `globals.css` ile prototipler aynı
+token'ları kullanıyor (`--primary: #0E7490` · `--secondary: #2563EB` ·
+`--rowh: 44px` …). Yani "V23'ten uyarlama" işi **geçmişte yapılmış ve
+bitmiştir.**
+
+Apartman ekranları için yeniden kullanılacak bileşenler `frontend/web` içinde:
+
+| Bileşen | Yol |
+|---|---|
+| Sekme çubuğu | `components/sekmeler.tsx` |
+| Veri tablosu · süzgeç · dışa aktarım | `components/tablo/` |
+| Yükleniyor · boş · hata durumları | `components/durumlar.tsx` |
+| Bildirim (toast) | `components/bildirim.tsx` |
+| İstatistik kartı | `components/istatistik-karti.tsx` |
+| Uygulama kabuğu · kırıntı yolu | `components/uygulama-kabugu.tsx` · `kirinti-yolu.tsx` |
+
+### 6.4 · ★ NÜANS — kavram adı örtüşmesi uyarlanabilirlik DEĞİLDİR
+
+Dürüst olmak için: `bn-finance`'taki **beş bölüm adı** apartman modülünde de
+karşılığı olan kavramlardır — *Daire Hesap Ekstresi · Aylık Aidat Tahsilatı ·
+Alacak Yaşlandırma · Makbuz Serisi · Banka Hesapları*.
+
+⚠️ **Ama bu, "uyarlanacak ekran var" anlamına gelmez.** Üç sebeple:
+
+1. Prototipte bu bölümler **kurumsal ekranın içinde** duruyor; ayrı bir ekran
+   değiller ve çevrelerindeki KDV/stopaj/üç yönlü eşleştirme bağlamından
+   koparılamıyorlar.
+2. Statik HTML; taşınacak kod yok.
+3. **Veri modeli farklı** — prototip `Resident` tek kavramını varsayıyor,
+   bizde Malik/Kiracı/Sakin ayrı (KMK md. 20/22 sorumluluk farkı,
+   [V23-V24-BOSLUK-ANALIZI §0](V23-V24-BOSLUK-ANALIZI.md)).
+
+Bu adlar bir **kontrol listesi** olarak değerlidir (*"bunları unutmayalım"*),
+bir tasarım kaynağı olarak değil.
+
+### 6.5 · SONUÇ
+
+> **Apartman modülü SIFIRDAN yazılacaktır.** Referansı V23 değil, **Natal
+> Apartmanı gelir-gider formatıdır.**
+
+⚠️ **Natal Apartmanı belgesi depoda YOK** — `docs/` altında `Natal` için 0
+eşleşme. Format bugüne kadar yalnızca sözlü olarak tarif edildi (kasa devri ·
+aidat listesi · gider listesi · aidat alacakları). Ekran yazılmadan önce
+belgenin kendisi depoya alınmalı; aksi hâlde "Natal formatı" doğrulanamayan
+bir referans olarak kalır.
+
+---
+
 ⚠️ Bu belge **envanterdir**, plan değildir. Modül planı birlikte kurulacak.
