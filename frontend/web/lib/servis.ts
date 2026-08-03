@@ -873,6 +873,27 @@ export type {
 // `/muhasebe/*`; mock YOKTUR — muhasebe verisi uydurulamaz, sahte mizan
 // gerçek bir mizan gibi görünür ve karar dayanağı olarak kullanılabilir.
 
+/**
+ * MUHASEBE PARAMETRELERİ — `GET /muhasebe/parametreler` yanıtı.
+ *
+ * ⚠️  Alan adları backend `ParametreGorunumu` ile BİREBİR aynıdır ve CT-22
+ *     bunu her koşumda doğrular. Tip elle yazıldığı için "uyuyor" varsayımı
+ *     yeterli değildir — bu depoda o varsayım defalarca çürüdü.
+ */
+export interface MuhasebeParametreleri {
+  readonly varsayilanKasaHesapId: string | null;
+  readonly varsayilanKasaKodu: string | null;
+  readonly varsayilanBankaHesapId: string | null;
+  readonly varsayilanBankaKodu: string | null;
+  readonly donemKariHesapId: string | null;
+  readonly donemKariKodu: string | null;
+  readonly yevmiyeBaslangicNo: number;
+  readonly taslakMizanaGirer: boolean;
+  readonly geriyeDonukGun: number;
+  /** `BASIT` | `CIFT_TARAFLI` — geçiş TEK YÖNLÜDÜR (bkz. ekran notu). */
+  readonly muhasebeDerinligi: string;
+}
+
 export interface MuhasebeHesabi {
   readonly id: string;
   readonly kod: string;
@@ -1155,6 +1176,28 @@ export const muhasebe = {
 
   donemler: (): Promise<readonly MuhasebeDonemi[]> =>
     api('/muhasebe/donemler', gecerliJeton()),
+
+  /**
+   * Parametreler — kayıt yoksa VARSAYILANLAR döner, boş nesne DEĞİL.
+   *
+   * ⚠️  Bu blokta MOCK YOKTUR (dosya başındaki not): uydurma bir "varsayılan
+   *     kasa hesabı" gerçek sanılır ve kurulumun tamam olduğu zannedilir.
+   */
+  parametreler: (): Promise<MuhasebeParametreleri> =>
+    api('/muhasebe/parametreler', gecerliJeton()),
+
+  parametreKaydet: (dto: {
+    varsayilanKasaHesapId?: string;
+    varsayilanBankaHesapId?: string;
+    donemKariHesapId?: string;
+    muhasebeDerinligi?: string;
+    taslakMizanaGirer?: boolean;
+    geriyeDonukGun?: number;
+    yevmiyeBaslangicNo?: number;
+  }): Promise<{ readonly durum: string }> =>
+    api('/muhasebe/parametreler', {
+      method: 'PATCH', govde: dto, ...gecerliJeton(),
+    }),
 
   donemAc: (dto: {
     maliYil: number; ad: string; baslangic: string; bitis: string;

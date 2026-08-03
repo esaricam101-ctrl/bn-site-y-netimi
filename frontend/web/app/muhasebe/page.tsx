@@ -27,7 +27,7 @@ import {
   makbuzlar as makbuzServisi, muhasebe,
   type KontrolMutabakati, type MakbuzDetayi, type MakbuzSatiri,
   type Mizan, type MuhasebeDonemi, type MuhasebeFisiSatiri,
-  type MuhasebeHesabi, type YevmiyeSatiri,
+  type MuhasebeHesabi, type MuhasebeParametreleri, type YevmiyeSatiri,
 } from '@/lib/servis';
 import { ApiHatasi } from '@/lib/api';
 
@@ -61,6 +61,10 @@ export default function MuhasebeSayfasi() {
     // kullanır ve ayrı rota olsaydı ikinci kez yazılırdı.
     { anahtar: 'makbuzlar', etiket: t('makbuzlarSekmesi'), icerik: <Makbuzlar /> },
     { anahtar: 'donem', etiket: t('donemSekmesi'), icerik: <DonemYonetimi /> },
+    // PARAMETRELER — ayrı rota DEĞİL, yedinci sekme. Kurulum ayarları
+    // muhasebenin parçasıdır; ayrı rota olsaydı kullanıcı "kasa hesabı nerede
+    // seçiliyor" sorusuyla iki menü arasında gezinirdi.
+    { anahtar: 'parametreler', etiket: t('parametrelerSekmesi'), icerik: <Parametreler /> },
   ];
 
   return (
@@ -730,6 +734,243 @@ function MizanDokumu() {
               </div>
             )}
     </div>
+  );
+}
+
+/* ------------------------------ Parametreler ------------------------------ */
+
+/**
+ * MUHASEBE PARAMETRELERİ — kurulumun tek ekranı.
+ *
+ * ⚠️  HESAP SEÇİMLERİ KOD İLE DEĞİL ÖZELLİK İLE SÜZÜLÜR (§33 kural 3).
+ *     `'100'` her tenant'ta kasa değildir; tahsilat servisi de aynı deseni
+ *     kullanıyor. Liste `ozellik=KASA` ile çekilir.
+ *
+ * ⚠️  EKSİK PARAMETRE AÇIK GÖSTERİLİR: hangi alan boşsa ve o boşluk NEYİ
+ *     engelliyor ekranda yazar. CT-20'de ölçülen üç boşluğun (parametre
+ *     kaydı yok · özellik işaretsiz · dönem yok) kullanıcı tarafındaki
+ *     karşılığı burasıdır — sessiz boş ekran yerine sebep.
+ *
+ * ⚠️  KONTROL HESABI SALT OKUNURDUR. `MuhasebeParametresi`nde tutulmaz;
+ *     `hesap.ozellik = CARI_KONTROL` ile işaretlenir (ADR-0010). Buradan
+ *     değiştirmek hesap planı düzenlemesi olurdu — ayrı iş. Ama işaretli
+ *     değilse neyin engellendiği burada görünür.
+ */
+function Parametreler() {
+  const t = useTranslations('muhasebe');
+  const bildirim = useBildirim();
+
+  const [p, setP] = useState<MuhasebeParametreleri | null>(null);
+  const [kasaSecenek, setKasaSecenek] = useState<readonly MuhasebeHesabi[]>([]);
+  const [bankaSecenek, setBankaSecenek] = useState<readonly MuhasebeHesabi[]>([]);
+  const [ozkaynakSecenek, setOzkaynakSecenek] = useState<readonly MuhasebeHesabi[]>([]);
+  const [kontrolHesaplari, setKontrolHesaplari] = useState<readonly MuhasebeHesabi[]>([]);
+  const [donemSayisi, setDonemSayisi] = useState<number | null>(null);
+  const [hata, setHata] = useState<unknown>(null);
+  const [yukleniyor, setYukleniyor] = useState(true);
+  const [kaydediliyor, setKaydediliyor] = useState(false);
+
+  const yukle = useCallback(() => {
+    setYukleniyor(true);
+    setHata(null);
+    Promise.all([
+      muhasebe.parametreler(),
+      // ÖZELLİĞE göre süzme — koda göre DEĞİL.
+      muhasebe.hesaplar({ ozellik: 'KASA', yalnizcaAktif: true }),
+      muhasebe.hesaplar({ ozellik: 'BANKA', yalnizcaAktif: true }),
+      muhasebe.hesaplar({ tip: 'OZKAYNAK', yalnizcaAktif: true }),
+      muhasebe.hesaplar({ ozellik: 'CARI_KONTROL', yalnizcaAktif: true }),
+      muhasebe.donemler(),
+    ])
+      .then(([par, kasa, banka, ozkaynak, kontrol, donemler]) => {
+        setP(par);
+        setKasaSecenek(kasa.filter((h) => h.fisKesilebilirMi));
+        setBankaSecenek(banka.filter((h) => h.fisKesilebilirMi));
+        setOzkaynakSecenek(ozkaynak.filter((h) => h.fisKesilebilirMi));
+        setKontrolHesaplari(kontrol);
+        setDonemSayisi(donemler.length);
+      })
+      .catch(setHata)
+      .finally(() => setYukleniyor(false));
+  }, []);
+
+  useEffect(yukle, [yukle]);
+
+  const kaydet = async (degisiklik: Record<string, unknown>) => {
+    setKaydediliyor(true);
+    try {
+      await muhasebe.parametreKaydet(degisiklik);
+      bildirim.basari(t('parametreKaydedildi'));
+      yukle();
+    } catch (h) {
+      bildirim.hata(hataMetni(h, t('parametreKaydedilemedi')));
+    } finally {
+      setKaydediliyor(false);
+    }
+  };
+
+  if (yukleniyor) return <Yukleniyor />;
+  if (hata !== null) return <HataDurumu hata={hata} tekrarDene={yukle} />;
+  if (p === null) return <BosDurum aciklama={t('parametreYok')} />;
+
+  const ciftTarafli = p.muhasebeDerinligi === 'CIFT_TARAFLI';
+
+  /*
+   * EKSİKLER — yalnızca CIFT_TARAFLI derinlikte anlamlıdır. BASIT projede
+   * hesap planı ve dönem aranmaz; orada "eksik" demek YANLIŞ TEŞHİS olurdu
+   * (CT-20'de aynı hata yapılmış ve düzeltilmişti).
+   */
+  const eksikler: readonly { readonly alan: string; readonly engel: string }[] = ciftTarafli
+    ? [
+        ...(p.varsayilanKasaHesapId === null
+          ? [{ alan: t('varsayilanKasa'), engel: t('engelKasa') }] : []),
+        ...(p.varsayilanBankaHesapId === null
+          ? [{ alan: t('varsayilanBanka'), engel: t('engelBanka') }] : []),
+        ...(kontrolHesaplari.length === 0
+          ? [{ alan: t('kontrolHesabi'), engel: t('engelKontrol') }] : []),
+        ...(p.donemKariHesapId === null
+          ? [{ alan: t('donemKari'), engel: t('engelDonemKari') }] : []),
+        ...(donemSayisi === 0
+          ? [{ alan: t('acikDonem'), engel: t('engelDonem') }] : []),
+      ]
+    : [];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-[color:var(--muted)]">{t('parametreIpucu')}</p>
+
+      {/*
+        EKSİK LİSTESİ GİZLENMEZ. Boş bir seçim kutusu kullanıcıya neyin
+        eksik olduğunu değil, yalnızca "seçilmemiş" olduğunu söyler.
+      */}
+      {eksikler.length > 0 && (
+        <div role="alert" className="rounded-[var(--rs)] border p-3 flex flex-col gap-1"
+             style={{ borderColor: 'var(--warn)', color: 'var(--warn)' }}>
+          <strong className="text-sm">{t('kurulumEksik', { sayi: eksikler.length })}</strong>
+          <ul className="text-xs flex flex-col gap-1">
+            {eksikler.map((e) => (
+              <li key={e.alan}>
+                <span className="font-semibold">{e.alan}</span> — {e.engel}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <HesapSecici
+          etiket={t('varsayilanKasa')} ipucu={t('varsayilanKasaIpucu')}
+          secenekler={kasaSecenek} deger={p.varsayilanKasaHesapId}
+          devreDisi={kaydediliyor}
+          onSecildi={(id) => { void kaydet({ varsayilanKasaHesapId: id }); }}
+        />
+        <HesapSecici
+          etiket={t('varsayilanBanka')} ipucu={t('varsayilanBankaIpucu')}
+          secenekler={bankaSecenek} deger={p.varsayilanBankaHesapId}
+          devreDisi={kaydediliyor}
+          onSecildi={(id) => { void kaydet({ varsayilanBankaHesapId: id }); }}
+        />
+        <HesapSecici
+          etiket={t('donemKari')} ipucu={t('donemKariIpucu')}
+          secenekler={ozkaynakSecenek} deger={p.donemKariHesapId}
+          devreDisi={kaydediliyor}
+          onSecildi={(id) => { void kaydet({ donemKariHesapId: id }); }}
+        />
+
+        {/* KONTROL HESABI — salt okunur; hesap planından işaretlenir. */}
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-[color:var(--muted-2)]">{t('kontrolHesabi')}</span>
+          <div className="px-3 h-[var(--rowh)] flex items-center rounded-[var(--rs)]
+                          border border-[color:var(--line)] text-sm">
+            {kontrolHesaplari.length === 0
+              ? <span style={{ color: 'var(--warn)' }}>{t('kontrolHesabiYokKisa')}</span>
+              : kontrolHesaplari.map((h) => `${h.kod} · ${h.ad}`).join(', ')}
+          </div>
+          <span className="text-xs text-[color:var(--muted-2)]">{t('kontrolHesabiIpucu')}</span>
+        </div>
+      </div>
+
+      {/* --- Muhasebe derinliği --- */}
+      <div className="rounded-[var(--rs)] border border-[color:var(--line)] p-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold">{t('muhasebeDerinligi')}</h3>
+            <p className="text-xs text-[color:var(--muted)]">
+              {ciftTarafli ? t('derinlikCiftTarafliAciklama') : t('derinlikBasitAciklama')}
+            </p>
+          </div>
+          <span className="text-xs px-2 py-1 rounded-[var(--rs)] border border-[color:var(--line)]">
+            {t(`derinlik_${p.muhasebeDerinligi}`)}
+          </span>
+        </div>
+
+        {ciftTarafli ? (
+          /*
+            ⚠️  GERİ DÖNÜŞ YOK — ve GEREKÇESİ YAZILI. Gri bir düğme kullanıcıya
+                neden yapamadığını anlatmaz; ADR-0017 K6 ile aynı sınıf gerekçe
+                burada açıkça duruyor.
+
+            ⚠️  Asıl koruma BURADA DEĞİL, `parametre.service.ts` içindedir:
+                arayüz engeli, API'yi doğrudan çağıranı durdurmaz (CT-23 · 4).
+          */
+          <p className="text-xs px-3 py-2 rounded-[var(--rs)] border"
+             style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}>
+            {t('derinlikGeriDonusYok')}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-[color:var(--muted)]">{t('derinlikYukseltIpucu')}</p>
+            <button
+              type="button" disabled={kaydediliyor}
+              onClick={() => { void kaydet({ muhasebeDerinligi: 'CIFT_TARAFLI' }); }}
+              className="px-3 h-[var(--rowh)] rounded-[var(--rs)] text-white
+                         disabled:opacity-60 self-start"
+              style={{ backgroundImage: 'var(--grad)' }}
+            >
+              {t('derinlikYukselt')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Kaydet düğmesi YOK: seçim yapıldığı anda kaydedilir. */}
+      <p className="text-xs text-[color:var(--muted-2)]">{t('parametreOtomatikKayit')}</p>
+    </div>
+  );
+}
+
+/** Özelliğe göre süzülmüş hesap listesinden tek seçim. */
+function HesapSecici({
+  etiket, ipucu, secenekler, deger, devreDisi, onSecildi,
+}: {
+  readonly etiket: string;
+  readonly ipucu: string;
+  readonly secenekler: readonly MuhasebeHesabi[];
+  readonly deger: string | null;
+  readonly devreDisi: boolean;
+  readonly onSecildi: (id: string) => void;
+}) {
+  const t = useTranslations('muhasebe');
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs text-[color:var(--muted-2)]">{etiket}</span>
+      <select
+        className={ALAN} value={deger ?? ''} disabled={devreDisi || secenekler.length === 0}
+        onChange={(e) => { if (e.target.value !== '') onSecildi(e.target.value); }}
+      >
+        {/*
+          Boş seçenek KALIR: alan gerçekten boşsa kullanıcı bunu görmelidir.
+          Otomatik ilk seçimi yazmak, seçilmemiş bir hesabı seçilmiş gösterir.
+        */}
+        <option value="">{t('secilmedi')}</option>
+        {secenekler.map((h) => (
+          <option key={h.id} value={h.id}>{h.kod} · {h.ad}</option>
+        ))}
+      </select>
+      <span className="text-xs text-[color:var(--muted-2)]">
+        {secenekler.length === 0 ? t('uygunHesapYok') : ipucu}
+      </span>
+    </label>
   );
 }
 

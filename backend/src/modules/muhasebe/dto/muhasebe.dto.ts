@@ -206,7 +206,22 @@ export class DonemKapatDto {
 
 /* ------------------------------ Parametreler ----------------------------- */
 
+export const MUHASEBE_DERINLIKLERI = ['BASIT', 'CIFT_TARAFLI'] as const;
+
 export class ParametreKaydetDto {
+  @ApiPropertyOptional({
+    enum: MUHASEBE_DERINLIKLERI,
+    description:
+      'MUHASEBE DERİNLİĞİ (docs/APARTMAN-SITE-AYRIMI.md §2.1).\n\n' +
+      '`BASIT`: yalnızca kasa + banka; hesap planı, yevmiye fişi ve mizan ' +
+      'YOKTUR ve bunların bulunmaması eksiklik değildir.\n' +
+      '`CIFT_TARAFLI`: hesap planı · yevmiye · mizan · kontrol mutabakatı.\n\n' +
+      '⚠️ `CIFT_TARAFLI → BASIT` GEÇİŞİ ENGELLİDİR: yazılmış yevmiye ' +
+      'fişlerinin ne olacağı belirsizdir. Ters yön serbesttir.',
+  })
+  @IsOptional() @IsIn(MUHASEBE_DERINLIKLERI)
+  muhasebeDerinligi?: (typeof MUHASEBE_DERINLIKLERI)[number];
+
   @ApiPropertyOptional({ description: 'Varsayılan kasa hesabı.' })
   @IsOptional() @IsUUID()
   varsayilanKasaHesapId?: string;

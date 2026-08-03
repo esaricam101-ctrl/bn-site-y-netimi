@@ -81,7 +81,25 @@ function kokuBul(): string {
   throw new Error('Depo kökü bulunamadı (.env yok).');
 }
 
-const VERI_TS = join(kokuBul(), 'frontend', 'web', 'lib', 'mock', 'veri.ts');
+/**
+ * TİP KAYNAKLARI — İKİSİ BİRDEN.
+ *
+ * ⚠️  ÖNCE YALNIZCA `veri.ts` OKUNUYORDU VE BU BİR HATAYDI. Ekranların
+ *     tükettiği muhasebe/portföy/iletişim tipleri `servis.ts` içinde
+ *     bildirilmiş; oradakiler hiç doğrulanmıyordu.
+ *
+ * ⚠️  AYNI ADLA İKİ BİLDİRİM VAR: `PortfoyOzeti` hem `veri.ts`te hem
+ *     `servis.ts`te. `servis.portfoyOzeti()` **servis.ts'tekini** döndürür;
+ *     veri.ts'teki yalnızca mock'un iç şeklidir. Bu yüzden ÇAKIŞMADA
+ *     `servis.ts` KAZANIR — tüketilen bildirim odur.
+ *
+ *     Bu ayrım ölçülmeden, CT-22 bir süre YANLIŞ BİLDİRİMİ doğruladı.
+ */
+const KOK = kokuBul();
+const TIP_KAYNAKLARI = [
+  join(KOK, 'frontend', 'web', 'lib', 'mock', 'veri.ts'),
+  join(KOK, 'frontend', 'web', 'lib', 'servis.ts'),
+] as const;
 
 /**
  * `veri.ts` içindeki `export interface Mock… { … }` gövdelerini okur.
@@ -91,8 +109,13 @@ const VERI_TS = join(kokuBul(), 'frontend', 'web', 'lib', 'mock', 'veri.ts');
  *     bağımlılık eklemeden tek kaynağa bakmayı sağlar.
  */
 function tipleriOku(): ReadonlyMap<string, readonly Alan[]> {
-  const kaynak = readFileSync(VERI_TS, 'utf8');
   const tipler = new Map<string, readonly Alan[]>();
+  // Sıra ÖNEMLİ: `servis.ts` sonra okunur ve çakışan adı EZER.
+  for (const yol of TIP_KAYNAKLARI) tekDosyaOku(readFileSync(yol, 'utf8'), tipler);
+  return tipler;
+}
+
+function tekDosyaOku(kaynak: string, tipler: Map<string, readonly Alan[]>): void {
 
   /*
    * ⚠️  DESEN `Mock\w+` DEĞİL, TÜM DIŞA VERİLEN ARAYÜZLER.
@@ -158,7 +181,6 @@ function tipleriOku(): ReadonlyMap<string, readonly Alan[]> {
     }
     tipler.set(ad, alanlar);
   }
-  return tipler;
 }
 
 const TIPLER = tipleriOku();
@@ -447,6 +469,11 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
     ['Misafir', '/misafirler', (g) => sayfadanIlk(g)],
     ['SitePersoneli', '/site-personeli', (g) => sayfadanIlk(g)],
     ['DaireGorevlisi', '/daire-gorevlileri', (g) => sayfadanIlk(g)],
+    /*
+     * ⚠️  `servis.ts` içinde bildirilen tipler de burada. Önce yalnızca
+     *     `veri.ts` okunuyordu ve muhasebe/portföy tarafı hiç doğrulanmıyordu.
+     */
+    ['MuhasebeParametreleri', '/muhasebe/parametreler', (g) => g],
   ];
 
   for (const [tip, yol, ornekAl] of SOZLESMELER) {
