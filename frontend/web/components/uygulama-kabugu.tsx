@@ -37,7 +37,16 @@ const MENU: readonly MenuOgesi[] = [
   { yol: '/misafirler', anahtar: 'misafirler', simge: '◐' },
   { yol: '/gider-turleri', anahtar: 'giderTurleri', simge: '₺' },
   { yol: '/muhasebe', anahtar: 'muhasebe', simge: '▩' },
-  { yol: '/belgeler', anahtar: 'belgeler', simge: '▧' },
+  /*
+   * ⚠️  `/belgeler` KALDIRILDI (3 Ağustos 2026).
+   *
+   *     Menüde vardı ama `app/belgeler` sayfası HİÇ YAZILMAMIŞTI: tıklayan
+   *     kullanıcı 404 alıyordu. Backend'de 12 belge ucu çalışıyor.
+   *
+   *     ⛔ Ekran YAZILANA KADAR geri eklenmez: çalışmayan bir menü öğesi,
+   *        eksik özelliği "var" gibi gösterir ve kullanıcıyı ürünün bozuk
+   *        olduğuna inandırır. Yol haritasında "belge ekranı" olarak duruyor.
+   */
 ];
 
 /**

@@ -123,7 +123,12 @@ Depoda **tek frontend vardır.** Prototipler ve tanıtım sitesi statik HTML'dir
 | 2-5 | `/apartmanlar` · `/bloklar` · `/katlar` · `/bolumler` | ✅ |
 | 6-8 | `/site-personeli` · `/daire-gorevlileri` · `/misafirler` | ✅ |
 | 9-10 | `/gider-turleri` · `/muhasebe` | ✅ |
-| 11 | `/belgeler` | ⛔ **SAYFA YOK → 404** |
+
+⚠️ `/belgeler` menüde **11. öğeydi ve KALDIRILDI** (3 Ağustos): sayfa hiç
+yazılmamıştı, tıklayan kullanıcı 404 alıyordu. Backend'de 12 belge ucu
+çalışıyor ve `GET /belgeler` **200** dönüyor — eksik olan yalnızca ekran.
+Yol haritasında *"belge ekranı"* olarak duruyor; **ekran yazılana kadar geri
+eklenmez.**
 
 Menüde olmayan ama var olan rotalar: `/portfoy` · `/sakin` · `/iletisim` ·
 `/daireler/[bolumId]` · `/giris`.
@@ -161,8 +166,67 @@ export const MOCK_AKTIF = (process.env['NEXT_PUBLIC_MOCK'] ?? '1') !== '0';
 | `muhasebe` · `makbuzlar` | **HAYIR** — blokta 0 `MOCK_AKTIF` eşleşmesi |
 | `iletisim` | bilinmiyor |
 
-> ★ **BEKLEYEN ÖLÇÜM — en öncelikli iş:** varsayılan `'0'` yapılınca hangi
-> ekranlar kırılır? Yeni yazılacak her ekranı etkiler. **Henüz ölçülmedi.**
+### 3.1 · ★ ÖLÇÜLDÜ (3 Ağustos 2026) — HİÇBİR EKRAN KIRILMIYOR
+
+`NEXT_PUBLIC_MOCK=0` ile web ayağa kaldırıldı, backend derlenmiş çıktıdan
+koşturuldu, her ekranın çağırdığı uç **gerçek jetonla** tek tek denendi.
+Fikstür: `papatya-sitesi` (SITE · `CIFT_TARAFLI`).
+
+```text
+EKRAN                             DURUM     AYRINTI
+/yonetim                          CALISIR   200 /bolumler/yerlesim-ozeti (8)
+/apartmanlar                      CALISIR   200 /apartmanlar (1)
+/bloklar                          CALISIR   200 /bloklar (2)
+/katlar                           CALISIR   200 /katlar (2)
+/bolumler                         CALISIR   200 /bolumler
+/bolumler/arsa-payi               CALISIR   200 /bolumler/arsa-payi-durumu
+/daireler/[id]                    CALISIR   200 kart · malikler(1) · kiracilar(0) · sakinler(0)
+/site-personeli                   CALISIR   200 /site-personeli (0)
+/daire-gorevlileri                CALISIR   200 /daire-gorevlileri (0)
+/misafirler                       CALISIR   200 /misafirler (0)
+/gider-turleri                    CALISIR   200 /gider-turleri (11)
+/iletisim                         CALISIR   200 saglayici · sablonlar(0) · mesajlar(0) · rapor
+/muhasebe · fisler                CALISIR   200 /muhasebe/fisler (21)
+/muhasebe · hesaplar              CALISIR   200 /muhasebe/hesaplar (14)
+/muhasebe · yevmiye               CALISIR   200 /muhasebe/defterler/yevmiye (42)
+/muhasebe · mizan                 CALISIR   200 /muhasebe/dokumler/mizan (3)
+/muhasebe · makbuz                CALISIR   200 /makbuzlar (18) · kontrol-mutabakati
+/muhasebe · donem                 CALISIR   200 /muhasebe/donemler (1)
+/portfoy (YONETIM_SIRKETI ile)    CALISIR   200 /portfoy/ozet · projeSayisi 3
+```
+
+⚠️ İlk koşumda `/portfoy` **KIRIK** göründü (`422 · "Portföy Yönetim Merkezi
+yalnızca yönetim firması hesaplarında"`). **Ölçüm hatasıydı:** proje
+kullanıcısıyla denenmişti. `portfoy@bn-yonetim.test` ile **200** dönüyor —
+yani 422 doğru davranış.
+
+### 3.2 · Neden hiçbir şey kırılmadı — sebep ölçüldü
+
+`servis.ts` içinde `MOCK_AKTIF` yalnızca **7 yerde** geçiyor ve altısı **genel
+yardımcıların** içinde (`getir` · `gonderVeAl` · `sil` + `projeyeGir` ·
+`daireKarti`). Yani **mock-only fonksiyon yok**: her fonksiyonun gerçek bir
+`api()` yolu var ve `MOCK=0` olduğunda o yol koşuyor.
+
+> ★ Beklenti *"kırılan ekran = mock'a bağımlı ekran"* idi. **Öyle çıkmadı** —
+> mimari mock'u tek noktada anahtarlıyor, ekranlara sızdırmıyor.
+
+### 3.3 · ⚠️ ÖLÇÜMÜN SINIRI — ne KANITLANMADI
+
+Bu ölçüm uçların **yanıt verdiğini** kanıtlar. **Yanıt ŞEKLİNİN** ekranın
+beklediğiyle aynı olduğunu kanıtlamaz — ve bu gerçek bir risktir: frontend
+tipleri `Mock*` adını taşıyor (`MockYerlesimOzeti` · `MockDaireKarti` …),
+yani **mock'tan yazılmışlar** ve gerçek API'nin onlara uyduğu varsayılmış.
+
+İki örnekte sınandı, **ikisi de uyuyor**:
+
+| Tip | Beklenen alanlar | Gerçek yanıt |
+|---|---|---|
+| `MockYerlesimOzeti` | `bolumSayisi · malikKaydiOlmayan · hissesiEksikOlan · kiracili · bos · satirlar` | **birebir aynı 6 alan** |
+| `MockDaireKarti` | `bolum · malikler · hisseDurumu · kiracilar · sakinler · tarih` | **birebir aynı 6 alan** |
+
+⛔ **Kalan tipler sınanmadı.** İç içe alanlar (`MockBolum` · `MockMalik` …)
+hiç karşılaştırılmadı. Tam kanıt için tip başına sözleşme testi gerekir; bu
+ölçüm onun yerine geçmez.
 
 ---
 
