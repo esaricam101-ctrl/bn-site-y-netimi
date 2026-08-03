@@ -1,0 +1,394 @@
+/**
+ * CT-22 · ARAYÜZ SÖZLEŞMESİ — frontend tipleri gerçek API yanıtına uyuyor mu?
+ *
+ * ⚠️  NEDEN VAR: `frontend/web/lib/mock/veri.ts` içindeki tipler **`Mock`
+ *     önekiyle** yazılmış ve `servis.ts` bunları GERÇEK API yanıtının tipi
+ *     olarak da kullanıyor. Yani "API bu şekle uyuyor" bir VARSAYIMDI ve
+ *     hiçbir yerde sınanmıyordu.
+ *
+ *     `MOCK_AKTIF=0` ölçümü (3 Ağustos) uçların 200 döndüğünü kanıtladı ama
+ *     ŞEKLİ kanıtlamadı: eksik bir alan derleme zamanında görünmez (tip
+ *     yalnızca iddiadır), çalışma anında `undefined` olur ve ekranda boş
+ *     hücre olarak belirir. Sessiz bozulma.
+ *
+ * ⚠️  ALAN LİSTESİ ELLE YAZILMAZ, TİP KAYNAĞINDAN TÜRETİLİR. Elle yazılsaydı
+ *     tip değiştiğinde test eski listeyi doğrulamaya devam eder ve YEŞİL
+ *     kalırdı — koruduğunu sandığımız şeyi korumayan bir kapı.
+ *
+ * ⚠️  BOŞ DİZİ ŞEKLİ KANITLAMAZ. Tohumda örneği olmayan tipler için test
+ *     KENDİ FİKSTÜRÜNÜ kurar; örnek bulunamazsa test DÜŞER, sessizce
+ *     geçmez.
+ *
+ * PostgreSQL + tohum gerektirir.
+ */
+import { Test } from '@nestjs/testing';
+import type { INestApplication } from '@nestjs/common';
+import type { Server } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { PrismaClient, type Prisma } from '@prisma/client';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AppModule } from '../../src/app.module';
+import { ProblemDetailsFilter } from '../../src/common/errors/problem-details.filter';
+
+const prisma = new PrismaClient();
+
+const SIFRE_HASH =
+  'scrypt$131072$8$1$06dAft8lIJHsbeHFYucc8Q==$9GdovR26bdPFcpXtV96jbzSTjTcywpYL' +
+  '/6gx4argmiuioNYMtEfo9FApnPK7FopBCy1xw+IJn78EIwJ+SJ0qiA==';
+
+const T = randomUUID();
+const EPOSTA = `ct22@${T.slice(0, 8)}.test`;
+const DENETCI_EPOSTA = `ct22-denetci@${T.slice(0, 8)}.test`;
+const kimlik = {
+  apartmanId: randomUUID(), blokId: randomUUID(), katId: randomUUID(),
+  bolumId: randomUUID(), malikKisi: randomUUID(), kiraciKisi: randomUUID(),
+  sakinKisi: randomUUID(), malikId: randomUUID(), kiraciId: randomUUID(),
+  hesapId: randomUUID(),
+};
+
+interface GirisYaniti { readonly accessToken: string }
+
+/* ------------------------- TİP KAYNAĞINDAN TÜRETME ------------------------ */
+
+/** Bir arayüz alanının bildirimi. */
+interface Alan {
+  readonly ad: string;
+  /** `?` ile bildirilmiş ya da tipi `| null` içeriyorsa yanıt onu atlayabilir. */
+  readonly istegeBagli: boolean;
+  /** İç içe `Mock*` tipi varsa adı — o tip de ayrıca doğrulanır. */
+  readonly icTip: string | null;
+}
+
+const BURASI = dirname(fileURLToPath(import.meta.url));
+const VERI_TS = join(BURASI, '..', '..', '..', 'frontend', 'web', 'lib', 'mock', 'veri.ts');
+
+/**
+ * `veri.ts` içindeki `export interface Mock… { … }` gövdelerini okur.
+ *
+ * ⚠️  TypeScript derleyicisi kullanılmadı: bu paket frontend'e bağımlı
+ *     DEĞİLDİR ve olmamalıdır (paket sınırı · ADR v1.1 §40). Metin okuma,
+ *     bağımlılık eklemeden tek kaynağa bakmayı sağlar.
+ */
+function tipleriOku(): ReadonlyMap<string, readonly Alan[]> {
+  const kaynak = readFileSync(VERI_TS, 'utf8');
+  const tipler = new Map<string, readonly Alan[]>();
+
+  const arayuz = /export interface (Mock\w+)\s*\{([\s\S]*?)\n\}/gu;
+  let e: RegExpExecArray | null;
+  while ((e = arayuz.exec(kaynak)) !== null) {
+    const ad = e[1] ?? '';
+    const govde = e[2] ?? '';
+    const alanlar: Alan[] = [];
+
+    for (const ham of govde.split('\n')) {
+      const satir = ham.trim();
+      // Yorum ve boş satırlar atlanır.
+      if (satir === '' || satir.startsWith('//') || satir.startsWith('*')
+        || satir.startsWith('/*')) continue;
+
+      const m = /^(?:readonly\s+)?(\w+)(\??)\s*:\s*([^;]+);/u.exec(satir);
+      if (m === null) continue;
+
+      const alanAdi = m[1] ?? '';
+      const tipMetni = m[3] ?? '';
+      const icTipEsleme = /\b(Mock\w+)\b/u.exec(tipMetni);
+
+      alanlar.push({
+        ad: alanAdi,
+        istegeBagli: m[2] === '?' || /\|\s*null/u.test(tipMetni),
+        icTip: icTipEsleme?.[1] ?? null,
+      });
+    }
+    tipler.set(ad, alanlar);
+  }
+  return tipler;
+}
+
+const TIPLER = tipleriOku();
+
+/**
+ * Bir yanıt nesnesini tipe göre doğrular; İÇ İÇE alanlara da iner.
+ *
+ * ⚠️  YÜZEYSEL KONTROL YETMEZ: `daireKarti.malikler[0].hissePay` eksikse üst
+ *     düzey alanlar tam görünür ama ekranda hisse boş çıkar.
+ *
+ * Dönüş: eksik alanların `Tip.alan` biçiminde listesi. Boş liste = uyuyor.
+ */
+function eksikAlanlar(
+  tipAdi: string, deger: unknown, yol = tipAdi, derinlik = 0,
+): readonly string[] {
+  if (derinlik > 4) return [];
+  const alanlar = TIPLER.get(tipAdi);
+  if (alanlar === undefined) return [`${yol}: tip bulunamadı (${tipAdi})`];
+  if (deger === null || typeof deger !== 'object') {
+    return [`${yol}: nesne değil (${typeof deger})`];
+  }
+
+  const nesne = deger as Record<string, unknown>;
+  const eksik: string[] = [];
+
+  for (const a of alanlar) {
+    const varMi = a.ad in nesne;
+    if (!varMi) {
+      // İsteğe bağlı alan yanıtta hiç bulunmayabilir — bu ihlal DEĞİLDİR.
+      if (!a.istegeBagli) eksik.push(`${yol}.${a.ad}`);
+      continue;
+    }
+    if (a.icTip === null) continue;
+
+    const ic = nesne[a.ad];
+    if (Array.isArray(ic)) {
+      // Boş dizi iç tipi kanıtlamaz; ilk öge varsa o denetlenir.
+      if (ic.length > 0) {
+        eksik.push(...eksikAlanlar(a.icTip, ic[0], `${yol}.${a.ad}[0]`, derinlik + 1));
+      }
+    } else if (ic !== null && ic !== undefined) {
+      eksik.push(...eksikAlanlar(a.icTip, ic, `${yol}.${a.ad}`, derinlik + 1));
+    }
+  }
+  return eksik;
+}
+
+/**
+ * Sayfalı yanıttan ilk öğe.
+ *
+ * ⚠️  Sayfa anahtarı uçtan uca AYNI DEĞİL: `/bolumler` `kayitlar` döndürüyor,
+ *     başkaları düz dizi. İlk yazımda yalnızca `veriler` aranmıştı ve test
+ *     "örnek yok" diye düşmüştü — ölçüm hatasıydı, ürün hatası değil.
+ *     ★ Anahtar tutarsızlığının kendisi ayrı bir bulgudur (§ rapora yazıldı).
+ */
+function sayfadanIlk(g: unknown): unknown {
+  if (Array.isArray(g)) return g[0];
+  const o = g as { kayitlar?: unknown[]; veriler?: unknown[]; satirlar?: unknown[] };
+  return (o.kayitlar ?? o.veriler ?? o.satirlar ?? [])[0];
+}
+
+function baglamda<T2>(fn: (tx: Prisma.TransactionClient) => Promise<T2>): Promise<T2> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SELECT set_config('app.tenant_id', '${T}', true)`);
+    for (const a of ['app.kapsam_kisi_id', 'app.kapsam_bolumler', 'app.kapsam_mulk_bolumler']) {
+      await tx.$executeRawUnsafe(`SELECT set_config('${a}', '', true)`);
+    }
+    return fn(tx);
+  });
+}
+
+describe('CT-22 · Arayüz sözleşmesi', () => {
+  let app: INestApplication;
+  let jeton: string;
+  let denetciJetonu: string;
+
+  const sunucu = (): Server => app.getHttpServer() as Server;
+  const al = (yol: string) =>
+    request(sunucu()).get(`/api/v1${yol}`).set('Authorization', `Bearer ${jeton}`);
+
+  beforeAll(async () => {
+    await prisma.tenant.create({
+      data: {
+        id: T, kod: `ct22-${T.slice(0, 8)}`, ad: 'CT-22 Sözleşme',
+        tip: 'SITE', durum: 'AKTIF', saatDilimi: 'Europe/Istanbul',
+        paraBirimi: 'TRY', lisansKodu: 'TEST',
+      },
+    });
+
+    /*
+     * ⚠️  KENDİ FİKSTÜRÜ. Tohumda `sakin` · `misafir` · `site_personeli` ·
+     *     `daire_gorevlisi` HİÇ YOK (ölçüldü: 0 satır). O tipler tohumla
+     *     sınansaydı boş dizi dönerdi ve test SESSİZCE geçerdi — hiçbir şey
+     *     doğrulamadan.
+     */
+    await baglamda(async (tx) => {
+      await tx.apartman.create({
+        data: { id: kimlik.apartmanId, tenantId: T, ad: 'CT-22 Sitesi', adres: 'Deneme' },
+      });
+      await tx.blok.create({
+        data: { id: kimlik.blokId, tenantId: T, apartmanId: kimlik.apartmanId, ad: 'A Blok' },
+      });
+      await tx.kat.create({
+        data: { id: kimlik.katId, tenantId: T, blokId: kimlik.blokId, no: 1, ad: 'Birinci' },
+      });
+      await tx.bagimsizBolum.create({
+        data: {
+          id: kimlik.bolumId, tenantId: T, blokId: kimlik.blokId, katId: kimlik.katId,
+          kapiNo: '1', kat: 1, nitelik: 'MESKEN', brutM2: 100, netM2: 85,
+          arsaPayiPay: 1_000_000n, arsaPayiPayda: 1_000_000n,
+        },
+      });
+
+      await tx.kisi.createMany({
+        data: [
+          { id: kimlik.malikKisi, tenantId: T, ad: 'Malik', soyad: 'Kişi' },
+          { id: kimlik.kiraciKisi, tenantId: T, ad: 'Kiracı', soyad: 'Kişi' },
+          { id: kimlik.sakinKisi, tenantId: T, ad: 'Sakin', soyad: 'Kişi' },
+        ],
+      });
+      await tx.malik.create({
+        data: {
+          id: kimlik.malikId, tenantId: T, bolumId: kimlik.bolumId,
+          kisiId: kimlik.malikKisi, hissePay: 1n, hissePayda: 1n,
+          tapuTuru: 'KAT_MULKIYETI', tapuBaslangic: new Date('2024-01-01'),
+        },
+      });
+      await tx.kiraci.create({
+        data: {
+          id: kimlik.kiraciId, tenantId: T, bolumId: kimlik.bolumId,
+          kisiId: kimlik.kiraciKisi, baslangic: new Date('2025-01-01'),
+        },
+      });
+      await tx.sakin.create({
+        data: {
+          id: randomUUID(), tenantId: T, bolumId: kimlik.bolumId,
+          kisiId: kimlik.sakinKisi, kiraciId: kimlik.kiraciId,
+          yakinlikDerecesi: 'ES', girisTarihi: new Date('2025-01-01'),
+        },
+      });
+      await tx.misafir.create({
+        data: {
+          id: randomUUID(), tenantId: T, bolumId: kimlik.bolumId,
+          ad: 'Misafir', soyad: 'Kişi', girisTarihi: new Date('2026-08-01'),
+          ziyaretNedeni: 'Aile ziyareti',
+        },
+      });
+      await tx.sitePersoneli.create({
+        data: {
+          id: randomUUID(), tenantId: T, apartmanId: kimlik.apartmanId,
+          ad: 'Personel', soyad: 'Kişi', gorev: 'TEMIZLIK',
+          iseGirisTarihi: new Date('2025-06-01'),
+        },
+      });
+      await tx.daireGorevlisi.create({
+        data: {
+          id: randomUUID(), tenantId: T, bolumId: kimlik.bolumId,
+          isvereniTipi: 'MALIK', ad: 'Görevli', soyad: 'Kişi',
+          gorev: 'TEMIZLIK', calismaBaslangic: new Date('2025-06-01'),
+        },
+      });
+
+      await tx.hesap.create({
+        data: { id: kimlik.hesapId, tenantId: T, kod: '349', ad: 'Avanslar', tip: 'BORC' },
+      });
+      await tx.giderTuru.create({
+        data: {
+          id: randomUUID(), tenantId: T, kod: 'CT22_AIDAT', ad: 'Aidat',
+          paylasimKurali: 'ESIT', sorumlulukTipi: 'KULLANANA_AIT',
+          kuralKaynagi: 'KMK_VARSAYILAN', tahakkukSikligi: 'DONEMSEL',
+          muhasebeHesapId: kimlik.hesapId,
+        },
+      });
+
+      for (const [eposta, ad, rol] of [
+        [EPOSTA, 'Yönetim', 'YONETIM_SIRKETI'],
+        [DENETCI_EPOSTA, 'Denetçi', 'DENETCI'],
+      ] as const) {
+        const kisiId = randomUUID();
+        await tx.kisi.create({ data: { id: kisiId, tenantId: T, ad: 'CT22', soyad: ad } });
+        await tx.kullanici.create({
+          data: {
+            id: randomUUID(), tenantId: T, kisiId, eposta,
+            sifreHash: SIFRE_HASH, aktif: true,
+            roller: { create: { id: randomUUID(), tenantId: T, rolKodu: rol } },
+          },
+        });
+      }
+    });
+
+    const modul = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = modul.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.useGlobalFilters(new ProblemDetailsFilter());
+    await app.init();
+
+    const gir = async (eposta: string): Promise<string> => {
+      const y = await request(sunucu())
+        .post('/api/v1/oturum/giris').send({ eposta, sifre: 'bnos1234' });
+      if (y.status >= 300) throw new Error(`Giriş başarısız (${eposta}): ${y.status}`);
+      return (y.body as GirisYaniti).accessToken;
+    };
+    jeton = await gir(EPOSTA);
+    denetciJetonu = await gir(DENETCI_EPOSTA);
+  }, 180_000);
+
+  afterAll(async () => {
+    await app?.close();
+    await prisma.$disconnect();
+  });
+
+  it('(0) tip kaynağı okundu ve boş değil', () => {
+    /*
+     * Bu test bir KORUMADIR: `veri.ts` taşınır ya da biçimi değişirse
+     * ayrıştırıcı 0 tip döner ve ÖTEKİ TESTLERİN HEPSİ SESSİZCE GEÇERDİ —
+     * hiçbir şey doğrulamadan yeşil bir süit.
+     */
+    expect(TIPLER.size).toBeGreaterThan(20);
+    expect(TIPLER.has('MockBolum')).toBe(true);
+    expect(TIPLER.has('MockDaireKarti')).toBe(true);
+  });
+
+  /**
+   * Her satır: tip · uç · yanıttan örnek nesneyi çıkaran işlev.
+   *
+   * ⚠️  ÖRNEK BULUNAMAZSA TEST DÜŞER (aşağıdaki `expect`). Boş dizi şekli
+   *     kanıtlamaz; "veri yoktu" ile "şekil uyuyor" karıştırılamaz.
+   */
+  const SOZLESMELER: readonly [string, string, (g: unknown) => unknown][] = [
+    ['MockApartman', '/apartmanlar', (g) => (g as unknown[])[0]],
+    ['MockBlok', '/bloklar', (g) => (g as unknown[])[0]],
+    ['MockKat', `/katlar?blokId=${kimlik.blokId}`, (g) => (g as unknown[])[0]],
+    ['MockBolum', '/bolumler', (g) => sayfadanIlk(g)],
+    ['MockYerlesimOzeti', '/bolumler/yerlesim-ozeti', (g) => g],
+    ['MockArsaPayiRaporu', '/bolumler/arsa-payi-durumu', (g) => g],
+    ['MockDaireKarti', `/daireler/${kimlik.bolumId}/kart`, (g) => g],
+    ['MockGiderTuru', '/gider-turleri', (g) => (g as unknown[])[0]],
+    ['MockMisafir', '/misafirler', (g) => sayfadanIlk(g)],
+    ['MockSitePersoneli', '/site-personeli', (g) => sayfadanIlk(g)],
+    ['MockDaireGorevlisi', '/daire-gorevlileri', (g) => sayfadanIlk(g)],
+  ];
+
+  for (const [tip, yol, ornekAl] of SOZLESMELER) {
+    it(`(${tip}) gerçek API yanıtı tipe uyuyor — iç içe alanlar dâhil`, async () => {
+      const y = await al(yol);
+      expect(y.status, `${yol} → ${y.status}`).toBe(200);
+
+      const ornek = ornekAl(y.body);
+      // ★ Örnek yoksa test DÜŞER: boş dizi hiçbir şey kanıtlamaz.
+      expect(ornek, `${yol}: doğrulanacak örnek yok (boş yanıt)`).toBeTruthy();
+
+      const eksik = eksikAlanlar(tip, ornek);
+      expect(eksik, `EKSİK ALANLAR → ${eksik.join(' · ')}`).toEqual([]);
+    }, 30_000);
+  }
+
+  it('(MockAuditSatiri) denetim kaydı tipe uyuyor', async () => {
+    /*
+     * ⚠️  DENETCI JETONU. `AUDIT_GORUNTULE` YALNIZCA `DENETCI` rolündedir
+     *     (`roller.ts:107`); yönetim jetonuyla denendiğinde 403 gelir ve bu
+     *     DOĞRU davranıştır — denetim kaydını görmek ayrı bir yetkidir.
+     */
+    /*
+     * ⚠️  DENETİM KAYDI GERÇEK API YAZMASIYLA ÜRETİLİR. Fikstür doğrudan
+     *     Prisma ile yazıldığı için denetim satırı OLUŞMUYOR — denetim izini
+     *     servis katmanı yazar. İlk yazımda bu atlanmış ve test "denetim
+     *     kaydı üretmemiş" diye düşmüştü; ürün hatası değil, fikstür hatasıydı.
+     */
+    const olustur = await request(sunucu())
+      .post('/api/v1/katlar')
+      .set('Authorization', `Bearer ${jeton}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ blokId: kimlik.blokId, no: 7, ad: 'Denetim Katı' });
+    expect(olustur.status, 'kat oluşturulamadı').toBe(201);
+    const katId = (olustur.body as { id: string }).id;
+
+    const y = await request(sunucu())
+      .get(`/api/v1/audit?varlik=Kat&varlikId=${katId}`)
+      .set('Authorization', `Bearer ${denetciJetonu}`);
+    expect(y.status).toBe(200);
+    const g = y.body as { kayitlar?: unknown[] };
+    const ornek = (g.kayitlar ?? [])[0];
+    expect(ornek, 'Kat oluşturma denetim kaydı üretmemiş').toBeTruthy();
+    expect(eksikAlanlar('MockAuditSatiri', ornek)).toEqual([]);
+  }, 30_000);
+});
