@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Mock veri — backend çalışmadığında arayüzün geliştirilebilmesi için.
  *
  * NEDEN GEREKLİ: PostgreSQL kurulu değil (DEVLOG TODO-3), dolayısıyla backend
@@ -1203,7 +1203,7 @@ export function mockGiderTuruSil(id: string): void {
 
 /* ---------------------------- Daire görevlileri ---------------------------- */
 
-export interface MockSertifika {
+export interface Sertifika {
   readonly id: string;
   readonly ad: string;
   readonly kurum: string | null;
@@ -1213,7 +1213,7 @@ export interface MockSertifika {
   readonly suresiDolduMu: boolean;
 }
 
-export interface MockZimmet {
+export interface Zimmet {
   readonly id: string;
   readonly ad: string;
   readonly seriNo: string | null;
@@ -1243,8 +1243,8 @@ export interface SitePersoneli {
   readonly vardiya: string;
   readonly durum: string;
   readonly notlar: string | null;
-  readonly sertifikalar: readonly MockSertifika[];
-  readonly zimmetler: readonly MockZimmet[];
+  readonly sertifikalar: readonly Sertifika[];
+  readonly zimmetler: readonly Zimmet[];
   readonly acikZimmetSayisi: number;
   readonly suresiDolanSertifikaSayisi: number;
 }
@@ -1495,7 +1495,7 @@ export const mockYerlesim: YerlesimOzeti = {
 // yönetimdir ve SGK · departman · vardiya · zimmet alanları vardır.
 // ===========================================================================
 
-export interface MockGorevliAraci {
+export interface GorevliAraci {
   readonly id: string;
   readonly plaka: string;
   readonly tur: string;
@@ -1525,7 +1525,7 @@ export interface DaireGorevlisi {
   readonly aciklama: string | null;
   readonly notlar: string | null;
   readonly durum: string;
-  readonly araclari: readonly MockGorevliAraci[];
+  readonly araclari: readonly GorevliAraci[];
 }
 
 const mockDaireGorevlileriTaban: readonly DaireGorevlisi[] = [
@@ -1702,7 +1702,7 @@ export interface Misafir {
   readonly cikisTarihi: string | null;
   readonly ziyaretNedeni: string | null;
   readonly icerideMi: boolean;
-  readonly araclari: readonly MockGorevliAraci[];
+  readonly araclari: readonly GorevliAraci[];
 }
 
 const mockMisafirlerTaban: readonly Misafir[] = [
@@ -1825,7 +1825,7 @@ export function mockMisafirCikis(id: string, tarih: string): void {
 // veri yasağı). Arayüz -1'i "Hazır değil" olarak gösterir.
 // ===========================================================================
 
-export interface MockPortfoyProjesi {
+export interface PortfoyProjesi {
   readonly tenantId: string;
   readonly kod: string;
   readonly ad: string;
@@ -1845,7 +1845,7 @@ export interface MockPortfoyProjesi {
   readonly ozetHatasi: string | null;
 }
 
-export interface MockPortfoyOzeti {
+export interface PortfoyOzeti {
   readonly yonetimTenantId: string;
   readonly yonetimAdi: string;
   readonly projeSayisi: number;
@@ -1875,11 +1875,11 @@ export interface MockPortfoyOzeti {
     readonly mesaj: string;
   }[];
   readonly aiOnerileri: readonly string[];
-  readonly projeler: readonly MockPortfoyProjesi[];
+  readonly projeler: readonly PortfoyProjesi[];
   readonly okunamayanProjeSayisi: number;
 }
 
-const mockProjeler: readonly MockPortfoyProjesi[] = [
+const mockProjeler: readonly PortfoyProjesi[] = [
   {
     tenantId: 'tenant-guzel', kod: 'guzel-apartmani', ad: 'Güzel Apartmanı',
     tip: 'APARTMAN', durum: 'AKTIF',
@@ -1909,8 +1909,8 @@ const mockProjeler: readonly MockPortfoyProjesi[] = [
   },
 ];
 
-export function mockPortfoyOzeti(): MockPortfoyOzeti {
-  const t = (al: (p: MockPortfoyProjesi) => number): number =>
+export function mockPortfoyOzeti(): PortfoyOzeti {
+  const t = (al: (p: PortfoyProjesi) => number): number =>
     mockProjeler.reduce((toplam, p) => toplam + al(p), 0);
 
   return {

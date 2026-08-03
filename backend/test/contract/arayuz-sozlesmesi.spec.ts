@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CT-22 · ARAYÜZ SÖZLEŞMESİ — frontend tipleri gerçek API yanıtına uyuyor mu?
  *
  * ⚠️  NEDEN VAR: `frontend/web/lib/mock/veri.ts` içindeki tipler **`Mock`
@@ -46,7 +46,8 @@ const kimlik = {
   apartmanId: randomUUID(), blokId: randomUUID(), katId: randomUUID(),
   bolumId: randomUUID(), malikKisi: randomUUID(), kiraciKisi: randomUUID(),
   sakinKisi: randomUUID(), malikId: randomUUID(), kiraciId: randomUUID(),
-  hesapId: randomUUID(),
+  hesapId: randomUUID(), personelId: randomUUID(), gorevliId: randomUUID(),
+  sakinId: randomUUID(),
 };
 
 interface GirisYaniti { readonly accessToken: string }
@@ -109,11 +110,32 @@ function tipleriOku(): ReadonlyMap<string, readonly Alan[]> {
     const govde = e[2] ?? '';
     const alanlar: Alan[] = [];
 
+    /*
+     * ⚠️  SATIR İÇİ İÇ NESNELER ATLANIR — derinlik takibiyle.
+     *
+     *     `readonly tahsilatDurumu: { readonly tahakkuk: string; … }` gibi
+     *     ADSIZ iç nesneler var. Derinlik takip edilmeseydi `tahakkuk`
+     *     üst tipin alanı sanılır ve yanıtta bulunamadığı için YANLIŞ
+     *     UYUMSUZLUK bildirilirdi — ölçüldü, `PortfoyOzeti` için tam
+     *     olarak bu oldu.
+     *
+     *     Adsız iç nesnenin alanları AYRICA doğrulanmaz: adı olmayan tipin
+     *     `TIPLER` içinde karşılığı yoktur. Bu bilinen bir sınırdır ve
+     *     rapora yazıldı.
+     */
+    let derinlik = 0;
     for (const ham of govde.split('\n')) {
       const satir = ham.trim();
+      const acilan = (satir.match(/\{/gu) ?? []).length;
+      const kapanan = (satir.match(/\}/gu) ?? []).length;
+      const satirBasiDerinlik = derinlik;
+      derinlik += acilan - kapanan;
+
       // Yorum ve boş satırlar atlanır.
       if (satir === '' || satir.startsWith('//') || satir.startsWith('*')
         || satir.startsWith('/*')) continue;
+      // İç nesnenin İÇİNDEKİ satırlar üst tipin alanı değildir.
+      if (satirBasiDerinlik > 0) continue;
 
       const m = /^(?:readonly\s+)?(\w+)(\??)\s*:\s*([^;]+);/u.exec(satir);
       if (m === null) continue;
@@ -193,6 +215,20 @@ function eksikAlanlar(
  *     "örnek yok" diye düşmüştü — ölçüm hatasıydı, ürün hatası değil.
  *     ★ Anahtar tutarsızlığının kendisi ayrı bir bulgudur (§ rapora yazıldı).
  */
+/**
+ * İç içe tipin SINANABİLMESİ için dolu olması gereken diziler.
+ *
+ * ⚠️  Bu tablo olmadan `Sertifika` · `Zimmet` · `GorevliAraci` tipleri
+ *     "doğrulandı" sayılırdı ama aslında hiç denetlenmemiş olurdu: fikstür
+ *     o satırları yazmasaydı diziler boş gelir, doğrulayıcı içlerine inmez
+ *     ve test yeşil kalırdı.
+ */
+const ZORUNLU_DOLU_DIZILER: Readonly<Record<string, readonly string[]>> = {
+  SitePersoneli: ['sertifikalar', 'zimmetler'],
+  DaireGorevlisi: ['araclari'],
+  DaireKarti: ['malikler', 'kiracilar', 'sakinler'],
+};
+
 function sayfadanIlk(g: unknown): unknown {
   if (Array.isArray(g)) return g[0];
   const o = g as { kayitlar?: unknown[]; veriler?: unknown[]; satirlar?: unknown[] };
@@ -273,7 +309,7 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
       });
       await tx.sakin.create({
         data: {
-          id: randomUUID(), tenantId: T, bolumId: kimlik.bolumId,
+          id: kimlik.sakinId, tenantId: T, bolumId: kimlik.bolumId,
           kisiId: kimlik.sakinKisi, kiraciId: kimlik.kiraciId,
           yakinlikDerecesi: 'ES', girisTarihi: new Date('2025-01-01'),
         },
@@ -285,18 +321,51 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
           ziyaretNedeni: 'Aile ziyareti',
         },
       });
+      /*
+       * ⚠️  SERTİFİKA · ZİMMET · ARAÇ SATIRLARI ZORUNLU.
+       *
+       *     `SitePersoneli.sertifikalar` / `.zimmetler` ve
+       *     `DaireGorevlisi.araclari` İÇ İÇE dizilerdir. Boş bırakılsalardı
+       *     doğrulayıcı onlara HİÇ İNMEZ (boş dizi iç tipi kanıtlamaz) ve üç
+       *     tip sınanmamış olduğu hâlde test YEŞİL görünürdü.
+       *
+       *     ★ İlk yazımda tam olarak bu olmuştu: kendi fikstürüm sessiz
+       *       boşluk üretmişti.
+       */
       await tx.sitePersoneli.create({
         data: {
-          id: randomUUID(), tenantId: T, apartmanId: kimlik.apartmanId,
+          id: kimlik.personelId, tenantId: T, apartmanId: kimlik.apartmanId,
           ad: 'Personel', soyad: 'Kişi', gorev: 'TEMIZLIK',
           iseGirisTarihi: new Date('2025-06-01'),
+          sertifikalar: {
+            create: {
+              id: randomUUID(), tenantId: T, ad: 'İş Güvenliği',
+              kurum: 'MEB', belgeNo: 'IG-2025-1',
+              verilisTarihi: new Date('2025-06-01'),
+              gecerlilikBitisi: new Date('2027-06-01'),
+            },
+          },
+          zimmetler: {
+            create: {
+              id: randomUUID(), tenantId: T, ad: 'Telsiz', seriNo: 'TL-01',
+              adet: 1, zimmetTarihi: new Date('2025-06-02'),
+            },
+          },
         },
       });
       await tx.daireGorevlisi.create({
         data: {
-          id: randomUUID(), tenantId: T, bolumId: kimlik.bolumId,
+          id: kimlik.gorevliId, tenantId: T, bolumId: kimlik.bolumId,
           isvereniTipi: 'MALIK', ad: 'Görevli', soyad: 'Kişi',
           gorev: 'TEMIZLIK', calismaBaslangic: new Date('2025-06-01'),
+        },
+      });
+      await tx.arac.create({
+        data: {
+          id: randomUUID(), tenantId: T, bolumId: kimlik.bolumId,
+          gorevliId: kimlik.gorevliId, plaka: '34ABC123', tur: 'OTOMOBIL',
+          marka: 'Marka', model: 'Model', renk: 'Beyaz',
+          baslangic: new Date('2025-06-01'),
         },
       });
 
@@ -391,8 +460,68 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
 
       const eksik = eksikAlanlar(tip, ornek);
       expect(eksik, `EKSİK ALANLAR → ${eksik.join(' · ')}`).toEqual([]);
+
+      /*
+       * ★ İÇ İÇE DİZİLER GERÇEKTEN DOLU MU?
+       *
+       *   `eksikAlanlar` boş diziye İNMEZ (boş dizi iç tipi kanıtlamaz).
+       *   Bu kontrol olmasaydı fikstür o satırları yazmayı unuttuğunda test
+       *   yeşil kalır ve iç tipler SINANMAMIŞ olduğu hâlde "doğrulandı"
+       *   sanılırdı — testin kendi sessiz boşluğu.
+       */
+      const zorunluDolu = ZORUNLU_DOLU_DIZILER[tip];
+      if (zorunluDolu !== undefined) {
+        const o = ornek as Record<string, unknown>;
+        for (const alan of zorunluDolu) {
+          const dizi = o[alan];
+          expect(
+            Array.isArray(dizi) && dizi.length > 0,
+            `${tip}.${alan} boş — iç tip sınanamadı, fikstür eksik`,
+          ).toBe(true);
+        }
+      }
     }, 30_000);
   }
+
+  it('(PortfoyOzeti · PortfoyProjesi) portföy özeti tipe uyuyor', async () => {
+    /*
+     * ⚠️  TOHUMUN YÖNETİM FİRMASI KULLANILIR, kendi fikstürü DEĞİL.
+     *
+     *     Portföy özeti bir YÖNETİM FİRMASI tenant'ı ve en az bir AÇIK DEVİR
+     *     kaydı ister (ADR-0009). CT-22'nin kendi tenant'ı `SITE` tipindedir
+     *     ve devir taşımaz; orada denenirse 422 gelir ve bu DOĞRU davranıştır.
+     *     Tohum bu yapıyı zaten kuruyor — ikinci kez kurmak iki fikstürün
+     *     ayrışmasına kapı açardı.
+     */
+    const g = await request(sunucu())
+      .post('/api/v1/oturum/giris')
+      .send({ eposta: 'portfoy@bn-yonetim.test', sifre: 'bnos1234' });
+    expect(g.status, 'yönetim firması girişi başarısız — tohum kurulu mu?').toBe(201);
+
+    const y = await request(sunucu())
+      .get('/api/v1/portfoy/ozet')
+      .set('Authorization', `Bearer ${(g.body as GirisYaniti).accessToken}`);
+    expect(y.status).toBe(200);
+    expect(eksikAlanlar('PortfoyOzeti', y.body)).toEqual([]);
+
+    // ★ `projeler` boşsa iç tip SINANMAMIŞ olur; boş dizi kanıt değildir.
+    const projeler = (y.body as { projeler?: unknown[] }).projeler ?? [];
+    expect(projeler.length, 'portföyde proje yok — iç tip sınanamaz').toBeGreaterThan(0);
+    expect(eksikAlanlar('PortfoyProjesi', projeler[0])).toEqual([]);
+  }, 30_000);
+
+  /*
+   * ⛔ `MockSakinCikisSonucu` BİLEREK KAPSAM DIŞI.
+   *
+   *    Bir API sözleşmesi DEĞİL, mock'un kendi iç tipidir: `servis.sakinCikis`
+   *    `Promise<void>` döner ve yanıt gövdesini HİÇ OKUMAZ
+   *    (`servis.ts` · `gonder(... 'PATCH' ...)`). Uç `KomutSonucu` döndürüyor,
+   *    bu tip ise mock'un toplu çıkış sayacını anlatıyor.
+   *
+   *    ★ Bu yüzden `Mock` öneki DOĞRUDUR ve kalır. Sözleşme testi yazmak,
+   *      olmayan bir sözleşmeyi doğrulamak olurdu — ilk denemede tam olarak
+   *      bu yapıldı ve test haklı olarak düştü.
+   */
 
   it('(AuditSatiri) denetim kaydı tipe uyuyor', async () => {
     /*

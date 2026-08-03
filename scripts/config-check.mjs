@@ -8,6 +8,12 @@ import { fileURLToPath } from 'node:url';
 const KOK = fileURLToPath(new URL('..', import.meta.url));
 const hatalar = [];
 const bilgi = [];
+/*
+ * UYARI ≠ HATA. Uyari cikti verir ama kapiyi kapatmaz: gelistiricinin kendi
+ * makinesindeki tercih (ornegin mock'u acmis olmasi) mesru bir durumdur ve
+ * derlemeyi durdurmasi gerekmez — yalnizca GORUNUR olmasi gerekir.
+ */
+const uyarilar = [];
 
 // 1. JSON dosyalari
 const jsonlar = [
@@ -215,7 +221,48 @@ if (!existsSync(nvmrcYol)) {
   }
 }
 
+/*
+ * SAHTE VERI ANAHTARI — `NEXT_PUBLIC_MOCK` acikca tanimli olmali.
+ *
+ * ⚠️  ANAHTAR TANIMSIZ OLMASI SESSIZ BIR TERCIHTIR. Varsayilan kodda duruyor
+ *     (`servis.ts`); ortam dosyasi susarsa "mock kapali" bilgisi hicbir yerde
+ *     GORUNMEZ ve varsayilan degistiginde kimse fark etmez. Once tam olarak
+ *     bu oldu: varsayilan '1'di, anahtar hicbir dosyada gecmiyordu ve
+ *     ekranlarin cogu sessizce sahte veriyle calisiyordu.
+ *
+ * ⚠️  HATA DEGIL UYARI: anahtar olmadan uygulama calisir. Hata yapilsaydi
+ *     `.env`ini henuz olusturmamis bir gelistiricinin butun kapisi kapanirdi.
+ */
+{
+  const ornek = KOK + '.env.example';
+  if (existsSync(ornek) && !/^\s*NEXT_PUBLIC_MOCK=/mu.test(readFileSync(ornek, 'utf8'))) {
+    hatalar.push(
+      '.env.example icinde NEXT_PUBLIC_MOCK tanimli degil. ' +
+        'Sahte veri modunun kapali oldugu ACIKCA yazilmali; varsayilanin ' +
+        'yalnizca kodda durmasi sessiz tercihtir.',
+    );
+  }
+
+  const yerel = KOK + '.env';
+  if (existsSync(yerel)) {
+    const icerik = readFileSync(yerel, 'utf8');
+    const e = /^\s*NEXT_PUBLIC_MOCK\s*=\s*"?([^"\r\n]*)"?/mu.exec(icerik);
+    if (e === null) {
+      uyarilar.push(
+        '.env icinde NEXT_PUBLIC_MOCK yok; kod varsayilani ("0" = sahte veri KAPALI) ' +
+          'gecerli olacak. Acikca yazmak, varsayilan degistiginde fark edilmesini saglar.',
+      );
+    } else if (e[1] !== '0') {
+      uyarilar.push(
+        `NEXT_PUBLIC_MOCK="${e[1]}" — SAHTE VERI MODU ACIK. Ekranlarda gosterilen ` +
+          'kayitlar uydurmadir; arayuzde kapatilamaz uyari bandi gorunur.',
+      );
+    }
+  }
+}
+
 for (const b of bilgi) console.log(`  ok  ${b}`);
+for (const u of uyarilar) console.log(`  !!  ${u}`);
 if (hatalar.length) {
   console.error('\nYAPILANDIRMA HATASI\n');
   for (const h of hatalar) console.error(`  - ${h}`);

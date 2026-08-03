@@ -15,7 +15,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { TemaAnahtari, YogunlukAnahtari } from './gorunum-anahtarlari';
 import { KirintiYolu, type KirintiOgesi } from './kirinti-yolu';
-import { servis } from '@/lib/servis';
+import { MOCK_AKTIF, servis } from '@/lib/servis';
 
 interface MenuOgesi {
   readonly yol: string;
@@ -143,7 +143,9 @@ export function UygulamaKabugu({
   }, [menuAcik]);
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
+    <div className="min-h-screen flex flex-col">
+      <SahteVeriBandi />
+      <div className="flex-1 flex flex-col md:flex-row">
       {/* Yan gezinme */}
       <nav
         aria-label={t('anaMenu')}
@@ -222,6 +224,34 @@ export function UygulamaKabugu({
           {children}
         </main>
       </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SAHTE VERİ UYARI BANDI.
+ *
+ * ⚠️  KAPATILAMAZ ve bu bilinçlidir. Kapatılabilseydi geliştirici ilk gün
+ *     kapatır, bir sonraki oturumda mock'un açık olduğunu unuturdu — tam
+ *     olarak önlemeye çalıştığımız durum. Kapatma düğmesi EKLENMEYECEK.
+ *
+ * ⚠️  Ekranı KAPATMAZ, yalnızca üstte bir şerittir: engelleyici bir kip
+ *     (modal) geliştirmeyi yavaşlatır ve tıklanıp geçilmeye alışılır.
+ *
+ * ⚠️  `baski-gizle` YOK: çıktıya da basılır. Sahte veriyle alınmış bir
+ *     ekran görüntüsü ya da PDF, gerçek sanılabilir — kâğıtta uyarı
+ *     ekrandakinden daha gereklidir.
+ */
+function SahteVeriBandi() {
+  if (!MOCK_AKTIF) return null;
+  return (
+    <div
+      role="status"
+      className="px-3 py-2 text-sm font-semibold text-center"
+      style={{ background: 'var(--warn)', color: '#0F172A' }}
+    >
+      Sahte veri modu — gösterilen kayıtlar gerçek değildir
     </div>
   );
 }

@@ -35,7 +35,20 @@ import {
   type YerlesimOzeti, type YerlesimSatiri, type SayfaliSonuc,
 } from './mock/veri';
 
-export const MOCK_AKTIF = (process.env['NEXT_PUBLIC_MOCK'] ?? '1') !== '0';
+/**
+ * SAHTE VERİ MODU — VARSAYILAN KAPALI (3 Ağustos 2026).
+ *
+ * ⚠️  VARSAYILAN ÖNCE `'1'`Dİ ve anahtar hiçbir ortam dosyasında geçmiyordu;
+ *     yani ekranların çoğu sessizce sahte veriyle çalışıyordu. `MOCK=0`
+ *     ölçümünde hiçbir ekranın kırılmadığı, ardından CT-22 ile tiplerin
+ *     gerçek API yanıtına uyduğu kanıtlandıktan sonra varsayılan çevrildi.
+ *
+ * ⚠️  AÇILDIĞINDA EKRANDA GÖRÜNÜR (`uygulama-kabugu.tsx` uyarı bandı) ve
+ *     bant KAPATILAMAZ: kapatılabilseydi geliştirici kapatır, bir sonraki
+ *     oturumda mock'un açık olduğunu unuturdu — önlemeye çalıştığımız durumun
+ *     ta kendisi.
+ */
+export const MOCK_AKTIF = (process.env['NEXT_PUBLIC_MOCK'] ?? '0') !== '0';
 
 /** Mock çağrılarında gerçekçi gecikme — yükleniyor ekranları görünür olsun. */
 const GECIKME_MS = 220;
