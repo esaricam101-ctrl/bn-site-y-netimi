@@ -1979,7 +1979,11 @@ tarafından yapılıyor?
 pnpm db:up && pnpm db:reset && pnpm verify && pnpm --filter @bnos/backend exec vitest run
 ```
 
-Beklenen: `Tum kontroller yesil` (14 adım) · **124 passed (124)**.
+Beklenen: `Tum kontroller yesil` · **145 passed (145)**.
+
+⚠️ Arayüzü de çalıştıracaksanız: `pnpm dev:web` — `NEXT_PUBLIC_MOCK`
+varsayılanı artık **`'0'`** (gerçek backend). Mock'u açarsanız ekranın
+üstünde **kapatılamaz** uyarı bandı görünür.
 
 Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
@@ -2002,6 +2006,49 @@ durdurup kendi `pnpm dev:backend` akışınızı açın.
 | `8e60d11` | SITE tenant muhasebeleşiyor — `mutabikMi: true` |
 | `10950b2` | `verify` uygulama paketlerini tip denetimine aldı |
 | `2ef78f4` | **Cari virman uygulandı** (ADR-0016 §C) — CT-19 18/18 |
+| `e5297a8` | `FINANS_VIRMAN` ayrı izin + ADR-0016 §A/§B soru listeleri |
+| `fdfbb48` · `877f1e4` | Referans envanteri — sürüm ayrımı, V16 sekme haritası sabit kayıt |
+| `5a5e1f1` | `MOCK=0` ölçümü — hiçbir ekran kırılmıyor · `/belgeler` menüden kaldırıldı |
+| `35c57ca` · `e15dd80` | **CT-22 arayüz sözleşmesi** · `KatSatiri.blokId` · `Mock` öneki temizliği |
+| `cb4b9e0` | Sahte veri varsayılanı **KAPALI** + kapatılamaz uyarı bandı |
+| `b67a36e` | **Muhasebe parametreleri ekranı** (7. sekme) + derinlik geçiş yasağı |
+
+#### ▶▶ SIRADAKİ İŞ — TAHAKKUK ÇALIŞTIRMA EKRANI (3 Ağustos'ta tarif edildi, BAŞLANMADI)
+
+Ekran yazımı sırası: muhasebe parametreleri ✅ → **tahakkuk çalıştırma** →
+tahsilat + cari ekstre → kasa/banka defteri → virman.
+
+**Kapsam — ürün sahibinin tarifi:**
+
+1. Dönem ve gider türü seçimi
+2. Tutar girişi
+3. Dağıtım kuralı — gider türünden **varsayılan** gelir, **ezilebilir**
+4. ★ **ÖNİZLEME: dağıtım daire daire görünür, henüz yazılmaz**
+5. Onay → tahakkuk oluşur
+6. Sonuç ekranı
+
+> ★ **ÖNİZLEME ADIMI ATLANMASIN.** Mali kayıt geri alınamaz (ters kayıtla
+> düzeltilir); yöneticinin yanlış tutarı fark edebileceği **tek an** burasıdır.
+
+**Ekranda görünmesi gerekenler:**
+
+- **Denge:** dağıtılan toplam = girilen tutar, **fark görünür**
+- **Mükerrer uyarısı:** aynı dönem + gider türü varsa **açık hata**
+- **`ISINMA_CAKISMASI`** uyarısı (varsa)
+- Ezme veri gerektiriyorsa (`TUKETIM` · `MANUEL`) **eksik verinin hangi
+  bölümlerde olduğu listelensin**
+
+**⛔ Yapma:** yeni backend ucu · toplu düzenleme/yuvarlama · otomatik
+tekrarlayan tahakkuk · başka ekrana geçme.
+
+**Bitiş ölçütü:** ekran gerçek API'ye bağlı · yeni tipler CT-22'de ·
+önizleme→onay uçtan uca denenmiş (ham çıktı) · mükerrer denemesinin ekranda
+ne gösterdiği gösterilmiş · süit + verify + lint yeşil.
+
+★ **Ölçülmüş olgu:** `POST /tahakkuk/onizleme` diye **ayrı bir uç YOK**.
+Önizleme, `POST /tahakkuk/calistir` gövdesindeki **`onizleme: true`** bayrağıyla
+yapılır (`tahakkuk.dto.ts:181` — *"true ise borç YAZILMAZ, yalnızca dağıtım
+önizlemesi döner"*). Yani yeni uç yazmaya gerek yok, tek uç iki kez çağrılır.
 
 #### ★ İLK GÖREV — karar bekleyen maddeler
 
