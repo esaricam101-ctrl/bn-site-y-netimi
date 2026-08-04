@@ -6,6 +6,35 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
+## ★ BAĞLAYICI KURAL — bir ekran ne zaman "bitti" sayılır
+
+**Yürürlük: 4 Ağustos 2026.** Önceki ölçüt *"API'ye bağlı + test yeşil"*
+idi ve YETMİYOR. Bir ekran **GÖSTERİLEBİLİR** olmadan bitmiş sayılmaz.
+
+Beş maddenin **hepsi** zorunludur:
+
+1. **GÖRSEL** — ekran biçimli. Kart düzeni, renk, tipografi, boşluk
+   yerinde. Düz metin yığını değil.
+2. **VERİ** — tohumda gerçekçi veri var. Boş liste ile bitmiş ekran aynı
+   şey değildir. Her listede en az 5-10 anlamlı kayıt, Türkçe okunabilir
+   isimler, tutarlı tutarlar.
+3. **AKIŞ** — ekranın temel işi uçtan uca yapılabiliyor. Yalnızca okuma
+   değil; yazma varsa o da çalışıyor.
+4. **BOŞ DURUM** — veri yoksa ne yazdığı düşünülmüş. "Kayıt bulunamadı"
+   yetmez; **ne yapılması gerektiğini** söylesin.
+5. **HATA DURUMU** — bir şey eksikse AÇIK söylesin. Sessiz boş ekran yok.
+
+**Her ekran bitiminde:** ekran görüntüsü alınıp raporlanır. Ürün sahibi
+görmeden "bitti" denmez. Beş madde tek tek işaretlenir; eksik varsa
+açıkça söylenir ve ekran bitmiş sayılmaz.
+
+⚠️ **Ekran görüntüsü alınamıyorsa bu SÖYLENİR** — o zaman ürün sahibi açıp
+bakar, ama beş madde yine de önceden kontrol edilir. **Bugünkü durum:
+alınamıyor.** Depoda Playwright/Puppeteer yok, tarayıcı otomasyonu
+bulunmuyor. Eklenmesi ayrı bir karardır (bağımlılık + tarayıcı indirmesi).
+
+---
+
 ## 1. Bu oturumda ne oldu
 
 **Docker kuruldu ve veritabanı ilk kez ayağa kalktı.** Bu, aylardır
