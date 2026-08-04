@@ -201,6 +201,58 @@ describe('CT-16 · Mükerrer tahakkuk koruması', () => {
     expect(await borcSayisi()).toBe(BOLUMLER.length);
   });
 
+  /*
+   * ═══ ÖNİZLEME AYNI DOĞRULAMALARDAN GEÇER ═══════════════════════════════
+   *
+   * ⚠️  NEDEN VAR: ölçüldü — aynı istek önizlemede **201**, gerçek
+   *     çalıştırmada **409** dönüyordu. Mükerrer kontrolü `if (!onizleme)`
+   *     bloğunun İÇİNDE kalmıştı.
+   *
+   *     Önizlemenin tek varlık sebebi "yöneticinin hatayı göreceği an"
+   *     olmasıdır. Yakalamadığı hata varsa o söz tutulmuyor demektir:
+   *     yönetici temiz bir önizleme görüp onaylıyor, hata ancak yazma
+   *     anında çıkıyor.
+   *
+   * ★ KURAL: `onizleme: true` yalnızca YAZMAYI atlar, DOĞRULAMAYI değil.
+   */
+  it('(2b) ★ ÖNİZLEME de mükerreri yakalar — gerçek çalıştırmayla AYNI cevap', async () => {
+    const y = await tahakkukEt(randomUUID(), { onizleme: true });
+    expect(
+      y.status,
+      `önizleme mükerreri kaçırdı: ${JSON.stringify(y.body).slice(0, 200)}`,
+    ).toBe(409);
+  });
+
+  it('(2c) reddedilen önizleme HİÇBİR ŞEY yazmamıştır', async () => {
+    // Önizleme zaten yazmaz; ölçülen şey reddin yan etki bırakmadığıdır.
+    // Kontrol kaydı açıldıktan SONRA reddedilseydi, yarım çalışma kalırdı.
+    expect(await borcSayisi()).toBe(BOLUMLER.length);
+    const calismaSayisi = await baglamda((tx) => tx.tahakkukCalismasi.count({
+      where: { tenantId: TENANT, donem: new Date(DONEM), giderTuruKodu: 'CT16_AIDAT' },
+    }));
+    expect(calismaSayisi).toBe(1);
+  });
+
+  it('(2d) ★ TEMİZ dönemde önizleme çalışır — kapı meşru yolu kapatmıyor', async () => {
+    /*
+     * Yasağı yazarken önizlemeyi tümden bozmak kolaydır. Bu test, düzeltmenin
+     * "her önizlemeyi reddet" biçimine kaymadığını ölçer.
+     */
+    const y = await tahakkukEt(randomUUID(), {
+      donem: '2026-11-01', vadeTarihi: '2026-11-30', onizleme: true,
+    });
+    expect(y.status, JSON.stringify(y.body).slice(0, 200)).toBe(201);
+    expect((y.body as { onizlemeMi: boolean }).onizlemeMi).toBe(true);
+
+    // ⚠️  ÖNİZLEME YAZMAZ: temiz dönemde de çalışma kaydı AÇILMAMALIDIR.
+    //     Doğrulamayı önizlemeye taşırken kayıt oluşturmayı da taşımak,
+    //     sorunu tersine çevirirdi.
+    const calismaSayisi = await baglamda((tx) => tx.tahakkukCalismasi.count({
+      where: { tenantId: TENANT, donem: new Date('2026-11-01') },
+    }));
+    expect(calismaSayisi, 'önizleme çalışma kaydı açtı').toBe(0);
+  });
+
   it('(3) ★ İLK İŞLEM COMMIT ETMEMİŞKEN gelen ikinci istek REDDEDİLİR', async () => {
     /*
      * ASIL SENARYO BUDUR. Uygulama katmanındaki `borc.count()` denetimi

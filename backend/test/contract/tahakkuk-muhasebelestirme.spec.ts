@@ -259,6 +259,59 @@ describe('CT-21 · Tahakkuk muhasebeleştirme', () => {
     expect(c.paylasimKuraliEzildi).toBe(true);
   });
 
+  it('(6b) ★ GİDER TÜRÜ SONRADAN DEĞİŞSE DE eski tahakkuk ESKİ kuralla okunur', async () => {
+    /*
+     * SNAPSHOT'IN ASIL SEBEBİ BUDUR (ADR-0017 · K7a) ve bugüne dek
+     * SINANMAMIŞTI: iki test kuralın YAZILDIĞINI ölçüyordu, kaydın gider
+     * türünden BAĞIMSIZ kaldığını ölçen yoktu.
+     *
+     * Senaryo: yönetim kurulu kararıyla kapıcı gideri artık arsa payına
+     * göre dağıtılacak. Gider türü güncellenir. Geçmiş dönemin tahakkuku
+     * hâlâ eşit bölünmüş olarak kalmalıdır — aksi hâlde "bu daireye neden
+     * bu tutar yazıldı" sorusu bir yıl sonra YANLIŞ cevaplanır ve itiraz
+     * hâlinde yönetim kendi kaydıyla çelişir.
+     *
+     * ⚠️  Kural okunurken `giderTuru`ne JOIN atılsaydı bu test kırmızı
+     *     olurdu; kolonun var olması tek başına yetmez, OKUMANIN da ondan
+     *     yapılması gerekir.
+     */
+    const oncesi = await baglamda((tx) => tx.tahakkukCalismasi.findFirstOrThrow({
+      where: { tenantId: T, giderTuruKodu: 'AIDAT', donem: new Date(DONEM) },
+      select: { id: true, kullanilanPaylasimKurali: true, paylasimKuraliEzildi: true },
+    }));
+    expect(oncesi.kullanilanPaylasimKurali).toBe('ESIT');
+
+    // Gider türünün kuralı DEĞİŞTİRİLİR — gerçek hayatta kurul kararıyla.
+    await baglamda((tx) => tx.giderTuru.updateMany({
+      where: { tenantId: T, kod: 'AIDAT' },
+      data: { paylasimKurali: 'ARSA_PAYI' },
+    }));
+
+    const sonrasi = await baglamda((tx) => tx.tahakkukCalismasi.findFirstOrThrow({
+      where: { id: oncesi.id },
+      select: { kullanilanPaylasimKurali: true, paylasimKuraliEzildi: true },
+    }));
+    expect(
+      sonrasi.kullanilanPaylasimKurali,
+      'geçmiş tahakkuk gider türünün YENİ kuralını gösteriyor — snapshot tutmuyor',
+    ).toBe('ESIT');
+    // Ezme bayrağı da kaymamalı: o gün ezme YAPILMAMIŞTI.
+    expect(sonrasi.paylasimKuraliEzildi).toBe(false);
+
+    // Yazılmış borç tutarları da eşit bölünmüş kalmalıdır (4 × 250).
+    const borclar = await baglamda((tx) => tx.borc.findMany({
+      where: { tenantId: T, tahakkukDonemi: new Date(DONEM) },
+      select: { tutar: true },
+    }));
+    expect(borclar.every((b) => b.tutar.toFixed(2) === '250.00')).toBe(true);
+
+    // Eski hâline döndürülür: sonraki testler bu türü kullanıyor.
+    await baglamda((tx) => tx.giderTuru.updateMany({
+      where: { tenantId: T, kod: 'AIDAT' },
+      data: { paylasimKurali: 'ESIT' },
+    }));
+  });
+
   it('(7) ★ TUKETIM ezmesi VERİSİZ reddedilir — eksik bölümler SAYILARAK', async () => {
     /*
      * `cariKontrolHesabi()` deseni: karşılığı yoksa TAHMİN ETME, dur ve çıkış

@@ -275,24 +275,72 @@ export class TahakkukCommandService {
       }
 
       const ekTahakkuk = dto.ekTahakkuk === true;
-      let calismaId = '';
-      if (!onizleme) {
-        // Sıra yalnızca DÖNEMSEL zincirde anlamlıdır; olay bazlı her çalışma
-        // kendi gider olayıdır ve sira=1 ile açılır.
-        const sonSira = olayBazli ? { _max: { sira: 0 } } : await tx.tahakkukCalismasi.aggregate({
+
+      /*
+       * ═══ MÜKERRER KONTROLÜ — ÖNİZLEMEDE DE ÇALIŞIR ════════════════════
+       *
+       * ⚠️  BU KONTROL BİR ZAMANLAR `if (!onizleme)` BLOĞUNUN İÇİNDEYDİ ve
+       *     ölçüldü: aynı istek önizlemede 201, gerçek çalıştırmada 409
+       *     dönüyordu. Yönetici temiz bir önizleme görüp onaylıyor, hatayı
+       *     ancak yazma anında öğreniyordu.
+       *
+       * ★ KURAL: `onizleme: true` yalnızca YAZMAYI atlar, DOĞRULAMAYI
+       *   DEĞİL. Önizlemenin tek varlık sebebi yöneticinin hatayı
+       *   görebileceği an olmasıdır; yakalamadığı hata varsa o söz
+       *   tutulmuyor demektir.
+       *
+       *   Buradaki sorgular SALT OKUNURDUR; önizleme yolunda çalıştırmanın
+       *   yan etkisi yoktur. (CT-16 · 2b · 2c · 2d)
+       */
+      // Sıra yalnızca DÖNEMSEL zincirde anlamlıdır; olay bazlı her çalışma
+      // kendi gider olayıdır ve sira=1 ile açılır.
+      const sonSira = olayBazli ? { _max: { sira: 0 } } : await tx.tahakkukCalismasi.aggregate({
+        where: {
+          tenantId: principal.tenantId, giderTuruKodu: gider.kod,
+          donem: new Date(donem), referans: null,
+        },
+        _max: { sira: true },
+      });
+      if (!olayBazli && !ekTahakkuk && (sonSira._max.sira ?? 0) > 0) {
+        throw new CakismaHatasi(
+          `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş.`,
+          'Ek bir gider geldiyse "Ek Tahakkuk" işlemini başlatın; ' +
+            'aksi hâlde mevcut tahakkuku iptal edin ya da farklı dönem seçin.',
+        );
+      }
+
+      /*
+       * OLAY BAZLI MÜKERRER — aynı sınıftan ikinci boşluktu.
+       *
+       * ⚠️  Bu durum YALNIZCA aşağıdaki `P2002` yakalamasıyla görülüyordu;
+       *     yakalama ise `create` çağrısına bağlı olduğu için önizlemede
+       *     HİÇ çalışmıyordu. Yani aynı fatura numarasını ikinci kez
+       *     tahakkuk etmeye çalışan yönetici, önizlemede temiz bir dağıtım
+       *     görüyordu. P2002 yakalaması KALDIRILMADI: o, eşzamanlı iki
+       *     isteğin yarışını kesen son savunmadır ve bu kontrol onun yerini
+       *     tutmaz.
+       */
+      if (olayBazli && referans) {
+        const ayniReferans = await tx.tahakkukCalismasi.findFirst({
           where: {
             tenantId: principal.tenantId, giderTuruKodu: gider.kod,
-            donem: new Date(donem), referans: null,
+            donem: new Date(donem), referans,
           },
-          _max: { sira: true },
+          select: { id: true },
         });
-        if (!olayBazli && !ekTahakkuk && (sonSira._max.sira ?? 0) > 0) {
+        if (ayniReferans) {
           throw new CakismaHatasi(
-            `'${gider.kod}' için ${donem} dönemi zaten tahakkuk edilmiş.`,
-            'Ek bir gider geldiyse "Ek Tahakkuk" işlemini başlatın; ' +
-              'aksi hâlde mevcut tahakkuku iptal edin ya da farklı dönem seçin.',
+            `'${gider.kod}' için ${referans} referanslı gider ${donem} ` +
+              'döneminde zaten tahakkuk edilmiş.',
+            'Aynı fatura ya da karar numarası bir dönemde iki kez tahakkuk ' +
+              'edilemez. Farklı bir referans girin ya da mevcut tahakkuku ' +
+              'inceleyin.',
           );
         }
+      }
+
+      let calismaId = '';
+      if (!onizleme) {
         calismaId = randomUUID();
         try {
           await tx.tahakkukCalismasi.create({

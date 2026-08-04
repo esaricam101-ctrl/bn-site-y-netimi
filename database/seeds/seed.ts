@@ -311,6 +311,21 @@ const HESAP_PLANI: {
   //    (amortismana tabi kıymet satış kârının 549'da izlenmesi) ile
   //    karıştırılmaz — o, bilanço esasına tabi ticari işletmelere özgüdür.
   { kod: '500', ad: 'Yenileme Fonu', tip: 'BORC' },
+  /*
+   * ⚠️  Bu hesap YALNIZCA parametreler ekranının seçim yapabilmesi için
+   *     vardır. Dönem kapanış kuralı ADR-0015'te AÇIKTIR ve bu hesabın
+   *     varlığı o kararı belirlemez.
+   *
+   *     Tohum bir hesap planı ÖRNEĞİ sunar, kapanış KURALINI tanımlamaz:
+   *     "yıl sonu artı bakiye nereye gider" sorusu burada cevaplanmaz.
+   *
+   *     `500` ADR-0017 K4 ile OZKAYNAK'tan BORC'a çevrilince hesap planında
+   *     hiç özkaynak hesabı kalmamıştı; parametreler ekranındaki "Dönem
+   *     Kârı" kutusu boş ve devre dışı kalıyor, ekran kalıcı olarak
+   *     "kurulum eksik" gösteriyordu (ölçüldü). Tek eksik hesap yüzünden
+   *     bir ekranın gösterilemez kalması, karar beklemekten zararlıdır.
+   */
+  { kod: '590', ad: 'Dönem Net Sonucu', tip: 'OZKAYNAK' },
   { kod: '600', ad: 'Aidat Gelirleri', tip: 'GELIR' },
   { kod: '602', ad: 'Gecikme Tazminatı Gelirleri', tip: 'GELIR' },
   { kod: '770', ad: 'Yönetim Giderleri', tip: 'GIDER' },
@@ -716,8 +731,17 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
        *     "kurulum yapılmamış" ile "basit muhasebe" ayrımını kaybettirirdi.
        */
       muhasebeDerinligi: derinlikSec(t),
-      // Dönem kârı hesabı BİLİNÇLİ olarak boş: kâr/zararın hangi özkaynak
-      // hesabına aktarılacağı yönetimin kararıdır, tohum adına verilemez.
+      /*
+       * Dönem kârı hesabı BİLİNÇLİ olarak boş: kâr/zararın hangi özkaynak
+       * hesabına aktarılacağı yönetimin kararıdır, tohum adına verilemez.
+       *
+       * ⚠️  SEÇENEK ARTIK VAR ama SEÇİM YOK. Hesap planına `590` eklendi
+       *     (yukarıdaki nota bakın) — böylece parametreler ekranındaki
+       *     açılır kutu boş kalmıyor ve yönetici seçimi TEK TIKLA
+       *     yapabiliyor. Seçimi tohumun yapması, "hangi hesap" sorusunu
+       *     yöneticinin yerine cevaplamak olurdu; ekran o eksiği açıkça
+       *     gösterir ve nasıl giderileceğini söyler.
+       */
     },
   });
 

@@ -502,6 +502,23 @@ da eklenmez.
 `GiderTuru.paylasimKurali` **varsayılan** kalır.
 `TahakkukCalistirDto.paylasimKurali` **isteğe bağlı ezme** olarak eklenir.
 
+**★ HUKUKİ DAYANAK — ezme neden var (KMK md. 20).**
+Kanun dağıtım yöntemini emredici saymaz: *"Kat maliklerinden her biri
+**aralarında başka türlü anlaşma olmadıkça**…"* Yani **yönetim planı ya da
+kat malikleri kurulu kararı** dağıtım yöntemini değiştirebilir; kapıcı gideri
+normalde eşit bölünür ama kurul kararıyla bir dönem arsa payına göre
+dağıtılabilir.
+
+Koda sabit tek bir kural yazmak bu esnekliği yok ederdi: ürün, kanunun
+tanıdığı bir hakkı teknik bir kısıta çevirmiş olurdu. Ezmenin varlık sebebi
+budur — kolaylık değil, **mevzuata uygunluk**.
+
+⏳ **İleride:** kullanılan kuralın *dayanağı* (hangi kurul kararı, hangi
+yönetim planı maddesi) `TahakkukDayanagi`'na bağlanmalıdır. Bugün ezme
+yapılabiliyor ama **niçin** yapıldığı kayıt altına alınmıyor; itiraz hâlinde
+"bu dönem neden arsa payına göre dağıtıldı" sorusunun belgesi yok. Şimdi
+yapılmadı, `TahakkukDayanagi` işiyle birlikte ele alınacak.
+
 **(a) Kullanılan kural `TahakkukCalismasi`'na YAZILIR — zorunlu alan.**
 `kullanilanPaylasimKurali`. Ezme yapılmasa bile yazılır: *"varsayılan
 kullanıldı"* ile *"ezildi"* ayrımı `paylasimKuraliEzildi` bayrağıyla görünür.
@@ -523,11 +540,23 @@ Tablo `paylastir.ts:52-102`'den türetildi, varsayılmadı:
 | `KULLANIM_BAZLI` | `girdi.kullaniyorMu` | **bölüm başına kullanım** | ⛔ veri şart |
 | `SABIT_TUTAR` | `girdi.sabitAgirlik` | **bölüm başına ağırlık** | ⛔ veri şart |
 | `MANUEL` | `girdi.manuelTutar` | **bölüm başına tutar** | ⛔ veri şart |
-| `BLOK_BAZLI` | `secenekler.hedefBlokId` | **hedef blok** | ⛔ veri şart |
+| `BLOK_BAZLI` | `secenekler.hedefBlokId` | hedef blok — **tek alan, DTO'da zaten var** | ✅ serbest |
 | `KARMA` | bileşen tanımı | **`karmaBilesenler`** — türe ait, tahakkukta verilemez | ⛔ ezilemez |
 
 ★ Serbest olanların ortak yanı: ağırlık **bölüm kaydından okunur**, istekten
 gelmez. `arsaPayiPay/Payda`, `brutM2`, `netM2` şemada `NOT NULL`.
+
+⚠️ **`BLOK_BAZLI` satırı 4 Ağustos 2026'da düzeltildi.** Tabloda ⛔ yazıyordu
+ama kod onu `EZILEBILIR_KURALLAR` içinde tutuyor ([`tahakkuk.dto.ts:27`]
+(../../../backend/src/modules/tahakkuk/dto/tahakkuk.dto.ts)). Kodun gerekçesi
+doğru: gerektirdiği veri **bölüm başına değil tek bir alandır** (`hedefBlokId`)
+ve o alan DTO'da zaten mevcuttur — ölçüt "ek veri var mı" değil, "ek veri
+**bölüm başına** mı" olmalıydı. Belge kodla hizalandı.
+
+**(c) Ezme reddi 422'dir, 400 değil** ve gövde **eksik bölümleri sayar**.
+Beyaz liste bilinçli olarak DTO'da değil serviste durur: `IsIn` ile
+reddedilseydi cevap yalnızca *"geçersiz değer"* olurdu ve yönetici hangi
+dairelerde veri eksik olduğunu tek tek denemeyle öğrenirdi.
 
 **(c) Reddedilen ezme AÇIK HATA verir — hangi bölümlerde eksik olduğunu
 sayarak.** Bugün `paylastir.ts` eksik veriyi **ilk bölümde** yakalayıp atıyor;

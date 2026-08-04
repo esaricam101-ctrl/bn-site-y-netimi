@@ -33,6 +33,19 @@ export interface GiderTuruSatiri {
    * belgeye bakacağını bilmesi demektir.
    */
   readonly ozelKuralMi: boolean;
+  /**
+   * `DONEMSEL` | `OLAY_BAZLI` — mükerrer korumasının ekseni (ADR-0014).
+   *
+   * ⚠️  ALAN ŞEMADA VARDI AMA UÇ DÖNDÜRMÜYORDU. Sonuç: tahakkuk ekranı
+   *     hangi türün `referans` (fatura/karar no) zorunlu kıldığını
+   *     BİLEMİYORDU ve ancak sunucudan 422 alarak öğrenebilirdi.
+   *     Kullanıcıya zorunlu alanı hata mesajıyla öğretmek, formu deneme
+   *     yanılmaya çevirir.
+   *
+   *     `MockKat.blokId` ile aynı sınıf düzeltme: mevcut yanıt tipine
+   *     eksik alanın eklenmesi.
+   */
+  readonly tahakkukSikligi: string;
 }
 
 function bilesenleriCoz(ham: unknown): readonly KarmaBilesenSatiri[] | null {
@@ -75,6 +88,7 @@ export class GiderTuruQueryService {
       malikPaylasimi: k.malikPaylasimi,
       aktifMi: k.aktifMi,
       ozelKuralMi: k.kuralKaynagi !== 'KMK_VARSAYILAN',
+      tahakkukSikligi: k.tahakkukSikligi,
     }));
   }
 
@@ -97,6 +111,7 @@ export class GiderTuruQueryService {
       malikPaylasimi: k.malikPaylasimi,
       aktifMi: k.aktifMi,
       ozelKuralMi: k.kuralKaynagi !== 'KMK_VARSAYILAN',
+      tahakkukSikligi: k.tahakkukSikligi,
     };
   }
 }

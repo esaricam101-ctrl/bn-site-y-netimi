@@ -1038,6 +1038,15 @@ export interface GiderTuru {
   readonly malikPaylasimi: string;
   readonly aktifMi: boolean;
   readonly ozelKuralMi: boolean;
+  /**
+   * `DONEMSEL` | `OLAY_BAZLI` — mükerrer korumasının ekseni (ADR-0014).
+   *
+   * OLAY_BAZLI türlerde tahakkuk `referans` (fatura/karar no) ZORUNLUDUR:
+   * aynı ay içinde iki ayrı sigorta poliçesi meşrudur, onları ayıran şey
+   * dönem değil olayın kendisidir. Ekran bunu bilmeden formu doğru
+   * kuramaz.
+   */
+  readonly tahakkukSikligi: string;
 }
 
 /**
@@ -1047,17 +1056,19 @@ export interface GiderTuru {
  * çalışıp gerçekte çalışmazsa fark ancak sahada görülür.
  */
 const mockGiderTurleriTaban: readonly GiderTuru[] = [
-  ['KAPICI', 'Kapıcı gideri', 'ESIT', 'KULLANANA_AIT'],
-  ['ANA_BAKIM', 'Anagayrimenkul bakım ve onarım', 'ARSA_PAYI', 'MALIKE_AIT'],
-  ['SIGORTA', 'Bina sigortası', 'ARSA_PAYI', 'MALIKE_AIT'],
-  ['YENILEME_FONU', 'Yenileme fonu', 'ARSA_PAYI', 'MALIKE_AIT'],
-  ['ISITMA', 'Isıtma gideri', 'TUKETIM', 'KULLANANA_AIT'],
-  ['SU', 'Su gideri', 'TUKETIM', 'KULLANANA_AIT'],
-  ['ASANSOR_ISLETME', 'Asansör işletme gideri', 'ESIT', 'KULLANANA_AIT'],
-  ['ELEKTRIK_ORTAK', 'Ortak alan elektriği', 'ESIT', 'KULLANANA_AIT'],
-  ['TEMIZLIK', 'Temizlik gideri', 'ESIT', 'KULLANANA_AIT'],
-  ['YONETIM', 'Yönetim gideri', 'ESIT', 'KULLANANA_AIT'],
-].map(([kod, ad, kural, sorumluluk]) => ({
+  // Beşinci alan `tahakkukSikligi` — TOHUMDAKİ DEĞERLERİN AYNISI. Mock ile
+  // gerçek uç ayrışırsa arayüz burada çalışıp sahada çalışmaz.
+  ['KAPICI', 'Kapıcı gideri', 'ESIT', 'KULLANANA_AIT', 'DONEMSEL'],
+  ['ANA_BAKIM', 'Anagayrimenkul bakım ve onarım', 'ARSA_PAYI', 'MALIKE_AIT', 'OLAY_BAZLI'],
+  ['SIGORTA', 'Bina sigortası', 'ARSA_PAYI', 'MALIKE_AIT', 'OLAY_BAZLI'],
+  ['YENILEME_FONU', 'Yenileme fonu', 'ARSA_PAYI', 'MALIKE_AIT', 'DONEMSEL'],
+  ['ISITMA', 'Isıtma gideri', 'TUKETIM', 'KULLANANA_AIT', 'DONEMSEL'],
+  ['SU', 'Su gideri', 'TUKETIM', 'KULLANANA_AIT', 'DONEMSEL'],
+  ['ASANSOR_ISLETME', 'Asansör işletme gideri', 'ESIT', 'KULLANANA_AIT', 'DONEMSEL'],
+  ['ELEKTRIK_ORTAK', 'Ortak alan elektriği', 'ESIT', 'KULLANANA_AIT', 'DONEMSEL'],
+  ['TEMIZLIK', 'Temizlik gideri', 'ESIT', 'KULLANANA_AIT', 'DONEMSEL'],
+  ['YONETIM', 'Yönetim gideri', 'ESIT', 'KULLANANA_AIT', 'DONEMSEL'],
+].map(([kod, ad, kural, sorumluluk, siklik]) => ({
   id: `gt-${kod as string}`,
   kod: kod as string,
   ad: ad as string,
@@ -1069,6 +1080,7 @@ const mockGiderTurleriTaban: readonly GiderTuru[] = [
   malikPaylasimi: 'HISSE_ORANI',
   aktifMi: true,
   ozelKuralMi: false,
+  tahakkukSikligi: siklik as string,
 }));
 
 let giderTuruOrtusu: GiderTuru[] | null = null;
@@ -1149,6 +1161,10 @@ export function mockGiderTuruEkle(dto: MockGiderTuruGirdisi): void {
     malikPaylasimi: dto.malikPaylasimi ?? 'HISSE_ORANI',
     aktifMi: dto.aktifMi ?? true,
     ozelKuralMi: dto.kuralKaynagi !== 'KMK_VARSAYILAN',
+    // Veritabanı varsayılanının aynısı (`@default(DONEMSEL)`). Gider türü
+    // ekleme formunda bu alan HENÜZ YOK; mock, uydurma bir değer değil
+    // sunucunun yazacağı değeri taşır.
+    tahakkukSikligi: 'DONEMSEL',
   });
   liste.sort((a, b) => a.kod.localeCompare(b.kod, 'tr'));
 }
