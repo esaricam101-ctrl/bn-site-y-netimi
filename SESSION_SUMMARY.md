@@ -6,6 +6,38 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
+## ▶▶ SIRADAKİ İŞ — GÜVENLİK SEKMESİ (4 Ağustos'ta kararlaştırıldı, BAŞLANMADI)
+
+Ürün sahibi kararı: **misafir ve daire görevlisi bağımsız modül değildir**,
+`Güvenlik → Giriş-Çıkış Kayıtları` sekmeleridir ([MENU-HARITASI §7](docs/MENU-HARITASI.md)).
+
+⚠️ **SIRA TERSİNE ÇEVRİLEMEZ.** Önce `/guvenlik` rotası, **sonra** menüden
+kaldırma. Ters yapılırsa çalışan iki ekran erişilemez kalır — `/belgeler`
+dersinin tersi (orada *olmayan* ekranın menü öğesi vardı).
+
+**Adımlar:**
+
+1. `app/misafirler/page.tsx` (442 satır) ikiye bölünür:
+   `icerik.tsx` → `MisafirlerIcerigi()` (kabuk YOK) + ince `page.tsx`
+   (`UygulamaKabugu` + içerik). Rota **silinmez**: eski bağlantılar kırılmasın.
+2. Aynısı `app/daire-gorevlileri/page.tsx` (510 satır) için.
+3. `app/guvenlik/page.tsx` — `Sekmeler` bileşeniyle iki sekme
+   (muhasebe ekranının deseni birebir kullanılır).
+4. Menüden `Misafirler` ve `Daire Görevlileri` **kaldırılır**, tek
+   `Güvenlik` girer.
+
+★ `Site Personeli` ana menüde **KALIR** — kadro kaydıdır, güvenlik kaydı
+değil (MENU-HARITASI §2). Ürün sahibine soruldu, aksi söylenmedi.
+
+⚠️ **Ölçek:** ziyaretçi ekranı sitede en çok veri üreten ekrandır (rakipte
+275.889 kayıt) ve BNOS'ta bu yük profili **hiç ölçülmedi**. Sayfalama ve
+filtreleme baştan buna göre kurulmalı; sonradan eklenmez.
+
+**Bitiş ölçütü:** beş maddelik ekran ölçütü (aşağıda) + `/misafirler` ve
+`/daire-gorevlileri` rotaları hâlâ 200 dönüyor.
+
+---
+
 ## ★ BAĞLAYICI KURAL — bir ekran ne zaman "bitti" sayılır
 
 **Yürürlük: 4 Ağustos 2026.** Önceki ölçüt *"API'ye bağlı + test yeşil"*
