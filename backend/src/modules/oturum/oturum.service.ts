@@ -32,6 +32,21 @@ export interface GirisYaniti {
     readonly adSoyad: string;
     readonly tenantId: string;
     readonly tenantAdi: string;
+    /**
+     * `SITE` | `APARTMAN` | `YONETIM_SIRKETI` — arayüz kimliği için.
+     *
+     * ⚠️  ALAN YOKTU ve arayüz bu yüzden her projede sabit "BNOS Apartman
+     *     Yönetimi" başlığını gösteriyordu: bir SİTE yönetildiğinde bile
+     *     ekranda "apartman" yazıyordu. Kullanıcının hangi projede
+     *     olduğunu görmesi, yanlış projeye tahakkuk yazmamasının ilk
+     *     koşuludur.
+     *
+     * ⚠️  YETKİ KARARI DEĞİLDİR. Muhasebe derinliği bundan TÜRETİLMEZ —
+     *     `Tenant.tip` yalnızca kurulumda varsayılan belirler, kural
+     *     değildir (docs/APARTMAN-SITE-AYRIMI.md §2.1). Bu alan salt
+     *     görüntüleme içindir.
+     */
+    readonly tenantTipi: string;
     readonly roller: readonly string[];
   };
 }
@@ -84,7 +99,7 @@ export class OturumServisi {
                   id: true, tenantId: true, sifreHash: true,
                   kisi: { select: { ad: true, soyad: true } },
                   roller: { select: { rolKodu: true } },
-                  tenant: { select: { ad: true, durum: true } },
+                  tenant: { select: { ad: true, tip: true, durum: true } },
                 },
               }),
             tenantId(dizin.tenantId),
@@ -145,6 +160,7 @@ export class OturumServisi {
         adSoyad: `${kullanici.kisi.ad} ${kullanici.kisi.soyad}`,
         tenantId: kullanici.tenantId,
         tenantAdi: kullanici.tenant.ad,
+        tenantTipi: kullanici.tenant.tip,
         roller,
       },
     };

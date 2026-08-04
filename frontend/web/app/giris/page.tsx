@@ -14,6 +14,8 @@ interface GirisYaniti {
     readonly adSoyad: string;
     readonly tenantId: string;
     readonly tenantAdi: string;
+    /** `SITE` | `APARTMAN` | `YONETIM_SIRKETI` — kabuk başlığı için. */
+    readonly tenantTipi: string;
     readonly roller: readonly string[];
   };
 }
@@ -47,6 +49,8 @@ export default function GirisSayfasi() {
       sessionStorage.setItem('bnos.token', yanit.accessToken);
       sessionStorage.setItem('bnos.tenantId', yanit.kullanici.tenantId);
       sessionStorage.setItem('bnos.tenantAdi', yanit.kullanici.tenantAdi);
+      // Kabuk başlığı hangi projede olunduğunu yazar; tip rozeti oradan okunur.
+      sessionStorage.setItem('bnos.tenantTipi', yanit.kullanici.tenantTipi);
       router.push(yanit.varsayilanPanel);
     } catch (h) {
       // Hicbir hata mesaji yalnizca "Bir hata olustu" degildir (BFS v1 §12).

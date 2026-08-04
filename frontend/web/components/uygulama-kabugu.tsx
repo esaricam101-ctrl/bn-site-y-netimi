@@ -130,6 +130,55 @@ function AktifProje() {
 }
 
 /**
+ * PROJE KİMLİĞİ — kenar çubuğunun tepesi.
+ *
+ * ⚠️  BURADA SABİT ÜRÜN ADI YAZIYORDU ("BNOS Apartman Yönetimi") ve bir
+ *     SİTE yönetilirken bile ekranda "apartman" görünüyordu. Yönetim
+ *     firması iki proje arasında geçiş yaptığında hangisinde olduğunu
+ *     ayırt edemiyordu — yanlış projeye tahakkuk yazmanın ilk basamağı
+ *     budur.
+ *
+ * ⚠️  `sessionStorage` yalnızca istemcide vardır; sunucuda okumak hidrasyon
+ *     uyuşmazlığı doğurur. Bu yüzden ilk çizimde ürün adı görünür, ardından
+ *     proje adıyla değişir — boş bırakmak başlığı zıplatırdı.
+ */
+function ProjeKimligi() {
+  const tg = useTranslations('genel');
+  const t = useTranslations('navigasyon');
+  const [proje, setProje] = useState<{ ad: string; tip: string } | null>(null);
+
+  useEffect(() => {
+    const ad = sessionStorage.getItem('bnos.tenantAdi');
+    const tip = sessionStorage.getItem('bnos.tenantTipi');
+    if (ad !== null) setProje({ ad, tip: tip ?? '' });
+  }, []);
+
+  return (
+    <div className="mb-4 flex flex-col gap-1">
+      <div className="text-sm font-extrabold bg-clip-text text-transparent"
+           style={{ backgroundImage: 'var(--grad)' }}>
+        {proje?.ad ?? tg('uygulamaAdi')}
+      </div>
+      {proje !== null && (
+        <div className="flex items-center gap-2">
+          {proje.tip !== '' && (
+            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5
+                             rounded-[var(--rs)] border border-[color:var(--line)]
+                             text-[color:var(--muted-2)]">
+              {t(`tenantTipi_${proje.tip}`)}
+            </span>
+          )}
+          {/* Ürün adı KAYBOLMAZ, ikincil satıra iner. */}
+          <span className="text-[10px] text-[color:var(--muted-2)] truncate">
+            {tg('uygulamaAdi')}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Projenin muhasebe derinliği — YALNIZCA menü filtresi için.
  *
  * ⚠️  BİLİNMİYORSA MENÜ GİZLENMEZ. `parametreler` ucu `FINANS_AYAR` ister;
@@ -177,7 +226,7 @@ export function UygulamaKabugu({
   readonly eylemler?: ReactNode;
 }) {
   const t = useTranslations('navigasyon');
-  const tg = useTranslations('genel');
+  // `tg` KALDIRILDI: ürün adı artık `ProjeKimligi` içinde okunuyor.
   const yol = usePathname();
   const [menuAcik, setMenuAcik] = useState(false);
   const ciftTarafli = useCiftTarafliMi();
@@ -211,10 +260,7 @@ export function UygulamaKabugu({
         style={{ background: 'var(--darker)' }}
       >
         <div className="p-[var(--pad)]">
-          <div className="text-sm font-extrabold mb-4 bg-clip-text text-transparent"
-               style={{ backgroundImage: 'var(--grad)' }}>
-            {tg('uygulamaAdi')}
-          </div>
+          <ProjeKimligi />
           <ul className="flex flex-col gap-1">
             {gorunenMenu.map((m) => {
               const etkin = yol === m.yol || yol.startsWith(`${m.yol}/`);
