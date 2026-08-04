@@ -1,10 +1,11 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Query,
+  Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Principal } from '@bnos/kernel';
 import { IZINLER } from '@bnos/core-domain';
-import { AktifPrincipal, RequirePermission } from '../../common/decorators';
+import { AktifPrincipal, DerinliktenMuaf, RequirePermission } from '../../common/decorators';
+import { MuhasebeDerinligiGuard } from '../../common/guards/muhasebe-derinligi.guard';
 import { HesapPlaniServisi, type HesapSatiri } from './hesap-plani.service';
 import { FisCommandServisi } from './fis.command.service';
 import {
@@ -30,10 +31,19 @@ import type { KomutSonucu } from '../tenant/tenant.command.service';
  *
  * ⚠️  FİŞ SİLME UCU YOKTUR ve olmayacaktır. `yevmiye_fisi` FİNANSAL sınıftır;
  *     düzeltme yalnızca ters kayıt (storno) ile yapılır.
+ *
+ * ⚠️  DERİNLİK KAPISI TÜM DENETLEYİCİYE UYGULANIR: `BASIT` projede bu
+ *     kavramların hiçbiri tanımlı değildir ve uçlar 422 döner (CT-24).
+ *     Muafiyet açıkça işaretlenir — bkz. `parametreler`.
+ *
+ *     ★ VARSAYILAN KAPALI olması bilinçlidir: denetleyiciye yarın eklenecek
+ *       yeni bir uç, hiçbir şey yapılmadan kapının ARKASINDA doğar. Muafiyet
+ *       listesi yazılsaydı, eklemeyi unutan kişi sessizce açık uç bırakırdı.
  */
 @ApiTags('Muhasebe')
 @ApiBearerAuth()
 @Controller('muhasebe')
+@UseGuards(MuhasebeDerinligiGuard)
 export class MuhasebeController {
   constructor(
     private readonly hesapPlani: HesapPlaniServisi,
@@ -414,6 +424,10 @@ export class MuhasebeController {
 
   @Get('parametreler')
   @RequirePermission(IZINLER.FINANS_AYAR)
+  @DerinliktenMuaf(
+    'Derinliğin OKUNDUĞU uçtur. Kapatılsaydı arayüz projenin derinliğini hiç '
+    + 'öğrenemez, menüyü de doğru filtreleyemezdi: kapı kendi ölçüm aletini kırardı.',
+  )
   @ApiOperation({
     summary: 'Muhasebe parametreleri',
     description: 'Kayıt yoksa VARSAYILANLAR döner; boş nesne arayüzü askıda bırakırdı.',
@@ -424,6 +438,11 @@ export class MuhasebeController {
 
   @Patch('parametreler')
   @RequirePermission(IZINLER.FINANS_AYAR)
+  @DerinliktenMuaf(
+    'BASIT → CIFT_TARAFLI yükseltmesinin TEK yoludur. Kapatılsaydı basit '
+    + 'muhasebeyle kurulmuş bir proje sonsuza dek orada kalır, ADR kararı '
+    + '("ters yön serbest") kâğıt üstünde kalırdı.',
+  )
   @ApiOperation({
     summary: 'Muhasebe parametrelerini kaydet',
     description:

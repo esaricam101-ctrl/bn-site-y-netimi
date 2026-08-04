@@ -15,12 +15,17 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { TemaAnahtari, YogunlukAnahtari } from './gorunum-anahtarlari';
 import { KirintiYolu, type KirintiOgesi } from './kirinti-yolu';
-import { MOCK_AKTIF, servis } from '@/lib/servis';
+import { MOCK_AKTIF, muhasebe, servis } from '@/lib/servis';
 
 interface MenuOgesi {
   readonly yol: string;
   readonly anahtar: string;
   readonly simge: string;
+  /**
+   * `true` ise yalnızca ÇİFT TARAFLI muhasebe kullanan projede görünür
+   * (docs/MENU-HARITASI.md §5).
+   */
+  readonly ciftTarafliGerektirir?: boolean;
 }
 
 /** Öncelik sırası sprint tanımından gelir. */
@@ -36,7 +41,16 @@ const MENU: readonly MenuOgesi[] = [
   { yol: '/daire-gorevlileri', anahtar: 'daireGorevlileri', simge: '◎' },
   { yol: '/misafirler', anahtar: 'misafirler', simge: '◐' },
   { yol: '/gider-turleri', anahtar: 'giderTurleri', simge: '₺' },
-  { yol: '/muhasebe', anahtar: 'muhasebe', simge: '▩' },
+  /*
+   * ⚠️  BASIT muhasebeli projede GÖRÜNMEZ. Apartman tarafında hesap planı,
+   *     yevmiye ve mizan diye bir kavram yoktur ve bunların bulunmaması bir
+   *     eksiklik değildir (docs/APARTMAN-SITE-AYRIMI.md).
+   *
+   *     ⛔ BU BİR KORUMA DEĞİLDİR, görünürlük kararıdır. Asıl kapı sunucudadır
+   *        (`MuhasebeDerinligiGuard`, 422) — adres çubuğuna yolu yazan
+   *        kullanıcı bu satırı görmez. CT-24 ikisini ayrı ayrı ölçer.
+   */
+  { yol: '/muhasebe', anahtar: 'muhasebe', simge: '▩', ciftTarafliGerektirir: true },
   /*
    * ⚠️  `/belgeler` KALDIRILDI (3 Ağustos 2026).
    *
@@ -112,6 +126,41 @@ function AktifProje() {
   );
 }
 
+/**
+ * Projenin muhasebe derinliği — YALNIZCA menü filtresi için.
+ *
+ * ⚠️  BİLİNMİYORSA MENÜ GİZLENMEZ. `parametreler` ucu `FINANS_AYAR` ister;
+ *     DENETCI ve YONETIM_KURULU bu izne sahip DEĞİLDİR ama çift taraflı
+ *     projede muhasebe defterlerini görmeye hakları vardır. Okuma
+ *     başarısız diye modülü gizlemek, denetçiye "böyle bir şey yok"
+ *     demek olurdu.
+ *
+ *     Yanlış gizlemek, gereksiz göstermekten KÖTÜDÜR: gereksiz gösterilen
+ *     bağlantı sunucudan 422 alır ve sebebini yazar; yanlış gizlenen modül
+ *     ise hiç var olmamış gibi görünür ve kullanıcı aramayı bırakır.
+ *
+ * ⚠️  Bu bir güvenlik kontrolü DEĞİLDİR (bkz. MENU içindeki not).
+ */
+function useCiftTarafliMi(): boolean {
+  // Başlangıç `true`: ilk çizimde menü kaybolup sonra belirmez. Titreşim,
+  // kullanıcıya bağlantının kaybolduğunu düşündürür.
+  const [ciftTarafli, setCiftTarafli] = useState(true);
+
+  useEffect(() => {
+    let iptal = false;
+    muhasebe.parametreler()
+      .then((p) => {
+        if (!iptal) setCiftTarafli(p.muhasebeDerinligi !== 'BASIT');
+      })
+      .catch(() => {
+        // Okunamadı (izin yok, ağ hatası) → menü OLDUĞU GİBİ kalır.
+      });
+    return () => { iptal = true; };
+  }, []);
+
+  return ciftTarafli;
+}
+
 export function UygulamaKabugu({
   children,
   kirintilar = [],
@@ -128,6 +177,8 @@ export function UygulamaKabugu({
   const tg = useTranslations('genel');
   const yol = usePathname();
   const [menuAcik, setMenuAcik] = useState(false);
+  const ciftTarafli = useCiftTarafliMi();
+  const gorunenMenu = MENU.filter((m) => ciftTarafli || m.ciftTarafliGerektirir !== true);
 
   // Yol degisince mobil menu kapanir; aksi halde gezinme sonrasi menu ekrani
   // kaplamaya devam eder.
@@ -162,7 +213,7 @@ export function UygulamaKabugu({
             {tg('uygulamaAdi')}
           </div>
           <ul className="flex flex-col gap-1">
-            {MENU.map((m) => {
+            {gorunenMenu.map((m) => {
               const etkin = yol === m.yol || yol.startsWith(`${m.yol}/`);
               return (
                 <li key={m.yol}>

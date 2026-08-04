@@ -12,6 +12,20 @@ export const TENANTSIZ_ANAHTARI = 'bnos:tenantsiz';
 export const Tenantsiz = (gerekce: string): MethodDecorator =>
   SetMetadata(TENANTSIZ_ANAHTARI, gerekce);
 
+/**
+ * MUHASEBE DERİNLİĞİ KAPISINDAN MUAF — `BASIT` projede de çalışır.
+ *
+ * ⚠️  ÜÇ KAPIDAN BİRİ DEĞİLDİR. Yetkiyle ilgisi yoktur: kullanıcının izni
+ *     tamdır, o projede KAVRAM yoktur. Bu yüzden 403 değil 422 döner.
+ *
+ * Muafiyet GEREKÇE İSTER (`Public` ve `Tenantsiz` gibi). Sebebi yazılmayan
+ * bir muafiyet, altı ay sonra "neden buradaydı" sorusuna cevap veremez ve
+ * kopyala-yapıştır ile çoğalır.
+ */
+export const DERINLIK_MUAF_ANAHTARI = 'bnos:derinlik-muaf';
+export const DerinliktenMuaf = (gerekce: string): MethodDecorator =>
+  SetMetadata(DERINLIK_MUAF_ANAHTARI, gerekce);
+
 /** Kapı 3 — gerekli izin. */
 export const IZIN_ANAHTARI = 'bnos:izin';
 export const RequirePermission = (...izinler: Izin[]): MethodDecorator =>

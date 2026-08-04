@@ -1033,6 +1033,7 @@
     "fisTuru_KAPANIS": "Kapanış",
     "donemDurum_ACIK": "Açık",
     "donemDurum_KAPANIS_SURECI": "Kapanış sürecinde",
-    "donemDurum_KAPALI": "Kapalı"
+    "donemDurum_KAPALI": "Kapalı",
+    "basitMuhasebeUyarisi": "Bu proje basit muhasebe kullanıyor. Hesap planı, yevmiye fişi ve mizan bu projede tanımlı değildir — bunların bulunmaması bir eksiklik değildir. Tahakkuk, tahsilat ve alacak takibi olağan biçimde çalışır. Çift taraflı muhasebe gerekiyorsa aşağıdaki Parametreler sekmesinden derinliği yükseltebilirsiniz; bu geçiş geri alınamaz."
   }
 }

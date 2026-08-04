@@ -51,7 +51,37 @@ export default function MuhasebeSayfasi() {
   const tn = useTranslations('navigasyon');
   const [etkinSekme, setEtkinSekme] = useState('fisler');
 
-  const sekmeler: readonly SekmeTanimi[] = [
+  /*
+   * DERİNLİK — menüden gizlemek yetmez, ADRES ÇUBUĞUNDAN gelinebilir.
+   *
+   * ⚠️  `null` = HENÜZ BİLİNMİYOR ya da OKUNAMADI. İkisinde de sekmeler
+   *     olduğu gibi gösterilir: okuyamamanın sebebi izin eksikliği olabilir
+   *     (`FINANS_AYAR` yoktur ama defter görme hakkı vardır) ve o kullanıcıya
+   *     boş bir ekran vermek yanlış olurdu. Sunucu zaten 422 ile sebebini
+   *     yazar (`MuhasebeDerinligiGuard`).
+   */
+  const [derinlik, setDerinlik] = useState<string | null>(null);
+  useEffect(() => {
+    let iptal = false;
+    muhasebe.parametreler()
+      .then((p) => { if (!iptal) setDerinlik(p.muhasebeDerinligi); })
+      .catch(() => { /* okunamadı → sekmeler olduğu gibi kalır */ });
+    return () => { iptal = true; };
+  }, []);
+
+  const basitMuhasebe = derinlik === 'BASIT';
+
+  const sekmeler: readonly SekmeTanimi[] = basitMuhasebe
+    /*
+     * BASIT projede TEK sekme kalır. Altı sekmeyi bırakıp her birinin ayrı
+     * ayrı 422 göstermesi, kullanıcıya altı ayrı arıza gibi görünürdü —
+     * oysa ortada arıza yok, o projede kavram yok.
+     *
+     * Parametreler DURUR: derinliği yükseltmenin tek yolu odur. Onu da
+     * kaldırmak, basit muhasebeyle kurulmuş projeyi kilitlerdi.
+     */
+    ? [{ anahtar: 'parametreler', etiket: t('parametrelerSekmesi'), icerik: <Parametreler /> }]
+    : [
     { anahtar: 'fisler', etiket: t('fislerSekmesi'), icerik: <FisListesi /> },
     { anahtar: 'hesaplar', etiket: t('hesapPlaniSekmesi'), icerik: <HesapPlani /> },
     { anahtar: 'defterler', etiket: t('defterlerSekmesi'), icerik: <YevmiyeDefteri /> },
@@ -77,8 +107,24 @@ export default function MuhasebeSayfasi() {
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-[color:var(--muted)]">{t('aciklama')}</p>
-        <Sekmeler sekmeler={sekmeler} etkinAnahtar={etkinSekme}
-                  onDegisti={setEtkinSekme} etiket={t('baslik')} />
+
+        {/*
+          AÇIK SÖYLER, SESSİZ BOŞ EKRAN BIRAKMAZ. Kullanıcı buraya menüden
+          gelemez; adresi elle yazmış ya da eski bir bağlantıya tıklamıştır.
+          Ne olduğunu ve nasıl değiştirileceğini burada okumalıdır.
+        */}
+        {basitMuhasebe && (
+          <div role="status" className="rounded-[var(--rs)] border p-3 text-sm"
+               style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}>
+            {t('basitMuhasebeUyarisi')}
+          </div>
+        )}
+
+        <Sekmeler
+          sekmeler={sekmeler}
+          etkinAnahtar={basitMuhasebe ? 'parametreler' : etkinSekme}
+          onDegisti={setEtkinSekme} etiket={t('baslik')}
+        />
       </div>
     </UygulamaKabugu>
   );
