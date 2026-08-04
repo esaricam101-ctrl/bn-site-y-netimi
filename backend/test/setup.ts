@@ -6,27 +6,17 @@
  * "DATABASE_URL: Required" ile düşer — testin kendisi hiç çalışmaz ve
  * başarısızlık, sınanan davranışla ilgisiz bir yapılandırma hatası olur.
  *
- * `import.meta` KULLANILMAZ: bu dosya `nest build` (CommonJS hedefi) ile de
- * derlenir ve orada meta-özellik hatası verir. Kök, `.env` bulunana kadar
- * yukarı yürünerek bulunur — çalışma dizini nereden koşulursa koşulsun
- * doğru sonucu verir.
+ * ⚠️  KÖK BULMA BURADA KOPYALANMAZ: `src/config/kok.ts` içindedir ve
+ *     uygulamanın kendisi de (ConfigModule) onu kullanır. Bu mantık bir
+ *     zamanlar YALNIZCA burada vardı; dev sunucusu aynı kusurdan ölüyordu ve
+ *     testler yeşil olduğu için kimse görmüyordu. Tek kaynak, ikinci kez
+ *     ıraksamayı önler.
  */
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { beforeAll } from 'vitest';
+import { depoKokunuBul } from '../src/config/kok';
 
-function kokuBul(baslangic: string): string | null {
-  let dizin = baslangic;
-  for (let i = 0; i < 6; i += 1) {
-    if (existsSync(join(dizin, '.env'))) return dizin;
-    const ust = dirname(dizin);
-    if (ust === dizin) break;
-    dizin = ust;
-  }
-  return null;
-}
-
-const kok = kokuBul(process.cwd());
+const kok = depoKokunuBul(process.cwd());
 if (kok !== null) {
   process.loadEnvFile(join(kok, '.env'));
 }

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { ortamSemasi } from './config/env.schema';
+import { kokOrtamDosyasi } from './config/kok';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { IstekSiniriGuard } from './common/guards/istek-siniri.guard';
 import { AuthGuard } from './common/guards/auth.guard';
@@ -47,7 +48,18 @@ import { AuditSorguModule } from './modules/audit/audit-sorgu.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: ortamSemasi }),
+    /*
+     * ⚠️  `envFilePath` AÇIKÇA VERİLİR. Varsayılan davranış `.env`i çalışma
+     *     dizininde arar; backend ise her zaman `backend/` içinden koşar
+     *     (`nest start`, `vitest`) ve kökteki dosyayı HİÇ görmezdi.
+     *     `pnpm dev:backend` bu yüzden "DATABASE_URL: Required" ile ölüyordu.
+     *     Gerekçenin tamamı `config/kok.ts` başlığındadır.
+     */
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: ortamSemasi,
+      ...(kokOrtamDosyasi() === undefined ? {} : { envFilePath: kokOrtamDosyasi() }),
+    }),
     PrismaModule,
     AuditModule,
     OutboxModule,
