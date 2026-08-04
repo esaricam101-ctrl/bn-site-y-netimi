@@ -41,6 +41,9 @@ const MENU: readonly MenuOgesi[] = [
   { yol: '/daire-gorevlileri', anahtar: 'daireGorevlileri', simge: '◎' },
   { yol: '/misafirler', anahtar: 'misafirler', simge: '◐' },
   { yol: '/gider-turleri', anahtar: 'giderTurleri', simge: '₺' },
+  // Tahakkuk BASIT projede de çalışır: borç yazar, yevmiye fişi değil.
+  // Bu yüzden `ciftTarafliGerektirir` İŞARETLENMEDİ.
+  { yol: '/tahakkuk', anahtar: 'tahakkuk', simge: '◫' },
   /*
    * ⚠️  BASIT muhasebeli projede GÖRÜNMEZ. Apartman tarafında hesap planı,
    *     yevmiye ve mizan diye bir kavram yoktur ve bunların bulunmaması bir

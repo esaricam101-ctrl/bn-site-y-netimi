@@ -33,6 +33,7 @@
     "belgeler": "Belgeler",
     "daireGorevlileri": "Daire Görevlileri",
     "giderTurleri": "Gider Türleri",
+    "tahakkuk": "Tahakkuk",
     "ayarlar": "Ayarlar",
     "cikis": "Çıkış",
     "anaMenu": "Ana menü",
@@ -1035,5 +1036,83 @@
     "donemDurum_KAPANIS_SURECI": "Kapanış sürecinde",
     "donemDurum_KAPALI": "Kapalı",
     "basitMuhasebeUyarisi": "Bu proje basit muhasebe kullanıyor. Hesap planı, yevmiye fişi ve mizan bu projede tanımlı değildir — bunların bulunmaması bir eksiklik değildir. Tahakkuk, tahsilat ve alacak takibi olağan biçimde çalışır. Çift taraflı muhasebe gerekiyorsa aşağıdaki Parametreler sekmesinden derinliği yükseltebilirsiniz; bu geçiş geri alınamaz."
+  },
+  "tahakkuk": {
+    "baslik": "Tahakkuk Çalıştırma",
+    "aciklama": "Bir gideri bağımsız bölümlere paylaştırıp borç yazar. Yazmadan önce dağıtım daire daire önizlenir — mali kayıt geri alınamaz, yalnızca ters kayıtla düzeltilir.",
+
+    "adimGirdi": "1 · Gider, dönem ve tutar",
+    "adimOnizleme": "2 · Önizleme — dağıtım daire daire",
+    "adimSonuc": "3 · Sonuç",
+
+    "giderTuru": "Gider türü",
+    "donem": "Tahakkuk dönemi",
+    "donemIpucu": "Dönem ayın ilk gününe sabitlenir.",
+    "toplamTutar": "Dağıtılacak toplam tutar",
+    "tutarIpucu": "Örnek: 18500.00 — kuruş ayıracı nokta.",
+    "vadeTarihi": "Son ödeme tarihi",
+    "dagitimKurali": "Dağıtım kuralı",
+    "ezmeIpucu": "Varsayılan gider türünden gelir. KMK m.20 uyarınca yönetim planı ya da kurul kararı yöntemi değiştirebilir; bu dönem için başka bir kural seçebilirsiniz.",
+    "varsayilanKural": "Varsayılan — {kural}",
+    "onceTurSecin": "Önce gider türü seçin",
+    "hedefBlok": "Hedef blok",
+    "hedefBlokIpucu": "Gider yalnızca bu bloğun bölümlerine yazılır.",
+    "referans": "Gider olayı referansı",
+    "referansIpucu": "Fatura, poliçe ya da karar numarası. Olay bazlı giderlerde zorunludur: aynı ay içinde iki ayrı olay meşrudur, onları ayıran şey dönem değil referanstır.",
+    "seciniz": "— seçiniz —",
+
+    "siklik_DONEMSEL": "Dönemsel gider — dönemde bir kez tahakkuk eder.",
+    "siklik_OLAY_BAZLI": "Olay bazlı gider — referans (fatura/karar no) zorunludur.",
+
+    "kural_ESIT": "Eşit",
+    "kural_ARSA_PAYI": "Arsa payı",
+    "kural_BRUT_M2": "Brüt m²",
+    "kural_NET_M2": "Net m²",
+    "kural_METREKARE": "Metrekare",
+    "kural_BLOK_BAZLI": "Blok bazlı",
+    "kural_TUKETIM": "Tüketim",
+    "kural_SABIT_TUTAR": "Sabit tutar",
+    "kural_KULLANIM_BAZLI": "Kullanım bazlı",
+    "kural_MANUEL": "Manuel",
+    "kural_KARMA": "Karma",
+
+    "rol_MALIK": "malik",
+    "rol_KIRACI": "kiracı",
+    "rol_SAKIN": "sakin",
+    "sira_ASIL": "asıl",
+    "sira_IKINCIL": "ikincil",
+
+    "onizle": "Önizle",
+    "hesaplaniyor": "Hesaplanıyor…",
+    "onizlemeZorunlu": "Önizlemeden tahakkuk yazılamaz.",
+    "onizlemeAciklama": "Aşağıdaki dağıtım HENÜZ YAZILMADI. Tutarları ve sorumluları kontrol edin; onayladıktan sonra geri alınamaz.",
+    "yazilmadi": "Yazılmadı",
+    "girilenTutar": "Girilen tutar",
+    "dagitilanToplam": "Dağıtılan toplam",
+    "bolumSayisi": "Bölüm sayısı",
+    "dengesiz": "Dağıtılan toplam girilen tutara eşit değil. Bu tahakkuk yazılamaz — gider türü tanımını ve bölüm girdilerini kontrol edin.",
+
+    "kapiNo": "Kapı no",
+    "tutar": "Tutar",
+    "sorumlular": "Borç sorumluları",
+    "tahakkukNo": "Tahakkuk no",
+
+    "tahakkukuYaz": "Tahakkuku yaz",
+    "yaziliyor": "Yazılıyor…",
+    "geriAlinamaz": "Yazılan tahakkuk geri alınamaz; düzeltmesi ters kayıttır.",
+    "onizlemeBayat": "Form değişti — önizleme artık geçerli değil. Yeniden önizleyin.",
+
+    "mukerrerBaslik": "Bu dönemde bu gider türü zaten tahakkuk edilmiş",
+    "mukerrerAciklama": "İkinci bir tahakkuk reddedilir. Sonradan gelen bir fatura için ek tahakkuk açmak istiyorsanız aşağıdaki kutuyu işaretleyin.",
+    "ekTahakkukEtiketi": "Ek/düzeltme tahakkuku olarak çalıştır",
+
+    "onizlemeReddedildi": "Tahakkuk çalıştırılamadı",
+    "bilinmeyenHata": "Beklenmeyen bir hata oluştu.",
+    "tahakkukYazildi": "Tahakkuk yazıldı — {adet} bölüm borçlandırıldı.",
+    "tahakkukYazilamadi": "Tahakkuk yazılamadı.",
+    "sonucOzeti": "{donem} dönemi için {adet} bölüme toplam {tutar} tutarında borç yazıldı.",
+
+    "giderTuruYokBaslik": "Tanımlı gider türü yok",
+    "giderTuruYokAciklama": "Tahakkuk, tanımlı bir kural olmadan çalıştırılamaz. Önce Gider Türleri ekranından en az bir tür tanımlayın; her türün dağıtım kuralı ve muhasebe hesabı orada belirlenir."
   }
 }

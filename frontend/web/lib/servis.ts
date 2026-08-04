@@ -1105,6 +1105,96 @@ export const makbuzlar = {
   }[]> => api('/makbuzlar/rapor/yaslandirma', gecerliJeton()),
 };
 
+/* ------------------------------- Tahakkuk --------------------------------- */
+//
+// ⚠️  MOCK YOKTUR. Uydurma bir dağıtım tablosu gerçek sanılır ve mali karar
+//     dayanağı olarak kullanılabilir — muhasebe bloğuyla aynı gerekçe.
+
+/** Bir bölüme düşen pay ve sorumluları. Alanlar CANLI yanıttan alındı. */
+export interface TahakkukSatiri {
+  readonly bolumId: string;
+  readonly kapiNo: string;
+  /** Dört ondalıklı METİN ("1500.0000") — float'a çevrilmez (ADR-0007). */
+  readonly tutar: string;
+  /** Önizlemede HER ZAMAN `null`: numara ancak yazılırken tahsis edilir. */
+  readonly tahakkukNo: string | null;
+  readonly sorumlular: readonly {
+    readonly kisiId: string;
+    readonly kisiAdi: string;
+    readonly rol: string;
+    readonly sira: string;
+    readonly pay: string;
+  }[];
+}
+
+/** İşlem TAMAMLANIR — uyarı engelleme değil, görünürlük aracıdır. */
+export interface TahakkukUyarisi {
+  readonly kod: string;
+  readonly mesaj: string;
+  readonly siddet: string;
+}
+
+export interface TahakkukSonucu {
+  readonly onizlemeMi: boolean;
+  readonly giderTuruKodu: string;
+  readonly donem: string;
+  readonly toplamTutar: string;
+  /** `toplamTutar` ile EŞİT olmak zorunda; ekran farkı gösterir. */
+  readonly dagitilanToplam: string;
+  readonly bolumSayisi: number;
+  readonly satirlar: readonly TahakkukSatiri[];
+  /** HER ZAMAN döner — uyarı yoksa boş dizi. */
+  readonly uyarilar: readonly TahakkukUyarisi[];
+}
+
+export interface TahakkukDonemOzeti {
+  readonly donem: string;
+  readonly giderTuruKodu: string;
+  readonly borcSayisi: number;
+  readonly toplamTutar: string;
+  readonly toplamOdenen: string;
+  readonly tahsilatOrani: number;
+}
+
+export interface TahakkukGirdisi {
+  readonly giderTuruKodu: string;
+  readonly toplamTutar: string;
+  readonly donem: string;
+  readonly vadeTarihi: string;
+  readonly paylasimKurali?: string;
+  readonly hedefBlokId?: string;
+  readonly referans?: string;
+  readonly ekTahakkuk?: boolean;
+}
+
+export const tahakkuk = {
+  /**
+   * ⚠️  ÖNİZLEME AYRI UÇ DEĞİLDİR — ölçüldü, `POST /tahakkuk/onizleme` yok.
+   *     Aynı uç `onizleme: true` ile çağrılır ve borç YAZILMAZ.
+   *
+   * ★ İKİ AYRI FONKSİYON, tek fonksiyon + bayrak DEĞİL. Bayrak yolunda bir
+   *   `true`nun düşmesi sessizce GERÇEK tahakkuk yazardı; burada çağıranın
+   *   niyeti fonksiyon adında görünür.
+   *
+   * Önizleme gerçek çalıştırmayla AYNI doğrulamalardan geçer (mükerrer
+   * dahil); yalnızca yazma atlanır.
+   */
+  onizle: (dto: TahakkukGirdisi): Promise<TahakkukSonucu> =>
+    api('/tahakkuk/calistir', {
+      method: 'POST', govde: { ...dto, onizleme: true },
+      idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+
+  calistir: (dto: TahakkukGirdisi): Promise<TahakkukSonucu> =>
+    api('/tahakkuk/calistir', {
+      method: 'POST', govde: { ...dto, onizleme: false },
+      idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+
+  donemler: (): Promise<readonly TahakkukDonemOzeti[]> =>
+    api('/tahakkuk/donemler', gecerliJeton()),
+};
+
 export const muhasebe = {
   hesaplar: (
     suzgec: { arama?: string; tip?: string; ozellik?: string; yalnizcaAktif?: boolean } = {},
