@@ -1,4 +1,4 @@
-﻿# Oturum Ã–zeti â€” 29-30 Temmuz 2026 (Docker Â· on bir modÃ¼l Â· muhasebe Â· banka)
+# Oturum Ã–zeti â€” 29-30 Temmuz 2026 (Docker Â· on bir modÃ¼l Â· muhasebe Â· banka)
 
 Bu dosya **sonraki oturuma devir notudur**. AyrÄ±ntÄ±lÄ± geÃ§miÅŸ
 [`DEVLOG.md`](DEVLOG.md) iÃ§indedir; burada yalnÄ±zca *nerede kaldÄ±k* ve
