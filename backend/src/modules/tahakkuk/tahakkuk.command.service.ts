@@ -24,7 +24,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import {
   apiBicimi, money, moneyKurustan, takvimTarihi,
-  type Principal, type TakvimTarihi,
+  type Money, type Principal, type TakvimTarihi,
 } from '@bnos/kernel';
 import { CakismaHatasi, IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
 import {
@@ -611,10 +611,29 @@ export class TahakkukCommandService {
         const iliskiler = iliskiHaritasi.get(pay.bolumId) ?? [];
         const zincir = borcSorumlulariniCoz(gider, iliskiler, donem);
 
-        // Bölüme düşen pay MALİKLER ARASINDA bölünür. Zincirde birden çok
-        // ASIL varsa (hisseli mülkiyet) her malik yalnızca kendi payından
-        // sorumludur; biri ödediğinde diğerlerinin borcu AÇIK kalır.
-        const asillar = zincir.filter((s) => s.sira === 'ASIL');
+        /*
+         * ═══ PAY DAĞITIMI (ADR-0018 · K1 · K5) ════════════════════════════
+         *
+         * ★ SEMANTİK YAZMA ANINDA UYGULANIR, okuma anında değil.
+         *   `paylasimSemantigi = PAYINA_GORE` (bugünkü varsayılan): hisseli
+         *   malikler kendi paylarından sorumludur. Müteselsillik zincirde
+         *   ZATEN katmanla ifade edilir (ASIL/IKINCIL); aynı katmanda tutar
+         *   çoğaltmak aynı şeyi ikinci bir mekanizmayla anlatmak olurdu.
+         *
+         *   ⚠️  Değer bugün koda gömülü DEĞİL, tek yerde sabit: hukuk cevabı
+         *       geldiğinde `mevzuat_parametre`'ye taşınacak (R6). Tablo
+         *       bugün YOK — bkz. HUKUK-SORU-SETI H-1.
+         *
+         * ★ SEMANTİK HER MALİK KATMANINDA AYNIDIR (K5).
+         *
+         *   ⚠️  ESKİDEN DEĞİLDİ: yalnızca `sira === 'ASIL'` satırlarına
+         *       uygulanıyor, IKINCIL malikler HER DURUMDA tam tutar
+         *       alıyordu. Yani aynı malik ASIL'ken payına göre, IKINCIL'ken
+         *       müteselsildi — aynı hukuki soru iki yerde farklı
+         *       cevaplanmıştı ve bu hiçbir yerde karar olarak yazılı
+         *       değildi. Kiracı/sakin satırları bundan etkilenmez: onlar
+         *       hisse taşımaz, borcun tamamını yüklenir.
+         */
         const hisseler = hisseHaritasi.get(pay.bolumId) ?? [];
         // Tahakkuk dönemindeki GEÇERLİ hisseler. Devredilmiş bir tapu payı
         // dönem dışındaysa bölüşüme girmez; aksi halde eski malik bugünkü
@@ -623,29 +642,63 @@ export class TahakkukCommandService {
           (h) => h.baslangic <= donem && (h.bitis === null || h.bitis >= donem),
         );
 
-        const asilPaylari =
-          asillar.length > 1 && donemHisseleri.length === asillar.length
-            ? malikBorcunuBol(
-                pay.tutar, donemHisseleri, gider.malikPaylasimi ?? 'HISSE_ORANI',
-              )
-            : null;
+        const zincirMalikleri = zincir.filter((s) => s.rol === 'MALIK');
+
+        /*
+         * ⚠️  KÜME EŞİTLİĞİ — UZUNLUK DEĞİL (ADR-0018 · §2.5).
+         *
+         *     Eskiden `donemHisseleri.length === asillar.length` bakılıyordu.
+         *     Uzunluk eşitliği KİMLİK eşitliği değildir: iki malik ve iki
+         *     hisse kaydı olup biri BAŞKA BİR KİŞİYE aitse (yarım kalmış
+         *     devir, silinmemiş eski hisse) koşul geçer ve borç YANLIŞ
+         *     KİŞİLERİN hisseleriyle bölünürdü. Sessiz düşüş değil, sessiz
+         *     YANLIŞ HESAP — sonuç makul görünür, kimse şüphelenmez.
+         */
+        const malikKimlikleri = new Set(zincirMalikleri.map((s) => s.kisiId));
+        const hisseKimlikleri = new Set(donemHisseleri.map((h) => h.kisiId));
+        const eksik = [...malikKimlikleri].filter((k) => !hisseKimlikleri.has(k));
+        const fazla = [...hisseKimlikleri].filter((k) => !malikKimlikleri.has(k));
+
+        if (eksik.length > 0 || fazla.length > 0) {
+          const ad = (k: string): string => kisiAdi.get(k) ?? k;
+          throw new IsKuraliIhlali(
+            `${pay.kapiNo} nolu bölümde malik kayıtları ile tapu hisseleri `
+              + 'örtüşmüyor; borç kime ne kadar yazılacağı belirsiz.',
+            [
+              eksik.length > 0
+                ? `Hisse kaydı OLMAYAN malik: ${eksik.map(ad).join(', ')}.`
+                : '',
+              fazla.length > 0
+                ? `Malik kaydı OLMAYAN hisse: ${fazla.map(ad).join(', ')}.`
+                : '',
+              'Tapu ve malik kayıtlarını eşitleyip tahakkuku tekrar çalıştırın.',
+            ].filter((x) => x !== '').join(' '),
+          );
+        }
+
+        // Kimlik → pay. Tek malikte de çalışır: `malikBorcunuBol` tutarın
+        // tamamını o malike verir, sonuç eski davranışla birebir aynıdır.
+        const malikPaylari = new Map<string, { tutar: Money; agirlik: bigint }>();
+        if (donemHisseleri.length > 0) {
+          const bolusum = malikBorcunuBol(
+            pay.tutar, donemHisseleri, gider.malikPaylasimi ?? 'HISSE_ORANI',
+          );
+          for (const b of bolusum) {
+            malikPaylari.set(b.kisiId, { tutar: b.tutar, agirlik: b.agirlik });
+          }
+        }
 
         const sorumlular = zincir.map((s, i) => {
-          const asilIndeksi = asillar.findIndex((a) => a.kisiId === s.kisiId);
-          const kendiPayi =
-            s.sira === 'ASIL' && asilPaylari !== null && asilIndeksi >= 0
-              ? asilPaylari[asilIndeksi]?.tutar ?? pay.tutar
-              : pay.tutar;
+          // Malik satırı payını alır — SIRASI FARK ETMEZ (K5). Kiracı/sakin
+          // hisse taşımaz; borcun tamamından sorumludur.
+          const malikPayi = s.rol === 'MALIK' ? malikPaylari.get(s.kisiId) : undefined;
           return {
             kisiId: s.kisiId,
             kisiAdi: kisiAdi.get(s.kisiId) ?? '—',
             rol: s.rol,
             sira: s.sira,
-            pay: apiBicimi(kendiPayi),
-            agirlik:
-              s.sira === 'ASIL' && asilPaylari !== null && asilIndeksi >= 0
-                ? (asilPaylari[asilIndeksi]?.agirlik ?? 1n)
-                : 1n,
+            pay: apiBicimi(malikPayi?.tutar ?? pay.tutar),
+            agirlik: malikPayi?.agirlik ?? 1n,
             sirano: i,
           };
         });
