@@ -1,5 +1,6 @@
 # ADR-0014 · Mükerrer tahakkuk koruması veritabanı kısıtıdır
 
+**Kapsam:** [ORTAK] — Tahakkuk her iki tarafta da calisir.
 **Tarih:** 1 Ağustos 2026
 **Statü:** kabul edildi
 **Öneren:** uygulama (ölçülmüş mali veri bozulması)

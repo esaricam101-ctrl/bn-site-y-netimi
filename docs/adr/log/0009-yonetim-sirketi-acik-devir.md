@@ -1,5 +1,6 @@
 # ADR-0009 · Yönetim Şirketi = tenant + **açık devir** ilişkisi
 
+**Kapsam:** [ORTAK] — Yonetim firmasi her iki tip projeyi devralabilir.
 **Tarih:** 30 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** ürün sahibi

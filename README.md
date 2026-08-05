@@ -1,5 +1,16 @@
 # BNOS Apartman Yönetimi Modülü
 
+> ⚠️ **Bu depo hem SITE hem APARTMAN modülünü içerir. Depo adı tarihseldir.**
+>
+> İki taraf aynı kod tabanını paylaşır ama davranışları ayrışır: site tarafı
+> `CIFT_TARAFLI` muhasebe (hesap planı · yevmiye · mizan), apartman tarafı
+> `BASIT` muhasebe (yalnızca kasa ve banka) kullanır. Bir tarafta olmayan
+> şeyin yokluğu **eksiklik değildir**.
+>
+> Kapsam ayrımı için [docs/APARTMAN-SITE-AYRIMI.md](docs/APARTMAN-SITE-AYRIMI.md)
+> ve belgelerdeki `[SITE]` · `[APARTMAN]` · `[ORTAK]` etiketlerine bakın
+> ([etiket kuralı](docs/adr/log/README.md)).
+
 Çok kiracılı, 634 sayılı Kat Mülkiyeti Kanunu'na uyumlu, AI destekli apartman yönetim platformu. BNOS ekosisteminin Apartman dikeyidir.
 
 **Durum:** Faz 0 + Blok-1 tamamlandı · doğrulama zinciri yeşil

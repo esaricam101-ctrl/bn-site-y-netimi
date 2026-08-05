@@ -1,5 +1,6 @@
 # ADR-0017 · Tahakkukun muhasebeleştirilmesi
 
+**Kapsam:** [SITE] — Tahakkukun deftere gecirilmesi CIFT_TARAFLI derinlik gerektirir.
 **Tarih:** 2 Ağustos 2026
 **Statü:** 🟢 **KARARA BAĞLANDI** (2 Ağustos 2026)
 **Öneren:** —

@@ -1,5 +1,6 @@
 # ADR-0005 · Finansal özetler önbelleklenmez
 
+**Kapsam:** [ORTAK] — Onbellek anahtari her projede aynidir.
 **Tarih:** 26 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** ürün sahibi

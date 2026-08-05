@@ -1,5 +1,6 @@
 # ADR-0002 · Tenant modeli — tenant = apartman
 
+**Kapsam:** [ORTAK] — Tenant izolasyonu ve RLS her projede aynidir.
 **Tarih:** 26 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** ürün sahibi

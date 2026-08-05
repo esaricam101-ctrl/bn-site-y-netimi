@@ -2,6 +2,33 @@
 
 ADR v1.1, §41 uyarınca **son ADR sürümüdür.** Bundan sonraki kararlar bu klasöre append-only kayıt olarak yazılır.
 
+## ★ Kapsam etiketi — ZORUNLU
+
+Bu depo **hem SITE hem APARTMAN** modülünü içerir; depo adı tarihseldir.
+Her ADR ilk metadata satırında kapsamını taşır:
+
+| Etiket | Anlamı |
+|---|---|
+| `[SITE]` | Yalnızca `CIFT_TARAFLI` muhasebe kullanan projeleri ilgilendirir |
+| `[APARTMAN]` | Yalnızca `BASIT` muhasebe kullanan projeleri ilgilendirir |
+| `[ORTAK]` | İkisini birden |
+
+⚠️ **Etiketin yanına GEREKÇE yazılır.** Gerekçesiz etiket denetlenemez ve
+kopyala-yapıştır ile çoğalır — `Public(gerekce)` deseninin aynısı.
+
+⚠️ **Belirsizse `[ORTAK]` yazılmaz, SORULUR.** Doğrulanmamış bir varsayımı
+kayda geçirmek bu depoda defalarca çarptığımız hata sınıfıdır.
+
+⚠️ **Bir ADR'nin bölümleri farklı kapsamda olabilir.** ADR-0016 böyledir:
+§C cari virman `[ORTAK]`, §A/§B yevmiye fişi ürettiği için `[SITE]`. O
+durumda dosya etiketi baskın kapsamı gösterir ve **ayrım gerekçede yazılır.**
+
+★ Etiketler apartman ve site modülleri tamamlanana kadar durur; ikisi
+bittiğinde gereksiz hâle gelirse kaldırılır.
+
+Kapsam ayrımının kendisi:
+[docs/APARTMAN-SITE-AYRIMI.md](../../APARTMAN-SITE-AYRIMI.md)
+
 ## Kayıt biçimi
 
 Dosya adı: `NNNN-kisa-baslik.md` (örn. `0001-veri-aktarim-merkezi-rollback-politikasi.md`)
@@ -9,6 +36,7 @@ Dosya adı: `NNNN-kisa-baslik.md` (örn. `0001-veri-aktarim-merkezi-rollback-pol
 ```markdown
 # ADR-NNNN · Başlık
 
+**Kapsam:** [SITE] | [APARTMAN] | [ORTAK] — gerekçe
 **Tarih:** 
 **Statü:** önerildi | kabul edildi | reddedildi | değiştirildi (→ ADR-XXXX)
 **Öneren:** 

@@ -1,5 +1,6 @@
 # ADR-0013 · Toplu işlemlerin partilenmesi
 
+**Kapsam:** [ORTAK] — Partileme olcek sorunudur, proje tipine bagli degil.
 **Tarih:** 31 Temmuz 2026 (1 Ağustos'ta güncellendi)
 **Statü:** 🟡 TASLAK — **desen KABUL EDİLDİ, ayrıntılar açık**
 **Öneren:** —

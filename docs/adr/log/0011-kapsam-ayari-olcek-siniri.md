@@ -1,5 +1,6 @@
 # ADR-0011 · Satır kapsamı oturum ayarıyla taşınır — ölçek sınırı ve tetikleyicileri
 
+**Kapsam:** [ORTAK] — Satir kapsami her projede uygulanir.
 **Tarih:** 31 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** mimari

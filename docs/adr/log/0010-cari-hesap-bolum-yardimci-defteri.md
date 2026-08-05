@@ -1,5 +1,6 @@
 # ADR-0010 · Cari hesap = **bağımsız bölüm yardımcı defteri**, kişi carisi değil
 
+**Kapsam:** [ORTAK] — Cari birimi = bagimsiz bolum karari her iki tarafta da gecerlidir; borc ve borc sorumlusu BASIT projede de bolume baglanir. ⚠️ Kontrol hesabi mutabakati yalnizca CIFT_TARAFLI projede anlamlidir — o SONUC [SITE].
 **Tarih:** 30 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** uygulama (FAZ 2 önkoşulu)

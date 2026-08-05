@@ -1,5 +1,6 @@
 # ADR-0008 · Tenant = yönetilen yerleşke (apartman **veya** site)
 
+**Kapsam:** [ORTAK] — Veri sahipligi ekseni her proje tipinde ayni.
 **Tarih:** 28 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** ürün sahibi

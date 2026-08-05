@@ -1,5 +1,6 @@
 # ADR-0016 · Virman — üç ayrı tür
 
+**Kapsam:** [ORTAK] — §C CARI VIRMAN BASIT projede de calisir: borc sorumlusu payini degistirir ve tasinma virmani FIS URETMEZ. ⚠️ §A (kasa/banka virmani) ve §B (hesap virmani) yevmiye fisi uretir — o iki bolum [SITE].
 **Tarih:** 2 Ağustos 2026
 **Statü:** 🟡 TASLAK — **KARAR YOK**
 **Öneren:** —

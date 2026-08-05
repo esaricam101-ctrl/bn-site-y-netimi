@@ -1,5 +1,6 @@
 # ADR-0015 · Yıl sonu kapanışı
 
+**Kapsam:** [SITE] — Kapanis fisi ve ozkaynak BASIT derinlikte yoktur.
 **Tarih:** 1 Ağustos 2026
 **Statü:** 🟡 TASLAK — **KARAR YOK**
 **Öneren:** —

@@ -1,5 +1,6 @@
 # ADR-0006 · Üç kapı — korumalı endpoint zinciri
 
+**Kapsam:** [ORTAK] — Kimlik/kiraci/izin zinciri her istekte calisir.
 **Tarih:** 26 Temmuz 2026
 **Statü:** kabul edildi — **yeniden tanımlama**
 **Öneren:** baş mimar

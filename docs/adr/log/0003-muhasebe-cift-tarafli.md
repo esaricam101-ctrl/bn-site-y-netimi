@@ -1,5 +1,6 @@
 # ADR-0003 · Muhasebe mimarisi — çift taraflı defter
 
+**Kapsam:** [SITE] — Cift tarafli kayit BASIT derinlikte YOKTUR.
 **Tarih:** 26 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** ürün sahibi

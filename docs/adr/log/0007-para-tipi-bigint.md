@@ -1,5 +1,6 @@
 # ADR-0007 · Para tipi — ölçeklenmiş bigint, harici ondalık kütüphanesi yok
 
+**Kapsam:** [ORTAK] — Para tipi butun tutarlar icin gecerlidir.
 **Tarih:** 26 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** baş mimar

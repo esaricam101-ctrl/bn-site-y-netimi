@@ -67,9 +67,19 @@ export function manifestDogrula(m: ModuleManifest): readonly string[] {
 
 /** Bu modulun manifestosu. */
 export const APARTMAN_MANIFEST: ModuleManifest = {
+  /*
+   * ⚠️  `kod` ve `dikey` DEĞİŞTİRİLMEDİ — bunlar modül SÖZLEŞMESİDİR.
+   *     Çekirdek, kayıtlı modülleri `kod` ile tanır; değiştirmek kurulu
+   *     sistemlerde modülü "kayıp" gösterirdi. Depo adı gibi bunlar da
+   *     tarihseldir ve öyle kalır.
+   *
+   *     Değişen yalnızca `gorunenAd`: bu modül **hem site hem apartman**
+   *     yönetiyor ve `sagladigiYetenekler` içinde zaten
+   *     `muhasebe.cift-tarafli` var — yani ad, yeteneklerle çelişiyordu.
+   */
   kod: 'apartman-yonetimi',
   surum: '0.1.0',
-  gorunenAd: 'Apartman Yönetimi',
+  gorunenAd: 'Apartman ve Site Yönetimi',
   dikey: 'APARTMAN',
   bagimliliklar: [],
   gerektirdigiCekirdek: ['MEMORY', 'KNOWLEDGE_GRAPH', 'BUSINESS_RULES', 'NOTIFICATION', 'AUDIT', 'AUTHZ'],

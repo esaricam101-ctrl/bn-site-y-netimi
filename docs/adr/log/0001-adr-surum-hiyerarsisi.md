@@ -1,5 +1,6 @@
 # ADR-0001 · ADR sürüm hiyerarşisi
 
+**Kapsam:** [ORTAK] — ADR sureci — her iki modul icin de gecerli.
 **Tarih:** 26 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** ürün sahibi

@@ -1,5 +1,6 @@
 # ADR-0004 · AI yürütme sırası
 
+**Kapsam:** [ORTAK] — AI hatti proje tipinden bagimsizdir.
 **Tarih:** 26 Temmuz 2026
 **Statü:** kabul edildi
 **Öneren:** ürün sahibi
