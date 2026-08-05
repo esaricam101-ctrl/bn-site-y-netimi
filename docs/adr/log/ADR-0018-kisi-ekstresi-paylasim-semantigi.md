@@ -532,8 +532,53 @@ tohumdan bağımsız olur (`tahsis-sirasi.ts` deseninin aynısı — R1 açısı
 ⏳ `Σ hisse = 1` kontrolü de **aynı saf fonksiyona** gelir; böylece
 **senaryo 9 da veritabanısız** yazılabilir hâle gelir.
 
-⚠️ Çıkarma işlemi **ayrı commit** olacak ve **davranışın değişmediği**
-commit mesajında yazılı olacak; test ondan sonra biner.
+### ★ ÇIKARMANIN ÜÇ ŞARTI
+
+**1 · *"Davranış değişmedi"* BİR İDDİADIR, KANIT DEĞİL.**
+
+`df7def1` testsizdir. Testsiz kod taşınıp testi **yeni yerinde** yazılırsa,
+taşıma sırasında oluşan ince bir fark **testle sabitlenmiş** olur ve kimse
+fark etmez — süitin 189'u yeşil kalır, çünkü bu yolu **hiçbiri sınamıyor**.
+
+Çıkarma **mekanik olarak** kanıtlanır:
+
+1. Çıkarmadan **önce** ölçüm alınır: dört fikstür için üretilen `pay`
+   değerleri dosyaya yazılır — **kiracılı 1/2 · kiracılı 1/3 ·
+   malike ait 1/2 · tek malik**
+2. Çıkarma yapılır
+3. **Aynı ölçüm tekrar alınır, bayt bayt karşılaştırılır**
+
+★ Çıktı **commit mesajına konur**. Commit mesajındaki *"davranış
+değişmedi"* notunun arkasını dolduran tek şey budur.
+
+**2 · SINIR: veri mi, sorgu mu.**
+
+Saf fonksiyon `tx` **görmez**.
+
+| Serviste kalır | Fonksiyona gider |
+|---|---|
+| `tx.malik.findMany` · dönem süzgeci · kayıtların toplanması | sorumluluk zinciri + hisse kayıtları + tutar → **`pay`'li zincir** |
+
+`asilPaylari` gating mantığı ve `kendiPayi` üçlüsü **fonksiyona geçer** —
+`df7def1`'in dokunduğu yer orasıdır, kanıtın hedefi de o. `dagit` ve
+`malikBorcunuBol` zaten saftır; ikisi **aynı modülde** toplanır ve servis
+**tek çağrı** yapar.
+
+⚠️ **TUZAK:** fonksiyon `tarihtekiIliskiler` yüklemini **TEKRARLAMAZ**.
+Süzme **serviste** yapılır, fonksiyon **süzülmüş veri** alır. Aksi hâlde
+§2.5'te çürütülen *"iki nüfus"* kusurunun **ikinci bir kopyası** doğar.
+
+**3 · `Σ hisse` KONTROLÜ BU COMMIT'E GİRMEZ.**
+
+Çıkarma commit'i **yalnızca taşımadır**. Kontrol ayrı commit, kendi
+testiyle. İkisi birleşirse *"davranış değişmedi"* iddiası **yalan olur** —
+kontrol davranışı değiştiriyor.
+
+**Sıra:** çıkarma (davranış aynı) → **7a** (`df7def1` kapanır) → tarama →
+`Σ hisse` kontrolü + senaryo 9.
+
+★ Böyle gidilirse her commit **kendi kanıtıyla** kapanır ve `df7def1`
+**iki tur sonra değil, bir tur sonra** kapanmış olur.
 
 ---
 
