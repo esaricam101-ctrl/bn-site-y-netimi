@@ -477,7 +477,8 @@ Değişmezin kendisi K3'tedir. Koşulacak senaryolar:
 | 4 | Kiracı borcu olan bölüm | ASIL/IKINCIL ayrımı |
 | 5 | Payları tutmayan bozuk veri | **Hata bekleniyor** (K5) |
 | 6 | **Hisseli + kiracılı** | ASIL = kiracı, IKINCIL = iki malik — **K5'in yeni hâli** |
-| 7 | **İkincil sorumlunun kişi ekstresi** | ASIL/IKINCIL bölümleri görünüyor, yürüyen bakiye **yalnızca ASIL** (K3) |
+| **7a** | **Resolver:** ikincil malik satırı doğru `pay` ve `sira` ile **yazılıyor** | `df7def1`'in kanıtı — pay dağıtımı katmandan bağımsız |
+| **7b** | **Ekstre:** ASIL/IKINCIL bölümleri görünüyor, yürüyen bakiye **yalnızca ASIL** | K3'ün ekran/sorgu tarafı |
 | 8 | **Devir sonrası** | `cozumlemeTarihi` geçmiş sorumluluğu koruyor; yeni malik eski borcun ASIL'i **olmuyor** |
 | 9 | **Hisse kaydı sayıca doğru, KİMLİKÇE yanlış** | **Hata bekleniyor** — küme eşitliği kontrolü (§2.5). Uzunluk kontrolü bunu kaçırır ve yanlış kişilerin hisseleriyle böler |
 
@@ -485,6 +486,54 @@ Değişmezin kendisi K3'tedir. Koşulacak senaryolar:
 verir. **Kiracılı test de yetmez** (§2.3): ayrım yalnızca **birden çok
 ASIL sorumlu** varken görünür. Hatanın bugüne kadar kaçmasının sebebi
 büyük ihtimalle budur.
+
+### ★ 7 NEDEN İKİYE BÖLÜNDÜ
+
+Senaryo 7 iki ayrı katmanı sınıyor ve **ikisi ayrı zamanlarda yazılıyor**:
+resolver düzeltmesi (`df7def1`) bugün, ekstre sorgusu sonra.
+
+⛔ **Tek ad altında yazılıp yarısı kapsanırsa**, ileride **yeşil bir
+CT-27/7** K3'ün kanıtlandığını gösterir — oysa ekran tarafı hiç
+sınanmamış olur. Altı ay sonra bunu kimse ayırt edemez.
+
+> **K3 YALNIZCA 7a VE 7b BİRLİKTE YEŞİLKEN KAPANIR.**
+
+★ **7a'nın ayırt edici iddiası:** aynı fikstür `KULLANANA_AIT` **ve**
+`MALIKE_AIT` ile ayrı ayrı koşar. Kusur tam olarak bu ikisinin ayrıştığı
+yerde doğdu (§2.5 — nüfus uyuşmazlığı); yan yana sınamak teşhisi **teste**
+yazar, sonraki okuyucu onu ADR'den değil testten okur.
+
+| Gider türü | ASIL | IKINCIL |
+|---|---|---|
+| `KULLANANA_AIT` | kiracı, `pay = 1.500` | iki malik, **750'şer** |
+| `MALIKE_AIT` | iki malik, 750'şer | — |
+
+Eski kod ikinci sütunda **1.500'er** yazıyordu; test bu sayıyı
+hedeflemezse değişikliği kanıtlamaz. İddia hisse oranına göre
+**parametriktir** (1/2 ve 1/3); 1/3 aynı zamanda yuvarlama artığının en
+büyük paya gittiğini sınar (K4).
+
+### ⚠️ TESTİN NEREDE YAZILABİLECEĞİ ÖLÇÜLDÜ
+
+`borcSorumlulariniCoz` **`pay` ÜRETMEZ** — imzası
+`{ kisiId, sira, rol, cozumlemeTarihi }` döndürür. Pay hesabı
+`tahakkuk.command.service.ts` içindedir ve `df7def1` **yalnızca o dosyaya**
+dokunmuştur (ölçüldü: 1 dosya, 74/21 satır).
+
+⛔ Fikstür yalnızca `borcSorumlulariniCoz`'u çağırırsa **750 iddiası
+kurulamaz**: test yazılır, yeşil olur, `df7def1`'i **kanıtlamaz**.
+
+★ **Karar:** pay dağıtımı `apartman-domain` içinde **saf fonksiyona**
+çıkarılır — girdisi sorumluluk zinciri + hisse kayıtları + tutar, çıktısı
+`pay`'li zincir. Servis onu çağırır. Test **veritabanısız**, hızlı ve
+tohumdan bağımsız olur (`tahsis-sirasi.ts` deseninin aynısı — R1 açısından
+**genişletme**, yeniden yazma değil).
+
+⏳ `Σ hisse = 1` kontrolü de **aynı saf fonksiyona** gelir; böylece
+**senaryo 9 da veritabanısız** yazılabilir hâle gelir.
+
+⚠️ Çıkarma işlemi **ayrı commit** olacak ve **davranışın değişmediği**
+commit mesajında yazılı olacak; test ondan sonra biner.
 
 ---
 
