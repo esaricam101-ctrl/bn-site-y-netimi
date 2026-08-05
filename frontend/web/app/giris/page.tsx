@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { api, ApiHatasi } from '@/lib/api';
+import { donusYoluGuvenliMi } from '@/lib/oturum-yolu';
 
 interface GirisYaniti {
   readonly accessToken: string;
@@ -51,7 +52,19 @@ export default function GirisSayfasi() {
       sessionStorage.setItem('bnos.tenantAdi', yanit.kullanici.tenantAdi);
       // Kabuk başlığı hangi projede olunduğunu yazar; tip rozeti oradan okunur.
       sessionStorage.setItem('bnos.tenantTipi', yanit.kullanici.tenantTipi);
-      router.push(yanit.varsayilanPanel);
+
+      /*
+       * DÖNÜŞ YOLU — oturumu düşüp buraya atılan kullanıcı, baktığı ekrana
+       * geri döner (`api.ts` · `oturumDustu`). Yoksa varsayılan panele gider.
+       *
+       * ⚠️  YALNIZCA UYGULAMA İÇİ YOL KABUL EDİLİR. Adres çubuğundan
+       *     gelen `?donus=https://baska-site` değeri doğrudan kullanılsaydı,
+       *     giriş formumuz açık yönlendirme (open redirect) aracına dönerdi:
+       *     saldırgan kullanıcıyı kendi kopya giriş sayfasına atabilirdi.
+       *     `//` ile başlayan protokol-göreli adresler de reddedilir.
+       */
+      const ham = new URLSearchParams(window.location.search).get('donus');
+      router.push(donusYoluGuvenliMi(ham) ? ham : yanit.varsayilanPanel);
     } catch (h) {
       // Hicbir hata mesaji yalnizca "Bir hata olustu" degildir (BFS v1 §12).
       if (h instanceof ApiHatasi) {

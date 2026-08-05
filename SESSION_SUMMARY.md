@@ -1,1439 +1,1468 @@
-# Oturum Ã–zeti â€” 29-30 Temmuz 2026 (Docker Â· on bir modÃ¼l Â· muhasebe Â· banka)
+# Oturum Özeti — 29-30 Temmuz 2026 (Docker · on bir modül · muhasebe · banka)
 
-Bu dosya **sonraki oturuma devir notudur**. AyrÄ±ntÄ±lÄ± geÃ§miÅŸ
-[`DEVLOG.md`](DEVLOG.md) iÃ§indedir; burada yalnÄ±zca *nerede kaldÄ±k* ve
+Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
+[`DEVLOG.md`](DEVLOG.md) içindedir; burada yalnızca *nerede kaldık* ve
 *nereden devam edilecek* yazar.
 
 ---
 
-## â–¶â–¶â–¶ Ã–NCE BU â€” KAPSAM ETÄ°KETLEME (4 AÄŸustos akÅŸamÄ± verildi, BAÅLANMADI)
+## ★★★ İŞ SIRASI — 5 Ağustos 2026, ürün sahibi
 
-> **AKTÄ°F Ã‡ALIÅMA KAPSAMI: APARTMAN**
-> *(Bu satÄ±r her oturum baÅŸÄ±nda okunacak. Kapsam deÄŸiÅŸirse Ã¼rÃ¼n sahibi
-> aÃ§Ä±kÃ§a sÃ¶yleyecek. Kapsam dÄ±ÅŸÄ± iÅŸ gelirse **UYAR**: "Bu [SITE] iÅŸi, aktif
-> kapsam APARTMAN. Devam edilsin mi?" â€” sessizce yapma.)*
+> **AKTİF ÇALIŞMA KAPSAMI: APARTMAN**
+>
+> *Bu satır her oturum başında okunur. Kapsam değişirse ürün sahibi açıkça
+> söyler. Kapsam dışı bir iş gelirse **UYAR**: "Bu [SITE] işi, aktif kapsam
+> APARTMAN. Devam edilsin mi?" — sessizce yapma.*
 
-**KÃ¶k sebep:** depo adÄ± `bnos-apartman-modul` ama iÃ§inde **hem site
-(CIFT_TARAFLI) hem apartman (BASIT)** tarafÄ± var. Her iÅŸ "apartman modÃ¼lÃ¼"
-baÅŸlÄ±ÄŸÄ± altÄ±nda yÃ¼rÃ¼yor ve bu hata Ã¼retiyor.
+1. **401 → giriş yönlendirmesi** — ✅ 5 Ağustos'ta yapıldı
+2. **Kapsam etiketleme** (aşağıdaki bölüm) + `uygulamaAdi` / manifest
+   `gorunenAd` — aynı kök, birlikte
+3. **Tahsilat ekranı** `[APARTMAN]`
+4. **Genel Bakış** — tahsilattan **hemen sonra**
+5. **Menü yeniden yapılandırması** — Güvenlik sekmesi + simge seti +
+   `Site Personeli`'nin yeri, **tek turda toplu**
 
-**Madde 1 â€” sabit baÅŸlÄ±k: âœ… YAPILDI** (commit `35c2a1f` Ã¶ncesi tur).
-Kabuk baÅŸlÄ±ÄŸÄ± artÄ±k tenant'tan okunuyor: proje adÄ± + tip rozeti.
-GiriÅŸ yanÄ±tÄ±na `tenantTipi` eklendi.
+★ **Güvenlik sekmesi tahsilattan SONRAYA alındı.** Gerekçe: menü yeniden
+yapılandırmasının parçası ve **çekirdek döngüyü ilerletmiyor.** Tahsilat
+ekranı ise *borçlandırma → tahsilat* döngüsünü kapatıyor — apartman
+modülünde **ilk kez uçtan uca çalışan bir şey** olacak.
 
-â˜… **Kalan sabit metinler â€” taranmÄ±ÅŸ liste, karar bekliyor:**
+★ **Genel Bakış tahsilattan önce düzeltilemez:** kasa paneli ve
+"Borçlandırılan / Tahsil Edilen" kartları tahsilat verisi olmadan boş kalır.
 
-| Yer | Metin | DeÄŸerlendirme |
+### Verilen kararlar — 5 Ağustos
+
+| Konu | Karar |
+|---|---|
+| **Görev tanımları** | **Tanım tablosuna geçilecek.** Enum'a değer eklemek migration gerektiriyorsa "Ekle" düğmesi zaten yapılamaz. **R6 disiplininin aynısı: kullanıcının tanımlayacağı şey koda gömülmez.** Aynı kök, "personel elle yazma" maddesini de çözer. |
+| **`Site Personeli`** | Şimdilik ana menüde **kalır**; menü turunda karara bağlanır. Apartman ölçeğinde muhtemelen Tanımlar altına iner. |
+| **`APARTMAN_YONETICISI` yevmiye fişi** | **Kesemez — kapandı, kod değişikliği yok.** BASIT derinlikte yevmiye zaten yok, menü gizli. Soru yalnızca SITE tarafında anlamlı, orada da cevap hayır: **yevmiye fişi muhasebeci işi, yönetici işi değil.** `FINANS_YEVMIYE_GIRIS` ayrı izin olarak kalır. |
+| **`uygulamaAdi` · manifest `gorunenAd`** | Kapsam etiketleme maddesiyle **birlikte** yapılacak. |
+| **`[SITE]` işleri** | **ERTELENDİ.** Aidat `349`/`600` → yansıtma eşlemesi → ADR-0015 üçlüsü **tek oturumda**, ama **site tarafına dönüldüğünde**. Kasa/banka virmanı (ADR-0016 §A) ve TDHP iskeleti de aynı kümede. |
+
+---
+
+## ▶▶▶ KAPSAM ETİKETLEME (4 Ağustos akşamı verildi, BAŞLANMADI)
+
+**Kök sebep:** depo adı `bnos-apartman-modul` ama içinde **hem site
+(CIFT_TARAFLI) hem apartman (BASIT)** tarafı var. Her iş "apartman modülü"
+başlığı altında yürüyor ve bu hata üretiyor.
+
+**Madde 1 — sabit başlık: ✅ YAPILDI** (commit `4361fd1`). Kabuk başlığı
+tenant'tan okunuyor: proje adı + tip rozeti. Giriş yanıtına `tenantTipi`
+eklendi.
+
+★ **Kalan sabit metinler — taranmış liste:**
+
+| Yer | Metin | Değerlendirme |
 |---|---|---|
-| `frontend/web/messages/tr.json:3` | `uygulamaAdi: "BNOS Apartman YÃ¶netimi"` | âš ï¸ **ÃœrÃ¼n adÄ± mÄ±, modÃ¼l adÄ± mÄ±?** Kabukta artÄ±k ikincil satÄ±rda. DeÄŸiÅŸecekse Ã¼rÃ¼n sahibi karar vermeli. |
-| `backend/src/main.ts:55` | Swagger `setTitle('BNOS Apartman YÃ¶netimi API')` | GeliÅŸtirici gÃ¶rÃ¼r, kullanÄ±cÄ± gÃ¶rmez. DÃ¼ÅŸÃ¼k Ã¶ncelik. |
-| `shared/module-sdk/src/manifest.ts:72` | `gorunenAd: 'Apartman YÃ¶netimi'` | âš ï¸ **ModÃ¼l manifesti** â€” `/saglik` yanÄ±tÄ±nda dÃ¶nÃ¼yor. ModÃ¼l kimliÄŸi burada; deÄŸiÅŸtirmek modÃ¼l sÃ¶zleÅŸmesini etkiler. |
-| `backend/package.json:5` Â· `database/package.json:5` | paket aÃ§Ä±klamalarÄ± | Kozmetik. |
+| `frontend/web/messages/tr.json:3` | `uygulamaAdi: "BNOS Apartman Yönetimi"` | Kabukta artık ikincil satırda. Madde 2 ile birlikte |
+| `shared/module-sdk/src/manifest.ts:72` | `gorunenAd: 'Apartman Yönetimi'` | ⚠️ **Modül kimliği** — `/saglik` yanıtında dönüyor, modül sözleşmesini etkiler |
+| `backend/src/main.ts:55` | Swagger başlığı | Geliştirici görür, kullanıcı görmez |
+| `backend/package.json:5` · `database/package.json:5` | paket açıklamaları | Kozmetik |
 
-**Madde 2 â€” belge etiketleme: YAPILMADI.** Her ADR, her SESSION_SUMMARY
-maddesi, her yol haritasÄ± satÄ±rÄ± `[SITE]` Â· `[APARTMAN]` Â· `[ORTAK]`
-etiketlerinden birini taÅŸÄ±yacak. Mevcutlar **geriye dÃ¶nÃ¼k** etiketlenecek.
-â˜… **Belirsiz olanÄ± `[ORTAK]` sayma â€” bilmiyorsan SOR.**
+**Madde 2 — belge etiketleme: YAPILMADI.** Her ADR, her SESSION_SUMMARY
+maddesi, her yol haritası satırı `[SITE]` · `[APARTMAN]` · `[ORTAK]`
+etiketlerinden birini taşıyacak; mevcutlar **geriye dönük** etiketlenecek.
+★ **Belirsiz olanı `[ORTAK]` sayma — bilmiyorsan SOR.**
 
-Ã–rnek: `[ORTAK]` ADR-0014 Â· `[SITE]` ADR-0017 Â· `[APARTMAN]` gelir-gider
-dÃ¶kÃ¼mÃ¼ ekranÄ±.
+Örnek: `[ORTAK]` ADR-0014 · `[SITE]` ADR-0017 · `[APARTMAN]` gelir-gider
+dökümü ekranı.
 
-**Madde 3 â€” README notu: YAPILMADI.** *"Bu depo hem SITE hem APARTMAN
-modÃ¼lÃ¼nÃ¼ iÃ§erir. Depo adÄ± tarihseldir. Kapsam ayrÄ±mÄ± iÃ§in
+**Madde 3 — README notu: YAPILMADI.** *"Bu depo hem SITE hem APARTMAN
+modülünü içerir. Depo adı tarihseldir. Kapsam ayrımı için
 [APARTMAN-SITE-AYRIMI.md](docs/APARTMAN-SITE-AYRIMI.md) ve belge
-etiketlerine bakÄ±n."*
+etiketlerine bakın."*
 
-**Madde 4 â€” depo adÄ± DEÄÄ°ÅTÄ°RÄ°LMEYECEK:** baÄŸlantÄ±larÄ± ve CI'Ä± kÄ±rar,
+**Madde 4 — depo adı DEĞİŞTİRİLMEYECEK:** bağlantıları ve CI'ı kırar,
 etiketleme yeterli.
 
-**Sonra:** tahsilat ekranÄ± `[APARTMAN]`.
+---
+
+## ▶▶ GÜVENLİK SEKMESİ — sıra 5'e alındı (4 Ağustos'ta kararlaştırıldı)
+
+Ürün sahibi kararı: **misafir ve daire görevlisi bağımsız modül değildir**,
+`Güvenlik → Giriş-Çıkış Kayıtları` sekmeleridir ([MENU-HARITASI §7](docs/MENU-HARITASI.md)).
+
+⚠️ **SIRA TERSİNE ÇEVRİLEMEZ.** Önce `/guvenlik` rotası, **sonra** menüden
+kaldırma. Ters yapılırsa çalışan iki ekran erişilemez kalır — `/belgeler`
+dersinin tersi (orada *olmayan* ekranın menü öğesi vardı).
+
+**Adımlar:**
+
+1. `app/misafirler/page.tsx` (442 satır) ikiye bölünür:
+   `icerik.tsx` → `MisafirlerIcerigi()` (kabuk YOK) + ince `page.tsx`
+   (`UygulamaKabugu` + içerik). Rota **silinmez**: eski bağlantılar kırılmasın.
+2. Aynısı `app/daire-gorevlileri/page.tsx` (510 satır) için.
+3. `app/guvenlik/page.tsx` — `Sekmeler` bileşeniyle iki sekme
+   (muhasebe ekranının deseni birebir kullanılır).
+4. Menüden `Misafirler` ve `Daire Görevlileri` **kaldırılır**, tek
+   `Güvenlik` girer.
+
+★ `Site Personeli` ana menüde **KALIR** — kadro kaydıdır, güvenlik kaydı
+değil (MENU-HARITASI §2). Ürün sahibine soruldu, aksi söylenmedi.
+
+⚠️ **Ölçek:** ziyaretçi ekranı sitede en çok veri üreten ekrandır (rakipte
+275.889 kayıt) ve BNOS'ta bu yük profili **hiç ölçülmedi**. Sayfalama ve
+filtreleme baştan buna göre kurulmalı; sonradan eklenmez.
+
+**Bitiş ölçütü:** beş maddelik ekran ölçütü (aşağıda) + `/misafirler` ve
+`/daire-gorevlileri` rotaları hâlâ 200 dönüyor.
 
 ---
 
-## â–¶â–¶ SIRADAKÄ° Ä°Å â€” GÃœVENLÄ°K SEKMESÄ° (4 AÄŸustos'ta kararlaÅŸtÄ±rÄ±ldÄ±, BAÅLANMADI)
+## ★ BAĞLAYICI KURAL — bir ekran ne zaman "bitti" sayılır
 
-ÃœrÃ¼n sahibi kararÄ±: **misafir ve daire gÃ¶revlisi baÄŸÄ±msÄ±z modÃ¼l deÄŸildir**,
-`GÃ¼venlik â†’ GiriÅŸ-Ã‡Ä±kÄ±ÅŸ KayÄ±tlarÄ±` sekmeleridir ([MENU-HARITASI Â§7](docs/MENU-HARITASI.md)).
+**Yürürlük: 4 Ağustos 2026.** Önceki ölçüt *"API'ye bağlı + test yeşil"*
+idi ve YETMİYOR. Bir ekran **GÖSTERİLEBİLİR** olmadan bitmiş sayılmaz.
 
-âš ï¸ **SIRA TERSÄ°NE Ã‡EVRÄ°LEMEZ.** Ã–nce `/guvenlik` rotasÄ±, **sonra** menÃ¼den
-kaldÄ±rma. Ters yapÄ±lÄ±rsa Ã§alÄ±ÅŸan iki ekran eriÅŸilemez kalÄ±r â€” `/belgeler`
-dersinin tersi (orada *olmayan* ekranÄ±n menÃ¼ Ã¶ÄŸesi vardÄ±).
+Beş maddenin **hepsi** zorunludur:
 
-**AdÄ±mlar:**
+1. **GÖRSEL** — ekran biçimli. Kart düzeni, renk, tipografi, boşluk
+   yerinde. Düz metin yığını değil.
+2. **VERİ** — tohumda gerçekçi veri var. Boş liste ile bitmiş ekran aynı
+   şey değildir. Her listede en az 5-10 anlamlı kayıt, Türkçe okunabilir
+   isimler, tutarlı tutarlar.
+3. **AKIŞ** — ekranın temel işi uçtan uca yapılabiliyor. Yalnızca okuma
+   değil; yazma varsa o da çalışıyor.
+4. **BOŞ DURUM** — veri yoksa ne yazdığı düşünülmüş. "Kayıt bulunamadı"
+   yetmez; **ne yapılması gerektiğini** söylesin.
+5. **HATA DURUMU** — bir şey eksikse AÇIK söylesin. Sessiz boş ekran yok.
 
-1. `app/misafirler/page.tsx` (442 satÄ±r) ikiye bÃ¶lÃ¼nÃ¼r:
-   `icerik.tsx` â†’ `MisafirlerIcerigi()` (kabuk YOK) + ince `page.tsx`
-   (`UygulamaKabugu` + iÃ§erik). Rota **silinmez**: eski baÄŸlantÄ±lar kÄ±rÄ±lmasÄ±n.
-2. AynÄ±sÄ± `app/daire-gorevlileri/page.tsx` (510 satÄ±r) iÃ§in.
-3. `app/guvenlik/page.tsx` â€” `Sekmeler` bileÅŸeniyle iki sekme
-   (muhasebe ekranÄ±nÄ±n deseni birebir kullanÄ±lÄ±r).
-4. MenÃ¼den `Misafirler` ve `Daire GÃ¶revlileri` **kaldÄ±rÄ±lÄ±r**, tek
-   `GÃ¼venlik` girer.
+**Her ekran bitiminde:** ekran görüntüsü alınıp raporlanır. Ürün sahibi
+görmeden "bitti" denmez. Beş madde tek tek işaretlenir; eksik varsa
+açıkça söylenir ve ekran bitmiş sayılmaz.
 
-â˜… `Site Personeli` ana menÃ¼de **KALIR** â€” kadro kaydÄ±dÄ±r, gÃ¼venlik kaydÄ±
-deÄŸil (MENU-HARITASI Â§2). ÃœrÃ¼n sahibine soruldu, aksi sÃ¶ylenmedi.
-
-âš ï¸ **Ã–lÃ§ek:** ziyaretÃ§i ekranÄ± sitede en Ã§ok veri Ã¼reten ekrandÄ±r (rakipte
-275.889 kayÄ±t) ve BNOS'ta bu yÃ¼k profili **hiÃ§ Ã¶lÃ§Ã¼lmedi**. Sayfalama ve
-filtreleme baÅŸtan buna gÃ¶re kurulmalÄ±; sonradan eklenmez.
-
-**BitiÅŸ Ã¶lÃ§Ã¼tÃ¼:** beÅŸ maddelik ekran Ã¶lÃ§Ã¼tÃ¼ (aÅŸaÄŸÄ±da) + `/misafirler` ve
-`/daire-gorevlileri` rotalarÄ± hÃ¢lÃ¢ 200 dÃ¶nÃ¼yor.
-
----
-
-## â˜… BAÄLAYICI KURAL â€” bir ekran ne zaman "bitti" sayÄ±lÄ±r
-
-**YÃ¼rÃ¼rlÃ¼k: 4 AÄŸustos 2026.** Ã–nceki Ã¶lÃ§Ã¼t *"API'ye baÄŸlÄ± + test yeÅŸil"*
-idi ve YETMÄ°YOR. Bir ekran **GÃ–STERÄ°LEBÄ°LÄ°R** olmadan bitmiÅŸ sayÄ±lmaz.
-
-BeÅŸ maddenin **hepsi** zorunludur:
-
-1. **GÃ–RSEL** â€” ekran biÃ§imli. Kart dÃ¼zeni, renk, tipografi, boÅŸluk
-   yerinde. DÃ¼z metin yÄ±ÄŸÄ±nÄ± deÄŸil.
-2. **VERÄ°** â€” tohumda gerÃ§ekÃ§i veri var. BoÅŸ liste ile bitmiÅŸ ekran aynÄ±
-   ÅŸey deÄŸildir. Her listede en az 5-10 anlamlÄ± kayÄ±t, TÃ¼rkÃ§e okunabilir
-   isimler, tutarlÄ± tutarlar.
-3. **AKIÅ** â€” ekranÄ±n temel iÅŸi uÃ§tan uca yapÄ±labiliyor. YalnÄ±zca okuma
-   deÄŸil; yazma varsa o da Ã§alÄ±ÅŸÄ±yor.
-4. **BOÅ DURUM** â€” veri yoksa ne yazdÄ±ÄŸÄ± dÃ¼ÅŸÃ¼nÃ¼lmÃ¼ÅŸ. "KayÄ±t bulunamadÄ±"
-   yetmez; **ne yapÄ±lmasÄ± gerektiÄŸini** sÃ¶ylesin.
-5. **HATA DURUMU** â€” bir ÅŸey eksikse AÃ‡IK sÃ¶ylesin. Sessiz boÅŸ ekran yok.
-
-**Her ekran bitiminde:** ekran gÃ¶rÃ¼ntÃ¼sÃ¼ alÄ±nÄ±p raporlanÄ±r. ÃœrÃ¼n sahibi
-gÃ¶rmeden "bitti" denmez. BeÅŸ madde tek tek iÅŸaretlenir; eksik varsa
-aÃ§Ä±kÃ§a sÃ¶ylenir ve ekran bitmiÅŸ sayÄ±lmaz.
-
-âš ï¸ **Ekran gÃ¶rÃ¼ntÃ¼sÃ¼ alÄ±namÄ±yorsa bu SÃ–YLENÄ°R** â€” o zaman Ã¼rÃ¼n sahibi aÃ§Ä±p
-bakar, ama beÅŸ madde yine de Ã¶nceden kontrol edilir. **BugÃ¼nkÃ¼ durum:
-alÄ±namÄ±yor.** Depoda Playwright/Puppeteer yok, tarayÄ±cÄ± otomasyonu
-bulunmuyor. Eklenmesi ayrÄ± bir karardÄ±r (baÄŸÄ±mlÄ±lÄ±k + tarayÄ±cÄ± indirmesi).
+⚠️ **Ekran görüntüsü alınamıyorsa bu SÖYLENİR** — o zaman ürün sahibi açıp
+bakar, ama beş madde yine de önceden kontrol edilir. **Bugünkü durum:
+alınamıyor.** Depoda Playwright/Puppeteer yok, tarayıcı otomasyonu
+bulunmuyor. Eklenmesi ayrı bir karardır (bağımlılık + tarayıcı indirmesi).
 
 ---
 
 ## 1. Bu oturumda ne oldu
 
-**Docker kuruldu ve veritabanÄ± ilk kez ayaÄŸa kalktÄ±.** Bu, aylardÄ±r
-gÃ¶rÃ¼lemeyen hatalarÄ± gÃ¶rÃ¼nÃ¼r yaptÄ±: Ã¼Ã§ kritik hata yalnÄ±zca ayakta bir
-veritabanÄ±yla ortaya Ã§Ä±kabilirdi. Hepsi derleniyordu, lint geÃ§iyordu ve
-tip denetiminden geÃ§iyordu.
+**Docker kuruldu ve veritabanı ilk kez ayağa kalktı.** Bu, aylardır
+görülemeyen hataları görünür yaptı: üç kritik hata yalnızca ayakta bir
+veritabanıyla ortaya çıkabilirdi. Hepsi derleniyordu, lint geçiyordu ve
+tip denetiminden geçiyordu.
 
-| Commit | Ä°ÅŸ |
+| Commit | İş |
 |---|---|
-| `48b0b7d` | VeritabanÄ± ayaÄŸa kalktÄ± â€” Ã¼Ã§ kritik hata dÃ¼zeltildi |
-| `3d05194` | SÃ¶zleÅŸme testleri 24/24 â€” iki yetki aÃ§Ä±ÄŸÄ± kapatÄ±ldÄ± |
-| `53e5010` | Gider TÃ¼rÃ¼ modÃ¼lÃ¼ + istek baÄŸlamÄ± middleware'e alÄ±ndÄ± |
-| `e4149c4` | Gider TÃ¼rÃ¼ arayÃ¼zÃ¼ |
-| `002fcf8` | Tahakkuk modÃ¼lÃ¼ |
-| `5322afe` | AraÃ§ modÃ¼lÃ¼ + migration 0004 |
-| `0b8609c` | SayaÃ§ modÃ¼lÃ¼ + migration 0005 + tahakkuk entegrasyonu |
-| `3985c4c` | Belge modÃ¼lÃ¼ + migration 0006 + nesne deposu (MinIO) |
-| `58ae032` | Belge profesyonel seviye (0007) + Daire GÃ¶revlileri (0008) |
-| `a9d4071` | Devir notu â€” kritik soft-delete bulgusu |
-| `b869940` | ModÃ¼l adÄ± dÃ¼zeltmesi: Konut Ã‡alÄ±ÅŸanlarÄ± â†’ Daire GÃ¶revlileri (0009) |
-| `394eb61` | Site Personeli / Daire GÃ¶revlisi ayrÄ±mÄ± (0010) + tek ekran hÄ±zlÄ± kayÄ±t (0011-0013) + Misafir modÃ¼lÃ¼ |
-| `e191968` | Devir notu â€” v23/v24 referans mimari gÃ¶revi |
-| `2f39c75` | PortfÃ¶y YÃ¶netim Merkezi (0014 Â· ADR-0009) + v23/v24 boÅŸluk analizi |
-| `b40ee54` | BeÅŸ "Yeni Ekle" formu sekmeli â€” KiÅŸi Bilgileri + modÃ¼le Ã¶zel sekmeler |
-| `<muhasebe>` | **Muhasebe Ã§ekirdeÄŸi** (0015) â€” hesap planÄ± Â· fiÅŸ Â· defterler Â· mizan Â· dÃ¶nem kapanÄ±ÅŸÄ± + **iki sessiz kusur dÃ¼zeltildi** |
-| `230042d` | **Banka YÃ¶netimi Ã§ekirdeÄŸi** (0016) â€” banka Â· ÅŸube Â· hesap Â· POS Â· hareket Â· virman Â· ekstre Â· mutabakat Â· Ã§ek/senet + **veritabanÄ± kÄ±sÄ±t ihlalleri artÄ±k 500 deÄŸil 4xx** |
-| `5b56381` | ADR-0010 â€” cari hesap = **bÃ¶lÃ¼m yardÄ±mcÄ± defteri** (karar referans belgeden Ã§Ã¶zÃ¼ldÃ¼) |
-| `85bbca5` | Tahsilat Ã§ekirdeÄŸi yarÄ±m (0017 + domain) â€” ÅŸema ve kurallar |
-| `ed68721` | **Makbuzlar** (tahsilat uÃ§larÄ± + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
-| `2094903` | **Ä°letiÅŸim Ã§ekirdeÄŸi** (0019/0020) â€” WhatsApp Â· SMS Â· e-posta TEK modÃ¼lde |
-| `ded0cc3` | **Sakin dayanak kuralÄ±** (0021) â€” sakin artÄ±k malike ya da kiracÄ±ya baÄŸlÄ± |
-| `cdbe92d` | **DayanaÄŸÄ± biten sakine otomatik Ã§Ä±kÄ±ÅŸ** â€” malik devri Â· kiracÄ± tahliyesi + **bozuk kimlik artÄ±k 500 deÄŸil 404** |
-| `90d085b` | **AltyapÄ± ve Ã¶lÃ§eklenebilirlik denetimi** â€” salt okunur, kod deÄŸiÅŸmedi (Â§3.F) |
-| `e7543f7` | Oturum kapanÄ±ÅŸÄ± â€” devredilen iki dÃ¼zeltme kayda geÃ§ti (Â§3.G) |
-| _bu commit_ | **Â§3.G'deki iki dÃ¼zeltme UYGULANDI** â€” konteyner giriÅŸ noktasÄ± + istek sÄ±nÄ±rÄ± |
+| `48b0b7d` | Veritabanı ayağa kalktı — üç kritik hata düzeltildi |
+| `3d05194` | Sözleşme testleri 24/24 — iki yetki açığı kapatıldı |
+| `53e5010` | Gider Türü modülü + istek bağlamı middleware'e alındı |
+| `e4149c4` | Gider Türü arayüzü |
+| `002fcf8` | Tahakkuk modülü |
+| `5322afe` | Araç modülü + migration 0004 |
+| `0b8609c` | Sayaç modülü + migration 0005 + tahakkuk entegrasyonu |
+| `3985c4c` | Belge modülü + migration 0006 + nesne deposu (MinIO) |
+| `58ae032` | Belge profesyonel seviye (0007) + Daire Görevlileri (0008) |
+| `a9d4071` | Devir notu — kritik soft-delete bulgusu |
+| `b869940` | Modül adı düzeltmesi: Konut Çalışanları → Daire Görevlileri (0009) |
+| `394eb61` | Site Personeli / Daire Görevlisi ayrımı (0010) + tek ekran hızlı kayıt (0011-0013) + Misafir modülü |
+| `e191968` | Devir notu — v23/v24 referans mimari görevi |
+| `2f39c75` | Portföy Yönetim Merkezi (0014 · ADR-0009) + v23/v24 boşluk analizi |
+| `b40ee54` | Beş "Yeni Ekle" formu sekmeli — Kişi Bilgileri + modüle özel sekmeler |
+| `<muhasebe>` | **Muhasebe çekirdeği** (0015) — hesap planı · fiş · defterler · mizan · dönem kapanışı + **iki sessiz kusur düzeltildi** |
+| `230042d` | **Banka Yönetimi çekirdeği** (0016) — banka · şube · hesap · POS · hareket · virman · ekstre · mutabakat · çek/senet + **veritabanı kısıt ihlalleri artık 500 değil 4xx** |
+| `5b56381` | ADR-0010 — cari hesap = **bölüm yardımcı defteri** (karar referans belgeden çözüldü) |
+| `85bbca5` | Tahsilat çekirdeği yarım (0017 + domain) — şema ve kurallar |
+| `ed68721` | **Makbuzlar** (tahsilat uçları + `/muhasebe` sekmesi) + **Genel Geri Al** (0018) |
+| `2094903` | **İletişim çekirdeği** (0019/0020) — WhatsApp · SMS · e-posta TEK modülde |
+| `ded0cc3` | **Sakin dayanak kuralı** (0021) — sakin artık malike ya da kiracıya bağlı |
+| `cdbe92d` | **Dayanağı biten sakine otomatik çıkış** — malik devri · kiracı tahliyesi + **bozuk kimlik artık 500 değil 404** |
+| `90d085b` | **Altyapı ve ölçeklenebilirlik denetimi** — salt okunur, kod değişmedi (§3.F) |
+| `e7543f7` | Oturum kapanışı — devredilen iki düzeltme kayda geçti (§3.G) |
+| _bu commit_ | **§3.G'deki iki düzeltme UYGULANDI** — konteyner giriş noktası + istek sınırı |
 
-### Bu commit'te yapÄ±lan â€” dayanaÄŸÄ± sona eren sakine otomatik Ã§Ä±kÄ±ÅŸ
+### Bu commit'te yapılan — dayanağı sona eren sakine otomatik çıkış
 
-ÃœrÃ¼n sahibi: *"DEVREDÄ°LMÄ°Å MALÄ°K VE TAHLÄ°YE EDÄ°LMÄ°Å KÄ°RACIDA SAKÄ°NLERDE
-OTOMATÄ°KMEN TAHLÄ°YE EDÄ°LÄ°R"*.
+Ürün sahibi: *"DEVREDİLMİŞ MALİK VE TAHLİYE EDİLMİŞ KİRACIDA SAKİNLERDE
+OTOMATİKMEN TAHLİYE EDİLİR"*.
 
-0021 sakini bir malike ya da kiracÄ±ya baÄŸladÄ±. Bu commit baÄŸÄ±n **sona erme**
-yÃ¶nÃ¼nÃ¼ kapatÄ±yor: dayanak biterse (tapu devri Â· kiracÄ± tahliyesi) o dayanaÄŸa
-baÄŸlÄ± sakinlerin oturma hakkÄ± da biter.
+0021 sakini bir malike ya da kiracıya bağladı. Bu commit bağın **sona erme**
+yönünü kapatıyor: dayanak biterse (tapu devri · kiracı tahliyesi) o dayanağa
+bağlı sakinlerin oturma hakkı da biter.
 
-**Elle yapÄ±lmasÄ± beklenseydi unutulurdu ve hata SESSÄ°Z olurdu.** KiracÄ± tahliye
-edilir, eÅŸi ve Ã§ocuklarÄ± listede "hÃ¢len oturuyor" kalÄ±r; daire kartÄ±, acil
-durum listesi ve doluluk raporu **aylarca** yanlÄ±ÅŸ Ã§alÄ±ÅŸÄ±r â€” kayÄ±t geÃ§erli
-gÃ¶rÃ¼ndÃ¼ÄŸÃ¼ iÃ§in kimse fark etmez.
+**Elle yapılması beklenseydi unutulurdu ve hata SESSİZ olurdu.** Kiracı tahliye
+edilir, eşi ve çocukları listede "hâlen oturuyor" kalır; daire kartı, acil
+durum listesi ve doluluk raporu **aylarca** yanlış çalışır — kayıt geçerli
+göründüğü için kimse fark etmez.
 
-- `backend/src/common/kayit/sakin-otomatik-cikis.ts` â€” **tek yerde** yazÄ±lan
-  kural; `malik.devret` ve `kiraci.tahliyeEt` ikisi de bunu Ã§aÄŸÄ±rÄ±r. AyrÄ± ayrÄ±
-  yazÄ±lsaydÄ± biri dÃ¼zeltildiÄŸinde Ã¶teki eski davranmaya devam ederdi.
+- `backend/src/common/kayit/sakin-otomatik-cikis.ts` — **tek yerde** yazılan
+  kural; `malik.devret` ve `kiraci.tahliyeEt` ikisi de bunu çağırır. Ayrı ayrı
+  yazılsaydı biri düzeltildiğinde öteki eski davranmaya devam ederdi.
 
 #### Zorlanan kritik kurallar
 
-- **AYNI Ä°ÅLEM Ä°Ã‡Ä°NDE.** DayanaÄŸÄ±n kapanÄ±ÅŸÄ± ile sakinlerin Ã§Ä±kÄ±ÅŸÄ± ya birlikte
-  olur ya hiÃ§ olmaz. AyrÄ± iÅŸlemde yapÄ±lsaydÄ± araya dÃ¼ÅŸen bir hata "kiracÄ±
-  gitmiÅŸ ama ailesi hÃ¢lÃ¢ oturuyor" durumunu **kalÄ±cÄ±** hÃ¢le getirirdi.
-- **Ã‡IKIÅ TARÄ°HÄ° = DAYANAÄIN BÄ°TÄ°ÅÄ°**, bugÃ¼n deÄŸil. KiracÄ± 30.06'da tahliye
-  edildiyse ailesi de o gÃ¼n Ã§Ä±kmÄ±ÅŸtÄ±r; "bugÃ¼n" yazÄ±lsaydÄ± aradaki gÃ¼nler
-  boyunca oturuyor gÃ¶rÃ¼nÃ¼rlerdi.
-- **GÄ°RÄ°ÅÄ°, DAYANAÄIN BÄ°TÄ°ÅÄ°NDEN SONRA OLAN KAYIT SESSÄ°ZCE ATLANMAZ.** Ã‡Ä±kÄ±ÅŸ
-  giriÅŸten Ã¶nce yazÄ±lsaydÄ± "eksi gÃ¼n oturmuÅŸ" bir kayÄ±t doÄŸardÄ±; bugÃ¼ne
-  Ã§ekilseydi kiÅŸi dayanaÄŸÄ± bittikten sonra da oturmuÅŸ gÃ¶rÃ¼nÃ¼rdÃ¼. Ä°kisi de
-  veriyi bozar â€” kayÄ±t **aÃ§Ä±k bÄ±rakÄ±lÄ±r** ve gerekÃ§esiyle **kullanÄ±cÄ±ya
-  bildirilir**; kararÄ± kullanÄ±cÄ± verir.
-- **HER SAKÄ°N Ä°Ã‡Ä°N AYRI DENETÄ°M KAYDI + AYRI OUTBOX OLAYI.** Tek toplu satÄ±r
-  yazÄ±lsaydÄ± "benim sakin kaydÄ±mÄ± kim, ne zaman kapattÄ±" sorusu kiÅŸi bazÄ±nda
-  yanÄ±tlanamazdÄ±. Olay elle Ã§Ä±kÄ±ÅŸla **aynÄ±dÄ±r** (`apartman.sakin.cikti`); fark
-  `payload.otomatikMi` ile taÅŸÄ±nÄ±r, bÃ¶ylece tÃ¼keticiler ikisini ayÄ±rmak
+- **AYNI İŞLEM İÇİNDE.** Dayanağın kapanışı ile sakinlerin çıkışı ya birlikte
+  olur ya hiç olmaz. Ayrı işlemde yapılsaydı araya düşen bir hata "kiracı
+  gitmiş ama ailesi hâlâ oturuyor" durumunu **kalıcı** hâle getirirdi.
+- **ÇIKIŞ TARİHİ = DAYANAĞIN BİTİŞİ**, bugün değil. Kiracı 30.06'da tahliye
+  edildiyse ailesi de o gün çıkmıştır; "bugün" yazılsaydı aradaki günler
+  boyunca oturuyor görünürlerdi.
+- **GİRİŞİ, DAYANAĞIN BİTİŞİNDEN SONRA OLAN KAYIT SESSİZCE ATLANMAZ.** Çıkış
+  girişten önce yazılsaydı "eksi gün oturmuş" bir kayıt doğardı; bugüne
+  çekilseydi kişi dayanağı bittikten sonra da oturmuş görünürdü. İkisi de
+  veriyi bozar — kayıt **açık bırakılır** ve gerekçesiyle **kullanıcıya
+  bildirilir**; kararı kullanıcı verir.
+- **HER SAKİN İÇİN AYRI DENETİM KAYDI + AYRI OUTBOX OLAYI.** Tek toplu satır
+  yazılsaydı "benim sakin kaydımı kim, ne zaman kapattı" sorusu kişi bazında
+  yanıtlanamazdı. Olay elle çıkışla **aynıdır** (`apartman.sakin.cikti`); fark
+  `payload.otomatikMi` ile taşınır, böylece tüketiciler ikisini ayırmak
   zorunda kalmaz.
-- **SAYI YANITTA DÃ–NER VE EKRANDA GÃ–STERÄ°LÄ°R** (`sakinCikisi.cikarilan`).
-  DÃ¶nmeseydi yÃ¶netici dÃ¶rt kiÅŸiyi listeden dÃ¼ÅŸÃ¼rdÃ¼ÄŸÃ¼nÃ¼ hiÃ§ Ã¶ÄŸrenmez, daire
-  beklenmedik biÃ§imde boÅŸ gÃ¶rÃ¼ndÃ¼ÄŸÃ¼nde nedenini arayacak yer olmazdÄ±.
-- **Ã–ZET SAYFA SEVÄ°YESÄ°NDE TUTULUR.** Ä°lk denemede eylem bileÅŸenine konmuÅŸtu;
-  ama devir/tahliyeden sonra kayÄ±t "geÃ§erli deÄŸil" olur ve o bileÅŸen `null`
-  dÃ¶ner â€” Ã¶zet **yazÄ±ldÄ±ÄŸÄ± anda kaybolurdu**. Ã‡Ä±karÄ±lamayan kayÄ±tlar ayrÄ±ca
-  bildirim balonunda deÄŸil **kalÄ±cÄ± panelde** durur: balon beÅŸ saniyede
-  kaybolur, oysa bunlar kullanÄ±cÄ±nÄ±n elle yapmasÄ± gereken bir iÅŸi anlatÄ±r.
-- **MOCK DA AYNI KURALI UYGULAR.** `MockSakin` artÄ±k `malikId`/`kiraciId`
-  taÅŸÄ±yor. Mock hiÃ§bir ÅŸey yapmasaydÄ± demo modda kiracÄ± tahliye edilir, ailesi
-  "hÃ¢len oturuyor" kalÄ±rdÄ± â€” mock, Ã¼rÃ¼nÃ¼n **yapmadÄ±ÄŸÄ±** bir ÅŸeyi gÃ¶sterirdi.
-- **SÃ¶zleÅŸme bitiÅŸi (`duzelt`) tahliye DEÄÄ°LDÄ°R** ve sakinleri kapatmaz:
-  sÃ¶zleÅŸme sessizce yenilenmiÅŸ olabilir. Otomatik Ã§Ä±kÄ±ÅŸ yalnÄ±zca `devret` ve
-  `tahliyeEt` uÃ§larÄ±na baÄŸlÄ±dÄ±r.
+- **SAYI YANITTA DÖNER VE EKRANDA GÖSTERİLİR** (`sakinCikisi.cikarilan`).
+  Dönmeseydi yönetici dört kişiyi listeden düşürdüğünü hiç öğrenmez, daire
+  beklenmedik biçimde boş göründüğünde nedenini arayacak yer olmazdı.
+- **ÖZET SAYFA SEVİYESİNDE TUTULUR.** İlk denemede eylem bileşenine konmuştu;
+  ama devir/tahliyeden sonra kayıt "geçerli değil" olur ve o bileşen `null`
+  döner — özet **yazıldığı anda kaybolurdu**. Çıkarılamayan kayıtlar ayrıca
+  bildirim balonunda değil **kalıcı panelde** durur: balon beş saniyede
+  kaybolur, oysa bunlar kullanıcının elle yapması gereken bir işi anlatır.
+- **MOCK DA AYNI KURALI UYGULAR.** `MockSakin` artık `malikId`/`kiraciId`
+  taşıyor. Mock hiçbir şey yapmasaydı demo modda kiracı tahliye edilir, ailesi
+  "hâlen oturuyor" kalırdı — mock, ürünün **yapmadığı** bir şeyi gösterirdi.
+- **Sözleşme bitişi (`duzelt`) tahliye DEĞİLDİR** ve sakinleri kapatmaz:
+  sözleşme sessizce yenilenmiş olabilir. Otomatik çıkış yalnızca `devret` ve
+  `tahliyeEt` uçlarına bağlıdır.
 
-#### Yan bulgu â€” bozuk kimlik BÃœTÃœN uygulamada 500 dÃ¶nÃ¼yordu
+#### Yan bulgu — bozuk kimlik BÜTÜN uygulamada 500 dönüyordu
 
-CanlÄ± test yazarken Ã§Ä±ktÄ±: `/kiracilar/undefined/tahliye` gibi bir yol Prisma
-`P2023` ("Inconsistent column data: Error creating UUID") atÄ±yor ve bu kod
-`prisma-hata-cevirisi.ts` iÃ§inde **eÅŸlenmemiÅŸti** â†’ 500 "sistem bozuldu".
+Canlı test yazarken çıktı: `/kiracilar/undefined/tahliye` gibi bir yol Prisma
+`P2023` ("Inconsistent column data: Error creating UUID") atıyor ve bu kod
+`prisma-hata-cevirisi.ts` içinde **eşlenmemişti** → 500 "sistem bozuldu".
 
-Adres Ã§ubuÄŸundaki kimliÄŸi kÄ±rpÄ±lmÄ±ÅŸ her baÄŸlantÄ±, eksik deÄŸiÅŸken taÅŸÄ±yan her
-istemci Ã§aÄŸrÄ±sÄ± bu koda dÃ¼ÅŸer. ArtÄ±k **404** dÃ¶nÃ¼yor: sunucu saÄŸlamdÄ±r,
-*aranan kayÄ±t yoktur*. 400 deÄŸil 404 â€” kimliÄŸin biÃ§imi hakkÄ±nda bilgi vermek,
-var olan bir kimliÄŸin biÃ§imini de doÄŸrulamak olurdu.
+Adres çubuğundaki kimliği kırpılmış her bağlantı, eksik değişken taşıyan her
+istemci çağrısı bu koda düşer. Artık **404** dönüyor: sunucu sağlamdır,
+*aranan kayıt yoktur*. 400 değil 404 — kimliğin biçimi hakkında bilgi vermek,
+var olan bir kimliğin biçimini de doğrulamak olurdu.
 
-#### DoÄŸrulama
+#### Doğrulama
 
-- Birim: `tests/unit/sakin-otomatik-cikis.test.mjs` (**19**) + P2023 testi â†’
+- Birim: `tests/unit/sakin-otomatik-cikis.test.mjs` (**19**) + P2023 testi →
   toplam **317** birim testi.
-- CanlÄ± (gerÃ§ek veritabanÄ±): **23/23** â€” iki sakinin tahliyeyle kapanmasÄ±,
-  malik yakÄ±nÄ±nÄ±n **etkilenmemesi**, ileri tarihli kaydÄ±n **aÃ§Ä±k kalÄ±p
-  raporlanmasÄ±**, devirde kapanma, mÃ¼kerrer tahliyenin reddi, bozuk kimlikte
-  404. Sakin dayanak testi de yeniden koÅŸuldu: **11/11**.
-- `pnpm verify` 9/9 Â· lint temiz Â· sÃ¶zleÅŸme testleri 24/24.
+- Canlı (gerçek veritabanı): **23/23** — iki sakinin tahliyeyle kapanması,
+  malik yakınının **etkilenmemesi**, ileri tarihli kaydın **açık kalıp
+  raporlanması**, devirde kapanma, mükerrer tahliyenin reddi, bozuk kimlikte
+  404. Sakin dayanak testi de yeniden koşuldu: **11/11**.
+- `pnpm verify` 9/9 · lint temiz · sözleşme testleri 24/24.
 
-### Bu commit'te yapÄ±lan â€” Sakin kayÄ±t kuralÄ±
+### Bu commit'te yapılan — Sakin kayıt kuralı
 
-**SAKÄ°N ARTIK BÄ°R MALÄ°KE YA DA KÄ°RACIYA BAÄLANMAK ZORUNDA.**
+**SAKİN ARTIK BİR MALİKE YA DA KİRACIYA BAĞLANMAK ZORUNDA.**
 
-BugÃ¼ne kadar `sakin` yalnÄ±zca bÃ¶lÃ¼me ve kiÅŸiye baÄŸlÄ±ydÄ±; **"bu kiÅŸi burada
-KÄ°MÄ°N YAKINI olarak oturuyor" sorusunun cevabÄ± yoktu.** SonuÃ§larÄ±: kiracÄ±
-taÅŸÄ±ndÄ±ÄŸÄ±nda ailesinin akÄ±beti belirsizdi, acil durumda "bu Ã§ocuÄŸun velisi
-kim" yanÄ±tsÄ±zdÄ±, sakin ile sorumlu arasÄ±ndaki baÄŸ kurulamÄ±yordu.
+Bugüne kadar `sakin` yalnızca bölüme ve kişiye bağlıydı; **"bu kişi burada
+KİMİN YAKINI olarak oturuyor" sorusunun cevabı yoktu.** Sonuçları: kiracı
+taşındığında ailesinin akıbeti belirsizdi, acil durumda "bu çocuğun velisi
+kim" yanıtsızdı, sakin ile sorumlu arasındaki bağ kurulamıyordu.
 
-- **0021** â€” `sakin.malik_id` Â· `sakin.kiraci_id` Â· `sakin.yakinlik_aciklamasi`
+- **0021** — `sakin.malik_id` · `sakin.kiraci_id` · `sakin.yakinlik_aciklamasi`
   + `YakinlikDerecesi` enum'una `ANNE` ve `BABA`.
-- Form: **Malik / KiracÄ± seÃ§imi** (dairenin kendi malik-kiracÄ±larÄ±ndan) â†’
-  **YakÄ±nlÄ±k Derecesi** â†’ `DiÄŸer` seÃ§ilirse **serbest metin alanÄ± aÃ§Ä±lÄ±r**.
+- Form: **Malik / Kiracı seçimi** (dairenin kendi malik-kiracılarından) →
+  **Yakınlık Derecesi** → `Diğer` seçilirse **serbest metin alanı açılır**.
 
 #### Zorlanan kritik kurallar
 
-- **DAYANAK TAM OLARAK BÄ°R TANE.** Ä°kisi birden verilirse hangisinin geÃ§erli
-  olduÄŸu belirsiz; hiÃ§biri verilmezse kayÄ±t "havada" kalÄ±r ve kuralÄ±n kendisi
-  anlamsÄ±zlaÅŸÄ±r. (CHECK `sakin_dayanak_tek` + servis denetimi.)
-- **DAYANAK AYNI BÃ–LÃœMDE OLMAK ZORUNDA â€” ve bunu VERÄ°TABANI garanti ediyor.**
-  `(malik_id, bolum_id)` Ã§ifti `malik(id, bolum_id)`ye **bileÅŸik yabancÄ±
-  anahtarla** baÄŸlandÄ±. YalnÄ±zca serviste denetlenseydi, doÄŸrudan veritabanÄ±na
-  yazan bir betik ya da ileride yazÄ±lacak toplu aktarÄ±m kuralÄ± sessizce
-  atlardÄ±. Servis ayrÄ±ca **aÃ§Ä±k hata mesajÄ±** iÃ§in denetler; yoksa kullanÄ±cÄ±
-  anlaÅŸÄ±lmaz bir FK hatasÄ± gÃ¶rÃ¼rdÃ¼.
-- **DEVREDÄ°LMÄ°Å MALÄ°KE / TAHLÄ°YE OLMUÅ KÄ°RACIYA yeni sakin baÄŸlanamaz** â€” o
-  hane artÄ±k onun deÄŸildir.
-- **`DIGER` seÃ§ilirse serbest metin ZORUNLU**; baÅŸka dereceye geÃ§ilirse
-  **boÅŸaltÄ±lÄ±r**. BoÅŸaltÄ±lmasaydÄ± "DiÄŸer â€” AmcasÄ±" kaydÄ± "EÅŸi"ne Ã§evrildiÄŸinde
-  ekranda "EÅŸi (AmcasÄ±)" gibi Ã§eliÅŸkili bir bilgi kalÄ±rdÄ±.
-- **Liste dayanaÄŸÄ± GÃ–STERÄ°R** (`dayanakTipi` Â· `dayanakKisiAdi`): "AyÅŸe YÄ±lmaz
-  Â· EÅŸi" satÄ±rÄ±, kimin eÅŸi olduÄŸu yazÄ±lmazsa dÃ¶rt daireli bir katta hiÃ§bir ÅŸey
+- **DAYANAK TAM OLARAK BİR TANE.** İkisi birden verilirse hangisinin geçerli
+  olduğu belirsiz; hiçbiri verilmezse kayıt "havada" kalır ve kuralın kendisi
+  anlamsızlaşır. (CHECK `sakin_dayanak_tek` + servis denetimi.)
+- **DAYANAK AYNI BÖLÜMDE OLMAK ZORUNDA — ve bunu VERİTABANI garanti ediyor.**
+  `(malik_id, bolum_id)` çifti `malik(id, bolum_id)`ye **bileşik yabancı
+  anahtarla** bağlandı. Yalnızca serviste denetlenseydi, doğrudan veritabanına
+  yazan bir betik ya da ileride yazılacak toplu aktarım kuralı sessizce
+  atlardı. Servis ayrıca **açık hata mesajı** için denetler; yoksa kullanıcı
+  anlaşılmaz bir FK hatası görürdü.
+- **DEVREDİLMİŞ MALİKE / TAHLİYE OLMUŞ KİRACIYA yeni sakin bağlanamaz** — o
+  hane artık onun değildir.
+- **`DIGER` seçilirse serbest metin ZORUNLU**; başka dereceye geçilirse
+  **boşaltılır**. Boşaltılmasaydı "Diğer — Amcası" kaydı "Eşi"ne çevrildiğinde
+  ekranda "Eşi (Amcası)" gibi çelişkili bir bilgi kalırdı.
+- **Liste dayanağı GÖSTERİR** (`dayanakTipi` · `dayanakKisiAdi`): "Ayşe Yılmaz
+  · Eşi" satırı, kimin eşi olduğu yazılmazsa dört daireli bir katta hiçbir şey
   anlatmaz.
-- **`ANNE_BABA` KALDIRILMADI.** Enum deÄŸeri silmek, o deÄŸeri taÅŸÄ±yan satÄ±rlar
-  varsa imkÃ¢nsÄ±zdÄ±r ve geÃ§miÅŸ kayÄ±tlarÄ±n anlamÄ± deÄŸiÅŸmemelidir. Yeni kayÄ±tlarda
-  `ANNE`/`BABA` kullanÄ±lÄ±r â€” acil durumda "annesini arayÄ±n" ile "babasÄ±nÄ±
-  arayÄ±n" farklÄ± bilgilerdir. AynÄ± ÅŸekilde `AKRABA` Â· `MISAFIR` Â· `CALISAN`
-  DTO'da kabul edilmeye devam eder (eski kayÄ±tlar dÃ¼zeltilebilsin diye) ama
+- **`ANNE_BABA` KALDIRILMADI.** Enum değeri silmek, o değeri taşıyan satırlar
+  varsa imkânsızdır ve geçmiş kayıtların anlamı değişmemelidir. Yeni kayıtlarda
+  `ANNE`/`BABA` kullanılır — acil durumda "annesini arayın" ile "babasını
+  arayın" farklı bilgilerdir. Aynı şekilde `AKRABA` · `MISAFIR` · `CALISAN`
+  DTO'da kabul edilmeye devam eder (eski kayıtlar düzeltilebilsin diye) ama
   formda **teklif edilmez**.
-- **`KENDISI` FORMDAN Ã‡IKARILDI.** Ä°lk uygulamada listeye eklenmiÅŸti; Ã¼rÃ¼n
-  sahibi talebi aynen yineleyince karar olarak alÄ±ndÄ±. Form artÄ±k **tam olarak
-  istenen altÄ± seÃ§eneÄŸi** gÃ¶sterir: EÅŸi Â· Ã‡ocuÄŸu Â· Annesi Â· BabasÄ± Â· KardeÅŸi Â·
-  DiÄŸer. Model: sakin, dayanaÄŸÄ±nÄ±n **yakÄ±nÄ±dÄ±r**; malikin/kiracÄ±nÄ±n kendisi
-  zaten kendi kaydÄ±yla durur. `KENDISI` enum'da ve DTO'da kalÄ±r â€” eski
-  kayÄ±tlarÄ±n dÃ¼zeltilebilmesi iÃ§in.
-- **VARSAYILAN YAKINLIK YOK** â€” kullanÄ±cÄ± aÃ§Ä±kÃ§a seÃ§er. "EÅŸi" gibi bir
-  varsayÄ±lan konsaydÄ±, alanÄ± atlayan kullanÄ±cÄ± Ã§ocuÄŸunu eÅŸi olarak kaydeder ve
-  hata hiÃ§bir yerde gÃ¶rÃ¼nmezdi; acil durumda yanlÄ±ÅŸ kiÅŸiye ulaÅŸÄ±lÄ±rdÄ±.
+- **`KENDISI` FORMDAN ÇIKARILDI.** İlk uygulamada listeye eklenmişti; ürün
+  sahibi talebi aynen yineleyince karar olarak alındı. Form artık **tam olarak
+  istenen altı seçeneği** gösterir: Eşi · Çocuğu · Annesi · Babası · Kardeşi ·
+  Diğer. Model: sakin, dayanağının **yakınıdır**; malikin/kiracının kendisi
+  zaten kendi kaydıyla durur. `KENDISI` enum'da ve DTO'da kalır — eski
+  kayıtların düzeltilebilmesi için.
+- **VARSAYILAN YAKINLIK YOK** — kullanıcı açıkça seçer. "Eşi" gibi bir
+  varsayılan konsaydı, alanı atlayan kullanıcı çocuğunu eşi olarak kaydeder ve
+  hata hiçbir yerde görünmezdi; acil durumda yanlış kişiye ulaşılırdı.
 
-#### Geriye dÃ¶nÃ¼k doldurma
+#### Geriye dönük doldurma
 
-Migration mevcut sakinleri sÄ±rayla baÄŸlar: (a) kiÅŸinin kendisi malik/kiracÄ±ysa
-ona, (b) bÃ¶lÃ¼mÃ¼n aÃ§Ä±k kiracÄ±sÄ±na, (c) aÃ§Ä±k malikine. (b) ve (c) **tahmindir**
-ve doldurulan kayÄ±tlar `yakinlik_aciklamasi` alanÄ±na **iz bÄ±rakÄ±r** â€” iz
-olmasaydÄ± sonradan bakan biri bu baÄŸÄ±n kullanÄ±cÄ± tarafÄ±ndan mÄ± gÃ¶Ã§ tarafÄ±ndan
-mÄ± kurulduÄŸunu ayÄ±rt edemezdi.
+Migration mevcut sakinleri sırayla bağlar: (a) kişinin kendisi malik/kiracıysa
+ona, (b) bölümün açık kiracısına, (c) açık malikine. (b) ve (c) **tahmindir**
+ve doldurulan kayıtlar `yakinlik_aciklamasi` alanına **iz bırakır** — iz
+olmasaydı sonradan bakan biri bu bağın kullanıcı tarafından mı göç tarafından
+mı kurulduğunu ayırt edemezdi.
 
-`CHECK sakin_dayanak_tek` doldurma baÅŸarÄ±sÄ±z kalÄ±rsa migration'Ä± **durdurur**.
-BilinÃ§lidir: dayanaksÄ±z bir kaydÄ± sessizce bÄ±rakmak, kuralÄ± "yeni kayÄ±tlar
-iÃ§in" geÃ§erli kÄ±lÄ±p eski veriyi gÃ¶rÃ¼nmez bir istisna hÃ¢line getirirdi.
-(Bu veritabanÄ±nda 0 sakin kaydÄ± vardÄ±; doldurma yolu canlÄ±da sÄ±nanmadÄ±.)
+`CHECK sakin_dayanak_tek` doldurma başarısız kalırsa migration'ı **durdurur**.
+Bilinçlidir: dayanaksız bir kaydı sessizce bırakmak, kuralı "yeni kayıtlar
+için" geçerli kılıp eski veriyi görünmez bir istisna hâline getirirdi.
+(Bu veritabanında 0 sakin kaydı vardı; doldurma yolu canlıda sınanmadı.)
 
-#### Migration'da Ã§Ä±kan kusur
+#### Migration'da çıkan kusur
 
-**FK doÄŸrulama taramasÄ± KAYNAK tabloyu da okur.** Ä°lk yazÄ±mda yalnÄ±zca hedefler
-(`malik`, `kiraci`) RLS'ten muaf tutulmuÅŸtu; migration tam FK ekleme adÄ±mÄ±nda
+**FK doğrulama taraması KAYNAK tabloyu da okur.** İlk yazımda yalnızca hedefler
+(`malik`, `kiraci`) RLS'ten muaf tutulmuştu; migration tam FK ekleme adımında
 durdu: *"Tenant baglami kurulmadan sorgu calistirilamaz"*. Tarama SELECT'i
-`FROM ONLY sakin fk LEFT JOIN malik pk` biÃ§imindedir â€” kaynak taraf RLS
-altÄ±ndaysa tarama da engellenir. (0011'de belgelenmiÅŸ tuzaÄŸÄ±n tekrarÄ±.)
+`FROM ONLY sakin fk LEFT JOIN malik pk` biçimindedir — kaynak taraf RLS
+altındaysa tarama da engellenir. (0011'de belgelenmiş tuzağın tekrarı.)
 
-#### DÃ¼zeltme formundaki gÃ¶sterim eksiÄŸi KAPATILDI
+#### Düzeltme formundaki gösterim eksiği KAPATILDI
 
-`secenekler()` mevcut deÄŸeri listeye **baÅŸa ekler**: eski deÄŸerli bir kayÄ±t
-(`KENDISI` Â· `ANNE_BABA` Â· `AKRABA` â€¦) dÃ¼zenlenirken liste artÄ±k boÅŸ
-gÃ¶rÃ¼nmÃ¼yor. BoÅŸ gÃ¶rÃ¼nseydi kullanÄ±cÄ± deÄŸerin kaybolduÄŸunu sanÄ±r ve rastgele
-bir seÃ§im yaparak gerÃ§ek veriyi bozardÄ±. DÃ¼zeltme formuna ayrÄ±ca **"DiÄŸer" â†’
-serbest metin** alanÄ± eklendi (ekleme formuyla aynÄ± kural).
+`secenekler()` mevcut değeri listeye **başa ekler**: eski değerli bir kayıt
+(`KENDISI` · `ANNE_BABA` · `AKRABA` …) düzenlenirken liste artık boş
+görünmüyor. Boş görünseydi kullanıcı değerin kaybolduğunu sanır ve rastgele
+bir seçim yaparak gerçek veriyi bozardı. Düzeltme formuna ayrıca **"Diğer" →
+serbest metin** alanı eklendi (ekleme formuyla aynı kural).
 
-### Bu commit'te yapÄ±lan â€” Ä°letiÅŸim (WhatsApp Business Â· SMS)
+### Bu commit'te yapılan — İletişim (WhatsApp Business · SMS)
 
-**WHATSAPP ve SMS AYRI MODÃœL DEÄÄ°LDÄ°R.** Ä°kisi de "bir mesajÄ±, bir alÄ±cÄ±ya,
-bir kanaldan gÃ¶nder"dir. Ortak olanlar: alÄ±cÄ± Ã§Ã¶zÃ¼mÃ¼ (site Â· blok Â· kat Â·
-daire Â· malik Â· kiracÄ± Â· sakin Â· daire gÃ¶revlisi Â· YK Â· kiÅŸiler), ÅŸablonlar ve
-deÄŸiÅŸkenler, toplu/zamanlanmÄ±ÅŸ gÃ¶nderim, geÃ§miÅŸ, durum takibi, Ä°YS izin
-denetimi, audit. AyrÄ± yazÄ±lsaydÄ± bu iskelet **iki kez** dururdu ve biri
-dÃ¼zeltildiÄŸinde Ã¶teki sessizce eski davranÄ±rdÄ±. **Kanal bir ALANDIR.**
-E-posta ileride aynÄ± Ã§ekirdeÄŸe yeni enum deÄŸeriyle girer.
+**WHATSAPP ve SMS AYRI MODÜL DEĞİLDİR.** İkisi de "bir mesajı, bir alıcıya,
+bir kanaldan gönder"dir. Ortak olanlar: alıcı çözümü (site · blok · kat ·
+daire · malik · kiracı · sakin · daire görevlisi · YK · kişiler), şablonlar ve
+değişkenler, toplu/zamanlanmış gönderim, geçmiş, durum takibi, İYS izin
+denetimi, audit. Ayrı yazılsaydı bu iskelet **iki kez** dururdu ve biri
+düzeltildiğinde öteki sessizce eski davranırdı. **Kanal bir ALANDIR.**
+E-posta ileride aynı çekirdeğe yeni enum değeriyle girer.
 
-Ekran: `/iletisim` â†’ **WhatsApp Â· SMS Â· E-posta** sekmeleri (kullanÄ±cÄ±nÄ±n
-isteÄŸi: *"whatsapp, sms, e-posta gibi sekmeleri iletiÅŸim sekmesinde topla"*).
+Ekran: `/iletisim` → **WhatsApp · SMS · E-posta** sekmeleri (kullanıcının
+isteği: *"whatsapp, sms, e-posta gibi sekmeleri iletişim sekmesinde topla"*).
 
-- **0019** â€” `mesaj_sablonu` Â· `iletisim_izni` Â· `mesaj_gonderimi` Â· `mesaj` Â·
+- **0019** — `mesaj_sablonu` · `iletisim_izni` · `mesaj_gonderimi` · `mesaj` ·
   `otomatik_bildirim_kurali` + `kisi.whatsapp_no`. Hepsinde RLS + politika.
-- **0020** â€” `daire_gorevlisi.whatsapp_no`. **Daire gÃ¶revlisi bir `Kisi`
-  deÄŸildir** (0010); kendi telefonunu taÅŸÄ±r, dolayÄ±sÄ±yla kendi WhatsApp
-  numarasÄ±nÄ± da taÅŸÄ±malÄ±ydÄ±.
-- **domain** `shared/apartman-domain/src/iletisim` â€” 33 birim testi.
-- **backend** `modules/iletisim` â€” CQRS + **saÄŸlayÄ±cÄ± portu**.
-- **RBAC** â€” dÃ¶rt yeni izin (aÅŸaÄŸÄ±da).
+- **0020** — `daire_gorevlisi.whatsapp_no`. **Daire görevlisi bir `Kisi`
+  değildir** (0010); kendi telefonunu taşır, dolayısıyla kendi WhatsApp
+  numarasını da taşımalıydı.
+- **domain** `shared/apartman-domain/src/iletisim` — 33 birim testi.
+- **backend** `modules/iletisim` — CQRS + **sağlayıcı portu**.
+- **RBAC** — dört yeni izin (aşağıda).
 
 #### Zorlanan kritik kurallar
 
-- **HÄ°Ã‡BÄ°R MESAJ GERÃ‡EKTEN GÃ–NDERÄ°LMEZ** ve hiÃ§biri "teslim edildi"
-  sayÄ±lmaz. SaÄŸlayÄ±cÄ± yokken durum `SAGLAYICI_YOK`ta kalÄ±r. Sahte bir baÅŸarÄ±,
-  yÃ¶neticinin 400 daireyi bilgilendirdiÄŸini sanmasÄ±na yol aÃ§ardÄ± â€” ve bu
-  ancak icra takibi aÅŸamasÄ±nda anlaÅŸÄ±lÄ±rdÄ±.
-- **`SAGLAYICI_YOK` ve `IZIN_YOK`, `BASARISIZ` DEÄÄ°LDÄ°R.** Biri yapÄ±landÄ±rma
-  eksiÄŸi, Ã¶teki hukuki engel; Ã¼Ã§Ã¼ tek durumda toplansaydÄ± "hata oranÄ±"
-  hiÃ§bir ÅŸey anlatmazdÄ±.
-- **Ä°YS: ÃœÃ‡ DURUM VARDIR, Ä°KÄ° DEÄÄ°L.** RET â†’ o kanalda bilgilendirme dahil
-  hiÃ§bir ÅŸey; izin kaydÄ± yok â†’ bilgilendirme gider, ticari gitmez; Ä°ZÄ°N â†’
-  ikisi de. Tek bayraÄŸa indirgenseydi ya aidat borcu haber verilemez ya da
-  ticari ileti izinsiz giderdi (6563 s. K. md. 6 â€” idari para cezasÄ±).
-- **SMS KONTÃ–RÃœ GSM-7/UCS-2 ayrÄ±mÄ±yla hesaplanÄ±r.** Tek bir `ÄŸ` mesajÄ±
-  UCS-2'ye dÃ¼ÅŸÃ¼rÃ¼r ve parÃ§a sÄ±nÄ±rÄ± 160'tan 70'e iner. Hata **sessizdir**:
-  mesaj yine gider, yalnÄ±zca fatura iki katÄ±na Ã§Ä±kar. (`Ã§ Ã¶ Ã¼` GSM-7'de
-  vardÄ±r; hepsi UCS-2 sanÄ±lsaydÄ± kontÃ¶r boÅŸuna fazla hesaplanÄ±rdÄ±.)
-- **Ã‡Ã–ZÃœLMEYEN ÅABLON DEÄÄ°ÅKENÄ° GÃ–NDERÄ°MÄ° ENGELLER.** Ham `{{ad}}` metninin
-  ya da `"SayÄ±n , TL borcunuz var"` cÃ¼mlesinin gitmesi gÃ¼veni tek seferde
-  bitirir. Ama tek alÄ±cÄ±nÄ±n eksik verisi **bÃ¼tÃ¼n partiyi dÃ¼ÅŸÃ¼rmez**: o mesaj
-  `BASARISIZ` kaydedilir, Ã¶tekiler devam eder.
-- **Ä°ZÄ°NSÄ°Z/NUMARASIZ ALICI ATLANMAZ, KAYDEDÄ°LÄ°R.** AtlansaydÄ± "500 kiÅŸiye
-  gÃ¶nderdim" denir ama 80'ine gitmediÄŸi hiÃ§bir yerde gÃ¶rÃ¼nmezdi.
-- **AYNI KÄ°ÅÄ° TEKÄ°LLEÅTÄ°RÄ°LÄ°R** â€” hem malik hem sakin olan kiÅŸi duyuruyu iki
-  kez almaz (ve iki kontÃ¶r dÃ¼ÅŸmez).
-- **AYRILMIÅ KÄ°RACIYA/ESKÄ° MALÄ°KE MESAJ GÄ°TMEZ**: alÄ±cÄ± Ã§Ã¶zÃ¼mÃ¼ *hÃ¢len sÃ¼ren*
-  iliÅŸkiye bakar (`tapuBitis` Â· `bitis` Â· `cikisTarihi`).
-- **GRUP hedefi AÃ‡IK HATA verir** â€” sistemde grup kavramÄ± yok; boÅŸ liste
-  dÃ¶nmek sessiz baÅŸarÄ±sÄ±zlÄ±k olurdu.
-- Numara **E.164'e normallenir** ve **sabit hat reddedilir**: normalleÅŸtirme
-  olmasaydÄ± aynÄ± kiÅŸi Ã¼Ã§ kez kaydedilir ve aynÄ± duyuruyu Ã¼Ã§ kez alÄ±rdÄ±.
+- **HİÇBİR MESAJ GERÇEKTEN GÖNDERİLMEZ** ve hiçbiri "teslim edildi"
+  sayılmaz. Sağlayıcı yokken durum `SAGLAYICI_YOK`ta kalır. Sahte bir başarı,
+  yöneticinin 400 daireyi bilgilendirdiğini sanmasına yol açardı — ve bu
+  ancak icra takibi aşamasında anlaşılırdı.
+- **`SAGLAYICI_YOK` ve `IZIN_YOK`, `BASARISIZ` DEĞİLDİR.** Biri yapılandırma
+  eksiği, öteki hukuki engel; üçü tek durumda toplansaydı "hata oranı"
+  hiçbir şey anlatmazdı.
+- **İYS: ÜÇ DURUM VARDIR, İKİ DEĞİL.** RET → o kanalda bilgilendirme dahil
+  hiçbir şey; izin kaydı yok → bilgilendirme gider, ticari gitmez; İZİN →
+  ikisi de. Tek bayrağa indirgenseydi ya aidat borcu haber verilemez ya da
+  ticari ileti izinsiz giderdi (6563 s. K. md. 6 — idari para cezası).
+- **SMS KONTÖRÜ GSM-7/UCS-2 ayrımıyla hesaplanır.** Tek bir `ğ` mesajı
+  UCS-2'ye düşürür ve parça sınırı 160'tan 70'e iner. Hata **sessizdir**:
+  mesaj yine gider, yalnızca fatura iki katına çıkar. (`ç ö ü` GSM-7'de
+  vardır; hepsi UCS-2 sanılsaydı kontör boşuna fazla hesaplanırdı.)
+- **ÇÖZÜLMEYEN ŞABLON DEĞİŞKENİ GÖNDERİMİ ENGELLER.** Ham `{{ad}}` metninin
+  ya da `"Sayın , TL borcunuz var"` cümlesinin gitmesi güveni tek seferde
+  bitirir. Ama tek alıcının eksik verisi **bütün partiyi düşürmez**: o mesaj
+  `BASARISIZ` kaydedilir, ötekiler devam eder.
+- **İZİNSİZ/NUMARASIZ ALICI ATLANMAZ, KAYDEDİLİR.** Atlansaydı "500 kişiye
+  gönderdim" denir ama 80'ine gitmediği hiçbir yerde görünmezdi.
+- **AYNI KİŞİ TEKİLLEŞTİRİLİR** — hem malik hem sakin olan kişi duyuruyu iki
+  kez almaz (ve iki kontör düşmez).
+- **AYRILMIŞ KİRACIYA/ESKİ MALİKE MESAJ GİTMEZ**: alıcı çözümü *hâlen süren*
+  ilişkiye bakar (`tapuBitis` · `bitis` · `cikisTarihi`).
+- **GRUP hedefi AÇIK HATA verir** — sistemde grup kavramı yok; boş liste
+  dönmek sessiz başarısızlık olurdu.
+- Numara **E.164'e normallenir** ve **sabit hat reddedilir**: normalleştirme
+  olmasaydı aynı kişi üç kez kaydedilir ve aynı duyuruyu üç kez alırdı.
 
-#### Yeni izinler (yetki matrisi geniÅŸletildi)
+#### Yeni izinler (yetki matrisi genişletildi)
 
-Bu talep RBAC gerektiriyordu ve iletiÅŸim izinleri **hiÃ§ yoktu**. DÃ¶rt ayrÄ±
-izin eklendi â€” tek `iletisim.manage` deÄŸil, Ã§Ã¼nkÃ¼ bunlar farklÄ± bÃ¼yÃ¼klÃ¼kte
+Bu talep RBAC gerektiriyordu ve iletişim izinleri **hiç yoktu**. Dört ayrı
+izin eklendi — tek `iletisim.manage` değil, çünkü bunlar farklı büyüklükte
 risklerdir:
 
-| Ä°zin | Neden ayrÄ± |
+| İzin | Neden ayrı |
 |---|---|
-| `ILETI_GONDER` | Tekil mesaj bir kiÅŸiye gider; yanlÄ±ÅŸsa dÃ¼zeltilir |
-| `ILETI_TOPLU_GONDER` | 400 daireye aynÄ± anda gider ve **geri alÄ±namaz** |
-| `ILETI_BELGE_PAYLAS` | Gizlilik seviyesi olan dosyayÄ± dÄ±ÅŸarÄ± Ã§Ä±karÄ±r (KVKK) |
-| `ILETI_AYAR` | Åablon/kural deÄŸiÅŸikliÄŸi bÃ¼tÃ¼n gelecek gÃ¶nderimleri etkiler |
+| `ILETI_GONDER` | Tekil mesaj bir kişiye gider; yanlışsa düzeltilir |
+| `ILETI_TOPLU_GONDER` | 400 daireye aynı anda gider ve **geri alınamaz** |
+| `ILETI_BELGE_PAYLAS` | Gizlilik seviyesi olan dosyayı dışarı çıkarır (KVKK) |
+| `ILETI_AYAR` | Şablon/kural değişikliği bütün gelecek gönderimleri etkiler |
 
-DaÄŸÄ±tÄ±m: `APARTMAN_YONETICISI` ve `YONETIM_SIRKETI` dÃ¶rdÃ¼ne de sahip.
-`YK_BASKANI` **yalnÄ±zca `ILETI_GONDER`** â€” yÃ¶netim kurulu denetim organÄ±dÄ±r,
-iÅŸletme deÄŸil; 400 daireye giden ve geri alÄ±namayan bir mesaj iÅŸletme
-kararÄ±dÄ±r.
+Dağıtım: `APARTMAN_YONETICISI` ve `YONETIM_SIRKETI` dördüne de sahip.
+`YK_BASKANI` **yalnızca `ILETI_GONDER`** — yönetim kurulu denetim organıdır,
+işletme değil; 400 daireye giden ve geri alınamayan bir mesaj işletme
+kararıdır.
 
-#### CanlÄ± testte Ã§Ä±kan iki kusur
+#### Canlı testte çıkan iki kusur
 
-1. **`tx.malik.findMany()` Ã§alÄ±ÅŸma zamanÄ±nda patladÄ±** â€” `Malik`, `Kiraci`,
-   `Sakin` **soft delete taÅŸÄ±maz**; bunlar iliÅŸki kayÄ±tlarÄ±dÄ±r. AsÄ±l mesele
-   tip hatasÄ± deÄŸil **anlam**: alan doÄŸru kabul edilseydi bile taÅŸÄ±nmÄ±ÅŸ
-   kiracÄ±ya duyuru gitmeye devam ederdi.
-2. **DÃ¶rt alÄ±cÄ±nÄ±n dÃ¶rdÃ¼ de numarasÄ±zken hiÃ§ uyarÄ± Ã¼retilmedi.** YanÄ±t
-   "oluÅŸturuldu" dedi, `numarasiz: 4` sayÄ±sÄ± vardÄ± ama kimse okumak zorunda
-   deÄŸildi. **SayÄ± ile uyarÄ± aynÄ± ÅŸey deÄŸildir**: sayÄ± veridir, uyarÄ±
-   iddiadÄ±r. ArtÄ±k "hiÃ§bir alÄ±cÄ±ya mesaj gitmedi" aÃ§Ä±kÃ§a yazÄ±lÄ±yor.
+1. **`tx.malik.findMany()` çalışma zamanında patladı** — `Malik`, `Kiraci`,
+   `Sakin` **soft delete taşımaz**; bunlar ilişki kayıtlarıdır. Asıl mesele
+   tip hatası değil **anlam**: alan doğru kabul edilseydi bile taşınmış
+   kiracıya duyuru gitmeye devam ederdi.
+2. **Dört alıcının dördü de numarasızken hiç uyarı üretilmedi.** Yanıt
+   "oluşturuldu" dedi, `numarasiz: 4` sayısı vardı ama kimse okumak zorunda
+   değildi. **Sayı ile uyarı aynı şey değildir**: sayı veridir, uyarı
+   iddiadır. Artık "hiçbir alıcıya mesaj gitmedi" açıkça yazılıyor.
 
-#### KarÅŸÄ±lanmayanlar â€” aÃ§Ä±kÃ§a eksik
+#### Karşılanmayanlar — açıkça eksik
 
-| Ä°stenen | Neden |
+| İstenen | Neden |
 |---|---|
-| **GerÃ§ek WhatsApp/SMS gÃ¶nderimi** | KullanÄ±cÄ±nÄ±n kararÄ±: *"gerÃ§ek API baÄŸlantÄ±larÄ± sonraki fazda"*. Port hazÄ±r; adaptÃ¶r eklenince servis kodu deÄŸiÅŸmez |
-| **Belge paylaÅŸÄ±mÄ± (PDF/Excel/Word/resim)** | Ä°zin (`ILETI_BELGE_PAYLAS`) ve `BelgeVarlikTipi += MESAJ_GONDERIMI` hazÄ±r; **ekleme akÄ±ÅŸÄ± yazÄ±lmadÄ±**. Dosya altyapÄ±sÄ± Belge modÃ¼lÃ¼nde zaten var |
-| **Otomatik bildirimler (14 olay)** | Kural tablosu var ve kayÄ±t alÄ±nabiliyor ama **outbox tÃ¼keticisi yok**: `aktif = true` olsa bile hiÃ§bir ÅŸey kendiliÄŸinden gitmez. Bu ekranda ve API aÃ§Ä±klamasÄ±nda yazÄ±lÄ± |
-| **ZamanlanmÄ±ÅŸ gÃ¶nderim** | KayÄ±t oluÅŸur, **planlayÄ±cÄ± yok**; yanÄ±tta uyarÄ± olarak dÃ¶ner |
-| **KiÅŸi kartlarÄ±na alan eklenmesi** | API hazÄ±r (`GET /iletisim/kisiler/:id`); Malik/KiracÄ±/Sakin **form ekranlarÄ±na** alan eklenmedi |
-| **Åablon/izin/kural yÃ¶netim ekranlarÄ±** | API tam; ekran yalnÄ±zca ÅŸablon **seÃ§imi** sunuyor |
-| **Grafikler** | Rapor uÃ§larÄ± seri dÃ¶ndÃ¼rÃ¼yor (`gunlukSeri`, `durumDagilimi`); grafik bileÅŸeni Ã§izilmedi |
-| **DÄ±ÅŸa aktarma (Excel/PDF)** | FAZ 4 â€” kÃ¼tÃ¼phane kararÄ± bekliyor |
+| **Gerçek WhatsApp/SMS gönderimi** | Kullanıcının kararı: *"gerçek API bağlantıları sonraki fazda"*. Port hazır; adaptör eklenince servis kodu değişmez |
+| **Belge paylaşımı (PDF/Excel/Word/resim)** | İzin (`ILETI_BELGE_PAYLAS`) ve `BelgeVarlikTipi += MESAJ_GONDERIMI` hazır; **ekleme akışı yazılmadı**. Dosya altyapısı Belge modülünde zaten var |
+| **Otomatik bildirimler (14 olay)** | Kural tablosu var ve kayıt alınabiliyor ama **outbox tüketicisi yok**: `aktif = true` olsa bile hiçbir şey kendiliğinden gitmez. Bu ekranda ve API açıklamasında yazılı |
+| **Zamanlanmış gönderim** | Kayıt oluşur, **planlayıcı yok**; yanıtta uyarı olarak döner |
+| **Kişi kartlarına alan eklenmesi** | API hazır (`GET /iletisim/kisiler/:id`); Malik/Kiracı/Sakin **form ekranlarına** alan eklenmedi |
+| **Şablon/izin/kural yönetim ekranları** | API tam; ekran yalnızca şablon **seçimi** sunuyor |
+| **Grafikler** | Rapor uçları seri döndürüyor (`gunlukSeri`, `durumDagilimi`); grafik bileşeni çizilmedi |
+| **Dışa aktarma (Excel/PDF)** | FAZ 4 — kütüphane kararı bekliyor |
 
-### Bu commit'te yapÄ±lan â€” Makbuzlar + Genel Geri Al
+### Bu commit'te yapılan — Makbuzlar + Genel Geri Al
 
-**Makbuzlar, `85bbca5`'te yarÄ±m kalan tahsilat modÃ¼lÃ¼nÃ¼ tamamlar.** Makbuz
-AYRI BÄ°R VARLIK DEÄÄ°LDÄ°R: `tahsilat` kaydÄ±nÄ±n belge gÃ¶rÃ¼nÃ¼mÃ¼dÃ¼r. AyrÄ± bir
-`makbuz` tablosu aÃ§Ä±lsaydÄ± aynÄ± para iki yerde durur ve biri gÃ¼ncellenmediÄŸinde
-makbuz ile defter tutmazdÄ±.
+**Makbuzlar, `85bbca5`'te yarım kalan tahsilat modülünü tamamlar.** Makbuz
+AYRI BİR VARLIK DEĞİLDİR: `tahsilat` kaydının belge görünümüdür. Ayrı bir
+`makbuz` tablosu açılsaydı aynı para iki yerde durur ve biri güncellenmediğinde
+makbuz ile defter tutmazdı.
 
-Eklenen uÃ§lar (`/makbuzlar`):
+Eklenen uçlar (`/makbuzlar`):
 
-- `GET /` **Makbuz GeÃ§miÅŸi** â€” iptal edilmiÅŸler de listede (durum rozetiyle);
-  gizlenselerdi numara serisindeki boÅŸluk aÃ§Ä±klanamaz gÃ¶rÃ¼nÃ¼rdÃ¼.
-- `GET /:id` **Tahsilat Makbuzu detayÄ±** â€” istenen alanlarÄ±n tamamÄ±.
-  **Malik Â· KiracÄ± Â· Sakin Ã–DEYENDEN DEÄÄ°L** borcun sorumluluk zincirinden
-  gelir: Ã¶deyen komÅŸusu olabilir.
-- `GET /borclar/:bolumId` **DetaylÄ± Tahsilat GiriÅŸi** â€” aÃ§Ä±k borÃ§lar; hisseli
-  mÃ¼lkiyette PAY satÄ±rlarÄ± ayrÄ±.
-- `POST /tahsis-onerisi` â€” EN ESKÄ° VADE Ã¶nce, **hiÃ§bir ÅŸey yazmaz**.
-- `POST /` tahsilat Â· `POST /:id/iptal` **Makbuz Ä°ptali** Â· `POST
+- `GET /` **Makbuz Geçmişi** — iptal edilmişler de listede (durum rozetiyle);
+  gizlenselerdi numara serisindeki boşluk açıklanamaz görünürdü.
+- `GET /:id` **Tahsilat Makbuzu detayı** — istenen alanların tamamı.
+  **Malik · Kiracı · Sakin ÖDEYENDEN DEĞİL** borcun sorumluluk zincirinden
+  gelir: ödeyen komşusu olabilir.
+- `GET /borclar/:bolumId` **Detaylı Tahsilat Girişi** — açık borçlar; hisseli
+  mülkiyette PAY satırları ayrı.
+- `POST /tahsis-onerisi` — EN ESKİ VADE önce, **hiçbir şey yazmaz**.
+- `POST /` tahsilat · `POST /:id/iptal` **Makbuz İptali** · `POST
   /:id/muhasebelestir`
-- `GET /cari/:bolumId` **Cari Hesap Ekstresi** (ADR-0010) Â· `GET
-  /rapor/yaslandirma` Â· `GET /rapor/kontrol-mutabakati`
+- `GET /cari/:bolumId` **Cari Hesap Ekstresi** (ADR-0010) · `GET
+  /rapor/yaslandirma` · `GET /rapor/kontrol-mutabakati`
 
-Ekran: `/muhasebe` â†’ **Makbuzlar** sekmesi (altÄ±ncÄ± sekme). AyrÄ± rota deÄŸil â€”
-makbuz listesi fiÅŸ listesiyle aynÄ± sÃ¼zgeÃ§/tablo iskeletini kullanÄ±r.
+Ekran: `/muhasebe` → **Makbuzlar** sekmesi (altıncı sekme). Ayrı rota değil —
+makbuz listesi fiş listesiyle aynı süzgeç/tablo iskeletini kullanır.
 
-#### GENEL GERÄ° AL (0018)
+#### GENEL GERİ AL (0018)
 
-**Yeni bir "ne deÄŸiÅŸti" gÃ¼nlÃ¼ÄŸÃ¼ AÃ‡ILMADI.** `audit_kaydi` zaten
-`oncekiDeger`/`sonrakiDeger` tutuyor; ikinci bir gÃ¼nlÃ¼k yazÄ±lsaydÄ± iki kaynak
-zamanla ayrÄ±ÅŸÄ±r ve geri alma **yanlÄ±ÅŸ deÄŸere** dÃ¶nerdi. `geri_alma` tablosu
-yalnÄ±zca "hangi denetim kaydÄ±, hangi yÃ¶ntemle geri alÄ±ndÄ±" olgusunu taÅŸÄ±r â€”
-iÅŸaret audit satÄ±rÄ±na yazÄ±lamaz Ã§Ã¼nkÃ¼ audit UPDATE'i trigger ile reddedilir.
+**Yeni bir "ne değişti" günlüğü AÇILMADI.** `audit_kaydi` zaten
+`oncekiDeger`/`sonrakiDeger` tutuyor; ikinci bir günlük yazılsaydı iki kaynak
+zamanla ayrışır ve geri alma **yanlış değere** dönerdi. `geri_alma` tablosu
+yalnızca "hangi denetim kaydı, hangi yöntemle geri alındı" olgusunu taşır —
+işaret audit satırına yazılamaz çünkü audit UPDATE'i trigger ile reddedilir.
 
-YÃ¶ntemler varlÄ±ÄŸÄ±n **silme sÄ±nÄ±fÄ±na** gÃ¶re: FÄ°NANSAL â†’ `TERS_KAYIT` (kayÄ±t
-silinmez), BELGE â†’ `ARSIVLE`/`GERI_YUKLE` (dosya silinmez, sÃ¼rÃ¼m korunur),
-ANA_VERÄ° â†’ `ARSIVLE`/`GERI_YUKLE`/`ALAN_GERI_AL`.
+Yöntemler varlığın **silme sınıfına** göre: FİNANSAL → `TERS_KAYIT` (kayıt
+silinmez), BELGE → `ARSIVLE`/`GERI_YUKLE` (dosya silinmez, sürüm korunur),
+ANA_VERİ → `ARSIVLE`/`GERI_YUKLE`/`ALAN_GERI_AL`.
 
-Reddedilen durumlar **gerekÃ§esiyle** bildirilir: baÅŸkasÄ±nÄ±n iÅŸlemi Â· zaten geri
-alÄ±nmÄ±ÅŸ Â· sonradan tekrar deÄŸiÅŸtirilmiÅŸ Â· anonimleÅŸtirme (KVKK) Â·
-muhasebeleÅŸmiÅŸ finansal kayÄ±t Â· kapalÄ± dÃ¶nem Â· **kuralÄ± tanÄ±mlÄ± olmayan
-varlÄ±k** ("muhtemelen ana veridir" varsayÄ±mÄ±yla devam edilseydi finansal bir
-kayÄ±t silinebilirdi). 25 birim testi.
+Reddedilen durumlar **gerekçesiyle** bildirilir: başkasının işlemi · zaten geri
+alınmış · sonradan tekrar değiştirilmiş · anonimleştirme (KVKK) ·
+muhasebeleşmiş finansal kayıt · kapalı dönem · **kuralı tanımlı olmayan
+varlık** ("muhtemelen ana veridir" varsayımıyla devam edilseydi finansal bir
+kayıt silinebilirdi). 25 birim testi.
 
-#### CanlÄ± testte Ã§Ä±kan iki kusur
+#### Canlı testte çıkan iki kusur
 
-1. **Geri alma uÃ§larÄ± `AUDIT_GORUNTULE` iznine baÄŸlanmÄ±ÅŸtÄ± â†’ 403.** O izin
-   yalnÄ±zca DENETÃ‡Ä° rolÃ¼nde; yani kaydÄ± **giren kullanÄ±cÄ± kendi iÅŸlemini geri
-   alamÄ±yordu** â€” Ã¶zelliÄŸin bÃ¼tÃ¼n amacÄ± buyken. DoÄŸru sÄ±nÄ±r **sahipliktir**:
-   geri alma, kullanÄ±cÄ±nÄ±n zaten yapmaya yetkili olduÄŸu bir iÅŸlemi geri Ã§evirir
-   ve servis kayÄ±t sahipliÄŸini doÄŸrular. ModÃ¼l izni kaldÄ±rÄ±ldÄ± (KapÄ± 1 ve 2
-   Ã§alÄ±ÅŸmaya devam eder), **yetki matrisi deÄŸiÅŸtirilmedi, yeni izin
-   tanÄ±mlanmadÄ±**.
-2. **`dist` bayat kaldÄ±ÄŸÄ± iÃ§in ilk dÃ¼zeltme gÃ¶rÃ¼nmedi.** Backend Ã§alÄ±ÅŸÄ±rken
-   yapÄ±lan derleme dosyalarÄ± yazamamÄ±ÅŸ; sÃ¼reÃ§ kapatÄ±lÄ±p `dist` silinerek
-   yeniden derlendi. (Bilinen tuzak: Ã§alÄ±ÅŸan backend derleme Ã§Ä±ktÄ±sÄ±nÄ± kilitler.)
+1. **Geri alma uçları `AUDIT_GORUNTULE` iznine bağlanmıştı → 403.** O izin
+   yalnızca DENETÇİ rolünde; yani kaydı **giren kullanıcı kendi işlemini geri
+   alamıyordu** — özelliğin bütün amacı buyken. Doğru sınır **sahipliktir**:
+   geri alma, kullanıcının zaten yapmaya yetkili olduğu bir işlemi geri çevirir
+   ve servis kayıt sahipliğini doğrular. Modül izni kaldırıldı (Kapı 1 ve 2
+   çalışmaya devam eder), **yetki matrisi değiştirilmedi, yeni izin
+   tanımlanmadı**.
+2. **`dist` bayat kaldığı için ilk düzeltme görünmedi.** Backend çalışırken
+   yapılan derleme dosyaları yazamamış; süreç kapatılıp `dist` silinerek
+   yeniden derlendi. (Bilinen tuzak: çalışan backend derleme çıktısını kilitler.)
 
-### Bu commit'te yapÄ±lan â€” Banka YÃ¶netimi Ã§ekirdeÄŸi (FAZ 1)
+### Bu commit'te yapılan — Banka Yönetimi çekirdeği (FAZ 1)
 
-KullanÄ±cÄ±nÄ±n istediÄŸi **17 alt modÃ¼l dokuz tabloya indirildi.** Bu bir
-eksiltme deÄŸil, "gereksiz tekrar eden ekran oluÅŸturma" kuralÄ±nÄ±n veri
-katmanÄ±ndaki karÅŸÄ±lÄ±ÄŸÄ±dÄ±r:
+Kullanıcının istediği **17 alt modül dokuz tabloya indirildi.** Bu bir
+eksiltme değil, "gereksiz tekrar eden ekran oluşturma" kuralının veri
+katmanındaki karşılığıdır:
 
-| Ä°stenen | KarÅŸÄ±lÄ±ÄŸÄ± |
+| İstenen | Karşılığı |
 |---|---|
-| Bankalar Â· Åubeler Â· Hesaplar | `banka` Â· `banka_subesi` Â· `banka_hesabi` |
-| POS TanÄ±mlarÄ± Â· Sanal POS | `pos_tanimi` (`tip`) |
-| Havale Â· EFT Â· FAST Â· Virman Â· Masraf Â· Faiz | `banka_hareketi` (`islem_tipi`) |
-| Ekstreler Â· Online Ekstre Â· Mutabakat | `banka_ekstresi` + `ekstre_satiri` |
-| Ã‡ek Â· Senet | `kiymetli_evrak` (`tip`) |
+| Bankalar · Şubeler · Hesaplar | `banka` · `banka_subesi` · `banka_hesabi` |
+| POS Tanımları · Sanal POS | `pos_tanimi` (`tip`) |
+| Havale · EFT · FAST · Virman · Masraf · Faiz | `banka_hareketi` (`islem_tipi`) |
+| Ekstreler · Online Ekstre · Mutabakat | `banka_ekstresi` + `ekstre_satiri` |
+| Çek · Senet | `kiymetli_evrak` (`tip`) |
 | Banka Parametreleri | `banka_parametresi` |
 
-**âš ï¸ HAVALE ve EFT AYRI TABLO DEÄÄ°LDÄ°R.** Ä°kisi de "bir banka hesabÄ±ndan para
-Ã§Ä±kÄ±ÅŸÄ±"dÄ±r ve alan kÃ¼meleri birebir aynÄ±dÄ±r. AyrÄ± tutulsaydÄ± banka bakiyesi
-dÃ¶rt ayrÄ± sorgunun toplamÄ± olur, biri unutulduÄŸunda **bakiye sessizce yanlÄ±ÅŸ
-Ã§Ä±kardÄ±** ve mutabakat dÃ¶rt tabloyu ayrÄ± ayrÄ± taramak zorunda kalÄ±rdÄ±.
+**⚠️ HAVALE ve EFT AYRI TABLO DEĞİLDİR.** İkisi de "bir banka hesabından para
+çıkışı"dır ve alan kümeleri birebir aynıdır. Ayrı tutulsaydı banka bakiyesi
+dört ayrı sorgunun toplamı olur, biri unutulduğunda **bakiye sessizce yanlış
+çıkardı** ve mutabakat dört tabloyu ayrı ayrı taramak zorunda kalırdı.
 
 Katmanlar:
 
-- **0016** â€” dokuz tablo, hepsinde RLS + FORCE + politika; 6 kÄ±smÃ® unique
-  index, 14 CHECK kÄ±sÄ±tÄ±. `BelgeVarlikTipi` += `BANKA_HAREKETI` Â·
-  `BANKA_EKSTRESI` Â· `KIYMETLI_EVRAK` (belge modÃ¼lÃ¼ yeniden kullanÄ±ldÄ±).
-- **domain** â€” `shared/apartman-domain/src/banka`: IBAN mod-97, hareket/virman
-  kurallarÄ±, POS komisyonu (binde BigInt), mutabakat eÅŸleÅŸtirme, Ã§ek/senet
+- **0016** — dokuz tablo, hepsinde RLS + FORCE + politika; 6 kısmî unique
+  index, 14 CHECK kısıtı. `BelgeVarlikTipi` += `BANKA_HAREKETI` ·
+  `BANKA_EKSTRESI` · `KIYMETLI_EVRAK` (belge modülü yeniden kullanıldı).
+- **domain** — `shared/apartman-domain/src/banka`: IBAN mod-97, hareket/virman
+  kuralları, POS komisyonu (binde BigInt), mutabakat eşleştirme, çek/senet
   durum makinesi. **38 birim testi.**
-- **backend** â€” `modules/banka`, CQRS ayrÄ±mÄ± korundu: `BankaTanimServisi` Â·
-  `BankaHareketCommandServisi` Â· `EkstreServisi` Â· `KiymetliEvrakServisi` Â·
+- **backend** — `modules/banka`, CQRS ayrımı korundu: `BankaTanimServisi` ·
+  `BankaHareketCommandServisi` · `EkstreServisi` · `KiymetliEvrakServisi` ·
   `BankaParametreServisi` (yazma), `BankaHareketQueryServisi` (okuma).
-  **Yeni izin tanÄ±mlanmadÄ±.**
-- **ekran YOK** â€” kullanÄ±cÄ±nÄ±n talimatÄ±: *"Do not generate the remaining
-  screens yet."* FAZ 1 yalnÄ±zca temeldir.
+  **Yeni izin tanımlanmadı.**
+- **ekran YOK** — kullanıcının talimatı: *"Do not generate the remaining
+  screens yet."* FAZ 1 yalnızca temeldir.
 
-Zorlanan kritik kurallar (canlÄ± test **91/91**, iki kez Ã¼st Ã¼ste):
+Zorlanan kritik kurallar (canlı test **91/91**, iki kez üst üste):
 
-- **IBAN mod-97 ile doÄŸrulanÄ±r.** Uzunluk denetimi yetmez: tek hane yanlÄ±ÅŸ
-  girilmiÅŸ bir IBAN biÃ§imsel olarak kusursuz gÃ¶rÃ¼nÃ¼r ve hata ancak **para
-  baÅŸka hesaba gittiÄŸinde** anlaÅŸÄ±lÄ±r. IBAN'Ä±n banka kodu seÃ§ilen bankanÄ±n EFT
+- **IBAN mod-97 ile doğrulanır.** Uzunluk denetimi yetmez: tek hane yanlış
+  girilmiş bir IBAN biçimsel olarak kusursuz görünür ve hata ancak **para
+  başka hesaba gittiğinde** anlaşılır. IBAN'ın banka kodu seçilen bankanın EFT
   kodu ile tutmazsa hesap eklenemez.
-- **Banka hesabÄ± muhasebe hesabÄ±na baÄŸlanmak ZORUNDA** ve baÄŸlanan hesabÄ±n
-  `ozellik = BANKA` olmalÄ±. BaÄŸ olmasaydÄ± banka bakiyesi ile 102 Bankalar
-  hesabÄ±nÄ±n bakiyesi baÄŸÄ±msÄ±z iki sayÄ± olur, **mutabakat yapÄ±lamazdÄ±**.
-- **Tutar iÅŸaretsiz, yÃ¶n ayrÄ± alan.** Negatif tutarla Ã§Ä±kÄ±ÅŸ yazÄ±labilseydi
-  "toplam giriÅŸ" sorgusu negatifleri de toplardÄ±.
-- **VÄ°RMAN tek hareket olarak yazÄ±lamaz** â€” iki bacak, aynÄ± transaction,
-  karÅŸÄ±lÄ±klÄ± referans. FarklÄ± para birimi virman deÄŸildir (kur iÅŸlemi).
-- **Ä°ÅLEM ve VALÃ–R bakiyesi AYRI raporlanÄ±r.** Tek sayÄ± verilseydi POS
-  tahsilatÄ± henÃ¼z hesaba geÃ§memiÅŸken bakiyede gÃ¶rÃ¼nÃ¼r, harcanabilir sanÄ±lÄ±r ve
-  karÅŸÄ±lÄ±ksÄ±z Ã¶deme yapÄ±lÄ±rdÄ±. `yoldaTutar` farkÄ± gÃ¶sterir.
-- **MuhasebeleÅŸtirme ayrÄ± adÄ±m ve TEK TRANSACTION.** FiÅŸ Ã¼retimi
-  `FisCommandServisi.ekleIslemde` ile **kopyalanmadan** Ã§aÄŸrÄ±lÄ±r. Ä°ki ayrÄ±
-  iÅŸlem olsaydÄ± fiÅŸ yazÄ±lÄ±p hareket iÅŸaretlenmeden hata alÄ±nabilir, hareket
-  "muhasebeleÅŸmemiÅŸ" gÃ¶rÃ¼nmeye devam eder ve **aynÄ± para iki kez** deftere
+- **Banka hesabı muhasebe hesabına bağlanmak ZORUNDA** ve bağlanan hesabın
+  `ozellik = BANKA` olmalı. Bağ olmasaydı banka bakiyesi ile 102 Bankalar
+  hesabının bakiyesi bağımsız iki sayı olur, **mutabakat yapılamazdı**.
+- **Tutar işaretsiz, yön ayrı alan.** Negatif tutarla çıkış yazılabilseydi
+  "toplam giriş" sorgusu negatifleri de toplardı.
+- **VİRMAN tek hareket olarak yazılamaz** — iki bacak, aynı transaction,
+  karşılıklı referans. Farklı para birimi virman değildir (kur işlemi).
+- **İŞLEM ve VALÖR bakiyesi AYRI raporlanır.** Tek sayı verilseydi POS
+  tahsilatı henüz hesaba geçmemişken bakiyede görünür, harcanabilir sanılır ve
+  karşılıksız ödeme yapılırdı. `yoldaTutar` farkı gösterir.
+- **Muhasebeleştirme ayrı adım ve TEK TRANSACTION.** Fiş üretimi
+  `FisCommandServisi.ekleIslemde` ile **kopyalanmadan** çağrılır. İki ayrı
+  işlem olsaydı fiş yazılıp hareket işaretlenmeden hata alınabilir, hareket
+  "muhasebeleşmemiş" görünmeye devam eder ve **aynı para iki kez** deftere
   girerdi.
-- **MuhasebeleÅŸmiÅŸ ya da eÅŸleÅŸmiÅŸ hareket deÄŸiÅŸtirilemez.**
-- **Otomatik eÅŸleÅŸtirme BELÄ°RSÄ°ZLÄ°KTE DURUR.** Ä°ki aday uyuyorsa hiÃ§biri
-  seÃ§ilmez; `kalanEslesmeyen` yanÄ±tta dÃ¶ner ve gizlenmez. Makine tahmin
-  ederse yanlÄ±ÅŸ eÅŸleÅŸme mutabakatÄ± **sessizce tamamlanmÄ±ÅŸ** gÃ¶sterir.
-- **`mutabikMi` Ä°KÄ° koÅŸul ister**: eÅŸleÅŸmemiÅŸ satÄ±r kalmamasÄ± **ve** bakiye
-  farkÄ±nÄ±n sÄ±fÄ±r olmasÄ±. YalnÄ±zca satÄ±r sayÄ±sÄ±na bakÄ±lsaydÄ±, ekstrede hiÃ§
-  gÃ¶rÃ¼nmeyen bir sistem hareketi mutabakatÄ± tamamlanmÄ±ÅŸ gÃ¶sterirdi.
-- **FARK_KABUL gerekÃ§e ister** ve Ã¶zette **ayrÄ±** sayÄ±lÄ±r.
-- **Ã‡ek/senet durum makinesi atlama kabul etmez.** `PORTFOYDE â†’
-  TAHSIL_EDILDI` yasaktÄ±r: bankaya verilmemiÅŸ bir Ã§ek tahsil edilmiÅŸ olamaz ve
-  "tahsilde bekleyenler" listesi bir daha doÄŸru olmazdÄ±. `KARSILIKSIZ â†’
-  TAHSILDE` (yeniden ibraz) aÃ§Ä±ktÄ±r.
-- Para her yerde `Decimal`/`Money`; hiÃ§bir yerde `Number`.
+- **Muhasebeleşmiş ya da eşleşmiş hareket değiştirilemez.**
+- **Otomatik eşleştirme BELİRSİZLİKTE DURUR.** İki aday uyuyorsa hiçbiri
+  seçilmez; `kalanEslesmeyen` yanıtta döner ve gizlenmez. Makine tahmin
+  ederse yanlış eşleşme mutabakatı **sessizce tamamlanmış** gösterir.
+- **`mutabikMi` İKİ koşul ister**: eşleşmemiş satır kalmaması **ve** bakiye
+  farkının sıfır olması. Yalnızca satır sayısına bakılsaydı, ekstrede hiç
+  görünmeyen bir sistem hareketi mutabakatı tamamlanmış gösterirdi.
+- **FARK_KABUL gerekçe ister** ve özette **ayrı** sayılır.
+- **Çek/senet durum makinesi atlama kabul etmez.** `PORTFOYDE →
+  TAHSIL_EDILDI` yasaktır: bankaya verilmemiş bir çek tahsil edilmiş olamaz ve
+  "tahsilde bekleyenler" listesi bir daha doğru olmazdı. `KARSILIKSIZ →
+  TAHSILDE` (yeniden ibraz) açıktır.
+- Para her yerde `Decimal`/`Money`; hiçbir yerde `Number`.
 
-#### Bu commit'te bulunan sessiz kusur â€” kÄ±sÄ±t ihlalleri 500 dÃ¶nÃ¼yordu
+#### Bu commit'te bulunan sessiz kusur — kısıt ihlalleri 500 dönüyordu
 
-`POST /banka/bankalar` aynÄ± EFT kodu ile ikinci kez Ã§aÄŸrÄ±ldÄ±ÄŸÄ±nda **500
-"beklenmeyen bir sorun oluÅŸtu"** dÃ¶ndÃ¼. KÃ¶k neden banka modÃ¼lÃ¼nde deÄŸildi:
-**Prisma/PostgreSQL kÄ±sÄ±t ihlalleri istisna filtresinde hiÃ§ eÅŸlenmemiÅŸti.**
+`POST /banka/bankalar` aynı EFT kodu ile ikinci kez çağrıldığında **500
+"beklenmeyen bir sorun oluştu"** döndü. Kök neden banka modülünde değildi:
+**Prisma/PostgreSQL kısıt ihlalleri istisna filtresinde hiç eşlenmemişti.**
 
-Yani ÅŸemadaki **bÃ¼tÃ¼n** korumalar â€” 20'den fazla kÄ±smÃ® unique index, 30'dan
-fazla CHECK kÄ±sÄ±tÄ±, yabancÄ± anahtarlar â€” kullanÄ±cÄ±ya "sistem bozuldu" gibi
-gÃ¶rÃ¼nÃ¼yordu. `kisi_eposta_uq` iÃ§in Ã¶nceki bir oturumda **tek modÃ¼le Ã¶zel** Ã¶n
-kontrol yazÄ±lmÄ±ÅŸtÄ±; bu sÄ±nÄ±fÄ± Ã§Ã¶zmez ve **yarÄ±ÅŸ durumuna** aÃ§Ä±ktÄ±r (kontrol ile
-yazma arasÄ±na baÅŸka istek girebilir).
+Yani şemadaki **bütün** korumalar — 20'den fazla kısmî unique index, 30'dan
+fazla CHECK kısıtı, yabancı anahtarlar — kullanıcıya "sistem bozuldu" gibi
+görünüyordu. `kisi_eposta_uq` için önceki bir oturumda **tek modüle özel** ön
+kontrol yazılmıştı; bu sınıfı çözmez ve **yarış durumuna** açıktır (kontrol ile
+yazma arasına başka istek girebilir).
 
-Ã‡Ã¶zÃ¼m merkezÃ®: `backend/src/common/errors/prisma-hata-cevirisi.ts`
+Çözüm merkezî: `backend/src/common/errors/prisma-hata-cevirisi.ts`
 
-- `P2002` â†’ **409**, `P2003` â†’ 422, `P2025` â†’ 404, `P2000` â†’ 422
-- **CHECK kÄ±sÄ±tlarÄ± Prisma'da tipli hata deÄŸildir** (ham PostgreSQL mesajÄ±
-  `PrismaClientUnknownRequestError` iÃ§inde gelir) â€” metinden de yakalanÄ±r.
-  YalnÄ±zca tipli hatalar Ã§evrilseydi bÃ¼tÃ¼n CHECK korumalarÄ± 500 dÃ¶nmeye devam
+- `P2002` → **409**, `P2003` → 422, `P2025` → 404, `P2000` → 422
+- **CHECK kısıtları Prisma'da tipli hata değildir** (ham PostgreSQL mesajı
+  `PrismaClientUnknownRequestError` içinde gelir) — metinden de yakalanır.
+  Yalnızca tipli hatalar çevrilseydi bütün CHECK korumaları 500 dönmeye devam
   ederdi.
-- **KÄ±smÃ® unique index'te Prisma alan adÄ± VERMEZ** (`meta.target` =
-  `"(not available)"`). O metin alan adÄ± deÄŸildir ve **gÃ¶sterilmez** â€” var
-  olmayan bir alan uydurulmaz. KÄ±sÄ±t adÄ± ham PostgreSQL mesajÄ±ndan okunur.
-- Ã‡evrilemeyen hata `null` dÃ¶ner ve 500'e dÃ¼ÅŸer: **bilinmeyen hata iÃ§in 4xx
+- **Kısmî unique index'te Prisma alan adı VERMEZ** (`meta.target` =
+  `"(not available)"`). O metin alan adı değildir ve **gösterilmez** — var
+  olmayan bir alan uydurulmaz. Kısıt adı ham PostgreSQL mesajından okunur.
+- Çevrilemeyen hata `null` döner ve 500'e düşer: **bilinmeyen hata için 4xx
   uydurulmaz.**
-- KÄ±sÄ±t adÄ± â†’ kullanÄ±cÄ± diline Ã§eviri tablosu **veri olarak** tutulur (Â§33
+- Kısıt adı → kullanıcı diline çeviri tablosu **veri olarak** tutulur (§33
   kural 3). 12 birim testi.
 
-#### Ä°kinci kalÄ±cÄ± koruma â€” RLS politika kapsamÄ± taramasÄ±
+#### İkinci kalıcı koruma — RLS politika kapsamı taraması
 
-`scripts/rls-scan.mjs` **uygulama** tarafÄ±nÄ± denetliyordu (sorgu baÄŸlam iÃ§inden
-mi Ã§alÄ±ÅŸÄ±yor). **VeritabanÄ±** tarafÄ±nÄ± kimse denetlemiyordu: yeni bir tabloya
-`ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` yazmayÄ± unutmak derleme hatasÄ±
-vermez, lint geÃ§er, testleri kÄ±rmaz ve uygulama taramasÄ±na da yakalanmaz â€”
-sonuÃ§ **tenant izolasyonunun sessizce kalkmasÄ±dÄ±r.**
+`scripts/rls-scan.mjs` **uygulama** tarafını denetliyordu (sorgu bağlam içinden
+mi çalışıyor). **Veritabanı** tarafını kimse denetlemiyordu: yeni bir tabloya
+`ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` yazmayı unutmak derleme hatası
+vermez, lint geçer, testleri kırmaz ve uygulama taramasına da yakalanmaz —
+sonuç **tenant izolasyonunun sessizce kalkmasıdır.**
 
 `scripts/rls-politika-scan.mjs` migration SQL'lerini okur ve `verify`
-zincirine eklendi (artÄ±k 9 adÄ±m). 0001'in **dinamik** politika dÃ¶ngÃ¼sÃ¼
-(`tenant_id` sÃ¼tunu olan her tabloyu tarar) modellendi; o dÃ¶ngÃ¼ yalnÄ±zca **o
-anda var olan** tablolarÄ± kapsar, sonradan eklenen tablo kendi migration'Ä±nda
-aÃ§Ä±kÃ§a politika almak zorundadÄ±r. Muafiyetler (`tenant` Â· `oturum_dizini`)
-**gerekÃ§esiyle** listede. CanlÄ± veritabanÄ±na karÅŸÄ± da doÄŸrulandÄ±: 45 tablo,
+zincirine eklendi (artık 9 adım). 0001'in **dinamik** politika döngüsü
+(`tenant_id` sütunu olan her tabloyu tarar) modellendi; o döngü yalnızca **o
+anda var olan** tabloları kapsar, sonradan eklenen tablo kendi migration'ında
+açıkça politika almak zorundadır. Muafiyetler (`tenant` · `oturum_dizini`)
+**gerekçesiyle** listede. Canlı veritabanına karşı da doğrulandı: 45 tablo,
 9/9 banka tablosu RLS + FORCE + politika, `bnos_app` ve `bnos_migrator`
 `NOBYPASSRLS`.
 
-Ã–ncesinde (aynÄ± gÃ¼n, Docker'dan baÄŸÄ±msÄ±z): `8bca955` Â· `66bd2a5` Â·
-`b4759d3` Â· `ec76035` Â· `89a56df` Â· `666c918`.
+Öncesinde (aynı gün, Docker'dan bağımsız): `8bca955` · `66bd2a5` ·
+`b4759d3` · `ec76035` · `89a56df` · `666c918`.
 
-### Bu commit'te yapÄ±lan â€” muhasebe Ã§ekirdeÄŸi
+### Bu commit'te yapılan — muhasebe çekirdeği
 
-**BULGU: muhasebe ÅEMASI vardÄ± ama HÄ°Ã‡ UCU VE EKRANI YOKTU.** `hesap`,
-`yevmiye_fisi` ve `yevmiye_satiri` 0001'de kurulmuÅŸtu ve yalnÄ±zca tahakkuk
-modÃ¼lÃ¼ dolduruyordu; okuma, yazma, defter, mizan, dÃ¶nem â€” hiÃ§biri yoktu.
+**BULGU: muhasebe ŞEMASI vardı ama HİÇ UCU VE EKRANI YOKTU.** `hesap`,
+`yevmiye_fisi` ve `yevmiye_satiri` 0001'de kurulmuştu ve yalnızca tahakkuk
+modülü dolduruyordu; okuma, yazma, defter, mizan, dönem — hiçbiri yoktu.
 
-Eklenenler (0015 + `modules/muhasebe` + `/muhasebe` ekranÄ±):
+Eklenenler (0015 + `modules/muhasebe` + `/muhasebe` ekranı):
 
-| BÃ¶lÃ¼m | Durum |
+| Bölüm | Durum |
 |---|---|
-| Hesap PlanÄ± | âœ… aÄŸaÃ§ Â· kod/tip tutarlÄ±lÄ±ÄŸÄ± Â· ara hesap korumasÄ± Â· arÅŸivleme |
-| Muhasebe FiÅŸleri + detay | âœ… Ã§ift kayÄ±t denkliÄŸi Â· TASLAK/Ä°ÅLENDÄ° Â· **storno** |
-| Yevmiye Defteri | âœ… tarih sÄ±rasÄ± Â· yevmiye sÄ±ra no |
-| BÃ¼yÃ¼k Defter (Muavin) | âœ… aÃ§Ä±lÄ±ÅŸ devri Â· yÃ¼rÃ¼yen bakiye Â· doÄŸal yÃ¶n |
-| Kasa Defteri | âœ… (aynÄ± uÃ§ `ozellik=BANKA` ile Banka Defteri) |
-| Mizan | âœ… denklik denetimi yanÄ±tta dÃ¶ner |
-| Muhasebe Parametreleri | âœ… varsayÄ±lan kasa/banka/dÃ¶nem kÃ¢rÄ± Â· geriye dÃ¶nÃ¼k pencere |
-| DÃ¶nem Sonu KapanÄ±ÅŸ | âœ… hepsi (aÅŸaÄŸÄ±da) |
+| Hesap Planı | ✅ ağaç · kod/tip tutarlılığı · ara hesap koruması · arşivleme |
+| Muhasebe Fişleri + detay | ✅ çift kayıt denkliği · TASLAK/İŞLENDİ · **storno** |
+| Yevmiye Defteri | ✅ tarih sırası · yevmiye sıra no |
+| Büyük Defter (Muavin) | ✅ açılış devri · yürüyen bakiye · doğal yön |
+| Kasa Defteri | ✅ (aynı uç `ozellik=BANKA` ile Banka Defteri) |
+| Mizan | ✅ denklik denetimi yanıtta döner |
+| Muhasebe Parametreleri | ✅ varsayılan kasa/banka/dönem kârı · geriye dönük pencere |
+| Dönem Sonu Kapanış | ✅ hepsi (aşağıda) |
 
-**DÃ¶nem Sonu KapanÄ±ÅŸ â€” altÄ± iÅŸlem:**
+**Dönem Sonu Kapanış — altı işlem:**
 
-- **Yeni DÃ¶nem AÃ§Ä±lÄ±ÅŸÄ±** â€” aynÄ± mali yÄ±l iki kez aÃ§Ä±lamaz, tarih aralÄ±ÄŸÄ± Ã§akÄ±ÅŸamaz
-- **Muhasebe AÃ§Ä±lÄ±ÅŸ Ä°ÅŸlemleri** â€” Ã¶nceki dÃ¶nemin **bilanÃ§o** bakiyelerini devreder
-  (gelir/gider DEVRETMEZ: geÃ§miÅŸ yÄ±lÄ±n kÃ¢rÄ± yeni yÄ±lÄ±n gelir tablosunda ikinci
-  kez gÃ¶rÃ¼nÃ¼rdÃ¼)
-- **YansÄ±tma HesaplarÄ±** â€” `ozellik=YANSITMA` hesaplarÄ±nÄ± karÅŸÄ± yÃ¶ne yazar
-- **Yevmiye Yeniden NumaralandÄ±rma** â€” `fisNo` **DEÄÄ°ÅTÄ°RÄ°LMEZ**, yalnÄ±zca
-  `yevmiyeSiraNo` yazÄ±lÄ±r (makbuz Ã¼zerindeki numara ile defter tutmalÄ±)
-- **Muhasebe/Mali YÄ±l KapanÄ±ÅŸÄ±** â€” gelir/gider sÄ±fÄ±rlanÄ±r, net sonuÃ§ Ã¶zkaynaÄŸa
-  aktarÄ±lÄ±r; **GERÄ° ALINAMAZ** ve Ã¶nkoÅŸullar Ã¶ncesinde denetlenir
+- **Yeni Dönem Açılışı** — aynı mali yıl iki kez açılamaz, tarih aralığı çakışamaz
+- **Muhasebe Açılış İşlemleri** — önceki dönemin **bilanço** bakiyelerini devreder
+  (gelir/gider DEVRETMEZ: geçmiş yılın kârı yeni yılın gelir tablosunda ikinci
+  kez görünürdü)
+- **Yansıtma Hesapları** — `ozellik=YANSITMA` hesaplarını karşı yöne yazar
+- **Yevmiye Yeniden Numaralandırma** — `fisNo` **DEĞİŞTİRİLMEZ**, yalnızca
+  `yevmiyeSiraNo` yazılır (makbuz üzerindeki numara ile defter tutmalı)
+- **Muhasebe/Mali Yıl Kapanışı** — gelir/gider sıfırlanır, net sonuç özkaynağa
+  aktarılır; **GERİ ALINAMAZ** ve önkoşullar öncesinde denetlenir
 
-**Zorlanan kritik kurallar** (canlÄ± test 51/51):
+**Zorlanan kritik kurallar** (canlı test 51/51):
 
-- FiÅŸ **silinemez** â€” dÃ¼zeltme yalnÄ±zca ters kayÄ±t (storno); yÃ¶n ters Ã§evrilir,
-  **negatif tutar yazÄ±lmaz** (eksi tutar mizan toplamlarÄ±nÄ± bozar)
-- **KapalÄ± dÃ¶neme fiÅŸ yazÄ±lamaz** â€” dÃ¼zeltme aÃ§Ä±k dÃ¶nemde storno ile
-- En az iki satÄ±r Â· borÃ§ = alacak Â· satÄ±rda tek yÃ¶n Â· ara hesaba fiÅŸ yok Â·
-  aynÄ± hesap aynÄ± yÃ¶nde iki kez yok
-- **Taslak fiÅŸ mizanda gÃ¶rÃ¼nmez** (parametre aÃ§abilir)
-- Kasa/Banka Defteri hesap **koduna deÄŸil** `hesap.ozellik` alanÄ±na dayanÄ±r
-  (kod planÄ± tenant'a gÃ¶re deÄŸiÅŸir)
-- Para her yerde **Decimal/Money**, hiÃ§bir yerde `Number`
+- Fiş **silinemez** — düzeltme yalnızca ters kayıt (storno); yön ters çevrilir,
+  **negatif tutar yazılmaz** (eksi tutar mizan toplamlarını bozar)
+- **Kapalı döneme fiş yazılamaz** — düzeltme açık dönemde storno ile
+- En az iki satır · borç = alacak · satırda tek yön · ara hesaba fiş yok ·
+  aynı hesap aynı yönde iki kez yok
+- **Taslak fiş mizanda görünmez** (parametre açabilir)
+- Kasa/Banka Defteri hesap **koduna değil** `hesap.ozellik` alanına dayanır
+  (kod planı tenant'a göre değişir)
+- Para her yerde **Decimal/Money**, hiçbir yerde `Number`
 
-#### ğŸ”´ Ä°ki sessiz kusur bulundu ve dÃ¼zeltildi
+#### 🔴 İki sessiz kusur bulundu ve düzeltildi
 
-**1. `silmeyiDogrula` engelleyen baÄŸÄ±mlÄ±lÄ±klarÄ± HÄ°Ã‡ OKUMUYORDU.** Alan
-arayÃ¼zde tanÄ±mlÄ±ydÄ±, **dÃ¶rt modÃ¼l** dolduruyordu (`Belge`, `DaireGorevlisi`,
-`Misafir`, `Hesap`) ama fonksiyon bakmÄ±yordu. SonuÃ§: "aÃ§Ä±k araÃ§ kaydÄ± varken
-misafir/gÃ¶revli arÅŸivlenemez" ve "hareket gÃ¶rmÃ¼ÅŸ hesap arÅŸivlenemez"
-korumalarÄ± **etkisizdi** â€” hesap arÅŸivlenip ona yazÄ±lmÄ±ÅŸ yevmiye satÄ±rlarÄ±
+**1. `silmeyiDogrula` engelleyen bağımlılıkları HİÇ OKUMUYORDU.** Alan
+arayüzde tanımlıydı, **dört modül** dolduruyordu (`Belge`, `DaireGorevlisi`,
+`Misafir`, `Hesap`) ama fonksiyon bakmıyordu. Sonuç: "açık araç kaydı varken
+misafir/görevli arşivlenemez" ve "hareket görmüş hesap arşivlenemez"
+korumaları **etkisizdi** — hesap arşivlenip ona yazılmış yevmiye satırları
 sahipsiz kalabiliyordu.
 
-> ArayÃ¼zde duran ama okunmayan bir alan, Ã§aÄŸÄ±ranÄ± korunduÄŸuna inandÄ±rdÄ±ÄŸÄ± iÃ§in
-> yokluÄŸundan daha tehlikelidir. DÃ¶rt test eklendi.
+> Arayüzde duran ama okunmayan bir alan, çağıranı korunduğuna inandırdığı için
+> yokluğundan daha tehlikelidir. Dört test eklendi.
 
-**2. `SilmePolitikaHatasi` istisna filtresinde eÅŸlenmemiÅŸti** â†’ 422 yerine
-**500**. Ä°ki kusur birbirini gizliyordu: okunmayan alan yÃ¼zÃ¼nden bu hata hiÃ§
-fÄ±rlatÄ±lmadÄ±ÄŸÄ± iÃ§in eÅŸleme eksikliÄŸi hiÃ§ gÃ¶rÃ¼nmemiÅŸti.
+**2. `SilmePolitikaHatasi` istisna filtresinde eşlenmemişti** → 422 yerine
+**500**. İki kusur birbirini gizliyordu: okunmayan alan yüzünden bu hata hiç
+fırlatılmadığı için eşleme eksikliği hiç görünmemişti.
 
-### Ã–nceki commit'te yapÄ±lan â€” beÅŸ form sekmeli hÃ¢le geldi
+### Önceki commit'te yapılan — beş form sekmeli hâle geldi
 
-Malik Â· KiracÄ± Â· Sakin Â· Misafir Â· Daire GÃ¶revlisi "Yeni Ekle" ekranlarÄ±
-sekmelendi. Ä°lk sekme **KiÅŸi Bilgileri** (ad Â· soyad Â· TC Â· telefon Â· e-posta Â·
-doÄŸum tarihi Â· cinsiyet Â· adres Â· not Â· **Ã§oklu araÃ§ plakasÄ±**), ardÄ±ndan
-modÃ¼le Ã¶zel sekmeler:
+Malik · Kiracı · Sakin · Misafir · Daire Görevlisi "Yeni Ekle" ekranları
+sekmelendi. İlk sekme **Kişi Bilgileri** (ad · soyad · TC · telefon · e-posta ·
+doğum tarihi · cinsiyet · adres · not · **çoklu araç plakası**), ardından
+modüle özel sekmeler:
 
-| ModÃ¼l | Sekmeler |
+| Modül | Sekmeler |
 |---|---|
-| Malik | KiÅŸi Bilgileri Â· **Tapu Bilgileri** |
-| KiracÄ± | KiÅŸi Bilgileri Â· **Kira SÃ¶zleÅŸmesi** Â· **Kefil** |
-| Sakin | KiÅŸi Bilgileri Â· **Oturum Bilgileri** |
-| Misafir | KiÅŸi Bilgileri Â· **Ziyaret Bilgileri** |
-| Daire GÃ¶revlisi | KiÅŸi Bilgileri Â· **GÃ¶rev Bilgileri** |
+| Malik | Kişi Bilgileri · **Tapu Bilgileri** |
+| Kiracı | Kişi Bilgileri · **Kira Sözleşmesi** · **Kefil** |
+| Sakin | Kişi Bilgileri · **Oturum Bilgileri** |
+| Misafir | Kişi Bilgileri · **Ziyaret Bilgileri** |
+| Daire Görevlisi | Kişi Bilgileri · **Görev Bilgileri** |
 
-**TEK FORM, TEK KAYDET.** Sekmeler yalnÄ±zca hangi bÃ¶lÃ¼mÃ¼n gÃ¶rÃ¼neceÄŸini
-deÄŸiÅŸtirir; her sekmenin kendi kaydet dÃ¼ÄŸmesi YOKTUR. KullanÄ±cÄ±nÄ±n daha Ã¶nce
-istediÄŸi *"varsayÄ±lan kullanÄ±m tek ekrandan hÄ±zlÄ± kayÄ±t"* bÃ¶ylece korundu.
+**TEK FORM, TEK KAYDET.** Sekmeler yalnızca hangi bölümün görüneceğini
+değiştirir; her sekmenin kendi kaydet düğmesi YOKTUR. Kullanıcının daha önce
+istediği *"varsayılan kullanım tek ekrandan hızlı kayıt"* böylece korundu.
 
-âš ï¸ **Sekmeli formun ASIL TUZAÄI: gizli sekmedeki hata gÃ¶rÃ¼nmez.** KullanÄ±cÄ±
-Kaydet'e basar, hiÃ§bir ÅŸey olmaz ve nedenini gÃ¶remez. ÃœÃ§ koruma birlikte
-uygulandÄ±:
+⚠️ **Sekmeli formun ASIL TUZAĞI: gizli sekmedeki hata görünmez.** Kullanıcı
+Kaydet'e basar, hiçbir şey olmaz ve nedenini göremez. Üç koruma birlikte
+uygulandı:
 
-1. **Sekme baÅŸlÄ±ÄŸÄ±nda hata rozeti** â€” o sekmedeki hata sayÄ±sÄ± kÄ±rmÄ±zÄ± badge
-   olarak gÃ¶rÃ¼nÃ¼r (`aria-label="N hata"`; Ã§Ä±plak sayÄ± ekran okuyucuda
-   anlamsÄ±zdÄ±r).
-2. **GÃ¶nderim baÅŸarÄ±sÄ±zsa hatalÄ± ilk sekmeye geÃ§ilir** (`ilkHataliSekme`).
-3. **Gizli alanda `required` KULLANILMAZ.** TarayÄ±cÄ± gizli bir zorunlu alanÄ±
-   odaklayamaz ve gÃ¶nderimi *"An invalid form control is not focusable"* ile
-   **sessizce** durdurur. BeÅŸ formdaki `required` nitelikleri kaldÄ±rÄ±ldÄ±;
-   zorunluluk kendi doÄŸrulamamÄ±zla uygulanÄ±yor.
+1. **Sekme başlığında hata rozeti** — o sekmedeki hata sayısı kırmızı badge
+   olarak görünür (`aria-label="N hata"`; çıplak sayı ekran okuyucuda
+   anlamsızdır).
+2. **Gönderim başarısızsa hatalı ilk sekmeye geçilir** (`ilkHataliSekme`).
+3. **Gizli alanda `required` KULLANILMAZ.** Tarayıcı gizli bir zorunlu alanı
+   odaklayamaz ve gönderimi *"An invalid form control is not focusable"* ile
+   **sessizce** durdurur. Beş formdaki `required` nitelikleri kaldırıldı;
+   zorunluluk kendi doğrulamamızla uygulanıyor.
 
-Ek olarak: **paneller kaldÄ±rÄ±lmaz, `hidden` ile gizlenir** â€” aÄŸaÃ§tan
-Ã§Ä±karÄ±lsaydÄ± sekme deÄŸiÅŸtikÃ§e alanlarÄ±n DOM durumu sÄ±fÄ±rlanÄ±rdÄ±. Klavye
-gezinmesi WAI-ARIA tabs desenine gÃ¶re (oklar Â· Home/End Â· tek durak).
+Ek olarak: **paneller kaldırılmaz, `hidden` ile gizlenir** — ağaçtan
+çıkarılsaydı sekme değiştikçe alanların DOM durumu sıfırlanırdı. Klavye
+gezinmesi WAI-ARIA tabs desenine göre (oklar · Home/End · tek durak).
 
-**Hata yÃ¶nlendirme mantÄ±ÄŸÄ± test edildi.** `lib/sekme-hata.ts` React'ten ayrÄ±
-tutuldu (JSX taÅŸÄ±yan modÃ¼l `node --test` ile iÃ§e alÄ±namaz) ve 9 test yazÄ±ldÄ±;
-biri Ã¶zellikle ÅŸu ayrÄ±mÄ± korur: `plaka-0` Ã¶n ekle yakalanmalÄ± ama `plakaci`
-yakalanMAmalÄ±. Birim testleri artÄ±k **155/155**.
+**Hata yönlendirme mantığı test edildi.** `lib/sekme-hata.ts` React'ten ayrı
+tutuldu (JSX taşıyan modül `node --test` ile içe alınamaz) ve 9 test yazıldı;
+biri özellikle şu ayrımı korur: `plaka-0` ön ekle yakalanmalı ama `plakaci`
+yakalanMAmalı. Birim testleri artık **155/155**.
 
-> `.test.ts` olarak yazmak denendi: `pnpm verify` koÅŸuyor ama **ESLint
-> dÃ¼ÅŸÃ¼yor** â€” kÃ¶k `tsconfig.json` yalnÄ±zca `references` taÅŸÄ±yan bir Ã§Ã¶zÃ¼m
-> dosyasÄ± (`files: []`), bu yÃ¼zden `projectService` test dosyasÄ±nÄ± hiÃ§bir
-> projede bulamÄ±yor. `.mjs` + Node 24 yerleÅŸik tip soyutlamasÄ± bunu tÃ¼mÃ¼yle
-> Ã§Ã¶zdÃ¼.
+> `.test.ts` olarak yazmak denendi: `pnpm verify` koşuyor ama **ESLint
+> düşüyor** — kök `tsconfig.json` yalnızca `references` taşıyan bir çözüm
+> dosyası (`files: []`), bu yüzden `projectService` test dosyasını hiçbir
+> projede bulamıyor. `.mjs` + Node 24 yerleşik tip soyutlaması bunu tümüyle
+> çözdü.
 
-### Ã–nceki commit'te yapÄ±lan â€” PortfÃ¶y YÃ¶netim Merkezi (ADR-0009)
+### Önceki commit'te yapılan — Portföy Yönetim Merkezi (ADR-0009)
 
-**YÃ–NETÄ°M FÄ°RMASI ARTIK BÄ°R TENANT.** ÃœrÃ¼n gereksinimi PortfÃ¶y YÃ¶netim
-Merkezi'ni zorunlu kÄ±ldÄ±: firma giriÅŸ yaptÄ±ÄŸÄ±nda doÄŸrudan bir projeye
-dÃ¼ÅŸmÃ¼yor, Ã¶nce yÃ¶nettiÄŸi bÃ¼tÃ¼n projeleri kontrol merkezinde gÃ¶rÃ¼yor.
+**YÖNETİM FİRMASI ARTIK BİR TENANT.** Ürün gereksinimi Portföy Yönetim
+Merkezi'ni zorunlu kıldı: firma giriş yaptığında doğrudan bir projeye
+düşmüyor, önce yönettiği bütün projeleri kontrol merkezinde görüyor.
 
-âš ï¸ **Yeni mimari TASARLANMADI.** [ADR-0002](docs/adr/log/0002-tenant-modeli.md)
-bu gÃ¼nÃ¼ Ã¶ngÃ¶rmÃ¼ÅŸ ve Ã§Ã¶zÃ¼m yolunu *ÅŸimdiden yazmÄ±ÅŸtÄ±*:
+⚠️ **Yeni mimari TASARLANMADI.** [ADR-0002](docs/adr/log/0002-tenant-modeli.md)
+bu günü öngörmüş ve çözüm yolunu *şimdiden yazmıştı*:
 
-> PortfÃ¶y gÃ¶rÃ¼nÃ¼mÃ¼ ileride **RLS gevÅŸetilerek Ã§Ã¶zÃ¼lmeyecektir.** Ã‡Ã¶zÃ¼m yolu:
-> yÃ¶netim ÅŸirketi tenant'Ä± + apartman tenant'larÄ±ndan **aÃ§Ä±k devir**
-> (delegation) iliÅŸkisi. Bu not, ileride kolay yolun (RLS by-pass) cazip
-> gÃ¶rÃ¼nmemesi iÃ§in yazÄ±lmÄ±ÅŸtÄ±r.
+> Portföy görünümü ileride **RLS gevşetilerek çözülmeyecektir.** Çözüm yolu:
+> yönetim şirketi tenant'ı + apartman tenant'larından **açık devir**
+> (delegation) ilişkisi. Bu not, ileride kolay yolun (RLS by-pass) cazip
+> görünmemesi için yazılmıştır.
 
 Uygulanan tam olarak bu yol:
 
-| Katman | Ne yapÄ±ldÄ± |
+| Katman | Ne yapıldı |
 |---|---|
-| Åema (0014) | `yonetim_delegasyonu` â€” firma tenant'Ä± âŸ· proje tenant'Ä±; **iki taraflÄ±** RLS politikasÄ± |
-| Domain | `devirGecerliMi` Â· `devriDogrula` Â· `devirSonlandirmayiDogrula`; `Tenant.olustur` Ã¼Ã§ tipi de kabul ediyor |
-| KapÄ± 2 | ÃœyeliÄŸin **ikinci yolu**: aktif devir. Jeton `dvr` claim'i taÅŸÄ±r |
-| Backend | `/portfoy/ozet` Â· `/portfoy/projeler/:id/gir` Â· devir ekle/sonlandÄ±r |
-| Rol | `YONETIM_SIRKETI.varsayilanPanel` â†’ **`/portfoy`** (projeye yÃ¶nlendirilmiyor) |
-| Frontend | `/portfoy` kontrol merkezi + proje seÃ§imi + kabukta "Aktif proje / PortfÃ¶ye dÃ¶n" |
-| Tohum | `portfoy@bn-yonetim.test` / `bnos1234` â€” iki projeye aÃ§Ä±k devir |
+| Şema (0014) | `yonetim_delegasyonu` — firma tenant'ı ⟷ proje tenant'ı; **iki taraflı** RLS politikası |
+| Domain | `devirGecerliMi` · `devriDogrula` · `devirSonlandirmayiDogrula`; `Tenant.olustur` üç tipi de kabul ediyor |
+| Kapı 2 | Üyeliğin **ikinci yolu**: aktif devir. Jeton `dvr` claim'i taşır |
+| Backend | `/portfoy/ozet` · `/portfoy/projeler/:id/gir` · devir ekle/sonlandır |
+| Rol | `YONETIM_SIRKETI.varsayilanPanel` → **`/portfoy`** (projeye yönlendirilmiyor) |
+| Frontend | `/portfoy` kontrol merkezi + proje seçimi + kabukta "Aktif proje / Portföye dön" |
+| Tohum | `portfoy@bn-yonetim.test` / `bnos1234` — iki projeye açık devir |
 
-**Ã‡APRAZ-TENANT SORGU YOK.** Ã–zet, proje baÅŸÄ±na ayrÄ± `tenantIslemi(projeId)`
-sorgusunun uygulama katmanÄ±nda toplanmasÄ±dÄ±r â€” ADR-0002'nin aÃ§Ä±kÃ§a kabul
-ettiÄŸi bedel. `BYPASSRLS` yok ve CI'da denetleniyor.
+**ÇAPRAZ-TENANT SORGU YOK.** Özet, proje başına ayrı `tenantIslemi(projeId)`
+sorgusunun uygulama katmanında toplanmasıdır — ADR-0002'nin açıkça kabul
+ettiği bedel. `BYPASSRLS` yok ve CI'da denetleniyor.
 
-**KÄ±smÃ® veri aÃ§Ä±kÃ§a bildiriliyor:** bir projenin Ã¶zeti okunamazsa satÄ±r
-`ozetHatasi` ile YÄ°NE dÃ¶ner ve toplamlarÄ±n eksik olduÄŸu yazÄ±lÄ±r. 150 projeli
-bir firmada bir projenin arÄ±zasÄ± Ã¶teki 149'u gÃ¶rÃ¼nmez kÄ±lmamalÄ±.
+**Kısmî veri açıkça bildiriliyor:** bir projenin özeti okunamazsa satır
+`ozetHatasi` ile YİNE döner ve toplamların eksik olduğu yazılır. 150 projeli
+bir firmada bir projenin arızası öteki 149'u görünmez kılmamalı.
 
-**Uydurma veri Ã¼retilmedi:** "AÃ§Ä±k Ä°ÅŸ Emirleri" ve "Bekleyen Talepler"
-modÃ¼lleri yok; uÃ§lar **-1** dÃ¶ner ve ekran "ModÃ¼l hazÄ±r deÄŸil" gÃ¶sterir.
-SÄ±fÄ±r basmak, "iÅŸ emri yok" ile "modÃ¼l yok" ayrÄ±mÄ±nÄ± gizlerdi.
+**Uydurma veri üretilmedi:** "Açık İş Emirleri" ve "Bekleyen Talepler"
+modülleri yok; uçlar **-1** döner ve ekran "Modül hazır değil" gösterir.
+Sıfır basmak, "iş emri yok" ile "modül yok" ayrımını gizlerdi.
 
-### v23/v24 referans mimari boÅŸluk analizi
+### v23/v24 referans mimari boşluk analizi
 
-[`docs/V23-V24-BOSLUK-ANALIZI.md`](docs/V23-V24-BOSLUK-ANALIZI.md) â€”
-referanslar madde madde mevcut kodla karÅŸÄ±laÅŸtÄ±rÄ±ldÄ±.
+[`docs/V23-V24-BOSLUK-ANALIZI.md`](docs/V23-V24-BOSLUK-ANALIZI.md) —
+referanslar madde madde mevcut kodla karşılaştırıldı.
 
-En Ã¶nemli iki bulgu:
+En önemli iki bulgu:
 
-1. **Referanslar ekran tasarÄ±mÄ± deÄŸil, SÃœRÃœM YOL HARÄ°TASIDIR** ve kendileri
-   bunu sÃ¶ylÃ¼yor. Ekran envanteri V22 "Temel" belgesindedir.
-2. ğŸ”´ **`/belgeler` menÃ¼de var ama sayfasÄ± YOK** â€” link 404 veriyor. Backend
-   Belge modÃ¼lÃ¼ tam Ã§alÄ±ÅŸÄ±yor; eksik olan yalnÄ±zca ekran. Eski "KiÅŸiler"
-   girdisiyle aynÄ± hata sÄ±nÄ±fÄ±.
+1. **Referanslar ekran tasarımı değil, SÜRÜM YOL HARİTASIDIR** ve kendileri
+   bunu söylüyor. Ekran envanteri V22 "Temel" belgesindedir.
+2. 🔴 **`/belgeler` menüde var ama sayfası YOK** — link 404 veriyor. Backend
+   Belge modülü tam çalışıyor; eksik olan yalnızca ekran. Eski "Kişiler"
+   girdisiyle aynı hata sınıfı.
 
-### Ã–nceki commit'te yapÄ±lan â€” iki kavram ayrÄ±ldÄ±, kayÄ±t akÄ±ÅŸÄ± tek ekrana indi
+### Önceki commit'te yapılan — iki kavram ayrıldı, kayıt akışı tek ekrana indi
 
-**1. Ä°KÄ° AYRI KAVRAM TEK TABLODA BÄ°RLEÅTÄ°RÄ°LMÄ°ÅTÄ°.** 0009'da yapÄ±lan
-adlandÄ±rma dÃ¼zeltmesi hatalÄ±ydÄ±: yÃ¶netimin kadrosu ile malikin Ã¼cretli
-Ã§alÄ±ÅŸtÄ±rdÄ±ÄŸÄ± ev hizmetleri gÃ¶revlisi aynÄ± tabloya konmuÅŸtu. 0010 ile ayrÄ±ldÄ±:
+**1. İKİ AYRI KAVRAM TEK TABLODA BİRLEŞTİRİLMİŞTİ.** 0009'da yapılan
+adlandırma düzeltmesi hatalıydı: yönetimin kadrosu ile malikin ücretli
+çalıştırdığı ev hizmetleri görevlisi aynı tabloya konmuştu. 0010 ile ayrıldı:
 
-| | **Site Personeli** | **Daire GÃ¶revlisi** |
+| | **Site Personeli** | **Daire Görevlisi** |
 |---|---|---|
-| Ä°ÅŸveren | **YÃ¶netim** | **Malik / KiracÄ± / Sakin** |
-| Ã–rnek | Site mÃ¼dÃ¼rÃ¼, gÃ¼venlik, temizlik, teknik, bahÃ§Ä±van, vale | Ã‡ocuk bakÄ±cÄ±sÄ±, hasta bakÄ±cÄ±sÄ±, ev yardÄ±mcÄ±sÄ±, aÅŸÃ§Ä±, ÅŸofÃ¶r |
-| Ãœcret | Ä°ÅŸletme projesinden | Daire sahibi Ã¶der |
-| SGK Â· departman Â· vardiya Â· zimmet | **Var** | **YOK** â€” yÃ¶netimin yÃ¼kÃ¼mlÃ¼lÃ¼ÄŸÃ¼ deÄŸil |
-| Kapsam | Site geneli ya da apartman (`apartmanId` opsiyonel) | **Zorunlu tek baÄŸÄ±msÄ±z bÃ¶lÃ¼m** |
-| AynÄ± TC tekilliÄŸi | Tenant geneli (mÃ¼kerrer kayÄ±t bordroyu ikiye katlar) | **BÃ¶lÃ¼m baÅŸÄ±na** (aynÄ± temizlikÃ§i Ã¼Ã§ dairede Ã§alÄ±ÅŸabilir) |
-| KVKK veri sorumlusu | YÃ¶netim | Onu Ã§alÄ±ÅŸtÄ±ran malik |
-| UÃ§ | `/site-personeli` | `/daire-gorevlileri` |
+| İşveren | **Yönetim** | **Malik / Kiracı / Sakin** |
+| Örnek | Site müdürü, güvenlik, temizlik, teknik, bahçıvan, vale | Çocuk bakıcısı, hasta bakıcısı, ev yardımcısı, aşçı, şoför |
+| Ücret | İşletme projesinden | Daire sahibi öder |
+| SGK · departman · vardiya · zimmet | **Var** | **YOK** — yönetimin yükümlülüğü değil |
+| Kapsam | Site geneli ya da apartman (`apartmanId` opsiyonel) | **Zorunlu tek bağımsız bölüm** |
+| Aynı TC tekilliği | Tenant geneli (mükerrer kayıt bordroyu ikiye katlar) | **Bölüm başına** (aynı temizlikçi üç dairede çalışabilir) |
+| KVKK veri sorumlusu | Yönetim | Onu çalıştıran malik |
+| Uç | `/site-personeli` | `/daire-gorevlileri` |
 
-**2. KÄ°ÅÄ° SEÃ‡ME ZORUNLULUÄU KALKTI (0011).** Malik/kiracÄ±/sakin eklemek iÃ§in
-Ã¶nce "KiÅŸiler"e gidip kayÄ±t aÃ§mak, sonra o kiÅŸiyi seÃ§mek gerekiyordu; bu,
-sahada tek iÅŸlem olan bir ÅŸeyi ikiye bÃ¶lÃ¼yordu. ArtÄ±k `kisiId` isteÄŸe baÄŸlÄ±;
-form iÃ§inde ad, soyad, TC, telefon, e-posta, doÄŸum tarihi, cinsiyet, adres,
-not ve **Ã§oklu araÃ§ plakasÄ±** girilebiliyor.
+**2. KİŞİ SEÇME ZORUNLULUĞU KALKTI (0011).** Malik/kiracı/sakin eklemek için
+önce "Kişiler"e gidip kayıt açmak, sonra o kişiyi seçmek gerekiyordu; bu,
+sahada tek işlem olan bir şeyi ikiye bölüyordu. Artık `kisiId` isteğe bağlı;
+form içinde ad, soyad, TC, telefon, e-posta, doğum tarihi, cinsiyet, adres,
+not ve **çoklu araç plakası** girilebiliyor.
 
-> **MÃ¼kerrer kimlik kaydÄ± TC ve E-POSTA Ã¼zerinden Ã¶nleniyor.** `kisiId`
-> zorunluluÄŸunun asÄ±l iÅŸlevi buydu. AynÄ± kiÅŸi iki `Kisi` satÄ±rÄ±na bÃ¶lÃ¼nÃ¼rse
-> borÃ§ geÃ§miÅŸi, tahakkuk sorumluluÄŸu ve KVKK silme talebi iki kayda daÄŸÄ±lÄ±r.
-> `kisiyiCoz` sÄ±rasÄ±: `kisiId` â†’ TC eÅŸleÅŸmesi â†’ e-posta eÅŸleÅŸmesi â†’ yeni kayÄ±t.
-> Mevcut kiÅŸi bulunduÄŸunda YALNIZCA BOÅ alanlar doldurulur; dolu alanÄ±n
-> Ã¼zerine yazmak kiracÄ± eklerken malikin telefonunu deÄŸiÅŸtirmek olurdu.
+> **Mükerrer kimlik kaydı TC ve E-POSTA üzerinden önleniyor.** `kisiId`
+> zorunluluğunun asıl işlevi buydu. Aynı kişi iki `Kisi` satırına bölünürse
+> borç geçmişi, tahakkuk sorumluluğu ve KVKK silme talebi iki kayda dağılır.
+> `kisiyiCoz` sırası: `kisiId` → TC eşleşmesi → e-posta eşleşmesi → yeni kayıt.
+> Mevcut kişi bulunduğunda YALNIZCA BOŞ alanlar doldurulur; dolu alanın
+> üzerine yazmak kiracı eklerken malikin telefonunu değiştirmek olurdu.
 
-**3. MÄ°SAFÄ°R MODÃœLÃœ (0011).** Misafir **hak sahibi deÄŸildir**: borÃ§ sorumlusu
-olmaz, tahakkuka girmez, arsa payÄ± taÅŸÄ±maz. Bu yÃ¼zden `Kisi` kaydÄ± AÃ‡ILMAZ â€”
-verisi kÄ±sa Ã¶mÃ¼rlÃ¼dÃ¼r ve kalÄ±cÄ± kimlik kaydÄ±, ziyaretten aylar sonra silinmesi
-gereken veriyi malik kayÄ±tlarÄ±yla aynÄ± Ã¶mre baÄŸlardÄ± (KVKK md. 4/1-Ã§).
-Ã‡Ä±kÄ±ÅŸ tarihi boÅŸsa misafir **hÃ¢len iÃ§eridedir**; `/misafirler/iceride` gÃ¼venlik
+**3. MİSAFİR MODÜLÜ (0011).** Misafir **hak sahibi değildir**: borç sorumlusu
+olmaz, tahakkuka girmez, arsa payı taşımaz. Bu yüzden `Kisi` kaydı AÇILMAZ —
+verisi kısa ömürlüdür ve kalıcı kimlik kaydı, ziyaretten aylar sonra silinmesi
+gereken veriyi malik kayıtlarıyla aynı ömre bağlardı (KVKK md. 4/1-ç).
+Çıkış tarihi boşsa misafir **hâlen içeridedir**; `/misafirler/iceride` güvenlik
 ve tahliye listesidir.
 
-**4. KEFÄ°L (0012).** KiracÄ±ya kefil alanlarÄ± eklendi ve **ayrÄ± `Kisi` kaydÄ±
-aÃ§Ä±lmÄ±yor**: yÃ¶netimin ortak gider alacaÄŸÄ± malike (KMK md. 20) ve kiracÄ±ya
-(md. 22, kira bedeli kadar mÃ¼teselsil) yÃ¶nelir, **kefile yÃ¶nelmez** â€” kefalet
-kira sÃ¶zleÅŸmesinin tarafÄ±dÄ±r, yÃ¶netim planÄ±nÄ±n deÄŸil.
+**4. KEFİL (0012).** Kiracıya kefil alanları eklendi ve **ayrı `Kisi` kaydı
+açılmıyor**: yönetimin ortak gider alacağı malike (KMK md. 20) ve kiracıya
+(md. 22, kira bedeli kadar müteselsil) yönelir, **kefile yönelmez** — kefalet
+kira sözleşmesinin tarafıdır, yönetim planının değil.
 
-**5. TEK PLAKA KÃœTÃœÄÃœ, DÃ–RT SAHÄ°P TÄ°PÄ° + KAPSAM (0011-0013).** Otopark
-kapasitesi malik aracÄ±yla bakÄ±cÄ±nÄ±n aracÄ±nÄ± ayÄ±rt etmez; ikisi de yer kaplar.
-`arac` tek kÃ¼tÃ¼k kaldÄ±, sahip alanÄ± dÃ¶rde aÃ§Ä±ldÄ± (`arac_tek_sahip` tam olarak
-birini zorlar) ve **kapsam** ayrÄ±ldÄ± (`arac_kapsam`):
+**5. TEK PLAKA KÜTÜĞÜ, DÖRT SAHİP TİPİ + KAPSAM (0011-0013).** Otopark
+kapasitesi malik aracıyla bakıcının aracını ayırt etmez; ikisi de yer kaplar.
+`arac` tek kütük kaldı, sahip alanı dörde açıldı (`arac_tek_sahip` tam olarak
+birini zorlar) ve **kapsam** ayrıldı (`arac_kapsam`):
 
-- Malik Â· kiracÄ± Â· sakin Â· **daire gÃ¶revlisi** Â· **misafir** aracÄ± â†’
-  **ilgili baÄŸÄ±msÄ±z bÃ¶lÃ¼me** (`bolum_id` dolu)
-- **Site personeli aracÄ± â†’ YÃ–NETÄ°ME** (`bolum_id` boÅŸ)
+- Malik · kiracı · sakin · **daire görevlisi** · **misafir** aracı →
+  **ilgili bağımsız bölüme** (`bolum_id` dolu)
+- **Site personeli aracı → YÖNETİME** (`bolum_id` boş)
 
-> Personel aracÄ±nÄ± bir daireye yazmak o dairenin otopark hakkÄ±nÄ± tÃ¼ketmiÅŸ
-> gÃ¶sterir ve KULLANIM_BAZLI daÄŸÄ±tÄ±mda ona fazla pay Ã§Ä±karÄ±r.
+> Personel aracını bir daireye yazmak o dairenin otopark hakkını tüketmiş
+> gösterir ve KULLANIM_BAZLI dağıtımda ona fazla pay çıkarır.
 
-GÃ¶revli/misafir/personel kaydÄ± kapandÄ±ÄŸÄ±nda **aÃ§Ä±k araÃ§ kayÄ±tlarÄ± da aynÄ±
-tarihte kapanÄ±r**; kapanmasaydÄ± iÅŸi bitmiÅŸ kiÅŸinin aracÄ± otopark sayÄ±mÄ±nda yer
+Görevli/misafir/personel kaydı kapandığında **açık araç kayıtları da aynı
+tarihte kapanır**; kapanmasaydı işi bitmiş kişinin aracı otopark sayımında yer
 kaplamaya devam ederdi.
 
-### Bulunan ve dÃ¼zeltilen hatalar
+### Bulunan ve düzeltilen hatalar
 
-1. **Migration 0001 hiÃ§ Ã§alÄ±ÅŸamazdÄ±.** Prisma'nÄ±n Ã¼retmesi gereken tablo
-   DDL'i hiÃ§ Ã¼retilmemiÅŸti; dosyada yalnÄ±zca elle yazÄ±lan RLS bÃ¶lÃ¼mÃ¼ vardÄ±.
-   `relation "kisi" does not exist` ile dÃ¼ÅŸÃ¼yordu. 0001 ve 0002 birleÅŸtirilip
-   tek doÄŸru temel Ã¼retildi.
-2. **GiriÅŸ hiÃ§ Ã§alÄ±ÅŸamazdÄ±.** `kullanici` RLS taÅŸÄ±r; kod "sistem iÅŸlemi olarak
-   Ã§alÄ±ÅŸÄ±r" diyordu ama `sistemIslemi` RLS'i **atlamaz**, yalnÄ±zca baÄŸlam
-   *kurmaz*. `POST /oturum/giris` her Ã§aÄŸrÄ±da 500 dÃ¶nÃ¼yordu. RLS'siz
+1. **Migration 0001 hiç çalışamazdı.** Prisma'nın üretmesi gereken tablo
+   DDL'i hiç üretilmemişti; dosyada yalnızca elle yazılan RLS bölümü vardı.
+   `relation "kisi" does not exist` ile düşüyordu. 0001 ve 0002 birleştirilip
+   tek doğru temel üretildi.
+2. **Giriş hiç çalışamazdı.** `kullanici` RLS taşır; kod "sistem işlemi olarak
+   çalışır" diyordu ama `sistemIslemi` RLS'i **atlamaz**, yalnızca bağlam
+   *kurmaz*. `POST /oturum/giris` her çağrıda 500 dönüyordu. RLS'siz
    `oturum_dizini` katalogu eklendi (migration 0002); senkronu **trigger**
-   tutar, uygulama kodu deÄŸil.
-3. **Her okuma ucu 500 dÃ¶nÃ¼yordu.** 11 sorgu servisinde 30 Ã§aÄŸrÄ± RLS'li
-   tablolarÄ± tenant baÄŸlamÄ± dÄ±ÅŸÄ±nda okuyordu â€” KapÄ± 2 dahil.
-4. **BÃ¼tÃ¼n yazma uÃ§larÄ± kÄ±rÄ±ktÄ±.** Ä°stek baÄŸlamÄ± bir *interceptor*'da
-   kuruluyordu; NestJS'te guard'lar interceptor'lardan **Ã¶nce** Ã§alÄ±ÅŸÄ±r, bu
-   yÃ¼zden ÃœÃ§ KapÄ± baÄŸlama yazamÄ±yordu. Middleware'e alÄ±ndÄ±.
-5. **Tenant uÃ§larÄ±nda hiÃ§ izin denetimi yoktu.** KimliÄŸi doÄŸrulanmÄ±ÅŸ herhangi
-   bir kullanÄ±cÄ± platforma yeni yerleÅŸke aÃ§abiliyordu.
-6. **PaylaÅŸÄ±lan paketler CommonJS'ten `require` edilemiyordu**; backend
-   derlense de dist hiÃ§ Ã§alÄ±ÅŸmÄ±yordu.
-7. **Yeni tenant belge politikasÄ±z aÃ§Ä±lÄ±yordu.** PolitikasÄ±z bir tenant'ta
-   `tipPolitikasi` gÃ¼venli *gÃ¶rÃ¼nen* bir varsayÄ±lana dÃ¼ÅŸer (`finansalMi:
-   false`) ve FATURA arÅŸivlendiÄŸinde silinebilir hale gelir; mali denetim izi
-   sessizce kaybolur. VarsayÄ±lanlar domain'e taÅŸÄ±ndÄ±, tenant ve politikalarÄ±
-   aynÄ± transaction'da yazÄ±lÄ±yor.
-8. **DoÄŸrulama hatasÄ± hangi alanÄ±n hatalÄ± olduÄŸunu sÃ¶ylemiyordu.**
-   `ValidationPipe` gÃ¶vdesinde `message` bir DÄ°ZÄ°DÄ°R; filtre yalnÄ±zca metin
-   kabul ettiÄŸi iÃ§in sessizce dÃ¼ÅŸÃ¼yor ve istemciye "Bad Request Exception"
-   gidiyordu â€” dosyadaki yorumun uyardÄ±ÄŸÄ± `String(unknown)` tuzaÄŸÄ±nÄ±n kardeÅŸi.
+   tutar, uygulama kodu değil.
+3. **Her okuma ucu 500 dönüyordu.** 11 sorgu servisinde 30 çağrı RLS'li
+   tabloları tenant bağlamı dışında okuyordu — Kapı 2 dahil.
+4. **Bütün yazma uçları kırıktı.** İstek bağlamı bir *interceptor*'da
+   kuruluyordu; NestJS'te guard'lar interceptor'lardan **önce** çalışır, bu
+   yüzden Üç Kapı bağlama yazamıyordu. Middleware'e alındı.
+5. **Tenant uçlarında hiç izin denetimi yoktu.** Kimliği doğrulanmış herhangi
+   bir kullanıcı platforma yeni yerleşke açabiliyordu.
+6. **Paylaşılan paketler CommonJS'ten `require` edilemiyordu**; backend
+   derlense de dist hiç çalışmıyordu.
+7. **Yeni tenant belge politikasız açılıyordu.** Politikasız bir tenant'ta
+   `tipPolitikasi` güvenli *görünen* bir varsayılana düşer (`finansalMi:
+   false`) ve FATURA arşivlendiğinde silinebilir hale gelir; mali denetim izi
+   sessizce kaybolur. Varsayılanlar domain'e taşındı, tenant ve politikaları
+   aynı transaction'da yazılıyor.
+8. **Doğrulama hatası hangi alanın hatalı olduğunu söylemiyordu.**
+   `ValidationPipe` gövdesinde `message` bir DİZİDİR; filtre yalnızca metin
+   kabul ettiği için sessizce düşüyor ve istemciye "Bad Request Exception"
+   gidiyordu — dosyadaki yorumun uyardığı `String(unknown)` tuzağının kardeşi.
 
-### KalÄ±cÄ± korumalar
+### Kalıcı korumalar
 
-- `scripts/rls-scan.mjs` â€” RLS'li modele tenant baÄŸlamÄ± dÄ±ÅŸÄ±nda eriÅŸen her
-  Ã§aÄŸrÄ±yÄ± yakalar (**uygulama** tarafÄ±). `pnpm verify` zincirinde.
-- `scripts/rls-politika-scan.mjs` â€” migration'da oluÅŸturulan her tablonun RLS
-  politikasÄ± alÄ±p almadÄ±ÄŸÄ±nÄ± denetler (**veritabanÄ±** tarafÄ±). PolitikasÄ±z bir
-  tablo derlenir, lint geÃ§er, testler yeÅŸil kalÄ±r ve tenant izolasyonu
-  **sessizce** kalkar; bu iki tarama ayrÄ± sessiz kusur sÄ±nÄ±fÄ±dÄ±r.
-- `common/errors/prisma-hata-cevirisi.ts` â€” veritabanÄ± kÄ±sÄ±t ihlalleri (unique Â·
-  CHECK Â· FK) artÄ±k 500 deÄŸil **409/422/404** dÃ¶ner. Ã‡evrilemeyen hata `null`
-  dÃ¶ner ve 500'e dÃ¼ÅŸer; bilinmeyen hata iÃ§in 4xx **uydurulmaz**.
-- `scripts/db.mjs` â€” migration `bnos_migrator`, tohum `bnos_app` rolÃ¼yle
-  koÅŸar. Tohumun uygulama rolÃ¼yle koÅŸmasÄ± **kasÄ±tlÄ±dÄ±r**: RLS bÃ¶ylece fiilen
-  sÄ±nanÄ±r.
-- `unplugin-swc` â€” vitest esbuild ile derliyordu ve `emitDecoratorMetadata`
-  desteklemediÄŸi iÃ§in NestJS DI testlerde Ã§alÄ±ÅŸmÄ±yordu.
+- `scripts/rls-scan.mjs` — RLS'li modele tenant bağlamı dışında erişen her
+  çağrıyı yakalar (**uygulama** tarafı). `pnpm verify` zincirinde.
+- `scripts/rls-politika-scan.mjs` — migration'da oluşturulan her tablonun RLS
+  politikası alıp almadığını denetler (**veritabanı** tarafı). Politikasız bir
+  tablo derlenir, lint geçer, testler yeşil kalır ve tenant izolasyonu
+  **sessizce** kalkar; bu iki tarama ayrı sessiz kusur sınıfıdır.
+- `common/errors/prisma-hata-cevirisi.ts` — veritabanı kısıt ihlalleri (unique ·
+  CHECK · FK) artık 500 değil **409/422/404** döner. Çevrilemeyen hata `null`
+  döner ve 500'e düşer; bilinmeyen hata için 4xx **uydurulmaz**.
+- `scripts/db.mjs` — migration `bnos_migrator`, tohum `bnos_app` rolüyle
+  koşar. Tohumun uygulama rolüyle koşması **kasıtlıdır**: RLS böylece fiilen
+  sınanır.
+- `unplugin-swc` — vitest esbuild ile derliyordu ve `emitDecoratorMetadata`
+  desteklemediği için NestJS DI testlerde çalışmıyordu.
 
-### Ã‡alÄ±ÅŸma zamanÄ± kanÄ±tÄ± (ilk kez alÄ±nabildi)
+### Çalışma zamanı kanıtı (ilk kez alınabildi)
 
-- Tenant baÄŸlamÄ± olmadan sorgu â†’ exception.
-- A tenant'Ä± B'nin kaydÄ±nÄ± **gÃ¶remiyor**.
-- YabancÄ± `tenant_id` ile yazma â†’ *"new row violates row-level security policy"*.
-- Audit UPDATE/DELETE â†’ trigger reddediyor, kayÄ±t duruyor.
-- `bnos_app` ve `bnos_migrator` â†’ `rolbypassrls = false`.
+- Tenant bağlamı olmadan sorgu → exception.
+- A tenant'ı B'nin kaydını **göremiyor**.
+- Yabancı `tenant_id` ile yazma → *"new row violates row-level security policy"*.
+- Audit UPDATE/DELETE → trigger reddediyor, kayıt duruyor.
+- `bnos_app` ve `bnos_migrator` → `rolbypassrls = false`.
 - 22/22 tenant tablosunda RLS + politika.
 
 ---
 
-## 2. Åu anki durum
+## 2. Şu anki durum
 
-**DoÄŸrulama:** 9/9 build Â· ESLint 0 Â· tip denetimi temiz Â· verify **9/9** Â·
-birim testleri **298/298** Â· sÃ¶zleÅŸme testleri **24/24** Â· lint:md 0 Â·
-migration **21/21 uygulandÄ±** Â· 18 web rotasÄ± Â· hÄ±zlÄ± kayÄ±t canlÄ± testi
-**40/40** Â· portfÃ¶y canlÄ± testi **19/19** Â· muhasebe canlÄ± testi **51/51** Â·
-**banka canlÄ± testi 91/91** Â· makbuz+geri al **13/13** Â· iletiÅŸim **18/18** Â· sakin dayanak **11/11**.
+**Doğrulama:** 9/9 build · ESLint 0 · tip denetimi temiz · verify **9/9** ·
+birim testleri **298/298** · sözleşme testleri **24/24** · lint:md 0 ·
+migration **21/21 uygulandı** · 18 web rotası · hızlı kayıt canlı testi
+**40/40** · portföy canlı testi **19/19** · muhasebe canlı testi **51/51** ·
+**banka canlı testi 91/91** · makbuz+geri al **13/13** · iletişim **18/18** · sakin dayanak **11/11**.
 
-> âš ï¸ **Makbuz canlÄ± testi 13/13.** `tahsilat` uÃ§larÄ± artÄ±k Ã§alÄ±ÅŸÄ±yor; kalan
-> eksikler ("Makbuzlar talebinden karÅŸÄ±lanmayanlar") ve FAZ 2'nin geri kalanÄ±
-> aÅŸaÄŸÄ±da baÅŸlÄ±klar hÃ¢linde yazÄ±lÄ±.
+> ⚠️ **Makbuz canlı testi 13/13.** `tahsilat` uçları artık çalışıyor; kalan
+> eksikler ("Makbuzlar talebinden karşılanmayanlar") ve FAZ 2'nin geri kalanı
+> aşağıda başlıklar hâlinde yazılı.
 
-> âš ï¸ **MUHASEBE YAZMA YETKÄ°SÄ° YALNIZCA `YONETIM_SIRKETI` ROLÃœNDE.**
+> ⚠️ **MUHASEBE YAZMA YETKİSİ YALNIZCA `YONETIM_SIRKETI` ROLÜNDE.**
 > `FINANS_YEVMIYE_GIRIS` ve `FINANS_DONEM_KAPAT` izinleri
-> `APARTMAN_YONETICISI`de **yok**; o rol yalnÄ±zca defter gÃ¶rÃ¼ntÃ¼leyip ayar
-> yapabiliyor. KMK md. 35/dâ€“36 uyarÄ±nca iÅŸletme defterini tutan ve genel kurula
-> hesap veren taraf yÃ¶neticidir, dolayÄ±sÄ±yla bu daÄŸÄ±tÄ±m bÃ¼yÃ¼k olasÄ±lÄ±kla
-> yanlÄ±ÅŸtÄ±r â€” ama **yetki matrisini izinsiz deÄŸiÅŸtirmedim**. Karar kullanÄ±cÄ±ya
-> ait; deÄŸiÅŸecekse tek yerden: `shared/core-domain/src/yetki/roller.ts`.
+> `APARTMAN_YONETICISI`de **yok**; o rol yalnızca defter görüntüleyip ayar
+> yapabiliyor. KMK md. 35/d–36 uyarınca işletme defterini tutan ve genel kurula
+> hesap veren taraf yöneticidir, dolayısıyla bu dağıtım büyük olasılıkla
+> yanlıştır — ama **yetki matrisini izinsiz değiştirmedim**. Karar kullanıcıya
+> ait; değişecekse tek yerden: `shared/core-domain/src/yetki/roller.ts`.
 
-Ã‡alÄ±ÅŸma aÄŸacÄ± temiz, `origin/master` ile senkron.
+Çalışma ağacı temiz, `origin/master` ile senkron.
 
-### AltyapÄ±
+### Altyapı
 
 ```bash
-pnpm db:up        # postgres Â· redis Â· minio
+pnpm db:up        # postgres · redis · minio
 pnpm db:status    # migration durumu
-pnpm db:reset     # sÄ±fÄ±rla + migration + tohum (tohum bnos_app rolÃ¼yle)
+pnpm db:reset     # sıfırla + migration + tohum (tohum bnos_app rolüyle)
 pnpm test:contract
 ```
 
-Tohum: iki tenant, her biri 1 apartman Â· 1 blok Â· 2 kat Â· bÃ¶lÃ¼mler Â·
-malikler Â· 10 KMK varsayÄ±lan gider tÃ¼rÃ¼.
-GiriÅŸ: `yonetici@guzel-apartmani.test` / `bnos1234`.
+Tohum: iki tenant, her biri 1 apartman · 1 blok · 2 kat · bölümler ·
+malikler · 10 KMK varsayılan gider türü.
+Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
 
-### Tamamlanan modÃ¼ller
+### Tamamlanan modüller
 
-| ModÃ¼l | Durum |
+| Modül | Durum |
 |---|---|
-| **Gider TÃ¼rÃ¼** | âœ… API + UI. KMK md. 20 dÃ¶rt ekseni; kaynak referansÄ± zorunluluÄŸu; KARMA toplam denetimi |
-| **Tahakkuk** | âœ… API. DaÄŸÄ±tÄ±m â†’ sorumluluk â†’ malik bÃ¶lÃ¼ÅŸÃ¼mÃ¼; snapshot; boÅŸluksuz numara; Ã¶nizleme; **sayaÃ§tan tÃ¼ketim** |
-| **AraÃ§** | âœ… API + migration 0004. Plaka normalizasyonu; dÃ¶nemsel kayÄ±t; otopark aÅŸÄ±m raporu |
-| **SayaÃ§** | âœ… API + migration 0005. Okuma Â· devir Â· deÄŸiÅŸim Â· dÃ¶nem tÃ¼ketimi Â· geÃ§miÅŸ |
-| **Belge** | âœ… API + migration 0006/0007 + MinIO. Versiyonlama Â· kategori Â· Ã§oklu iliÅŸki Â· etiket Â· arama Â· gizlilik Â· Ã¶nizleme Â· KVKK imha |
-| **Site Personeli** | âœ… API + UI + migration 0008/0009/0010. Ä°ÅŸveren YÃ–NETÄ°M. On gÃ¶rev Â· vardiya Â· SGK Â· sertifika Â· zimmet Â· ayrÄ±lÄ±ÅŸ Â· plaka (yÃ¶netim kapsamÄ±) |
-| **Daire GÃ¶revlisi** | âœ… API + UI + migration 0010. Ä°ÅŸveren MALÄ°K/KÄ°RACI/SAKÄ°N. Ev hizmetleri; bÃ¶lÃ¼m zorunlu; plaka; Ã§alÄ±ÅŸma sonlandÄ±rma |
-| **Misafir** | âœ… API + UI + migration 0011. `Kisi` kaydÄ± aÃ§maz; giriÅŸ/Ã§Ä±kÄ±ÅŸ; "hÃ¢len iÃ§eride" listesi; plaka |
-| **HÄ±zlÄ± kayÄ±t** | âœ… Malik Â· KiracÄ± Â· Sakin Â· Misafir Â· Daire GÃ¶revlisi tek ekrandan. KiÅŸi seÃ§imi isteÄŸe baÄŸlÄ±; TC/e-posta ile tekilleÅŸtirme; Ã§oklu plaka |
-| **Muhasebe** | âœ… API + UI (`/muhasebe`, 5 sekme) + migration 0015. Hesap planÄ± Â· fiÅŸ Â· storno Â· yevmiye/muavin/kasa defteri Â· mizan Â· dÃ¶nem kapanÄ±ÅŸÄ± (6 iÅŸlem) Â· parametreler |
-| **Banka** | âœ… API + migration 0016, **EKRAN YOK** (kullanÄ±cÄ± talimatÄ±). Banka Â· ÅŸube Â· hesap (IBAN mod-97) Â· POS/sanal POS Â· hareket Â· virman Â· muhasebeleÅŸtirme Â· ekstre Â· mutabakat Â· Ã§ek/senet Â· parametreler |
+| **Gider Türü** | ✅ API + UI. KMK md. 20 dört ekseni; kaynak referansı zorunluluğu; KARMA toplam denetimi |
+| **Tahakkuk** | ✅ API. Dağıtım → sorumluluk → malik bölüşümü; snapshot; boşluksuz numara; önizleme; **sayaçtan tüketim** |
+| **Araç** | ✅ API + migration 0004. Plaka normalizasyonu; dönemsel kayıt; otopark aşım raporu |
+| **Sayaç** | ✅ API + migration 0005. Okuma · devir · değişim · dönem tüketimi · geçmiş |
+| **Belge** | ✅ API + migration 0006/0007 + MinIO. Versiyonlama · kategori · çoklu ilişki · etiket · arama · gizlilik · önizleme · KVKK imha |
+| **Site Personeli** | ✅ API + UI + migration 0008/0009/0010. İşveren YÖNETİM. On görev · vardiya · SGK · sertifika · zimmet · ayrılış · plaka (yönetim kapsamı) |
+| **Daire Görevlisi** | ✅ API + UI + migration 0010. İşveren MALİK/KİRACI/SAKİN. Ev hizmetleri; bölüm zorunlu; plaka; çalışma sonlandırma |
+| **Misafir** | ✅ API + UI + migration 0011. `Kisi` kaydı açmaz; giriş/çıkış; "hâlen içeride" listesi; plaka |
+| **Hızlı kayıt** | ✅ Malik · Kiracı · Sakin · Misafir · Daire Görevlisi tek ekrandan. Kişi seçimi isteğe bağlı; TC/e-posta ile tekilleştirme; çoklu plaka |
+| **Muhasebe** | ✅ API + UI (`/muhasebe`, 5 sekme) + migration 0015. Hesap planı · fiş · storno · yevmiye/muavin/kasa defteri · mizan · dönem kapanışı (6 işlem) · parametreler |
+| **Banka** | ✅ API + migration 0016, **EKRAN YOK** (kullanıcı talimatı). Banka · şube · hesap (IBAN mod-97) · POS/sanal POS · hareket · virman · muhasebeleştirme · ekstre · mutabakat · çek/senet · parametreler |
 
-KullanÄ±cÄ±nÄ±n istediÄŸi beÅŸ modÃ¼l + Belge profesyonel seviye + Site Personeli +
-Daire GÃ¶revlisi + Misafir + tek ekran hÄ±zlÄ± kayÄ±t tamamlandÄ±.
+Kullanıcının istediği beş modül + Belge profesyonel seviye + Site Personeli +
+Daire Görevlisi + Misafir + tek ekran hızlı kayıt tamamlandı.
 
-### SayaÃ§ â€” kritik kurallar (canlÄ± doÄŸrulandÄ±)
+### Sayaç — kritik kurallar (canlı doğrulandı)
 
-- **SayaÃ§ geriye gitmez**; kÃ¼Ã§Ã¼len okuma reddedilir.
-- **Devir aÃ§Ä±k bayrak ister.** 99998 â†’ 3 okumasÄ± `devirMi: true` olmadan
-  reddedilir; iÅŸaretlendiÄŸinde tÃ¼ketim 100000âˆ’99998+3 = **5** Ã§Ä±kar.
-  Tahmin edilseydi 99 995'lik olmayan bir tÃ¼ketim yazÄ±lÄ±rdÄ±.
-- **DeÄŸiÅŸim dÃ¶neminde tÃ¼ketim iki parÃ§anÄ±n toplamÄ±dÄ±r** (5 + 120 = 125).
-- Araya **geÃ§miÅŸ tarihli okuma girilemez** â€” sonraki tÃ¼ketimleri yanlÄ±ÅŸ bÄ±rakÄ±r.
-- **TÃ¼ketim saklanÄ±r** (snapshot); sorgu anÄ±nda yeniden hesaplanmaz.
-- Tahakkuk `sayacTuru` ile aÄŸÄ±rlÄ±klarÄ± okumalardan alÄ±r. **OkumasÄ± olmayan
-  bÃ¶lÃ¼m varsa tahakkuk reddedilir** ve eksik kapÄ± numaralarÄ± yazÄ±lÄ±r; sessizce
-  sÄ±fÄ±r yazmak o daireyi Ä±sÄ±tma giderinden muaf tutup farkÄ± diÄŸerlerine yÃ¼kler.
+- **Sayaç geriye gitmez**; küçülen okuma reddedilir.
+- **Devir açık bayrak ister.** 99998 → 3 okuması `devirMi: true` olmadan
+  reddedilir; işaretlendiğinde tüketim 100000−99998+3 = **5** çıkar.
+  Tahmin edilseydi 99 995'lik olmayan bir tüketim yazılırdı.
+- **Değişim döneminde tüketim iki parçanın toplamıdır** (5 + 120 = 125).
+- Araya **geçmiş tarihli okuma girilemez** — sonraki tüketimleri yanlış bırakır.
+- **Tüketim saklanır** (snapshot); sorgu anında yeniden hesaplanmaz.
+- Tahakkuk `sayacTuru` ile ağırlıkları okumalardan alır. **Okuması olmayan
+  bölüm varsa tahakkuk reddedilir** ve eksik kapı numaraları yazılır; sessizce
+  sıfır yazmak o daireyi ısıtma giderinden muaf tutup farkı diğerlerine yükler.
 
-### Belge â€” kritik kurallar (canlÄ± doÄŸrulandÄ±)
+### Belge — kritik kurallar (canlı doğrulandı)
 
-- **Silinmez, versiyonlanÄ±r.** Yeni sÃ¼rÃ¼mde eski **arÅŸivlenir**.
-- Zincirin ucu olmayan sÃ¼rÃ¼me yeni sÃ¼rÃ¼m baÄŸlanamaz (dallanma engellenir).
-- **FÄ°NANSAL belge asla silinemez** (fatura Â· makbuz Â· genel kurul kararÄ±).
-- GÃ¼ncel sÃ¼rÃ¼m silinemez; arÅŸivli + saklama sÃ¼resi dolmuÅŸ belge silinebilir.
-- **Dosya API'den geÃ§mez**: Ã¶nimzalÄ± URL ile doÄŸrudan depoya. KayÄ±t aÃ§Ä±lmadan
-  Ã¶nce nesnenin gerÃ§ekten yÃ¼klendiÄŸi `HeadObject` ile doÄŸrulanÄ±r.
-- Nesne anahtarÄ± tenant Ã¶nekli; kayÄ±tta Ã¶nek denetlenir. Ä°ndirme
-  `attachment` olarak zorlanÄ±r (HTML/SVG betik Ã§alÄ±ÅŸtÄ±rmasÄ±n), URL Ã¶mrÃ¼ 5 dk.
-- **Kategori TÃœRÃœN Ã¶zelliÄŸidir**, belgenin deÄŸil: "Fatura" her zaman MALI.
-  Belge baÅŸÄ±na serbest bÄ±rakÄ±lsaydÄ± aynÄ± tÃ¼r farklÄ± kategorilere dÃ¼ÅŸer ve
-  kategori bazlÄ± arama gÃ¼venilmez olurdu.
-- **Gizlilik yÃ¼kseltilebilir, DÃœÅÃœRÃœLEMEZ.** Tapu ve kira sÃ¶zleÅŸmesinin
-  varsayÄ±lanÄ± KISIYE_OZEL'dir; tek yanlÄ±ÅŸ tÄ±kla herkese aÃ§Ä±lamamalÄ±.
-- **Ã–nizleme yalnÄ±zca betik taÅŸÄ±yamayan tiplerde** (PDF Â· resim Â· dÃ¼z metin).
-  HTML/SVG asla â€” depo alan adÄ±nda Ã§alÄ±ÅŸan betik oradaki oturum baÄŸlamÄ±na
-  eriÅŸebilir.
-- **KVKK kalÄ±cÄ± silmede Ã¼stveri KALIR.** KayÄ±t da silinseydi "bu belge ÅŸu
-  tarihte, ÅŸu gerekÃ§eyle imha edildi" cevabÄ± kaybolur ve imha kanÄ±tlanamazdÄ±.
-  Nesne, veritabanÄ± iÅŸlemi KAPANDIKTAN SONRA silinir.
+- **Silinmez, versiyonlanır.** Yeni sürümde eski **arşivlenir**.
+- Zincirin ucu olmayan sürüme yeni sürüm bağlanamaz (dallanma engellenir).
+- **FİNANSAL belge asla silinemez** (fatura · makbuz · genel kurul kararı).
+- Güncel sürüm silinemez; arşivli + saklama süresi dolmuş belge silinebilir.
+- **Dosya API'den geçmez**: önimzalı URL ile doğrudan depoya. Kayıt açılmadan
+  önce nesnenin gerçekten yüklendiği `HeadObject` ile doğrulanır.
+- Nesne anahtarı tenant önekli; kayıtta önek denetlenir. İndirme
+  `attachment` olarak zorlanır (HTML/SVG betik çalıştırmasın), URL ömrü 5 dk.
+- **Kategori TÜRÜN özelliğidir**, belgenin değil: "Fatura" her zaman MALI.
+  Belge başına serbest bırakılsaydı aynı tür farklı kategorilere düşer ve
+  kategori bazlı arama güvenilmez olurdu.
+- **Gizlilik yükseltilebilir, DÜŞÜRÜLEMEZ.** Tapu ve kira sözleşmesinin
+  varsayılanı KISIYE_OZEL'dir; tek yanlış tıkla herkese açılamamalı.
+- **Önizleme yalnızca betik taşıyamayan tiplerde** (PDF · resim · düz metin).
+  HTML/SVG asla — depo alan adında çalışan betik oradaki oturum bağlamına
+  erişebilir.
+- **KVKK kalıcı silmede üstveri KALIR.** Kayıt da silinseydi "bu belge şu
+  tarihte, şu gerekçeyle imha edildi" cevabı kaybolur ve imha kanıtlanamazdı.
+  Nesne, veritabanı işlemi KAPANDIKTAN SONRA silinir.
 
-### Site Personeli â€” kritik kurallar (canlÄ± doÄŸrulandÄ±)
+### Site Personeli — kritik kurallar (canlı doğrulandı)
 
-- **`kisi` tablosundan AYRI tablo.** `Kisi` malik/kiracÄ±/sakin iliÅŸkilerinin
-  dayandÄ±ÄŸÄ± KÄ°MLÄ°K kaydÄ±; personel bir Ä°STÄ°HDAM kaydÄ±. AynÄ± tabloda olsaydÄ±
-  bir kapÄ±cÄ±nÄ±n o binada kiracÄ± olmasÄ± durumunda "iÅŸten ayrÄ±ldÄ±" iÅŸareti
-  kiracÄ±lÄ±k kaydÄ±nÄ± da etkilerdi.
-- AynÄ± TC ile **AKTÄ°F** ikinci kayÄ±t reddedilir (bordroyu ikiye katlar);
-  ayrÄ±lmÄ±ÅŸ kayÄ±t engellemez â€” aynÄ± kiÅŸi tekrar iÅŸe alÄ±nabilir.
-- **AyrÄ±lmÄ±ÅŸ personel AKTÄ°F olamaz** (veritabanÄ± kÄ±sÄ±tÄ±). AyrÄ± bÄ±rakÄ±lsaydÄ±
-  "aktif personel" listesi ayrÄ±lmÄ±ÅŸ kiÅŸileri gÃ¶sterir ve vardiya planlamasÄ±
-  yanlÄ±ÅŸ yapÄ±lÄ±rdÄ±.
-- **AÃ§Ä±k zimmet ayrÄ±lÄ±ÅŸÄ± ENGELLEMEZ, UYARIR.** Teslim edilmemiÅŸ telsiz, kaydÄ±
-  kapatmamak iÃ§in sebep deÄŸildir; gÃ¶rÃ¼nÃ¼r olmasÄ± yeter.
-- Zimmet **iade ile kapanÄ±r**, silinmez â€” teslim geÃ§miÅŸi kanÄ±ttÄ±r.
-- **AracÄ± YÃ–NETÄ°M kapsamÄ±ndadÄ±r** (`bolum_id` boÅŸ). AyrÄ±lÄ±ÅŸta araÃ§ da kapanÄ±r.
-- **TC kimlik no denetim gÃ¶vdesine YAZILMAZ.** Audit kaydÄ± deÄŸiÅŸtirilemezdir;
-  oraya giren kiÅŸisel veri bir daha silinemez.
+- **`kisi` tablosundan AYRI tablo.** `Kisi` malik/kiracı/sakin ilişkilerinin
+  dayandığı KİMLİK kaydı; personel bir İSTİHDAM kaydı. Aynı tabloda olsaydı
+  bir kapıcının o binada kiracı olması durumunda "işten ayrıldı" işareti
+  kiracılık kaydını da etkilerdi.
+- Aynı TC ile **AKTİF** ikinci kayıt reddedilir (bordroyu ikiye katlar);
+  ayrılmış kayıt engellemez — aynı kişi tekrar işe alınabilir.
+- **Ayrılmış personel AKTİF olamaz** (veritabanı kısıtı). Ayrı bırakılsaydı
+  "aktif personel" listesi ayrılmış kişileri gösterir ve vardiya planlaması
+  yanlış yapılırdı.
+- **Açık zimmet ayrılışı ENGELLEMEZ, UYARIR.** Teslim edilmemiş telsiz, kaydı
+  kapatmamak için sebep değildir; görünür olması yeter.
+- Zimmet **iade ile kapanır**, silinmez — teslim geçmişi kanıttır.
+- **Aracı YÖNETİM kapsamındadır** (`bolum_id` boş). Ayrılışta araç da kapanır.
+- **TC kimlik no denetim gövdesine YAZILMAZ.** Audit kaydı değiştirilemezdir;
+  oraya giren kişisel veri bir daha silinemez.
 
-### Daire GÃ¶revlisi â€” kritik kurallar (canlÄ± doÄŸrulandÄ±)
+### Daire Görevlisi — kritik kurallar (canlı doğrulandı)
 
-- **Ä°ÅŸveren YÃ–NETÄ°M DEÄÄ°LDÄ°R**, malik/kiracÄ±/sakindir. Bu yÃ¼zden SGK Â·
-  departman Â· vardiya Â· zimmet alanlarÄ± **yoktur**: bunlarÄ± yÃ¶netimin
-  kÃ¼tÃ¼ÄŸÃ¼nde tutmak, yÃ¶netimi hukuken iÅŸveren gibi gÃ¶sterirdi (5510 s.K.
-  yÃ¼kÃ¼mlÃ¼lÃ¼ÄŸÃ¼ iÅŸvereninkidir).
-- **`Kisi` kaydÄ± AÃ‡ILMAZ.** GÃ¶revli hak sahibi deÄŸildir; `Kisi`ye yazÄ±lsaydÄ±
-  malik/kiracÄ± listelerine karÄ±ÅŸÄ±r ve borÃ§ sorumluluÄŸu sorgularÄ±nda gÃ¶rÃ¼nÃ¼rdÃ¼.
-  `isverenKisiId` yalnÄ±zca ONU Ã‡ALIÅTIRAN kiÅŸiyi gÃ¶sterir.
-- **`bolumId` ZORUNLU** â€” "site genelinde gÃ¶revli" hÃ¢li yoktur.
-- AynÄ± TC tekilliÄŸi **BÃ–LÃœM BAÅINADIR**: bir temizlik gÃ¶revlisinin sitede Ã¼Ã§
-  ayrÄ± dairede Ã§alÄ±ÅŸmasÄ± olaÄŸandÄ±r ve her biri ayrÄ± hizmet iliÅŸkisidir.
-  Personeldeki kÄ±sÄ±t tenant genelindedir, Ã§Ã¼nkÃ¼ orada mÃ¼kerrer kayÄ±t bordro
-  hatasÄ±dÄ±r.
-- Ã‡alÄ±ÅŸma sonlandÄ±rÄ±ldÄ±ÄŸÄ±nda **aÃ§Ä±k araÃ§ kayÄ±tlarÄ± da kapanÄ±r**.
+- **İşveren YÖNETİM DEĞİLDİR**, malik/kiracı/sakindir. Bu yüzden SGK ·
+  departman · vardiya · zimmet alanları **yoktur**: bunları yönetimin
+  kütüğünde tutmak, yönetimi hukuken işveren gibi gösterirdi (5510 s.K.
+  yükümlülüğü işvereninkidir).
+- **`Kisi` kaydı AÇILMAZ.** Görevli hak sahibi değildir; `Kisi`ye yazılsaydı
+  malik/kiracı listelerine karışır ve borç sorumluluğu sorgularında görünürdü.
+  `isverenKisiId` yalnızca ONU ÇALIŞTIRAN kişiyi gösterir.
+- **`bolumId` ZORUNLU** — "site genelinde görevli" hâli yoktur.
+- Aynı TC tekilliği **BÖLÜM BAŞINADIR**: bir temizlik görevlisinin sitede üç
+  ayrı dairede çalışması olağandır ve her biri ayrı hizmet ilişkisidir.
+  Personeldeki kısıt tenant genelindedir, çünkü orada mükerrer kayıt bordro
+  hatasıdır.
+- Çalışma sonlandırıldığında **açık araç kayıtları da kapanır**.
 
-### Misafir â€” kritik kurallar (canlÄ± doÄŸrulandÄ±)
+### Misafir — kritik kurallar (canlı doğrulandı)
 
-- **HAK SAHÄ°BÄ° DEÄÄ°LDÄ°R**: borÃ§ sorumlusu olmaz, tahakkuka girmez, arsa payÄ±
-  taÅŸÄ±maz, genel kurulda oy kullanmaz.
-- **`Kisi` kaydÄ± AÃ‡ILMAZ.** KVKK: misafir verisi kÄ±sa Ã¶mÃ¼rlÃ¼dÃ¼r; kalÄ±cÄ± kimlik
-  kaydÄ±, ziyaretten aylar sonra silinmesi gereken veriyi malik/kiracÄ±
-  kayÄ±tlarÄ±yla aynÄ± Ã¶mre baÄŸlardÄ±.
-- **Ã‡Ä±kÄ±ÅŸ tarihi boÅŸsa misafir hÃ¢len iÃ§eridedir** â€” `/misafirler/iceride`
-  gÃ¼venlik ve tahliye listesidir; kÄ±smÃ® index bu sorguya hizmet eder.
-- Ã‡Ä±kÄ±ÅŸta **aracÄ± da kapanÄ±r**; kapanmasaydÄ± Ã§Ä±kmÄ±ÅŸ misafirin aracÄ± otopark
-  sayÄ±mÄ±nda yer kaplamaya devam ederdi.
+- **HAK SAHİBİ DEĞİLDİR**: borç sorumlusu olmaz, tahakkuka girmez, arsa payı
+  taşımaz, genel kurulda oy kullanmaz.
+- **`Kisi` kaydı AÇILMAZ.** KVKK: misafir verisi kısa ömürlüdür; kalıcı kimlik
+  kaydı, ziyaretten aylar sonra silinmesi gereken veriyi malik/kiracı
+  kayıtlarıyla aynı ömre bağlardı.
+- **Çıkış tarihi boşsa misafir hâlen içeridedir** — `/misafirler/iceride`
+  güvenlik ve tahliye listesidir; kısmî index bu sorguya hizmet eder.
+- Çıkışta **aracı da kapanır**; kapanmasaydı çıkmış misafirin aracı otopark
+  sayımında yer kaplamaya devam ederdi.
 
-### HÄ±zlÄ± kayÄ±t â€” kritik kurallar (canlÄ± doÄŸrulandÄ±, 40/40)
+### Hızlı kayıt — kritik kurallar (canlı doğrulandı, 40/40)
 
-- **KiÅŸi seÃ§imi isteÄŸe baÄŸlÄ±.** `kisiId` verilirse mevcut kiÅŸi kullanÄ±lÄ±r ve
-  form alanlarÄ± YOK SAYILIR â€” var olan kimlik kaydÄ±nÄ± yan kapÄ±dan gÃ¼ncellemek,
-  kiracÄ± eklerken malikin adÄ±nÄ± deÄŸiÅŸtirmek gibi sonuÃ§lar Ã¼retirdi.
-- **TekilleÅŸtirme sÄ±rasÄ±:** `kisiId` â†’ TC eÅŸleÅŸmesi â†’ **e-posta eÅŸleÅŸmesi** â†’
-  yeni kayÄ±t. E-posta da bir kimlik anahtarÄ±dÄ±r: `kisi_eposta_uq` tenant
+- **Kişi seçimi isteğe bağlı.** `kisiId` verilirse mevcut kişi kullanılır ve
+  form alanları YOK SAYILIR — var olan kimlik kaydını yan kapıdan güncellemek,
+  kiracı eklerken malikin adını değiştirmek gibi sonuçlar üretirdi.
+- **Tekilleştirme sırası:** `kisiId` → TC eşleşmesi → **e-posta eşleşmesi** →
+  yeni kayıt. E-posta da bir kimlik anahtarıdır: `kisi_eposta_uq` tenant
   genelinde tekildir.
-- Mevcut kiÅŸi bulunduÄŸunda **yalnÄ±zca BOÅ alanlar doldurulur**.
-- E-posta doldurulacaksa **sahibi denetlenir**; baÅŸka kiÅŸiye kayÄ±tlÄ±ysa
-  anlaÅŸÄ±lÄ±r bir 422 dÃ¶ner. Denetim yoksa veritabanÄ± kÄ±sÄ±tÄ± **500** olarak
-  dÃ¶nÃ¼yordu (bu oturumda bulundu ve dÃ¼zeltildi).
-- YanÄ±tta `kisiOlusturulduMu` ve `tcIleEslestiMi` dÃ¶ner: kullanÄ±cÄ± yeni kiÅŸi
-  girdiÄŸini sanÄ±rken mevcut bir kayda baÄŸlanmÄ±ÅŸ olabilir; gÃ¶rmezse mÃ¼kerrer
-  sandÄ±ÄŸÄ± kaydÄ± silmeye Ã§alÄ±ÅŸÄ±r.
-- **Plakalar aynÄ± iÅŸlemde yazÄ±lÄ±r.** Hata verirse ana kayÄ±t da geri alÄ±nÄ±r;
-  yarÄ±m kayÄ±t "plakayÄ± da girdim" sanan kullanÄ±cÄ± iÃ§in sessiz veri kaybÄ±dÄ±r.
-- **MÃ¼kerrer plaka reddedilir** â€” hem veritabanÄ±ndaki kayÄ±tlara hem AYNI
-  FORMDA iki kez yazÄ±lan plakaya karÅŸÄ±; tekillik **tenant genelindedir**.
+- Mevcut kişi bulunduğunda **yalnızca BOŞ alanlar doldurulur**.
+- E-posta doldurulacaksa **sahibi denetlenir**; başka kişiye kayıtlıysa
+  anlaşılır bir 422 döner. Denetim yoksa veritabanı kısıtı **500** olarak
+  dönüyordu (bu oturumda bulundu ve düzeltildi).
+- Yanıtta `kisiOlusturulduMu` ve `tcIleEslestiMi` döner: kullanıcı yeni kişi
+  girdiğini sanırken mevcut bir kayda bağlanmış olabilir; görmezse mükerrer
+  sandığı kaydı silmeye çalışır.
+- **Plakalar aynı işlemde yazılır.** Hata verirse ana kayıt da geri alınır;
+  yarım kayıt "plakayı da girdim" sanan kullanıcı için sessiz veri kaybıdır.
+- **Mükerrer plaka reddedilir** — hem veritabanındaki kayıtlara hem AYNI
+  FORMDA iki kez yazılan plakaya karşı; tekillik **tenant genelindedir**.
 
 ---
 
-## 3. Bekleyen iÅŸler
+## 3. Bekleyen işler
 
-### A. ArayÃ¼zÃ¼ olmayan hazÄ±r API'ler â€” en yÃ¼ksek deÄŸer burada
+### A. Arayüzü olmayan hazır API'ler — en yüksek değer burada
 
-Backend'de on bir modÃ¼l tamam ama **beÅŸinin ekranÄ± yok** (Tahakkuk Â· SayaÃ§ Â·
-Belge Â· AraÃ§ Â· **Banka**). KullanÄ±cÄ± bunlarÄ± yalnÄ±zca Swagger'dan gÃ¶rebiliyor.
+Backend'de on bir modül tamam ama **beşinin ekranı yok** (Tahakkuk · Sayaç ·
+Belge · Araç · **Banka**). Kullanıcı bunları yalnızca Swagger'dan görebiliyor.
 
-> **Banka ekranÄ± bilinÃ§li olarak yazÄ±lmadÄ±**, eksik kalmadÄ±: kullanÄ±cÄ±nÄ±n
-> talimatÄ± *"Do not generate the remaining screens yet"* idi. Ekran Ã¼retimi
-> FAZ 5'te, baÄŸÄ±mlÄ±lÄ±k sÄ±rasÄ±na gÃ¶re toplu yapÄ±lacak. Banka iÃ§in gereken
-> sekmeler: Hesaplar Â· Hareketler Â· Ekstre/Mutabakat Â· Ã‡ek-Senet Â· POS Â·
-> Parametreler â€” **tek rota, Ã§ok sekme** (muhasebe ekranÄ±ndaki desen).
+> **Banka ekranı bilinçli olarak yazılmadı**, eksik kalmadı: kullanıcının
+> talimatı *"Do not generate the remaining screens yet"* idi. Ekran üretimi
+> FAZ 5'te, bağımlılık sırasına göre toplu yapılacak. Banka için gereken
+> sekmeler: Hesaplar · Hareketler · Ekstre/Mutabakat · Çek-Senet · POS ·
+> Parametreler — **tek rota, çok sekme** (muhasebe ekranındaki desen).
 
-1. **Tahakkuk ekranÄ±.** API Ã¶nizlemeli (`onizleme: true`), yani bir sihirbaz
-   iÃ§in hazÄ±r: yÃ¶netici daÄŸÄ±tÄ±mÄ± gÃ¶rÃ¼p onaylayarak uygular. SayaÃ§ tÃ¼rÃ¼
-   seÃ§ilince tÃ¼ketim otomatik gelir. **Ã–ncelikli iÅŸ budur** â€” tahakkuk,
-   sistemin para Ã¼reten tek akÄ±ÅŸÄ±.
-2. **SayaÃ§ ekranÄ±.** Okuma giriÅŸi toplu olmalÄ±: kapÄ±cÄ± bir turda kÄ±rk daire
-   okur. Devir onayÄ± ekranda AÃ‡IK bir kutu olmalÄ±, varsayÄ±lan kapalÄ±.
-3. **Belge ekranÄ±.** YÃ¼kleme iki adÄ±mlÄ±dÄ±r (izin â†’ PUT â†’ kayÄ±t); sÃ¼rÃ¼m
-   geÃ§miÅŸi ve "geÃ§erliliÄŸi dolanlar" listesi gÃ¶sterilmeli.
-4. **AraÃ§ ekranÄ±.**
+1. **Tahakkuk ekranı.** API önizlemeli (`onizleme: true`), yani bir sihirbaz
+   için hazır: yönetici dağıtımı görüp onaylayarak uygular. Sayaç türü
+   seçilince tüketim otomatik gelir. **Öncelikli iş budur** — tahakkuk,
+   sistemin para üreten tek akışı.
+2. **Sayaç ekranı.** Okuma girişi toplu olmalı: kapıcı bir turda kırk daire
+   okur. Devir onayı ekranda AÇIK bir kutu olmalı, varsayılan kapalı.
+3. **Belge ekranı.** Yükleme iki adımlıdır (izin → PUT → kayıt); sürüm
+   geçmişi ve "geçerliliği dolanlar" listesi gösterilmeli.
+4. **Araç ekranı.**
 
 ### B. Bilinen sorunlar
 
-0. ğŸ”´ **SOFT DELETE UZANTISI BAÄLI DEÄÄ°L â€” silinmiÅŸ kayÄ±tlar her listede
-   gÃ¶rÃ¼nÃ¼yor.**
+0. 🔴 **SOFT DELETE UZANTISI BAĞLI DEĞİL — silinmiş kayıtlar her listede
+   görünüyor.**
 
-   `PrismaService` yapÄ±cÄ±sÄ±nda:
+   `PrismaService` yapıcısında:
    ```ts
-   this.$extends(softDeleteUzantisi());   // dÃ¶nÃ¼ÅŸ deÄŸeri ATILIYOR
+   this.$extends(softDeleteUzantisi());   // dönüş değeri ATILIYOR
    ```
-   `$extends` **yeni bir istemci dÃ¶ndÃ¼rÃ¼r**, `this`'i deÄŸiÅŸtirmez. UzantÄ±
-   hiÃ§bir zaman devreye girmiyor. SonuÃ§larÄ±:
-   - Soft-delete edilmiÅŸ kayÄ±tlar **bÃ¼tÃ¼n liste uÃ§larÄ±nda dÃ¶nÃ¼yor**.
-   - BirÃ§ok sorgu servisinin yorumunda yazan *"soft delete filtresi Prisma
-     uzantÄ±sÄ± tarafÄ±ndan MERKEZÃ uygulanÄ±r"* ifadesi **YANLIÅ**.
-   - `__silinmisleriDahilEt` sihirli bayraÄŸÄ± Prisma'ya bilinmeyen alan olarak
-     gider ve `PrismaClientValidationError` verir (belge modÃ¼lÃ¼nde bu 500 ile
-     yakalandÄ±; orada aÃ§Ä±k `silinmeTarihi` koÅŸuluna Ã§evrildi).
+   `$extends` **yeni bir istemci döndürür**, `this`'i değiştirmez. Uzantı
+   hiçbir zaman devreye girmiyor. Sonuçları:
+   - Soft-delete edilmiş kayıtlar **bütün liste uçlarında dönüyor**.
+   - Birçok sorgu servisinin yorumunda yazan *"soft delete filtresi Prisma
+     uzantısı tarafından MERKEZÎ uygulanır"* ifadesi **YANLIŞ**.
+   - `__silinmisleriDahilEt` sihirli bayrağı Prisma'ya bilinmeyen alan olarak
+     gider ve `PrismaClientValidationError` verir (belge modülünde bu 500 ile
+     yakalandı; orada açık `silinmeTarihi` koşuluna çevrildi).
 
-   **Neden bu oturumda dÃ¼zeltilmedi:** dÃ¼zeltmek Ã§apraz kesen bir deÄŸiÅŸiklik.
-   Åu an silinmiÅŸ kayÄ±tlarÄ± gÃ¶steren her uÃ§ birden gÃ¶stermemeye baÅŸlar; 24
-   sÃ¶zleÅŸme testinin ve mevcut ekranlarÄ±n davranÄ±ÅŸÄ± deÄŸiÅŸir. DÃ¼ÅŸÃ¼k kalan
-   bÃ¼tÃ§eyle riskli bulundu ve **bilinÃ§li olarak devredildi**.
+   **Neden bu oturumda düzeltilmedi:** düzeltmek çapraz kesen bir değişiklik.
+   Şu an silinmiş kayıtları gösteren her uç birden göstermemeye başlar; 24
+   sözleşme testinin ve mevcut ekranların davranışı değişir. Düşük kalan
+   bütçeyle riskli bulundu ve **bilinçli olarak devredildi**.
 
-   **NasÄ±l dÃ¼zeltilir (Ã¼Ã§ seÃ§enek):**
-   - `$use` middleware â€” `extends PrismaClient` ile yerinde Ã§alÄ±ÅŸÄ±r, Prisma
-     5'te kullanÄ±mdan kaldÄ±rÄ±lmÄ±ÅŸ ama iÅŸlevsel. En kÃ¼Ã§Ã¼k deÄŸiÅŸiklik.
-   - `PrismaService` geniÅŸletilmiÅŸ istemciyi tutup delege etsin â€” temiz ama
-     geniÅŸ refactor.
-   - UzantÄ±yÄ± bÄ±rakÄ±p her sorguda koÅŸulu AÃ‡IKÃ‡A yazmak â€” belge modÃ¼lÃ¼nde
-     ÅŸimdilik bu yapÄ±ldÄ±.
+   **Nasıl düzeltilir (üç seçenek):**
+   - `$use` middleware — `extends PrismaClient` ile yerinde çalışır, Prisma
+     5'te kullanımdan kaldırılmış ama işlevsel. En küçük değişiklik.
+   - `PrismaService` genişletilmiş istemciyi tutup delege etsin — temiz ama
+     geniş refactor.
+   - Uzantıyı bırakıp her sorguda koşulu AÇIKÇA yazmak — belge modülünde
+     şimdilik bu yapıldı.
 
-   Hangisi seÃ§ilirse `scripts/` altÄ±na bir tarayÄ±cÄ± eklenmeli: RLS
-   tarayÄ±cÄ±sÄ± gibi, soft delete taÅŸÄ±yan modele koÅŸulsuz sorgu atan yeri
-   yakalasÄ±n.
+   Hangisi seçilirse `scripts/` altına bir tarayıcı eklenmeli: RLS
+   tarayıcısı gibi, soft delete taşıyan modele koşulsuz sorgu atan yeri
+   yakalasın.
 
-   âš ï¸ **BU DÃœZELTME "TEK SATIR" DEÄÄ°LDÄ°R â€” ikinci bir tuzak var.**
-   `SOFT_DELETE_HARICI` elle tutulan bir listedir ve **eksiktir**. UzantÄ±
-   baÄŸlanÄ±r baÄŸlanmaz, `silinmeTarihi` sÃ¼tunu olmayan **15 modelin** bÃ¼tÃ¼n
-   okuma uÃ§larÄ± `PrismaClientValidationError` verir (uzantÄ± `where`'a
-   `silinmeTarihi: null` ekler): `YevmiyeFisi` Â· `YevmiyeSatiri` Â· `Borc` Â·
-   `BorcSorumlusu` Â· `MuhasebeDonemi` Â· `MuhasebeParametresi` Â·
-   `BolumIliskisi` Â· `SayacOkumasi` Â· `BelgeIliskisi` Â· `YonetimDelegasyonu` Â·
-   `BankaHareketi` Â· `BankaEkstresi` Â· `EkstreSatiri` Â· `KiymetliEvrak` Â·
+   ⚠️ **BU DÜZELTME "TEK SATIR" DEĞİLDİR — ikinci bir tuzak var.**
+   `SOFT_DELETE_HARICI` elle tutulan bir listedir ve **eksiktir**. Uzantı
+   bağlanır bağlanmaz, `silinmeTarihi` sütunu olmayan **15 modelin** bütün
+   okuma uçları `PrismaClientValidationError` verir (uzantı `where`'a
+   `silinmeTarihi: null` ekler): `YevmiyeFisi` · `YevmiyeSatiri` · `Borc` ·
+   `BorcSorumlusu` · `MuhasebeDonemi` · `MuhasebeParametresi` ·
+   `BolumIliskisi` · `SayacOkumasi` · `BelgeIliskisi` · `YonetimDelegasyonu` ·
+   `BankaHareketi` · `BankaEkstresi` · `EkstreSatiri` · `KiymetliEvrak` ·
    `BankaParametresi`.
 
-   Listeyi elle uzatmak Ã§Ã¶zÃ¼m deÄŸil: her yeni tabloda gÃ¼ncellenmeyi unutur ve
-   hata sessizdir. Muafiyet **modelin o sÃ¼tunu gerÃ§ekten taÅŸÄ±yÄ±p
-   taÅŸÄ±madÄ±ÄŸÄ±ndan** tÃ¼retilmeli (`Prisma.dmmf`). GerekÃ§e
-   `prisma.service.ts` iÃ§inde de yazÄ±lÄ±.
+   Listeyi elle uzatmak çözüm değil: her yeni tabloda güncellenmeyi unutur ve
+   hata sessizdir. Muafiyet **modelin o sütunu gerçekten taşıyıp
+   taşımadığından** türetilmeli (`Prisma.dmmf`). Gerekçe
+   `prisma.service.ts` içinde de yazılı.
 
-5. **SÃ¶zleÅŸme testleri tenant sÄ±zdÄ±rÄ±yor.** `numaralandirma` ve
-   `rls-izolasyon` testleri her koÅŸuda yeni tenant aÃ§Ä±yor ve temizlemiyor;
-   dokuz koÅŸuda 29 tenant birikmiÅŸti. ÃœrÃ¼n hatasÄ± deÄŸil, test hijyeni â€”
-   ama geliÅŸtirme veritabanÄ±nÄ± sÄ±nÄ±rsÄ±z bÃ¼yÃ¼tÃ¼yor ve tenant dÃ¶ngÃ¼sÃ¼ kuran
-   migration'larÄ± yavaÅŸlatÄ±yor. `afterAll` temizliÄŸi gerekir.
-6. **Belge hard delete yok.** Saklama sÃ¼resi dolan belge soft-delete edilir;
-   nesne deposundaki dosya BIRAKILIR. KVKK silme hakkÄ± iÃ§in ayrÄ± bir
-   "gerÃ§ekten sil" akÄ±ÅŸÄ± gerekir (soft delete â‰  hard delete â‰  anonimleÅŸtirme).
+5. **Sözleşme testleri tenant sızdırıyor.** `numaralandirma` ve
+   `rls-izolasyon` testleri her koşuda yeni tenant açıyor ve temizlemiyor;
+   dokuz koşuda 29 tenant birikmişti. Ürün hatası değil, test hijyeni —
+   ama geliştirme veritabanını sınırsız büyütüyor ve tenant döngüsü kuran
+   migration'ları yavaşlatıyor. `afterAll` temizliği gerekir.
+6. **Belge hard delete yok.** Saklama süresi dolan belge soft-delete edilir;
+   nesne deposundaki dosya BIRAKILIR. KVKK silme hakkı için ayrı bir
+   "gerçekten sil" akışı gerekir (soft delete ≠ hard delete ≠ anonimleştirme).
 
-### C. Migration yazarken Ä°KÄ° TUZAK â€” 0004, 0005 ve 0006'da yaÅŸandÄ±
+### C. Migration yazarken İKİ TUZAK — 0004, 0005 ve 0006'da yaşandı
 
-1. **`prisma migrate diff` Ã§Ä±ktÄ±sÄ± olduÄŸu gibi kullanÄ±lamaz.** Diff, ÅŸemada
-   karÅŸÄ±lÄ±ÄŸÄ± olmayan elle yazÄ±lmÄ±ÅŸ kÄ±smi unique index'leri **dÃ¼ÅŸÃ¼rmek ister**
+1. **`prisma migrate diff` çıktısı olduğu gibi kullanılamaz.** Diff, şemada
+   karşılığı olmayan elle yazılmış kısmi unique index'leri **düşürmek ister**
    (`borc_tahakkuk_no_uq`, `malik_kisi_donem_uq`, `kiraci_kisi_donem_uq`,
-   `sakin_kisi_donem_uq`, `yevmiye_fis_no_uq`). KÃ¶rlemesine uygulanÄ±rsa
-   mÃ¼kerrer tahakkuk numarasÄ± sessizce mÃ¼mkÃ¼n hale gelir. **Her migration'da
-   `DROP INDEX` satÄ±rlarÄ± elle gÃ¶zden geÃ§irilmelidir.**
-2. **FK eklemek `FORCE ROW LEVEL SECURITY` ile Ã§akÄ±ÅŸÄ±r.** `ADD CONSTRAINT
-   ... FOREIGN KEY` bir doÄŸrulama taramasÄ± baÅŸlatÄ±r; tarama hedef tabloyu
-   okur ve FORCE altÄ±nda sahibi bile politikaya tabidir. Ã‡Ã¶zÃ¼m 0004'te
-   yazÄ±lÄ±: hedef tablolarÄ±n FORCE'u yalnÄ±zca o iÅŸlem boyunca kaldÄ±rÄ±lÄ±r,
+   `sakin_kisi_donem_uq`, `yevmiye_fis_no_uq`). Körlemesine uygulanırsa
+   mükerrer tahakkuk numarası sessizce mümkün hale gelir. **Her migration'da
+   `DROP INDEX` satırları elle gözden geçirilmelidir.**
+2. **FK eklemek `FORCE ROW LEVEL SECURITY` ile çakışır.** `ADD CONSTRAINT
+   ... FOREIGN KEY` bir doğrulama taraması başlatır; tarama hedef tabloyu
+   okur ve FORCE altında sahibi bile politikaya tabidir. Çözüm 0004'te
+   yazılı: hedef tabloların FORCE'u yalnızca o işlem boyunca kaldırılır,
    hemen geri verilir.
 
-   âš ï¸ **0011'de Ã¶ÄŸrenilen ek:** hedef tablo YETMEZ, **KAYNAK tablo da**
-   FORCE'suz olmalÄ±dÄ±r. DoÄŸrulama taramasÄ±
-   `SELECT fk.x FROM ONLY kaynak fk LEFT JOIN hedef pk ON â€¦` koÅŸar, yani
-   kaynaÄŸÄ± DA okur. 0004 ve 0008'de kaynak tablo yeni ve RLS'siz olduÄŸu iÃ§in
-   fark edilmemiÅŸti; `arac`a FK eklerken `arac` Ã¼zerinde FORCE aÃ§Ä±k olduÄŸundan
-   migration `app_tenant_id()` hatasÄ±yla dÃ¼ÅŸtÃ¼.
+   ⚠️ **0011'de öğrenilen ek:** hedef tablo YETMEZ, **KAYNAK tablo da**
+   FORCE'suz olmalıdır. Doğrulama taraması
+   `SELECT fk.x FROM ONLY kaynak fk LEFT JOIN hedef pk ON …` koşar, yani
+   kaynağı DA okur. 0004 ve 0008'de kaynak tablo yeni ve RLS'siz olduğu için
+   fark edilmemişti; `arac`a FK eklerken `arac` üzerinde FORCE açık olduğundan
+   migration `app_tenant_id()` hatasıyla düştü.
 
-3. **Prisma isteÄŸe baÄŸlÄ± iliÅŸkide `onDelete: SetNull` VARSAYAR.** SQL'de
-   `ON DELETE RESTRICT` yazÄ±lÄ±p ÅŸemada belirtilmezse `migrate diff` kalÄ±cÄ±
-   sapma gÃ¶sterir. Daha kÃ¶tÃ¼sÃ¼: `arac`ta SetNull, sahibi silinen satÄ±rÄ±n sahip
-   alanÄ±nÄ± boÅŸaltÄ±p `arac_tek_sahip` kÄ±sÄ±tÄ±nÄ± **silme anÄ±nda** ihlal ederdi.
-   Yeni isteÄŸe baÄŸlÄ± iliÅŸkilerde `onDelete` **aÃ§Ä±kÃ§a yazÄ±lmalÄ±dÄ±r**.
+3. **Prisma isteğe bağlı ilişkide `onDelete: SetNull` VARSAYAR.** SQL'de
+   `ON DELETE RESTRICT` yazılıp şemada belirtilmezse `migrate diff` kalıcı
+   sapma gösterir. Daha kötüsü: `arac`ta SetNull, sahibi silinen satırın sahip
+   alanını boşaltıp `arac_tek_sahip` kısıtını **silme anında** ihlal ederdi.
+   Yeni isteğe bağlı ilişkilerde `onDelete` **açıkça yazılmalıdır**.
 
-**Bilinen kalÄ±cÄ± `migrate diff` sapmalarÄ±** (beklenen, dÃ¼zeltilmemeli):
-elle yazÄ±lmÄ±ÅŸ kÄ±smÃ® unique index'ler (`arac_plaka_donem_uq`,
+**Bilinen kalıcı `migrate diff` sapmaları** (beklenen, düzeltilmemeli):
+elle yazılmış kısmî unique index'ler (`arac_plaka_donem_uq`,
 `belge_iliskisi_tekil_uq`, `borc_tahakkuk_no_uq`, `kiraci_kisi_donem_uq`,
 `malik_kisi_donem_uq`, `sakin_kisi_donem_uq`, `sayac_okumasi_tarih_uq`,
-`yevmiye_fis_no_uq`), kÄ±smÃ® `misafir_tenant_id_cikis_tarihi_idx` ve
-`arac_tenant_id_yonetim_idx`, `oturum_dizini` index adÄ±.
+`yevmiye_fis_no_uq`), kısmî `misafir_tenant_id_cikis_tarihi_idx` ve
+`arac_tenant_id_yonetim_idx`, `oturum_dizini` index adı.
 
-### D. KÃ¼tÃ¼phane kararÄ± bekleyenler
+### D. Kütüphane kararı bekleyenler
 
-7. **PDF / XLSX Ã§Ä±ktÄ±sÄ±.** YazdÄ±rma stil sayfasÄ± yazÄ±ldÄ± (`@media print`);
-   resmÃ® gÃ¶rÃ¼nÃ¼mlÃ¼ iÅŸletme defteri / borÃ§ bildirimi hÃ¢lÃ¢ kÃ¼tÃ¼phane kararÄ±
+7. **PDF / XLSX çıktısı.** Yazdırma stil sayfası yazıldı (`@media print`);
+   resmî görünümlü işletme defteri / borç bildirimi hâlâ kütüphane kararı
    bekliyor.
-8. **Grafikler** â€” zaman serisi gerekirse.
+8. **Grafikler** — zaman serisi gerekirse.
 
-### E. Bloke â€” teknik olmayan
+### E. Bloke — teknik olmayan
 
-9. **C-4 hukuki gÃ¶rÃ¼ÅŸ** (KMK emredici hÃ¼kÃ¼mler, genel kurul yeter sayÄ±sÄ±,
-   vekÃ¢let sÄ±nÄ±rlarÄ±).
+9. **C-4 hukuki görüş** (KMK emredici hükümler, genel kurul yeter sayısı,
+   vekâlet sınırları).
 
-   â˜… **Eklendi (2 AÄŸustos 2026) â€” yenileme fonunun amaca Ã¶zgÃ¼lÃ¼ÄŸÃ¼.**
+   ★ **Eklendi (2 Ağustos 2026) — yenileme fonunun amaca özgülüğü.**
 
-   âš ï¸ **DÃœZELTME:** burada Ã¶nce dayanak olarak **KMK md. 72** gÃ¶steriliyordu.
-   AtÄ±f YANLIÅTI â€” md. 72 toplu yapÄ±larda ortak giderlere katÄ±lmayÄ± dÃ¼zenler,
-   yenileme fonunu deÄŸil. Soru geÃ§erli; dayanaÄŸÄ± fonun kat maliklerine ait
-   **iade edilebilir emanet** niteliÄŸidir (ADR-0017 Â§5.5).
+   ⚠️ **DÜZELTME:** burada önce dayanak olarak **KMK md. 72** gösteriliyordu.
+   Atıf YANLIŞTI — md. 72 toplu yapılarda ortak giderlere katılmayı düzenler,
+   yenileme fonunu değil. Soru geçerli; dayanağı fonun kat maliklerine ait
+   **iade edilebilir emanet** niteliğidir (ADR-0017 §5.5).
 
-   Yenileme fonu hesabÄ±ndan iÅŸletme hesabÄ±na aktarÄ±m meÅŸru mudur?
-   - Fondan harcama hangi karar/onayla yapÄ±labilir?
-   - AktarÄ±m sistemde **engellenmeli** mi, yoksa **uyarÄ± + gerekÃ§e** ile izin
+   Yenileme fonu hesabından işletme hesabına aktarım meşru mudur?
+   - Fondan harcama hangi karar/onayla yapılabilir?
+   - Aktarım sistemde **engellenmeli** mi, yoksa **uyarı + gerekçe** ile izin
      mi verilmeli?
-   - Ters yÃ¶n (iÅŸletmeden fona) serbest mi?
+   - Ters yön (işletmeden fona) serbest mi?
 
-   âš ï¸ Cevap gelmeden bu yola teknik kÄ±sÄ±t KONULMAMALIDIR: yanlÄ±ÅŸ yÃ¶nde katÄ±
-   bir kural meÅŸru iÅŸlemi bloklar, gevÅŸek bir kural fonun amaÃ§ dÄ±ÅŸÄ±
-   kullanÄ±mÄ±nÄ± sessizleÅŸtirir. BaÄŸlam: [ADR-0016](docs/adr/log/ADR-0016-virman.md) Â§A.
+   ⚠️ Cevap gelmeden bu yola teknik kısıt KONULMAMALIDIR: yanlış yönde katı
+   bir kural meşru işlemi bloklar, gevşek bir kural fonun amaç dışı
+   kullanımını sessizleştirir. Bağlam: [ADR-0016](docs/adr/log/ADR-0016-virman.md) §A.
 
-### F. AltyapÄ± ve Ã¶lÃ§eklenebilirlik denetimi (31 Temmuz 2026)
+### F. Altyapı ve ölçeklenebilirlik denetimi (31 Temmuz 2026)
 
-ÃœrÃ¼n sahibi talebiyle **salt okunur** bir denetim yapÄ±ldÄ±: 443 dosya, 55 model,
-21 migration, 204 uÃ§, 317 birim + 24 sÃ¶zleÅŸme testi tarandÄ±. **Kod
-deÄŸiÅŸtirilmedi.** AÅŸaÄŸÄ±dakiler bulgudur, karar deÄŸil â€” hiÃ§biri bu oturumda
-uygulanmadÄ±.
+Ürün sahibi talebiyle **salt okunur** bir denetim yapıldı: 443 dosya, 55 model,
+21 migration, 204 uç, 317 birim + 24 sözleşme testi tarandı. **Kod
+değiştirilmedi.** Aşağıdakiler bulgudur, karar değil — hiçbiri bu oturumda
+uygulanmadı.
 
-**SonuÃ§:** uygulanmÄ±ÅŸ Ã§ekirdek (Ã§ok kiracÄ±lÄ±lÄ±k, RLS, denetim izi, ÅŸema, para
-tipi, doÄŸrulama) kurumsal kalitede; eksik olan etrafÄ±ndaki **iÅŸletme
-katmanÄ±dÄ±r** (kuyruk, zamanlayÄ±cÄ±, metrik, rate limit, daÄŸÄ±tÄ±m). UygulanmÄ±ÅŸ
-bileÅŸenler Ã¼zerinden Ã¼retim hazÄ±rlÄ±ÄŸÄ± **%55**; 18 alanÄ±n kapsanma oranÄ± **%38**.
-Ä°ki sayÄ± arasÄ±ndaki fark durumu Ã¶zetliyor: *derinlik var, geniÅŸlik yok.*
+**Sonuç:** uygulanmış çekirdek (çok kiracılılık, RLS, denetim izi, şema, para
+tipi, doğrulama) kurumsal kalitede; eksik olan etrafındaki **işletme
+katmanıdır** (kuyruk, zamanlayıcı, metrik, rate limit, dağıtım). Uygulanmış
+bileşenler üzerinden üretim hazırlığı **%55**; 18 alanın kapsanma oranı **%38**.
+İki sayı arasındaki fark durumu özetliyor: *derinlik var, genişlik yok.*
 
-#### P0 â€” Ã¼retime Ã§Ä±kmadan kapatÄ±lmasÄ± gerekenler
+#### P0 — üretime çıkmadan kapatılması gerekenler
 
-1. ğŸ”´ **`yalnizcaKendiVerisi` UYGULANMIYOR.** `RolTanimi.yalnizcaKendiVerisi` ve
-   `KENDI_VERISI_KISITLI` tanÄ±mlÄ± ama **hiÃ§bir yerde okunmuyor** (backend +
-   frontend genelinde 0 kullanÄ±m). SonuÃ§: `MALIK`/`KIRACI`/`SAKIN` rolÃ¼ndeki bir
-   kullanÄ±cÄ± `KISI_GORUNTULE` + `BOLUM_GORUNTULE` taÅŸÄ±dÄ±ÄŸÄ± iÃ§in `GET /kisiler`
-   ve `GET /bolumler` ile **tÃ¼m sitenin** listesini Ã§ekebiliyor. README:151 bunun
-   tersini iddia ediyor. **KVKK aÃ§Ä±ÄŸÄ±.**
-2. ğŸ”´ **DaÄŸÄ±tÄ±m giriÅŸ noktasÄ± yanlÄ±ÅŸ.** Derleme Ã§Ä±ktÄ±sÄ± `backend/dist/src/main.js`
-   (tsconfig `include` hem `src` hem `test` kapsadÄ±ÄŸÄ± iÃ§in rootDir `backend/`
+1. 🔴 **`yalnizcaKendiVerisi` UYGULANMIYOR.** `RolTanimi.yalnizcaKendiVerisi` ve
+   `KENDI_VERISI_KISITLI` tanımlı ama **hiçbir yerde okunmuyor** (backend +
+   frontend genelinde 0 kullanım). Sonuç: `MALIK`/`KIRACI`/`SAKIN` rolündeki bir
+   kullanıcı `KISI_GORUNTULE` + `BOLUM_GORUNTULE` taşıdığı için `GET /kisiler`
+   ve `GET /bolumler` ile **tüm sitenin** listesini çekebiliyor. README:151 bunun
+   tersini iddia ediyor. **KVKK açığı.**
+2. 🔴 **Dağıtım giriş noktası yanlış.** Derleme çıktısı `backend/dist/src/main.js`
+   (tsconfig `include` hem `src` hem `test` kapsadığı için rootDir `backend/`
    oluyor). Ama `backend/package.json:9` `dist/main.js`, `Dockerfile.backend`
-   son satÄ±rÄ± `backend/dist/main.js` diyor â†’ **konteyner MODULE_NOT_FOUND ile
-   aÃ§Ä±lÄ±ÅŸta dÃ¼ÅŸer.** Ä°majÄ±n bir kez bile Ã§alÄ±ÅŸtÄ±rÄ±lmadÄ±ÄŸÄ±nÄ± gÃ¶steriyor.
-3. ğŸ”´ **Rate limiting yok** + giriÅŸ ucu istek baÅŸÄ±na ~134 MB scrypt belleÄŸi
-   ayÄ±rÄ±yor (`N=131_072, r=8` â†’ `128Ã—NÃ—r`; `maxmem` tavanÄ± bunun iki katÄ±).
-   SÄ±nÄ±r olmadÄ±ÄŸÄ± iÃ§in tek IP'den dÃ¼ÅŸÃ¼k maliyetli bellek tÃ¼kenmesi.
-4. ğŸ”´ **`Idempotency-Key` gÃ¶nderiliyor, okunmuyor.** Frontend her POST'ta
-   yolluyor (`api.ts:36`) ve yorumu "BFS v1 Â§12 zorunlu" diyor; backend'de
-   `@Headers` **hiÃ§ kullanÄ±lmÄ±yor**. AÄŸ yeniden denemesi **mÃ¼kerrer tahsilat /
-   tahakkuk** Ã¼retir.
-5. ğŸ”´ **BaÄŸlantÄ± havuzu ve transaction timeout ayarsÄ±z.** `DATABASE_URL`'de
-   `connection_limit` yok â†’ Prisma varsayÄ±lanÄ± 9-17. `$transaction` seÃ§eneksiz
-   Ã§aÄŸrÄ±lÄ±yor â†’ varsayÄ±lan **5 sn**. Tahakkuk 400 daire iÃ§in ~400 advisory lock
-   + ~1200 ardÄ±ÅŸÄ±k INSERT yapÄ±yor; bu sÄ±nÄ±rÄ±n altÄ±nda bitmesi olasÄ± deÄŸil
+   son satırı `backend/dist/main.js` diyor → **konteyner MODULE_NOT_FOUND ile
+   açılışta düşer.** İmajın bir kez bile çalıştırılmadığını gösteriyor.
+3. 🔴 **Rate limiting yok** + giriş ucu istek başına ~134 MB scrypt belleği
+   ayırıyor (`N=131_072, r=8` → `128×N×r`; `maxmem` tavanı bunun iki katı).
+   Sınır olmadığı için tek IP'den düşük maliyetli bellek tükenmesi.
+4. 🔴 **`Idempotency-Key` gönderiliyor, okunmuyor.** Frontend her POST'ta
+   yolluyor (`api.ts:36`) ve yorumu "BFS v1 §12 zorunlu" diyor; backend'de
+   `@Headers` **hiç kullanılmıyor**. Ağ yeniden denemesi **mükerrer tahsilat /
+   tahakkuk** üretir.
+5. 🔴 **Bağlantı havuzu ve transaction timeout ayarsız.** `DATABASE_URL`'de
+   `connection_limit` yok → Prisma varsayılanı 9-17. `$transaction` seçeneksiz
+   çağrılıyor → varsayılan **5 sn**. Tahakkuk 400 daire için ~400 advisory lock
+   + ~1200 ardışık INSERT yapıyor; bu sınırın altında bitmesi olası değil
    (`P2028`).
 
-#### P1 â€” Ã¶lÃ§ek bÃ¼yÃ¼meden kapatÄ±lmalÄ±
+#### P1 — ölçek büyümeden kapatılmalı
 
-6. **PortfÃ¶y fan-out'u sÄ±nÄ±rsÄ±z eÅŸzamanlÄ±.** `portfoy.service.ts:307`
-   `Promise.allSettled(gecerliler.map(...))` â€” proje baÅŸÄ±na ayrÄ± transaction,
-   11 sorgu. 150 proje = 150 eÅŸzamanlÄ± transaction. Havuz tÃ¼kendiÄŸinde
-   `allSettled` hatayÄ± yutuyor ve portfÃ¶y **eksik ama hatasÄ±z** gÃ¶rÃ¼nÃ¼yor.
-7. **Ã–nbellek geÃ§ersizleÅŸtirmesi yok.** `desenSil()` yazÄ±lmÄ±ÅŸ, **sÄ±fÄ±r Ã§aÄŸrÄ±
-   yeri**. Rol deÄŸiÅŸince yetki 5 dk eski kalÄ±yor. Ä°ronik: aynÄ± dosya devir kaydÄ±
-   iÃ§in Ã¶nbelleklemeyi *"yetki kaldÄ±rmadÄ±r, 5 dakika geÃ§erli gÃ¶rÃ¼nmesi kabul
-   edilemez"* diye reddediyor â€” aynÄ± gerekÃ§e Ã¼yelik iÃ§in de geÃ§erli.
-8. **CI sÃ¶zleÅŸme testleri RLS'i doÄŸrulayamÄ±yor.** `ci.yml:74` `postgres`
-   sÃ¼per kullanÄ±cÄ±sÄ±yla baÄŸlanÄ±yor; sÃ¼per kullanÄ±cÄ± RLS'i **her koÅŸulda atlar**
-   ve `database/init/01-roles.sql` CI servisine baÄŸlanmadÄ±ÄŸÄ± iÃ§in `bnos_app`
-   rolÃ¼ orada yok. Yerelde gerÃ§ekten doÄŸrulanÄ±yor, CI'da doÄŸrulanamÄ±yor.
-9. **Audit zinciri tenant baÅŸÄ±na serileÅŸme noktasÄ± ve Ã§atallanabilir.** Her
-   yazma `findFirst(orderBy: olusmaAni desc)` ile son halkayÄ± okuyor; iki
-   eÅŸzamanlÄ± yazma **aynÄ± `oncekiHash`'i** alabilir ve `oncekiHash` Ã¼zerinde
-   unique kÄ±sÄ±t yok. Advisory lock deseni depoda zaten var (`numara.service.ts`).
-10. **Refresh token iptal edilemiyor.** `jti` Ã¼retiliyor, saklanmÄ±yor; Ã§Ä±kÄ±ÅŸ ucu
-    yok. Ã‡alÄ±nan token 7 gÃ¼n geÃ§erli.
-11. **Metrik ve tracing yok** (OTel/prom-client 0 sonuÃ§). `/saglik` Redis'i
-    kontrol etmiyor; readiness/liveness ayrÄ±mÄ± yok.
-12. **`trust proxy` ayarlanmamÄ±ÅŸ** â†’ LB arkasÄ±nda **her audit kaydÄ±ndaki IP
-    yanlÄ±ÅŸ** olur ve hata sessizdir (alan dolu gÃ¶rÃ¼nÃ¼r).
+6. **Portföy fan-out'u sınırsız eşzamanlı.** `portfoy.service.ts:307`
+   `Promise.allSettled(gecerliler.map(...))` — proje başına ayrı transaction,
+   11 sorgu. 150 proje = 150 eşzamanlı transaction. Havuz tükendiğinde
+   `allSettled` hatayı yutuyor ve portföy **eksik ama hatasız** görünüyor.
+7. **Önbellek geçersizleştirmesi yok.** `desenSil()` yazılmış, **sıfır çağrı
+   yeri**. Rol değişince yetki 5 dk eski kalıyor. İronik: aynı dosya devir kaydı
+   için önbelleklemeyi *"yetki kaldırmadır, 5 dakika geçerli görünmesi kabul
+   edilemez"* diye reddediyor — aynı gerekçe üyelik için de geçerli.
+8. **CI sözleşme testleri RLS'i doğrulayamıyor.** `ci.yml:74` `postgres`
+   süper kullanıcısıyla bağlanıyor; süper kullanıcı RLS'i **her koşulda atlar**
+   ve `database/init/01-roles.sql` CI servisine bağlanmadığı için `bnos_app`
+   rolü orada yok. Yerelde gerçekten doğrulanıyor, CI'da doğrulanamıyor.
+9. **Audit zinciri tenant başına serileşme noktası ve çatallanabilir.** Her
+   yazma `findFirst(orderBy: olusmaAni desc)` ile son halkayı okuyor; iki
+   eşzamanlı yazma **aynı `oncekiHash`'i** alabilir ve `oncekiHash` üzerinde
+   unique kısıt yok. Advisory lock deseni depoda zaten var (`numara.service.ts`).
+10. **Refresh token iptal edilemiyor.** `jti` üretiliyor, saklanmıyor; çıkış ucu
+    yok. Çalınan token 7 gün geçerli.
+11. **Metrik ve tracing yok** (OTel/prom-client 0 sonuç). `/saglik` Redis'i
+    kontrol etmiyor; readiness/liveness ayrımı yok.
+12. **`trust proxy` ayarlanmamış** → LB arkasında **her audit kaydındaki IP
+    yanlış** olur ve hata sessizdir (alan dolu görünür).
 
-#### UygulanmamÄ±ÅŸ bileÅŸenler (kapsam dÄ±ÅŸÄ±, belgeyle tutarlÄ±)
+#### Uygulanmamış bileşenler (kapsam dışı, belgeyle tutarlı)
 
-Workflow Engine Â· Knowledge Graph adaptÃ¶rÃ¼ Â· Vector DB / pgvector Â· AI Agent
-System Â· LLM Router Â· Token Optimization. Bunlar C-1 aÃ§Ä±k maddesiyle zaten
-iÅŸaretli. **Kuyruk altyapÄ±sÄ± farklÄ±:** BullMQ `backend/package.json`'da kurulu
-ama kaynak kodda **sÄ±fÄ±r kullanÄ±m**; `IScheduler` portu ve `IsCalistirma` tablosu
-(idempotentlik UNIQUE'i dahil) yazÄ±lmÄ±ÅŸ, **uygulamasÄ± yok**. Outbox Redis
-Stream'e `XADD` yapÄ±yor ama **tÃ¼ketici yok** ve `MAXLEN` verilmediÄŸi iÃ§in stream
-sÄ±nÄ±rsÄ±z bÃ¼yÃ¼yor. Ä°letiÅŸimdeki `durum: 'ZAMANLANDI'` kayÄ±tlarÄ± **hiÃ§bir zaman
-gÃ¶nderilmiyor**.
+Workflow Engine · Knowledge Graph adaptörü · Vector DB / pgvector · AI Agent
+System · LLM Router · Token Optimization. Bunlar C-1 açık maddesiyle zaten
+işaretli. **Kuyruk altyapısı farklı:** BullMQ `backend/package.json`'da kurulu
+ama kaynak kodda **sıfır kullanım**; `IScheduler` portu ve `IsCalistirma` tablosu
+(idempotentlik UNIQUE'i dahil) yazılmış, **uygulaması yok**. Outbox Redis
+Stream'e `XADD` yapıyor ama **tüketici yok** ve `MAXLEN` verilmediği için stream
+sınırsız büyüyor. İletişimdeki `durum: 'ZAMANLANDI'` kayıtları **hiçbir zaman
+gönderilmiyor**.
 
-#### Belgeâ€“kod tutarsÄ±zlÄ±klarÄ± (kod geÃ§erlidir)
+#### Belge–kod tutarsızlıkları (kod geçerlidir)
 
-| Belge iddiasÄ± | Koddaki gerÃ§ek |
+| Belge iddiası | Koddaki gerçek |
 |---|---|
-| README:151 â€” malik/kiracÄ±/sakin `yalnizcaKendiVerisi` taÅŸÄ±r | Bayrak okunmuyor |
-| `api.ts:29` â€” "her POST iÃ§in zorunlu (BFS v1 Â§12)" | Backend baÅŸlÄ±ÄŸÄ± okumuyor |
-| ADR-0005 â€” "geÃ§ersizleÅŸtirme domain event'lerle" | `desenSil` hiÃ§ Ã§aÄŸrÄ±lmÄ±yor |
-| ADR-0005 â€” "yetersizse Ã¶zet tablosu" | Ã–zet tablo yok, canlÄ± `groupBy` |
-| `local-business-rules.adapter.ts:4` â€” "kurallar VERÄ° olarak" | TS closure'Ä± olarak gÃ¶mÃ¼lÃ¼ |
-| `bnos-client/package.json` â€” "Workflow portlari" | Workflow portu yok |
-| README:44 â€” `infrastructure/ â€¦ k8s` | Dizin **boÅŸ** |
-| README:116 â€” "57 duman testi" | 317 test |
-| `scheduler.port.ts:4` â€” "v1 uygulamasÄ±: BullMQ" | Uygulama yok |
-| `prisma.service.ts:9` â€” "soft delete filtresi merkezÃ®dir" | UzantÄ± baÄŸlÄ± deÄŸil (Â§3.B.0) |
+| README:151 — malik/kiracı/sakin `yalnizcaKendiVerisi` taşır | Bayrak okunmuyor |
+| `api.ts:29` — "her POST için zorunlu (BFS v1 §12)" | Backend başlığı okumuyor |
+| ADR-0005 — "geçersizleştirme domain event'lerle" | `desenSil` hiç çağrılmıyor |
+| ADR-0005 — "yetersizse özet tablosu" | Özet tablo yok, canlı `groupBy` |
+| `local-business-rules.adapter.ts:4` — "kurallar VERİ olarak" | TS closure'ı olarak gömülü |
+| `bnos-client/package.json` — "Workflow portlari" | Workflow portu yok |
+| README:44 — `infrastructure/ … k8s` | Dizin **boş** |
+| README:116 — "57 duman testi" | 317 test |
+| `scheduler.port.ts:4` — "v1 uygulaması: BullMQ" | Uygulama yok |
+| `prisma.service.ts:9` — "soft delete filtresi merkezîdir" | Uzantı bağlı değil (§3.B.0) |
 
-#### Ã–lÃ§ek deÄŸerlendirmesi (kod yapÄ±sÄ±ndan Ã§Ä±karÄ±m, Ã¶lÃ§Ã¼m yok)
+#### Ölçek değerlendirmesi (kod yapısından çıkarım, ölçüm yok)
 
-| Ã–lÃ§ek | HazÄ±rlÄ±k | Ä°lk dÃ¼ÅŸecek bileÅŸen |
+| Ölçek | Hazırlık | İlk düşecek bileşen |
 |---|---|---|
-| 15 site | %60 | `GET /portfoy/ozet` yavaÅŸlar, dÃ¼ÅŸmez |
-| 50 site | %40 | Havuz tÃ¼kenmesi â†’ `P2024`, portfÃ¶y **sessizce eksik** |
-| 100 site | %20 | `tahakkuk.calistir` â†’ `P2028` (200+ daireli sitelerde) |
-| 500 site | %10 | `audit_kaydi` (bÃ¶lÃ¼mleme ve arÅŸivleme yok) |
-| 1000 site | %5 | Tek PostgreSQL Ã¶rneÄŸinin yazma kapasitesi |
+| 15 site | %60 | `GET /portfoy/ozet` yavaşlar, düşmez |
+| 50 site | %40 | Havuz tükenmesi → `P2024`, portföy **sessizce eksik** |
+| 100 site | %20 | `tahakkuk.calistir` → `P2028` (200+ daireli sitelerde) |
+| 500 site | %10 | `audit_kaydi` (bölümleme ve arşivleme yok) |
+| 1000 site | %5 | Tek PostgreSQL örneğinin yazma kapasitesi |
 
-âš ï¸  Bu tabloda **hiÃ§bir Ã¶lÃ§Ã¼m yok** â€” depoda yÃ¼k testi, benchmark veya
-performans bÃ¼tÃ§esi bulunmuyor. Rakamlar kod yapÄ±sÄ±ndan yapÄ±lan mÃ¼hendislik
-tahminidir ve gerÃ§ek Ã¶lÃ§Ã¼mle deÄŸiÅŸtirilmelidir.
+⚠️  Bu tabloda **hiçbir ölçüm yok** — depoda yük testi, benchmark veya
+performans bütçesi bulunmuyor. Rakamlar kod yapısından yapılan mühendislik
+tahminidir ve gerçek ölçümle değiştirilmelidir.
 
-### G. âœ… KAPATILDI â€” devredilen iki dÃ¼zeltme uygulandÄ±
+### G. ✅ KAPATILDI — devredilen iki düzeltme uygulandı
 
-> AÅŸaÄŸÄ±daki bÃ¶lÃ¼m bulguyu ve gerekÃ§esini tarihÃ§e olarak korur. **Ä°kisi de bu
-> commit'te kapatÄ±ldÄ±**; nasÄ±l kapatÄ±ldÄ±ÄŸÄ± Â§3.H'dedir.
+> Aşağıdaki bölüm bulguyu ve gerekçesini tarihçe olarak korur. **İkisi de bu
+> commit'te kapatıldı**; nasıl kapatıldığı §3.H'dedir.
 
 
 
-30-31 Temmuz 2026 oturumu kapatÄ±lÄ±rken Ã¼rÃ¼n sahibi, denetimde Ã§Ä±kan iki kÃ¼Ã§Ã¼k
-ama **Ã¼retime Ã§Ä±kÄ±ÅŸÄ± doÄŸrudan engelleyen** dÃ¼zeltmenin sonraki oturumda ele
-alÄ±nmasÄ±na karar verdi. Bu bir erteleme kararÄ±dÄ±r, bulgunun geÃ§ersizliÄŸi
-DEÄÄ°LDÄ°R: ikisi de bugÃ¼n ayakta duran bir engeldir.
+30-31 Temmuz 2026 oturumu kapatılırken ürün sahibi, denetimde çıkan iki küçük
+ama **üretime çıkışı doğrudan engelleyen** düzeltmenin sonraki oturumda ele
+alınmasına karar verdi. Bu bir erteleme kararıdır, bulgunun geçersizliği
+DEĞİLDİR: ikisi de bugün ayakta duran bir engeldir.
 
-**1. Konteyner giriÅŸ noktasÄ± yanlÄ±ÅŸ â€” imaj aÃ§Ä±lÄ±ÅŸta dÃ¼ÅŸer.**
+**1. Konteyner giriş noktası yanlış — imaj açılışta düşer.**
 
-| Yer | Yazan | OlmasÄ± gereken |
+| Yer | Yazan | Olması gereken |
 |---|---|---|
 | `backend/package.json:9` | `node dist/main.js` | `node dist/src/main.js` |
 | `infrastructure/docker/Dockerfile.backend` (CMD) | `node backend/dist/main.js` | `node backend/dist/src/main.js` |
 
-Sebep: `backend/tsconfig.json` `include: ["src/**/*", "test/**/*"]` olduÄŸu iÃ§in
-tsc rootDir'i `backend/` seÃ§iyor ve Ã§Ä±ktÄ± `dist/src/` altÄ±na dÃ¼ÅŸÃ¼yor. Ä°ki yol da
-`MODULE_NOT_FOUND` verir. **Ä°majÄ±n bir kez bile Ã§alÄ±ÅŸtÄ±rÄ±lmadÄ±ÄŸÄ±nÄ±n kanÄ±tÄ±dÄ±r.**
+Sebep: `backend/tsconfig.json` `include: ["src/**/*", "test/**/*"]` olduğu için
+tsc rootDir'i `backend/` seçiyor ve çıktı `dist/src/` altına düşüyor. İki yol da
+`MODULE_NOT_FOUND` verir. **İmajın bir kez bile çalıştırılmadığının kanıtıdır.**
 
-Ä°ki Ã§Ã¶zÃ¼m var, biri seÃ§ilmeli:
-- YollarÄ± dÃ¼zeltmek (en kÃ¼Ã§Ã¼k deÄŸiÅŸiklik), ya da
-- `tsconfig`'te testleri `include` dÄ±ÅŸÄ±na alÄ±p Ã§Ä±ktÄ±yÄ± `dist/` kÃ¶kÃ¼ne dÃ¼zleÅŸtirmek
-  (o zaman `vitest` yollarÄ± gÃ¶zden geÃ§irilmeli).
+İki çözüm var, biri seçilmeli:
+- Yolları düzeltmek (en küçük değişiklik), ya da
+- `tsconfig`'te testleri `include` dışına alıp çıktıyı `dist/` köküne düzleştirmek
+  (o zaman `vitest` yolları gözden geçirilmeli).
 
-âš ï¸  Hangisi seÃ§ilirse **CI'a bir duman testi baÄŸlanmalÄ±**: imaj build edilip
-`--help` ya da saÄŸlÄ±k ucuyla bir kez aÃ§Ä±lmalÄ±. Bu hata tam olarak "hiÃ§
-Ã§alÄ±ÅŸtÄ±rÄ±lmadÄ±ÄŸÄ± iÃ§in" fark edilmedi; aynÄ± boÅŸluk bÄ±rakÄ±lÄ±rsa tekrar eder.
+⚠️  Hangisi seçilirse **CI'a bir duman testi bağlanmalı**: imaj build edilip
+`--help` ya da sağlık ucuyla bir kez açılmalı. Bu hata tam olarak "hiç
+çalıştırılmadığı için" fark edilmedi; aynı boşluk bırakılırsa tekrar eder.
 
-**2. Rate limiting yok â€” giriÅŸ ucu ucuz bir bellek tÃ¼kenmesi vektÃ¶rÃ¼.**
+**2. Rate limiting yok — giriş ucu ucuz bir bellek tükenmesi vektörü.**
 
-`@nestjs/throttler` benzeri bir sÄ±nÄ±r **hiÃ§ yok** (depoda 0 sonuÃ§). GiriÅŸ ucu
-her denemede scrypt Ã§alÄ±ÅŸtÄ±rÄ±yor â€” kullanÄ±cÄ± bulunamasa bile, Ã§Ã¼nkÃ¼ zamanlama
-sÄ±zÄ±ntÄ±sÄ±nÄ± Ã¶nlemek iÃ§in `KUKLA_OZET` ile doÄŸrulama yapÄ±lÄ±yor
-(`oturum.service.ts:95`, doÄŸru bir tasarÄ±m).
+`@nestjs/throttler` benzeri bir sınır **hiç yok** (depoda 0 sonuç). Giriş ucu
+her denemede scrypt çalıştırıyor — kullanıcı bulunamasa bile, çünkü zamanlama
+sızıntısını önlemek için `KUKLA_OZET` ile doğrulama yapılıyor
+(`oturum.service.ts:95`, doğru bir tasarım).
 
-Maliyet: `N=131_072, r=8` â†’ scrypt Ã§alÄ±ÅŸma belleÄŸi `128 Ã— N Ã— r` â‰ˆ **134 MB**;
-`sifre.ts:37`'deki `maxmem` tavanÄ± bunun **iki katÄ±nÄ±** (â‰ˆ268 MB) veriyor.
-SÄ±nÄ±rsÄ±z istek Ã— 134 MB = tek IP'den Ã¶nemsiz maliyetle sÃ¼reÃ§ dÃ¼ÅŸÃ¼rÃ¼lebilir.
+Maliyet: `N=131_072, r=8` → scrypt çalışma belleği `128 × N × r` ≈ **134 MB**;
+`sifre.ts:37`'deki `maxmem` tavanı bunun **iki katını** (≈268 MB) veriyor.
+Sınırsız istek × 134 MB = tek IP'den önemsiz maliyetle süreç düşürülebilir.
 
-âš ï¸  **scrypt parametreleri DÃœÅÃœRÃœLEREK Ã§Ã¶zÃ¼lmemeli** â€” `N=2^17` OWASP 2024
-asgarisidir ve bilinÃ§li seÃ§ilmiÅŸtir (`sifre.ts:28`). Ã‡Ã¶zÃ¼m sÄ±nÄ±rlamadÄ±r, maliyeti
-azaltmak deÄŸil. En az `/oturum/giris` ve `/oturum/yenile` sÄ±nÄ±rlanmalÄ±; IP baÅŸÄ±na
-ve e-posta baÅŸÄ±na ayrÄ± sayaÃ§ gerekir (yalnÄ±zca IP, NAT arkasÄ±ndaki bir siteyi
+⚠️  **scrypt parametreleri DÜŞÜRÜLEREK çözülmemeli** — `N=2^17` OWASP 2024
+asgarisidir ve bilinçli seçilmiştir (`sifre.ts:28`). Çözüm sınırlamadır, maliyeti
+azaltmak değil. En az `/oturum/giris` ve `/oturum/yenile` sınırlanmalı; IP başına
+ve e-posta başına ayrı sayaç gerekir (yalnızca IP, NAT arkasındaki bir siteyi
 toptan kilitler).
 
-**Devredilmeyen ama aÃ§Ä±k kalan:** Â§3.F'deki P0-1 (`yalnizcaKendiVerisi`
-uygulanmÄ±yor â€” KVKK aÃ§Ä±ÄŸÄ±) bu iki maddenin **dÄ±ÅŸÄ±ndadÄ±r** ve hÃ¢lÃ¢ aÃ§Ä±ktÄ±r.
-Denetimdeki en aÄŸÄ±r bulgu odur; kÃ¼Ã§Ã¼k bir dÃ¼zeltme olmadÄ±ÄŸÄ± iÃ§in bu ikisiyle
-birlikte gruplanmadÄ±. Ã–nceliklendirmesi Ã¼rÃ¼n sahibine aittir.
+**Devredilmeyen ama açık kalan:** §3.F'deki P0-1 (`yalnizcaKendiVerisi`
+uygulanmıyor — KVKK açığı) bu iki maddenin **dışındadır** ve hâlâ açıktır.
+Denetimdeki en ağır bulgu odur; küçük bir düzeltme olmadığı için bu ikisiyle
+birlikte gruplanmadı. Önceliklendirmesi ürün sahibine aittir.
 
-### H. Bu commit'te yapÄ±lan â€” iki dÃ¼zeltmenin uygulanmasÄ±
+### H. Bu commit'te yapılan — iki düzeltmenin uygulanması
 
-#### 1. Konteyner giriÅŸ noktasÄ± â€” Ã‡Ã–ZÃœM: Ã§Ä±ktÄ± dÃ¼zeltildi, beyan deÄŸil
+#### 1. Konteyner giriş noktası — ÇÖZÜM: çıktı düzeltildi, beyan değil
 
-Ä°ki seÃ§enek vardÄ± (Â§3.G). **Ä°kincisi seÃ§ildi:** yollarÄ± `dist/src/main.js`'e
-Ã§ekmek yerine, derleme Ã§Ä±ktÄ±sÄ± `dist/` kÃ¶kÃ¼ne dÃ¼zleÅŸtirildi. GerekÃ§e: birinci
-seÃ§enek `dist/test/` klasÃ¶rÃ¼nÃ¼n de Ã¼retim imajÄ±na kopyalanmasÄ±nÄ± **sÃ¼rdÃ¼rÃ¼rdÃ¼**
-â€” test kodu Ã¼retim imajÄ±nda iÅŸi olmayan bir yÃ¼ktÃ¼r.
+İki seçenek vardı (§3.G). **İkincisi seçildi:** yolları `dist/src/main.js`'e
+çekmek yerine, derleme çıktısı `dist/` köküne düzleştirildi. Gerekçe: birinci
+seçenek `dist/test/` klasörünün de üretim imajına kopyalanmasını **sürdürürdü**
+— test kodu üretim imajında işi olmayan bir yüktür.
 
-- `backend/tsconfig.build.json` (yeni) â€” `test` ve `**/*.spec.ts` hariÃ§ tutulur.
-- `backend/nest-cli.json` â€” `tsConfigPath` bu dosyaya baÄŸlandÄ±.
-- SonuÃ§: Ã§Ä±ktÄ± artÄ±k `backend/dist/main.js`. `package.json` ve
-  `Dockerfile.backend` **hiÃ§ deÄŸiÅŸmedi**; zaten doÄŸru yolu gÃ¶steriyorlardÄ±.
-- `pnpm typecheck` hÃ¢lÃ¢ ana `tsconfig.json`'u kullanÄ±r â†’ **testler tip
-  denetiminden geÃ§meye devam eder**. `vitest` swc kullanÄ±r, tsc Ã§Ä±ktÄ±sÄ±na
-  baÄŸlÄ± deÄŸildir â†’ sÃ¶zleÅŸme testleri etkilenmez (24/24 doÄŸrulandÄ±).
-- `tests/unit/*.mjs` iÃ§indeki iki `dist/src/...` yolu gÃ¼ncellendi.
+- `backend/tsconfig.build.json` (yeni) — `test` ve `**/*.spec.ts` hariç tutulur.
+- `backend/nest-cli.json` — `tsConfigPath` bu dosyaya bağlandı.
+- Sonuç: çıktı artık `backend/dist/main.js`. `package.json` ve
+  `Dockerfile.backend` **hiç değişmedi**; zaten doğru yolu gösteriyorlardı.
+- `pnpm typecheck` hâlâ ana `tsconfig.json`'u kullanır → **testler tip
+  denetiminden geçmeye devam eder**. `vitest` swc kullanır, tsc çıktısına
+  bağlı değildir → sözleşme testleri etkilenmez (24/24 doğrulandı).
+- `tests/unit/*.mjs` içindeki iki `dist/src/...` yolu güncellendi.
 
-**TekrarÄ± Ã¶nleyen denetim** (Â§3.G'nin istediÄŸi): `scripts/config-check.mjs`'e
-yedinci adÄ±m eklendi â€” `package.json` "start" ile Dockerfile CMD'si birbiriyle
-**ve** varsa gerÃ§ek derleme Ã§Ä±ktÄ±sÄ±yla karÅŸÄ±laÅŸtÄ±rÄ±lÄ±r. `pnpm verify` zincirinde
-ve CI'Ä±n ilk iÅŸinde koÅŸar.
+**Tekrarı önleyen denetim** (§3.G'nin istediği): `scripts/config-check.mjs`'e
+yedinci adım eklendi — `package.json` "start" ile Dockerfile CMD'si birbiriyle
+**ve** varsa gerçek derleme çıktısıyla karşılaştırılır. `pnpm verify` zincirinde
+ve CI'ın ilk işinde koşar.
 
-âš ï¸  **Denetleyici NEGATÄ°F TESTLE kanÄ±tlandÄ±:** `dist/main.js` geÃ§ici olarak
-baÅŸka bir ada alÄ±ndÄ±, `config-check.mjs` Ã§Ä±kÄ±ÅŸ kodu **1** verdi ve
-*"Giris noktasi derleme ciktisinda YOK â€¦ Konteyner acilista MODULE_NOT_FOUND ile
-duser"* yazdÄ±. KontrolÃ¼n gerÃ§ekten Ã§alÄ±ÅŸtÄ±ÄŸÄ±, "yeÅŸil yanÄ±yor" ile deÄŸil
-**kÄ±rmÄ±zÄ± yakÄ±larak** doÄŸrulandÄ±.
+⚠️  **Denetleyici NEGATİF TESTLE kanıtlandı:** `dist/main.js` geçici olarak
+başka bir ada alındı, `config-check.mjs` çıkış kodu **1** verdi ve
+*"Giris noktasi derleme ciktisinda YOK … Konteyner acilista MODULE_NOT_FOUND ile
+duser"* yazdı. Kontrolün gerçekten çalıştığı, "yeşil yanıyor" ile değil
+**kırmızı yakılarak** doğrulandı.
 
-âš ï¸  Bu, imaj duman testinin **ucuz ikamesidir, yerine geÃ§mez.** `docker build`
-+ bir kez aÃ§Ä±lÄ±ÅŸ hÃ¢lÃ¢ CI'a eklenmeli; bu kontrol yalnÄ±zca yol tutarlÄ±lÄ±ÄŸÄ±nÄ±
-gÃ¶rÃ¼r, imajÄ±n gerÃ§ekten aÃ§Ä±ldÄ±ÄŸÄ±nÄ± deÄŸil.
+⚠️  Bu, imaj duman testinin **ucuz ikamesidir, yerine geçmez.** `docker build`
++ bir kez açılış hâlâ CI'a eklenmeli; bu kontrol yalnızca yol tutarlılığını
+görür, imajın gerçekten açıldığını değil.
 
-#### 2. Ä°stek sÄ±nÄ±rÄ± â€” `common/guards/istek-siniri.guard.ts` (yeni)
+#### 2. İstek sınırı — `common/guards/istek-siniri.guard.ts` (yeni)
 
-`@nestjs/throttler` **kullanÄ±lmadÄ±**, iki nedenle: (a) kurulu deÄŸil ve depoda
-scrypt'in bcrypt yerine seÃ§ilme gerekÃ§esiyle aynÄ± Ã§izgide gereksiz baÄŸÄ±mlÄ±lÄ±k
-eklenmiyor; (b) varsayÄ±lan deposu **bellek iÃ§idir** ve Ã§ok Ã¶rnekli daÄŸÄ±tÄ±mda
-sessizce yanlÄ±ÅŸ Ã§alÄ±ÅŸÄ±r â€” 3 replikada etkin sÄ±nÄ±r 3Ã— olur, koruma "var"
-gÃ¶rÃ¼nÃ¼rken Ã¼Ã§te bir gÃ¼cÃ¼ndedir. SayaÃ§ **Redis'tedir** (`ioredis` zaten var).
+`@nestjs/throttler` **kullanılmadı**, iki nedenle: (a) kurulu değil ve depoda
+scrypt'in bcrypt yerine seçilme gerekçesiyle aynı çizgide gereksiz bağımlılık
+eklenmiyor; (b) varsayılan deposu **bellek içidir** ve çok örnekli dağıtımda
+sessizce yanlış çalışır — 3 replikada etkin sınır 3× olur, koruma "var"
+görünürken üçte bir gücündedir. Sayaç **Redis'tedir** (`ioredis` zaten var).
 
-| UÃ§ | IP | Kimlik | Pencere |
+| Uç | IP | Kimlik | Pencere |
 |---|---|---|---|
 | `POST /oturum/giris` | 20 | 5 (e-posta) | 300 sn |
-| `POST /oturum/yenile` | 60 | â€” | 300 sn |
+| `POST /oturum/yenile` | 60 | — | 300 sn |
 
 Zorlanan kurallar:
 
-- **Ä°ÅŸaretsiz uÃ§ sÄ±nÄ±rlanmaz.** `@IstekSiniri(...)` taÅŸÄ±mayan uÃ§ dokunulmadan
-  geÃ§er (`@RequirePermission` deseni). Genel bir sÄ±nÄ±r, toplu tahakkuk ve toplu
-  gÃ¶nderim gibi meÅŸru yoÄŸun iÅŸleri sessizce keserdi.
-- **SÄ±nÄ±r ÃœÃ§ KapÄ±'dan Ã–NCE** Ã§alÄ±ÅŸÄ±r ama bir kapÄ± deÄŸildir. Sonda olsaydÄ±
-  reddedilen istek yine de JWT doÄŸrulamasÄ± ve veritabanÄ± okumasÄ± yaptÄ±rÄ±rdÄ±.
-- **Atomik Lua sayacÄ±.** `INCR` + `EXPIRE` iki gidiÅŸ-dÃ¶nÃ¼ÅŸ olarak yazÄ±lamaz:
-  arada baÄŸlantÄ± koparsa anahtar **Ã¶mÃ¼rsÃ¼z** kalÄ±r ve o kimlik KALICI olarak
-  kilitlenir â€” kullanÄ±cÄ± "ÅŸifremi unuttum" akÄ±ÅŸÄ±nda da kilitli kalÄ±r.
-- **429 hangi sayacÄ±n dolduÄŸunu SÃ–YLEMEZ.** "Bu e-posta iÃ§in sÄ±nÄ±r doldu"
-  demek, e-postanÄ±n kayÄ±tlÄ± olduÄŸunu doÄŸrulardÄ± ve giriÅŸ ucunun kullanÄ±cÄ±
-  numaralandÄ±rmayÄ± engelleme Ã§abasÄ±nÄ± boÅŸa Ã§Ä±karÄ±rdÄ±.
-- **Ham e-posta anahtara yazÄ±lmaz**, SHA-256 Ã¶zeti konur: sayaÃ§ kiÅŸisel veri
-  deposu deÄŸildir (KVKK).
-- **Fail-open + ERROR log.** Redis dÃ¼ÅŸerse istek geÃ§er. Fail-closed seÃ§ilseydi
-  bir Redis kesintisi **tam bir kimlik kesintisine** dÃ¶nÃ¼ÅŸÃ¼rdÃ¼. Kabul edilen
-  bedel aÃ§Ä±kÃ§a loglanÄ±r â€” alarm kurulacak yer orasÄ±dÄ±r.
-- **BaÄŸlantÄ± tembeldir** (`lazyConnect`). Eager baÄŸlanan yapÄ±cÄ± sÄ±nÄ±fÄ± birim
-  testinde kurulamaz kÄ±lÄ±yordu: soket aÃ§Ä±lÄ±yor, olay dÃ¶ngÃ¼sÃ¼ ayakta kalÄ±yor ve
-  **test asÄ±lÄ±yordu** (yaÅŸandÄ±). AyrÄ±ca fail-open politikasÄ±yla da Ã§eliÅŸirdi.
+- **İşaretsiz uç sınırlanmaz.** `@IstekSiniri(...)` taşımayan uç dokunulmadan
+  geçer (`@RequirePermission` deseni). Genel bir sınır, toplu tahakkuk ve toplu
+  gönderim gibi meşru yoğun işleri sessizce keserdi.
+- **Sınır Üç Kapı'dan ÖNCE** çalışır ama bir kapı değildir. Sonda olsaydı
+  reddedilen istek yine de JWT doğrulaması ve veritabanı okuması yaptırırdı.
+- **Atomik Lua sayacı.** `INCR` + `EXPIRE` iki gidiş-dönüş olarak yazılamaz:
+  arada bağlantı koparsa anahtar **ömürsüz** kalır ve o kimlik KALICI olarak
+  kilitlenir — kullanıcı "şifremi unuttum" akışında da kilitli kalır.
+- **429 hangi sayacın dolduğunu SÖYLEMEZ.** "Bu e-posta için sınır doldu"
+  demek, e-postanın kayıtlı olduğunu doğrulardı ve giriş ucunun kullanıcı
+  numaralandırmayı engelleme çabasını boşa çıkarırdı.
+- **Ham e-posta anahtara yazılmaz**, SHA-256 özeti konur: sayaç kişisel veri
+  deposu değildir (KVKK).
+- **Fail-open + ERROR log.** Redis düşerse istek geçer. Fail-closed seçilseydi
+  bir Redis kesintisi **tam bir kimlik kesintisine** dönüşürdü. Kabul edilen
+  bedel açıkça loglanır — alarm kurulacak yer orasıdır.
+- **Bağlantı tembeldir** (`lazyConnect`). Eager bağlanan yapıcı sınıfı birim
+  testinde kurulamaz kılıyordu: soket açılıyor, olay döngüsü ayakta kalıyor ve
+  **test asılıyordu** (yaşandı). Ayrıca fail-open politikasıyla da çelişirdi.
 
 **scrypt parametrelerine DOKUNULMADI.** `N=2^17` OWASP 2024 asgarisidir;
-dÃ¼ÅŸÃ¼rmek DoS'u hafifletirken parola kÄ±rmayÄ± ucuzlatÄ±rdÄ± â€” bir aÃ§Ä±ÄŸÄ± kapatÄ±p
-daha kÃ¶tÃ¼sÃ¼nÃ¼ aÃ§mak olurdu.
+düşürmek DoS'u hafifletirken parola kırmayı ucuzlatırdı — bir açığı kapatıp
+daha kötüsünü açmak olurdu.
 
-#### YanÄ±nda kapatÄ±lan: `TRUST_PROXY`
+#### Yanında kapatılan: `TRUST_PROXY`
 
-IP sayacÄ±, doÄŸru istemci adresi olmadan **anlamsÄ±zdÄ±r**: yÃ¼k dengeleyici
-arkasÄ±nda bÃ¼tÃ¼n istekler tek adresten geliyor gÃ¶rÃ¼nÃ¼r ve sayaÃ§ bir sitenin
-tamamÄ±nÄ± kilitler. Bu yÃ¼zden `TRUST_PROXY` ortam deÄŸiÅŸkeni eklendi
+IP sayacı, doğru istemci adresi olmadan **anlamsızdır**: yük dengeleyici
+arkasında bütün istekler tek adresten geliyor görünür ve sayaç bir sitenin
+tamamını kilitler. Bu yüzden `TRUST_PROXY` ortam değişkeni eklendi
 (`env.schema.ts` + `main.ts` + `.env.example`).
 
-âš ï¸  **VarsayÄ±lan 0 (kapalÄ±).** Ä°ki yÃ¶nde de sessiz hata var: yanlÄ±ÅŸ **aÃ§mak**
-korumayÄ± tÃ¼mÃ¼yle kaldÄ±rÄ±r (doÄŸrudan eriÅŸilen sunucuda istemci
-`X-Forwarded-For`'u kendisi yazar ve her istekte farklÄ± "IP" gÃ¶rÃ¼nÃ¼r); yanlÄ±ÅŸ
-**kapatmak** meÅŸru kullanÄ±cÄ±yÄ± kilitler. DaÄŸÄ±tÄ±m topolojisi bilinerek verilir.
+⚠️  **Varsayılan 0 (kapalı).** İki yönde de sessiz hata var: yanlış **açmak**
+korumayı tümüyle kaldırır (doğrudan erişilen sunucuda istemci
+`X-Forwarded-For`'u kendisi yazar ve her istekte farklı "IP" görünür); yanlış
+**kapatmak** meşru kullanıcıyı kilitler. Dağıtım topolojisi bilinerek verilir.
 
-#### âš ï¸ KAPANMAYAN kalan boÅŸluk â€” dÃ¼rÃ¼stÃ§e
+#### ⚠️ KAPANMAYAN kalan boşluk — dürüstçe
 
-**Ä°stek sÄ±nÄ±rÄ± HIZI sÄ±nÄ±rlar, EÅZAMANLILIÄI deÄŸil.** Pencere baÅŸÄ±na 20 istek,
-o 20 isteÄŸin aynÄ± anda gelemeyeceÄŸi anlamÄ±na gelmez: en kÃ¶tÃ¼ durumda 20
-eÅŸzamanlÄ± scrypt â‰ˆ **2,7 GB**. SÄ±nÄ±rsÄ±z hÃ¢le gÃ¶re bÃ¼yÃ¼k kazanÃ§, ama sÄ±fÄ±r risk
-deÄŸil. Kalan boÅŸluk scrypt Ã§aÄŸrÄ±larÄ±na bir **eÅŸzamanlÄ±lÄ±k kapÄ±sÄ± (semafor)**
-koymakla kapanÄ±r; bu ayrÄ± bir iÅŸtir ve bu dÃ¼zeltmenin kapsamÄ±nda deÄŸildi.
-Buraya yazÄ±lmasÄ±nÄ±n nedeni "Ã§Ã¶zÃ¼ldÃ¼" sanÄ±lmamasÄ±dÄ±r.
+**İstek sınırı HIZI sınırlar, EŞZAMANLILIĞI değil.** Pencere başına 20 istek,
+o 20 isteğin aynı anda gelemeyeceği anlamına gelmez: en kötü durumda 20
+eşzamanlı scrypt ≈ **2,7 GB**. Sınırsız hâle göre büyük kazanç, ama sıfır risk
+değil. Kalan boşluk scrypt çağrılarına bir **eşzamanlılık kapısı (semafor)**
+koymakla kapanır; bu ayrı bir iştir ve bu düzeltmenin kapsamında değildi.
+Buraya yazılmasının nedeni "çözüldü" sanılmamasıdır.
 
-#### DoÄŸrulama
+#### Doğrulama
 
-- Birim: `tests/unit/istek-siniri.test.mjs` (**14**) â†’ toplam **331** birim testi.
-- SÃ¶zleÅŸme: **24/24** (Docker ayaÄŸa kaldÄ±rÄ±lÄ±p koÅŸuldu).
-- `pnpm verify` **9/9** Â· lint temiz Â· `lint:md` temiz.
-- **CanlÄ± 13/13** â€” kabul Ã¶lÃ§Ã¼tÃ¼ karÅŸÄ±landÄ±:
-  - Backend `node backend/dist/main.js` ile **ayaÄŸa kalktÄ±** (beyan edilen yol).
-  - `/saglik` â†’ **200**, `veritabani: aÃ§Ä±k`.
-  - Ä°ÅŸaretsiz uÃ§ sÄ±nÄ±rlanmadÄ± (30 saÄŸlÄ±k isteÄŸi geÃ§ti).
-  - GiriÅŸ: `401 401 401 401 401` â†’ **6.'da 429**, `Retry-After: 297`.
-  - 429 gÃ¶vdesi sayaÃ§ adÄ±nÄ± sÄ±zdÄ±rmÄ±yor, `correlationId` taÅŸÄ±yor.
-  - FarklÄ± e-posta ayrÄ± sayÄ±ldÄ±; IP sayacÄ± da baÄŸÄ±msÄ±z tetiklendi (20'de).
-- Denetleyici negatif testi: giriÅŸ noktasÄ± saklandÄ±ÄŸÄ±nda `config-check` **1**
-  dÃ¶ndÃ¼.
+- Birim: `tests/unit/istek-siniri.test.mjs` (**14**) → toplam **331** birim testi.
+- Sözleşme: **24/24** (Docker ayağa kaldırılıp koşuldu).
+- `pnpm verify` **9/9** · lint temiz · `lint:md` temiz.
+- **Canlı 13/13** — kabul ölçütü karşılandı:
+  - Backend `node backend/dist/main.js` ile **ayağa kalktı** (beyan edilen yol).
+  - `/saglik` → **200**, `veritabani: açık`.
+  - İşaretsiz uç sınırlanmadı (30 sağlık isteği geçti).
+  - Giriş: `401 401 401 401 401` → **6.'da 429**, `Retry-After: 297`.
+  - 429 gövdesi sayaç adını sızdırmıyor, `correlationId` taşıyor.
+  - Farklı e-posta ayrı sayıldı; IP sayacı da bağımsız tetiklendi (20'de).
+- Denetleyici negatif testi: giriş noktası saklandığında `config-check` **1**
+  döndü.
 
 ---
 
-### I. GerÃ§ekÃ§i daÄŸÄ±lÄ±m Ã¶lÃ§Ã¼mÃ¼ â€” 5.000 bÃ¶lÃ¼m / 4.700 malik (31 Temmuz 2026)
+### I. Gerçekçi dağılım ölçümü — 5.000 bölüm / 4.700 malik (31 Temmuz 2026)
 
-Bu tur **yalnÄ±zca Ã¶lÃ§Ã¼mdÃ¼r**; Ã¼rÃ¼n kodu deÄŸiÅŸmedi. Veri seti:
-`database/perf/gercek-dagilim.sql` (tenant `gercek-5000`) â€” 5.000 bÃ¶lÃ¼m Â·
-13.000 kiÅŸi Â· 4.985 malik kaydÄ± (4.700 tekil kiÅŸi) Â· 3.000 kiracÄ± Â· 5.300
-sakin. Malik daÄŸÄ±lÄ±mÄ± 4.500Ã—1 daire Â· 150Ã—2 Â· 45Ã—3 Â· 5Ã—10. Parti tavanÄ± iÃ§in
-ikinci fikstÃ¼r: `database/perf/parti-tavani.sql` (tenant `perf-parti`,
-25/50/100/200/300/400 bÃ¶lÃ¼mlÃ¼k bloklar).
+Bu tur **yalnızca ölçümdür**; ürün kodu değişmedi. Veri seti:
+`database/perf/gercek-dagilim.sql` (tenant `gercek-5000`) — 5.000 bölüm ·
+13.000 kişi · 4.985 malik kaydı (4.700 tekil kişi) · 3.000 kiracı · 5.300
+sakin. Malik dağılımı 4.500×1 daire · 150×2 · 45×3 · 5×10. Parti tavanı için
+ikinci fikstür: `database/perf/parti-tavani.sql` (tenant `perf-parti`,
+25/50/100/200/300/400 bölümlük bloklar).
 
-BÃ¼tÃ¼n sayÄ±lar **uÃ§tan uca HTTP** Ã¶lÃ§Ã¼mÃ¼dÃ¼r (`node dist/main.js`, Ã¼retim
-derlemesi). psql sayÄ±larÄ± artÄ±k Ã¶lÃ§Ã¼t olarak kullanÄ±lmÄ±yor â€” gerekÃ§e ADR-0011.
+Bütün sayılar **uçtan uca HTTP** ölçümüdür (`node dist/main.js`, üretim
+derlemesi). psql sayıları artık ölçüt olarak kullanılmıyor — gerekçe ADR-0011.
 
-#### â˜… P0-Ä°ÅLEVSEL â€” toplu tahakkuk hedef Ã¶lÃ§ekte KIRIK
+#### ★ P0-İŞLEVSEL — toplu tahakkuk hedef ölçekte KIRIK
 
-**Bu bir performans sorunu deÄŸil; Ã§ekirdek Ã¶zellik 5.000 bÃ¶lÃ¼mlÃ¼k bir sitede
-hiÃ§ Ã§alÄ±ÅŸmÄ±yor.**
+**Bu bir performans sorunu değil; çekirdek özellik 5.000 bölümlük bir sitede
+hiç çalışmıyor.**
 
-`POST /tahakkuk/calistir` tÃ¼m siteye aidat yazarken **5 saniyelik iÅŸlem
-sÄ±nÄ±rÄ±nÄ± aÅŸÄ±yor ve 500 dÃ¶nÃ¼yor**. Ä°ÅŸlem tÃ¼mÃ¼yle geri alÄ±nÄ±yor: **sÄ±fÄ±r borÃ§,
-sÄ±fÄ±r outbox olayÄ±**. YÃ¶netici hiÃ§bir ÅŸey yazÄ±lmadÄ±ÄŸÄ±nÄ± yalnÄ±zca opak bir
-hata mesajÄ±ndan anlÄ±yor.
+`POST /tahakkuk/calistir` tüm siteye aidat yazarken **5 saniyelik işlem
+sınırını aşıyor ve 500 dönüyor**. İşlem tümüyle geri alınıyor: **sıfır borç,
+sıfır outbox olayı**. Yönetici hiçbir şey yazılmadığını yalnızca opak bir
+hata mesajından anlıyor.
 
-Parti bÃ¼yÃ¼klÃ¼ÄŸÃ¼ taramasÄ± (`perf-parti`, BLOK_BAZLI):
+Parti büyüklüğü taraması (`perf-parti`, BLOK_BAZLI):
 
-| bÃ¶lÃ¼m | HTTP | sÃ¼re | borÃ§ | outbox |
+| bölüm | HTTP | süre | borç | outbox |
 |---|---|---|---|---|
 | 25 | 201 | 437 ms | +25 | +1 |
 | 50 | 201 | 700 ms | +50 | +1 |
@@ -1443,1272 +1472,1271 @@ Parti bÃ¼yÃ¼klÃ¼ÄŸÃ¼ taramasÄ± (`perf-parti`, BLOK_BAZLI):
 | **400** | 201 | **4.789 ms** | +400 | +1 |
 | 500 | **500** | ~5.020 ms | **+0** | **+0** |
 
-DoÄŸrusal: bÃ¶lÃ¼m baÅŸÄ±na **â‰ˆ11,6 ms**. 5.000 ms'lik sÄ±nÄ±r **â‰ˆ420 bÃ¶lÃ¼mde**
-doluyor. 400 bÃ¶lÃ¼m zaten **%96 dolulukta** â€” daha yavaÅŸ bir makinede o da
-dÃ¼ÅŸer. Tek blok (500 bÃ¶lÃ¼m) Ã¼Ã§ denemede de 500 dÃ¶ndÃ¼.
+Doğrusal: bölüm başına **≈11,6 ms**. 5.000 ms'lik sınır **≈420 bölümde**
+doluyor. 400 bölüm zaten **%96 dolulukta** — daha yavaş bir makinede o da
+düşer. Tek blok (500 bölüm) üç denemede de 500 döndü.
 
-Yan bulgular: outbox olayÄ± **tahakkuk baÅŸÄ±na 1** (bÃ¶lÃ¼m baÅŸÄ±na deÄŸil), relay
-gecikmesi ortalama 1,3 sn, yeniden deneme 0 â€” outbox geride kalmÄ±yor.
-10 eÅŸzamanlÄ± okuyucu varken toplu tahakkuk koÅŸarsa okuma p95 282,8 â†’ 319,7 ms
+Yan bulgular: outbox olayı **tahakkuk başına 1** (bölüm başına değil), relay
+gecikmesi ortalama 1,3 sn, yeniden deneme 0 — outbox geride kalmıyor.
+10 eşzamanlı okuyucu varken toplu tahakkuk koşarsa okuma p95 282,8 → 319,7 ms
 (+%13).
 
-Karar taslaÄŸÄ±: **ADR-0013** (yalnÄ±zca sorular; karar verilmedi).
+Karar taslağı: **ADR-0013** (yalnızca sorular; karar verilmedi).
 
-#### P0-Ã–LÃ‡EK â€” havuz ve iÅŸlem sarmalama
+#### P0-ÖLÇEK — havuz ve işlem sarmalama
 
-- **DB baÄŸlantÄ± havuzu 5** (Prisma varsayÄ±lanÄ±; `DATABASE_URL` iÃ§inde
-  `connection_limit` verilmemiÅŸ).
-- **Doygunluk 10 eÅŸzamanlÄ± kullanÄ±cÄ±da.** Verim tavanÄ± ~44 istek/sn; 25'e
-  Ã§Ä±kÄ±nca verim aynÄ± kalÄ±p gecikme 2,5Ã—, 50'de verim dÃ¼ÅŸÃ¼yor.
-- YÃ¼k altÄ±nda baÄŸlantÄ±lar Ã§oÄŸunlukla **`idle in transaction`**:
-  `PrismaService.tenantIslemi` **her isteÄŸi** interaktif iÅŸleme sarÄ±yor ve
-  4 `set_config` gidiÅŸ-dÃ¶nÃ¼ÅŸÃ¼ boyunca baÄŸlantÄ± tutuluyor. Havuz meÅŸgul
-  gÃ¶rÃ¼nÃ¼yor ama sorgu koÅŸmuyor.
-- YÃ¼ksek eÅŸzamanlÄ±lÄ±kta arÄ±za yavaÅŸ sorgu deÄŸil, **iÅŸlem baÅŸlatma aÃ§lÄ±ÄŸÄ±**:
-  Prisma iÅŸlemi verilen sÃ¼rede baÅŸlatamÄ±yor ve istek **500** dÃ¶nÃ¼yor. KullanÄ±cÄ±
-  Ã¶nce bekliyor, sonra opak `BEKLENMEYEN_HATA` alÄ±yor.
-- GC darboÄŸaz **deÄŸil**: duraklamalar boÅŸtaki 6,7 ms medyandan 20 ms'e Ã§Ä±kÄ±yor,
-  RSS 215 â†’ 216 MB, yÄ±ÄŸÄ±n bÃ¼yÃ¼mÃ¼yor.
+- **DB bağlantı havuzu 5** (Prisma varsayılanı; `DATABASE_URL` içinde
+  `connection_limit` verilmemiş).
+- **Doygunluk 10 eşzamanlı kullanıcıda.** Verim tavanı ~44 istek/sn; 25'e
+  çıkınca verim aynı kalıp gecikme 2,5×, 50'de verim düşüyor.
+- Yük altında bağlantılar çoğunlukla **`idle in transaction`**:
+  `PrismaService.tenantIslemi` **her isteği** interaktif işleme sarıyor ve
+  4 `set_config` gidiş-dönüşü boyunca bağlantı tutuluyor. Havuz meşgul
+  görünüyor ama sorgu koşmuyor.
+- Yüksek eşzamanlılıkta arıza yavaş sorgu değil, **işlem başlatma açlığı**:
+  Prisma işlemi verilen sürede başlatamıyor ve istek **500** dönüyor. Kullanıcı
+  önce bekliyor, sonra opak `BEKLENMEYEN_HATA` alıyor.
+- GC darboğaz **değil**: duraklamalar boştaki 6,7 ms medyandan 20 ms'e çıkıyor,
+  RSS 215 → 216 MB, yığın büyümüyor.
 
 #### P1
 
-- **Kapsam kurulumu O(tenant)** â€” O(kapsam) deÄŸil. UÃ§tan uca soÄŸuk maliyet:
-  13.000 kiÅŸilik tenant'ta **â‰ˆ39 ms**, 30 kiÅŸilik tenant'ta **â‰ˆ14 ms**
-  (kapsamsÄ±z YÃ–NETÄ°CÄ° kontrol Ã¶lÃ§Ã¼mÃ¼ Ã§Ä±karÄ±lmÄ±ÅŸ hÃ¢liyle). KÃ¶k sebep
-  `backend/src/common/prisma/tenant.reader.ts:113` (`kisiId: { not: â€¦ }`) ve
-  `:150` â€” 3.000 satÄ±r Ã§ekilip JS tarafÄ±nda `Set` kesiÅŸimi yapÄ±lÄ±yor.
-- **TenantGuard, PermissionGuard'dan Ã–NCE koÅŸuyor.** Reddedilecek bir istek
-  bile bu bedeli Ã¶dÃ¼yor: SAKÄ°N'in 403 aldÄ±ÄŸÄ± uÃ§ soÄŸuk kapsamda **61 ms**.
-- SÄ±cak/soÄŸuk farkÄ± bÃ¼yÃ¼k: aynÄ± uÃ§ Ã¶nbellek isabetinde 15â€“30 ms, Ä±skada
-  60â€“78 ms. Rol bazlÄ± uÃ§larÄ±n Ã¶lÃ§Ã¼mÃ¼ bu yÃ¼zden iki ayrÄ± sayÄ± ister.
-- **MANUEL tahakkuk doÄŸrulamasÄ±** eksik bÃ¶lÃ¼mlerin tamamÄ±nÄ± tek `detail`
-  metnine yazÄ±yor; 5.000 bÃ¶lÃ¼mde binlerce isim dÃ¶ndÃ¼rÃ¼yor.
+- **Kapsam kurulumu O(tenant)** — O(kapsam) değil. Uçtan uca soğuk maliyet:
+  13.000 kişilik tenant'ta **≈39 ms**, 30 kişilik tenant'ta **≈14 ms**
+  (kapsamsız YÖNETİCİ kontrol ölçümü çıkarılmış hâliyle). Kök sebep
+  `backend/src/common/prisma/tenant.reader.ts:113` (`kisiId: { not: … }`) ve
+  `:150` — 3.000 satır çekilip JS tarafında `Set` kesişimi yapılıyor.
+- **TenantGuard, PermissionGuard'dan ÖNCE koşuyor.** Reddedilecek bir istek
+  bile bu bedeli ödüyor: SAKİN'in 403 aldığı uç soğuk kapsamda **61 ms**.
+- Sıcak/soğuk farkı büyük: aynı uç önbellek isabetinde 15–30 ms, ıskada
+  60–78 ms. Rol bazlı uçların ölçümü bu yüzden iki ayrı sayı ister.
+- **MANUEL tahakkuk doğrulaması** eksik bölümlerin tamamını tek `detail`
+  metnine yazıyor; 5.000 bölümde binlerce isim döndürüyor.
 
-#### â˜… AÃ‡IK SORU â€” yarÄ±n ilk iÅŸ
+#### ★ AÇIK SORU — yarın ilk iş
 
-**Kapsam Ã¶nbelleÄŸi 300 sn TTL** (`tenant.reader.ts:82`). SÃ¼resi dolmuÅŸ bir
-yetki bu pencerede hÃ¢lÃ¢ eriÅŸim veriyor olabilir.
+**Kapsam önbelleği 300 sn TTL** (`tenant.reader.ts:82`). Süresi dolmuş bir
+yetki bu pencerede hâlâ erişim veriyor olabilir.
 
-A0.7'deki **17. negatif test** geÃ§iyorsa, muhtemelen Ã¶nbellekli yoldan
-**GEÃ‡MÄ°YOR**. DoÄŸrulanacak: test Ã¶nbellekli yolu mu, doÄŸrudan yolu mu Ã¶lÃ§Ã¼yor?
-GeÃ§iyorsa **test yanlÄ±ÅŸ gÃ¼vence veriyor** ve dÃ¼zeltilmesi gereken testtir.
+A0.7'deki **17. negatif test** geçiyorsa, muhtemelen önbellekli yoldan
+**GEÇMİYOR**. Doğrulanacak: test önbellekli yolu mu, doğrudan yolu mu ölçüyor?
+Geçiyorsa **test yanlış güvence veriyor** ve düzeltilmesi gereken testtir.
 
-#### P1 â€” `prisma migrate reset` KIRIK (1 AÄŸustos 2026)
+#### P1 — `prisma migrate reset` KIRIK (1 Ağustos 2026)
 
 ```
-Error: P3016  The fallback method for database resets failedâ€¦
+Error: P3016  The fallback method for database resets failed…
 ERROR: cannot drop table borc because other objects depend on it
 DETAIL: policy tahsilat_kapsam on table tahsilat depends on table borc
         policy borc_sorumlusu_kapsam on table borc_sorumlusu depends on table borc
-HINT: Use DROP â€¦ CASCADE
+HINT: Use DROP … CASCADE
 ```
 
-**KÃ¶k sebep bulundu.** Kapsam politikalarÄ±ndan **ikisi** `EXISTS` alt sorgusuyla
-BAÅKA bir tabloya bakÄ±yor; PostgreSQL bunu `pg_depend` kaydÄ± olarak tutuyor:
+**Kök sebep bulundu.** Kapsam politikalarından **ikisi** `EXISTS` alt sorgusuyla
+BAŞKA bir tabloya bakıyor; PostgreSQL bunu `pg_depend` kaydı olarak tutuyor:
 
-| politika | tablo | baÄŸÄ±mlÄ± olduÄŸu |
+| politika | tablo | bağımlı olduğu |
 |---|---|---|
 | `borc_sorumlusu_kapsam` | `borc_sorumlusu` | `borc` |
 | `tahsilat_kapsam` | `tahsilat` | `borc`, `tahsilat_tahsisi` |
 
-(`0022_satir_kapsami/migration.sql:141,166` Â· `0023_kirali_mulk_kapsami/migration.sql:66,87`)
+(`0022_satir_kapsami/migration.sql:141,166` · `0023_kirali_mulk_kapsami/migration.sql:66,87`)
 
-Prisma'nÄ±n reset geri dÃ¼ÅŸÃ¼ÅŸ yolu tablolarÄ± **CASCADE olmadan** dÃ¼ÅŸÃ¼rÃ¼yor ve bu
-iki baÄŸÄ±mlÄ±lÄ±kta takÄ±lÄ±yor. DiÄŸer 13 kapsam politikasÄ± yalnÄ±zca kendi tablosuna
-baktÄ±ÄŸÄ± iÃ§in sorun Ã§Ä±karmÄ±yor.
+Prisma'nın reset geri düşüş yolu tabloları **CASCADE olmadan** düşürüyor ve bu
+iki bağımlılıkta takılıyor. Diğer 13 kapsam politikası yalnızca kendi tablosuna
+baktığı için sorun çıkarmıyor.
 
-**Etki alanÄ± â€” Ã¼retim riski DEÄÄ°L, doÄŸrulanmadan yazÄ±lmasÄ±n:** `migrate deploy`
-(Ã¼retim yolu) hiÃ§bir ÅŸey dÃ¼ÅŸÃ¼rmez, etkilenmez. KÄ±rÄ±lan yollar `migrate reset` ve
-sÃ¼rÃ¼klenme (drift) algÄ±landÄ±ÄŸÄ±nda reset Ã§aÄŸÄ±ran `migrate dev`. Yani risk
-**geliÅŸtirme ve CI** ortamlarÄ±ndadÄ±r: temiz kurulum yapÄ±lamaz, CI'da sÄ±fÄ±rdan
-ÅŸema kurma adÄ±mÄ± eklenirse ilk gÃ¼nden kÄ±rmÄ±zÄ± yanar.
+**Etki alanı — üretim riski DEĞİL, doğrulanmadan yazılmasın:** `migrate deploy`
+(üretim yolu) hiçbir şey düşürmez, etkilenmez. Kırılan yollar `migrate reset` ve
+sürüklenme (drift) algılandığında reset çağıran `migrate dev`. Yani risk
+**geliştirme ve CI** ortamlarındadır: temiz kurulum yapılamaz, CI'da sıfırdan
+şema kurma adımı eklenirse ilk günden kırmızı yanar.
 
-**BugÃ¼nkÃ¼ geÃ§ici Ã§Ã¶zÃ¼m** (uygulandÄ±, kalÄ±cÄ± deÄŸil):
+**Bugünkü geçici çözüm** (uygulandı, kalıcı değil):
 `DROP SCHEMA public CASCADE` + `CREATE SCHEMA` + `pnpm db:migrate` + `pnpm db:seed`.
 
-**DÃ¼zeltme seÃ§enekleri â€” karar verilmedi:**
-1. `scripts/db.mjs reset` iÃ§inde ÅŸema dÃ¼ÅŸÃ¼rmeyi Prisma'ya bÄ±rakmayÄ±p doÄŸrudan
-   `DROP SCHEMA â€¦ CASCADE` yapmak (en kÃ¼Ã§Ã¼k deÄŸiÅŸiklik, Prisma'ya dokunmaz).
-2. Ä°ki politikayÄ± tablolar arasÄ± `EXISTS` kullanmayacak biÃ§imde yeniden yazmak
-   (baÄŸÄ±mlÄ±lÄ±ÄŸÄ± kaldÄ±rÄ±r ama kapsam kuralÄ±nÄ± deÄŸiÅŸtirir â€” ADR-0011 konusu).
-3. Reset Ã¶ncesi politikalarÄ± dÃ¼ÅŸÃ¼ren bir hazÄ±rlÄ±k adÄ±mÄ±.
+**Düzeltme seçenekleri — karar verilmedi:**
+1. `scripts/db.mjs reset` içinde şema düşürmeyi Prisma'ya bırakmayıp doğrudan
+   `DROP SCHEMA … CASCADE` yapmak (en küçük değişiklik, Prisma'ya dokunmaz).
+2. İki politikayı tablolar arası `EXISTS` kullanmayacak biçimde yeniden yazmak
+   (bağımlılığı kaldırır ama kapsam kuralını değiştirir — ADR-0011 konusu).
+3. Reset öncesi politikaları düşüren bir hazırlık adımı.
 
-### K. P0 KAPATILDI â€” Ã§ift tahakkuk (1 AÄŸustos 2026)
+### K. P0 KAPATILDI — çift tahakkuk (1 Ağustos 2026)
 
-**Ã–lÃ§Ã¼lmÃ¼ÅŸ mali veri bozulmasÄ±ydÄ±:** 5.000 bÃ¶lÃ¼mlÃ¼k bir sitede beklenen 5.000
-yerine **10.000 borÃ§ satÄ±rÄ±**. AyrÄ±ntÄ± ve karar:
+**Ölçülmüş mali veri bozulmasıydı:** 5.000 bölümlük bir sitede beklenen 5.000
+yerine **10.000 borç satırı**. Ayrıntı ve karar:
 [ADR-0014](docs/adr/log/0014-mukerrer-tahakkuk-korumasi.md).
 
-Kapatan ÅŸey: **migration 0026** â€” `tahakkuk_calismasi` tablosu ve kÄ±smi
-benzersiz indeks `tahakkuk_calismasi_asil_uq`. Ã‡alÄ±ÅŸma satÄ±rÄ± iÅŸlemin ilk
-yazmasÄ±dÄ±r; ikinci iÅŸlem kÄ±sÄ±t Ã¼zerinde bloklanÄ±r. `borc.count()` denetimi
-kaldÄ±rÄ±ldÄ± â€” okuma/yazma penceresi uygulama katmanÄ±nda kapatÄ±lamÄ±yordu.
+Kapatan şey: **migration 0026** — `tahakkuk_calismasi` tablosu ve kısmi
+benzersiz indeks `tahakkuk_calismasi_asil_uq`. Çalışma satırı işlemin ilk
+yazmasıdır; ikinci işlem kısıt üzerinde bloklanır. `borc.count()` denetimi
+kaldırıldı — okuma/yazma penceresi uygulama katmanında kapatılamıyordu.
 
-YanÄ±nda gelen Ã¼Ã§ ÅŸey:
+Yanında gelen üç şey:
 
-- **`Idempotency-Key` artÄ±k OKUNUYOR** (`IdempotansInterceptor` + tablo).
-  BFS v1 Â§366 zorunlu kÄ±lÄ±yordu, depoda hiÃ§bir yer okumuyordu.
-- **Ek/dÃ¼zeltme tahakkuku** aÃ§Ä±k `ekTahakkuk` bayraÄŸÄ± ister; `tip='EK'` ile
-  yeni Ã§alÄ±ÅŸma aÃ§ar ve kÄ±smi indekse takÄ±lmaz.
-- **Migration mevcut bozuk veriyi sessizce dÃ¼zeltmez** â€” mÃ¼kerrer satÄ±r varsa
-  durur ve hangi satÄ±rlarÄ±n bozuk olduÄŸunu yazar. Ä°lk uygulamada gerÃ§ekten
+- **`Idempotency-Key` artık OKUNUYOR** (`IdempotansInterceptor` + tablo).
+  BFS v1 §366 zorunlu kılıyordu, depoda hiçbir yer okumuyordu.
+- **Ek/düzeltme tahakkuku** açık `ekTahakkuk` bayrağı ister; `tip='EK'` ile
+  yeni çalışma açar ve kısmi indekse takılmaz.
+- **Migration mevcut bozuk veriyi sessizce düzeltmez** — mükerrer satır varsa
+  durur ve hangi satırların bozuk olduğunu yazar. İlk uygulamada gerçekten
   tetiklendi.
 
 Testler: **CT-16, 6/6** (`backend/test/contract/mukerrer-tahakkuk.spec.ts`).
-Uygulamadan Ã¶nce yazÄ±ldÄ±, 5'i kÄ±rmÄ±zÄ±ydÄ±.
+Uygulamadan önce yazıldı, 5'i kırmızıydı.
 
-#### KalÄ±cÄ±laÅŸan ikinci deÄŸiÅŸiklik: `set_config` tek sorguda
+#### Kalıcılaşan ikinci değişiklik: `set_config` tek sorguda
 
-`tenantIslemi`'ndeki dÃ¶rt `set_config` Ã§aÄŸrÄ±sÄ± tek `SELECT`'e alÄ±ndÄ±. Ã–lÃ§Ã¼len
-(50 eÅŸzamanlÄ±, havuz 20): boÅŸ bekleme %23,2 â†’ %13,0 Â· `active` %72,7 â†’ %83,6 Â·
-verim 63,9 â†’ 80,7 istek/sn Â· p95 1.110 â†’ 878 ms.
+`tenantIslemi`'ndeki dört `set_config` çağrısı tek `SELECT`'e alındı. Ölçülen
+(50 eşzamanlı, havuz 20): boş bekleme %23,2 → %13,0 · `active` %72,7 → %83,6 ·
+verim 63,9 → 80,7 istek/sn · p95 1.110 → 878 ms.
 
-#### âš ï¸ HAVUZ Ã–NERÄ°M DEÄÄ°ÅTÄ° â€” birleÅŸtirmeden sonra yeniden Ã¶lÃ§Ã¼ldÃ¼
+#### ⚠️ HAVUZ ÖNERİM DEĞİŞTİ — birleştirmeden sonra yeniden ölçüldü
 
-DÃ¼n "20 iyi gÃ¶rÃ¼nÃ¼yor, belki 25" demiÅŸtim. BirleÅŸtirme kalÄ±cÄ±laÅŸtÄ±ktan sonra
-aynÄ± yÃ¼k (50 eÅŸzamanlÄ±) dÃ¶rt havuz boyutuyla Ã¶lÃ§Ã¼ldÃ¼:
+Dün "20 iyi görünüyor, belki 25" demiştim. Birleştirme kalıcılaştıktan sonra
+aynı yük (50 eşzamanlı) dört havuz boyutuyla ölçüldü:
 
 | havuz | p50 | p95 | istek/sn |
 |---|---|---|---|
-| varsayÄ±lan (5) | 891 ms | 1.280 ms | 52,8 |
+| varsayılan (5) | 891 ms | 1.280 ms | 52,8 |
 | 15 | 907 ms | 1.138 ms | 53,4 |
 | 20 | 975 ms | 1.382 ms | 49,3 |
 | 30 | 949 ms | 1.416 ms | 50,7 |
 
-**Fark yok** â€” dÃ¶rdÃ¼ de koÅŸum oynaklÄ±ÄŸÄ± iÃ§inde. Havuz bÃ¼yÃ¼tmenin dÃ¼nkÃ¼
-kazancÄ± (44 â†’ 70 istek/sn), baÄŸlantÄ±larÄ±n `set_config` gidiÅŸ-dÃ¶nÃ¼ÅŸleri boyunca
-tutulmasÄ±ndan kaynaklanÄ±yordu; birleÅŸtirme o baskÄ±yÄ± kaldÄ±rÄ±nca havuz boyutu
-belirleyici olmaktan Ã§Ä±ktÄ±.
+**Fark yok** — dördü de koşum oynaklığı içinde. Havuz büyütmenin dünkü
+kazancı (44 → 70 istek/sn), bağlantıların `set_config` gidiş-dönüşleri boyunca
+tutulmasından kaynaklanıyordu; birleştirme o baskıyı kaldırınca havuz boyutu
+belirleyici olmaktan çıktı.
 
-**Yeni Ã¶neri: `connection_limit` ÅŸimdilik DEÄÄ°ÅTÄ°RÄ°LMESÄ°N.** Ã–lÃ§Ã¼m bir kazanÃ§
-gÃ¶stermiyor; kanÄ±tsÄ±z bir yapÄ±landÄ±rma eklemek yalnÄ±zca bakÄ±m yÃ¼kÃ¼dÃ¼r. Ã–lÃ§Ã¼m
-yapÄ±landÄ±rmadan Ã¶nce gelir â€” bu ADR-0011'in 1. yÃ¶ntem kuralÄ±nÄ±n aynÄ±sÄ±dÄ±r.
+**Yeni öneri: `connection_limit` şimdilik DEĞİŞTİRİLMESİN.** Ölçüm bir kazanç
+göstermiyor; kanıtsız bir yapılandırma eklemek yalnızca bakım yüküdür. Ölçüm
+yapılandırmadan önce gelir — bu ADR-0011'in 1. yöntem kuralının aynısıdır.
 
-#### Madde 4 analizi â€” kapsam kurulumu ayrÄ± iÅŸlemde (Ã¶lÃ§Ã¼m YOK, yalnÄ±zca analiz)
+#### Madde 4 analizi — kapsam kurulumu ayrı işlemde (ölçüm YOK, yalnızca analiz)
 
-`tenant.reader.ts:120` kendi `tenantIslemi` Ã§aÄŸrÄ±sÄ±nÄ± aÃ§ar. SoÄŸuk bir istek iki
-interaktif iÅŸlem baÅŸlatÄ±r.
+`tenant.reader.ts:120` kendi `tenantIslemi` çağrısını açar. Soğuk bir istek iki
+interaktif işlem başlatır.
 
-1. **Ana iÅŸlemin iÃ§ine alÄ±nabilir mi? â€” HAYIR, sÄ±ra sorunu var.** Kapsam,
-   `set_config` deÄŸerlerini ÃœRETEN ÅŸeydir; ana iÅŸlem o deÄŸerler yazÄ±lmadan
-   aÃ§Ä±lamaz. Kapsam sorgularÄ±nÄ±n kendisi de kapsam politikalarÄ±na tabidir
-   (`malik`, `kiraci`, `sakin` Ã¼zerinde RESTRICTIVE politika var) â€” kapsam
-   kurulmadan koÅŸarlarsa kendilerini sÃ¼zerler. BugÃ¼n bu, kapsamÄ± **kurulmadan
-   Ã¶nce** ayrÄ± bir iÅŸlemde okuyarak Ã§Ã¶zÃ¼lÃ¼yor ve `tenant.reader.ts:77`
-   yorumu bunu aÃ§Ä±kÃ§a uyarÄ±yor. BirleÅŸtirme, politikalarÄ±n kapsam kurulumunu
-   muaf tutmasÄ±nÄ± gerektirirdi; bu ADR-0002'nin tek katmanlÄ± olmama ilkesine
-   dokunur. **Ã–nerilmez.**
-2. **`:113`'teki `kisiId: { not: â€¦ }` sorgusu `bolum_id` ile kÄ±sÄ±tlanabilir mi?
-   â€” EVET, ve maliyeti O(tenant)'tan O(kapsam)'a dÃ¼ÅŸÃ¼rÃ¼r.** Sorgunun amacÄ±
-   "kiÅŸinin MALÄ°K olduÄŸu bÃ¶lÃ¼mlerde baÅŸkasÄ± kiracÄ± mÄ±" sorusudur; yani ilgi
-   alanÄ± zaten **o kiÅŸinin malik olduÄŸu bÃ¶lÃ¼mlerdir**. BugÃ¼n tenant'Ä±n bÃ¼tÃ¼n
-   kiracÄ±larÄ±nÄ± (3.000 satÄ±r) Ã§ekiyor. `bolumId: { in: malikBolumleri }`
-   eklenmesi sorguyu kapsam boyutuna indirir. Malik sorgusu Ã¶nce koÅŸtuÄŸu iÃ§in
-   liste zaten elde; iki sorgu `Promise.all` yerine sÄ±raya alÄ±nÄ±r.
-   **Ã–nerilir.**
-3. **`:150`'deki JS `Set` kesiÅŸimi SQL'e taÅŸÄ±nabilir mi? â€” EVET ve 2. madde
-   uygulanÄ±rsa GEREKSÄ°ZLEÅÄ°R.** 2. madde sonrasÄ± dÃ¶nen satÄ±r sayÄ±sÄ± kapsam
-   kadar olur (tipik olarak 1â€“10); kesiÅŸimin JS'te yapÄ±lmasÄ± sorun deÄŸildir.
-   SQL'e taÅŸÄ±mak ancak 2. madde uygulanmazsa anlamlÄ±dÄ±r. **Ã–nce 2. madde.**
+1. **Ana işlemin içine alınabilir mi? — HAYIR, sıra sorunu var.** Kapsam,
+   `set_config` değerlerini ÜRETEN şeydir; ana işlem o değerler yazılmadan
+   açılamaz. Kapsam sorgularının kendisi de kapsam politikalarına tabidir
+   (`malik`, `kiraci`, `sakin` üzerinde RESTRICTIVE politika var) — kapsam
+   kurulmadan koşarlarsa kendilerini süzerler. Bugün bu, kapsamı **kurulmadan
+   önce** ayrı bir işlemde okuyarak çözülüyor ve `tenant.reader.ts:77`
+   yorumu bunu açıkça uyarıyor. Birleştirme, politikaların kapsam kurulumunu
+   muaf tutmasını gerektirirdi; bu ADR-0002'nin tek katmanlı olmama ilkesine
+   dokunur. **Önerilmez.**
+2. **`:113`'teki `kisiId: { not: … }` sorgusu `bolum_id` ile kısıtlanabilir mi?
+   — EVET, ve maliyeti O(tenant)'tan O(kapsam)'a düşürür.** Sorgunun amacı
+   "kişinin MALİK olduğu bölümlerde başkası kiracı mı" sorusudur; yani ilgi
+   alanı zaten **o kişinin malik olduğu bölümlerdir**. Bugün tenant'ın bütün
+   kiracılarını (3.000 satır) çekiyor. `bolumId: { in: malikBolumleri }`
+   eklenmesi sorguyu kapsam boyutuna indirir. Malik sorgusu önce koştuğu için
+   liste zaten elde; iki sorgu `Promise.all` yerine sıraya alınır.
+   **Önerilir.**
+3. **`:150`'deki JS `Set` kesişimi SQL'e taşınabilir mi? — EVET ve 2. madde
+   uygulanırsa GEREKSİZLEŞİR.** 2. madde sonrası dönen satır sayısı kapsam
+   kadar olur (tipik olarak 1–10); kesişimin JS'te yapılması sorun değildir.
+   SQL'e taşımak ancak 2. madde uygulanmazsa anlamlıdır. **Önce 2. madde.**
 
-**Ã–lÃ§Ã¼m tahmini vermiyorum** â€” 2. maddenin kazancÄ± uygulanÄ±p Ã¶lÃ§Ã¼lmeden
+**Ölçüm tahmini vermiyorum** — 2. maddenin kazancı uygulanıp ölçülmeden
 bilinemez.
 
-### J. Ä°ki ayar denemesi ve set_config birleÅŸtirme (1 AÄŸustos 2026)
+### J. İki ayar denemesi ve set_config birleştirme (1 Ağustos 2026)
 
-**HiÃ§biri kalÄ±cÄ± deÄŸildir.** Ayarlar Ã¶lÃ§Ã¼m sonrasÄ± geri alÄ±ndÄ±, deneme dalÄ±
-silindi, hiÃ§bir ÅŸey commit edilmedi. SayÄ±lar karar iÃ§indir.
+**Hiçbiri kalıcı değildir.** Ayarlar ölçüm sonrası geri alındı, deneme dalı
+silindi, hiçbir şey commit edilmedi. Sayılar karar içindir.
 
-**Deney 1 â€” `connection_limit=20` + tahakkuk yolunda `timeout` 110 sn.**
-Havuz 5 â†’ 20; `max_connections` 200, sorun yok. SonuÃ§: verim tavanÄ± 44 â†’ 70
-istek/sn, 50 eÅŸzamanlÄ±da p95 2.280 â†’ 957 ms, 500'ler sÄ±fÄ±rlandÄ±, verim Ã§Ã¶kÃ¼ÅŸÃ¼
-kalktÄ±. Toplu tahakkuk 5.000 bÃ¶lÃ¼mde **Ã§alÄ±ÅŸtÄ±** (49,6 sn, doÄŸrusal) â€”
-ADR-0013'Ã¼n ilk gerekÃ§esi bÃ¶yle Ã§Ã¼rÃ¼tÃ¼ldÃ¼.
+**Deney 1 — `connection_limit=20` + tahakkuk yolunda `timeout` 110 sn.**
+Havuz 5 → 20; `max_connections` 200, sorun yok. Sonuç: verim tavanı 44 → 70
+istek/sn, 50 eşzamanlıda p95 2.280 → 957 ms, 500'ler sıfırlandı, verim çöküşü
+kalktı. Toplu tahakkuk 5.000 bölümde **çalıştı** (49,6 sn, doğrusal) —
+ADR-0013'ün ilk gerekçesi böyle çürütüldü.
 
-**Deney 2 â€” `tenantIslemi`'ndeki 4 `set_config` tek sorguda.** AynÄ± havuzla
+**Deney 2 — `tenantIslemi`'ndeki 4 `set_config` tek sorguda.** Aynı havuzla
 (20) A/B:
 
-| eÅŸzamanlÄ± | idle-in-tx ayrÄ±k â†’ birleÅŸik | active ayrÄ±k â†’ birleÅŸik | p95 | istek/sn |
+| eşzamanlı | idle-in-tx ayrık → birleşik | active ayrık → birleşik | p95 | istek/sn |
 |---|---|---|---|---|
-| 10 | %26,3 â†’ **%19,8** | %51,1 â†’ %53,9 | 256 â†’ 263 | 62,8 â†’ 63,2 |
-| 25 | %24,5 â†’ **%14,7** | %70,4 â†’ %81,3 | 637 â†’ 526 | 66,0 â†’ 78,4 |
-| 50 | %23,2 â†’ **%13,0** | %72,7 â†’ **%83,6** | 1.110 â†’ **878** | 63,9 â†’ **80,7** |
+| 10 | %26,3 → **%19,8** | %51,1 → %53,9 | 256 → 263 | 62,8 → 63,2 |
+| 25 | %24,5 → **%14,7** | %70,4 → %81,3 | 637 → 526 | 66,0 → 78,4 |
+| 50 | %23,2 → **%13,0** | %72,7 → **%83,6** | 1.110 → **878** | 63,9 → **80,7** |
 
-BoÅŸ bekleme **yarÄ±ya indi**, verim %26 arttÄ±, p95 %21 dÃ¼ÅŸtÃ¼. Tek satÄ±rlÄ±k bir
-deÄŸiÅŸiklik; kalÄ±cÄ± hÃ¢le getirilip getirilmeyeceÄŸi Ã¼rÃ¼n sahibinin kararÄ±.
+Boş bekleme **yarıya indi**, verim %26 arttı, p95 %21 düştü. Tek satırlık bir
+değişiklik; kalıcı hâle getirilip getirilmeyeceği ürün sahibinin kararı.
 
-**Kapsam kurulumu bu iÅŸlemin Ä°Ã‡Ä°NDE DEÄÄ°L.** `tenant.reader.ts:120`
-kapsamÄ± **kendi `tenantIslemi` Ã§aÄŸrÄ±sÄ±nda** kuruyor. Yani Ã¶nbellek Ä±skalayan bir
-istek **iki interaktif iÅŸlem** aÃ§Ä±yor: ayrÄ±k sÃ¼rÃ¼mde 8 `set_config` gidiÅŸ-dÃ¶nÃ¼ÅŸÃ¼,
-birleÅŸik sÃ¼rÃ¼mde 2. SoÄŸuk/sÄ±cak faz Ã¶lÃ§Ã¼mÃ¼ (aynÄ± havuz, kontrol grubu Ã§Ä±karÄ±lmÄ±ÅŸ):
+**Kapsam kurulumu bu işlemin İÇİNDE DEĞİL.** `tenant.reader.ts:120`
+kapsamı **kendi `tenantIslemi` çağrısında** kuruyor. Yani önbellek ıskalayan bir
+istek **iki interaktif işlem** açıyor: ayrık sürümde 8 `set_config` gidiş-dönüşü,
+birleşik sürümde 2. Soğuk/sıcak faz ölçümü (aynı havuz, kontrol grubu çıkarılmış):
 
-| | soÄŸuk âˆ’ sÄ±cak | kontrol (kapsamsÄ±z yÃ¶netici) | dÃ¼zeltilmiÅŸ kapsam maliyeti |
+| | soğuk − sıcak | kontrol (kapsamsız yönetici) | düzeltilmiş kapsam maliyeti |
 |---|---|---|---|
-| ayrÄ±k `set_config` | 50,7 ms | +10,3 ms | **â‰ˆ40 ms** |
-| birleÅŸik `set_config` | 34,1 ms | âˆ’0,7 ms | **â‰ˆ35 ms** |
+| ayrık `set_config` | 50,7 ms | +10,3 ms | **≈40 ms** |
+| birleşik `set_config` | 34,1 ms | −0,7 ms | **≈35 ms** |
 
-Yani kapsam kurulumunun â‰ˆ35 ms'i `set_config` deÄŸil, **4 kapsam sorgusu + JS
-`Set` kesiÅŸimi**. BirleÅŸtirme sÄ±cak yolu iyileÅŸtiriyor; soÄŸuk yol iÃ§in asÄ±l
-dÃ¼zeltme hÃ¢lÃ¢ `tenant.reader.ts:113/:150`.
+Yani kapsam kurulumunun ≈35 ms'i `set_config` değil, **4 kapsam sorgusu + JS
+`Set` kesişimi**. Birleştirme sıcak yolu iyileştiriyor; soğuk yol için asıl
+düzeltme hâlâ `tenant.reader.ts:113/:150`.
 
-#### Ã–lÃ§Ã¼m koÅŸullarÄ± (tekrar Ã¼retmek iÃ§in)
+#### Ölçüm koşulları (tekrar üretmek için)
 
-- Ä°stek sÄ±nÄ±rÄ± sayaÃ§larÄ± giriÅŸ Ã¶ncesi Redis'ten temizlendi. Bu bir **fikstÃ¼r
-  engeli**dir (IP baÅŸÄ±na 20 giriÅŸ / 5 dk), Ã¶lÃ§Ã¼len uÃ§ deÄŸil.
-- DB havuzu Ã¶rneklemesi **ayrÄ± bir sÃ¼reÃ§te** koÅŸtu. Ä°lk denemede aynÄ± sÃ¼reÃ§te
-  senkron Ã¶rnekleme olay dÃ¶ngÃ¼sÃ¼nÃ¼ blokladÄ± ve gecikmeleri bozdu; o koÅŸum
-  atÄ±ldÄ±.
-- `pg_stat_activity.state` yalnÄ±zca sÃ¼per kullanÄ±cÄ±ya gÃ¶rÃ¼nÃ¼r; `bnos_migrator`
-  ile Ã¶rneklerken bÃ¼tÃ¼n alanlar NULL geldi.
+- İstek sınırı sayaçları giriş öncesi Redis'ten temizlendi. Bu bir **fikstür
+  engeli**dir (IP başına 20 giriş / 5 dk), ölçülen uç değil.
+- DB havuzu örneklemesi **ayrı bir süreçte** koştu. İlk denemede aynı süreçte
+  senkron örnekleme olay döngüsünü blokladı ve gecikmeleri bozdu; o koşum
+  atıldı.
+- `pg_stat_activity.state` yalnızca süper kullanıcıya görünür; `bnos_migrator`
+  ile örneklerken bütün alanlar NULL geldi.
 
 ---
 
-### H. Kurulum bÃ¼tÃ¼nlÃ¼ÄŸÃ¼ â€” tohumla kurulan proje muhasebe yapamÄ±yordu (2 AÄŸustos 2026)
+### H. Kurulum bütünlüğü — tohumla kurulan proje muhasebe yapamıyordu (2 Ağustos 2026)
 
-Virman Ã§alÄ±ÅŸmasÄ± sÄ±rasÄ±nda **ayrÄ± bir bulgu** olarak Ã§Ä±ktÄ±, virmanla ilgisi yok.
-KapatÄ±ldÄ±; ama kapatÄ±lan **semptomdu, sebep deÄŸil** â€” sebep Â§H.3'te aÃ§Ä±k madde
+Virman çalışması sırasında **ayrı bir bulgu** olarak çıktı, virmanla ilgisi yok.
+Kapatıldı; ama kapatılan **semptomdu, sebep değil** — sebep §H.3'te açık madde
 olarak duruyor.
 
-#### H.1 Â· Ã–lÃ§Ã¼m â€” Ã¼Ã§ boÅŸluk, sÄ±rayla ortaya Ã§Ä±ktÄ±
+#### H.1 · Ölçüm — üç boşluk, sırayla ortaya çıktı
 
-KanÄ±t Ã¶nce alÄ±ndÄ±, sonra dÃ¼zeltildi. Her dÃ¼zeltme bir sonrakini gÃ¶rÃ¼nÃ¼r yaptÄ±:
+Kanıt önce alındı, sonra düzeltildi. Her düzeltme bir sonrakini görünür yaptı:
 
-| # | BoÅŸluk | Ã–lÃ§Ã¼len davranÄ±ÅŸ |
+| # | Boşluk | Ölçülen davranış |
 |---|---|---|
-| 1 | `MuhasebeParametresi` kaydÄ± **hiÃ§ aÃ§Ä±lmÄ±yordu** | `POST /makbuzlar/:id/muhasebelestir` â†’ **422** Â· *"VarsayÄ±lan kasa hesabÄ± tanÄ±mlÄ± deÄŸil; nakit tahsilat muhasebeleÅŸemez."* |
-| 2 | 12 hesabÄ±n **hiÃ§birinde** `ozellik` yoktu (hepsi `NORMAL`) | `GET /muhasebe/defterler/kasa?ozellik=KASA` â†’ **200 Â· `[]`** (BANKA da aynÄ±) |
-| 3 | **HiÃ§ muhasebe dÃ¶nemi aÃ§Ä±lmÄ±yordu** | 1 ve 2 kapatÄ±ldÄ±ktan sonra â†’ **422** Â· *"2026-08-02 tarihini kapsayan bir muhasebe dÃ¶nemi yok."* |
+| 1 | `MuhasebeParametresi` kaydı **hiç açılmıyordu** | `POST /makbuzlar/:id/muhasebelestir` → **422** · *"Varsayılan kasa hesabı tanımlı değil; nakit tahsilat muhasebeleşemez."* |
+| 2 | 12 hesabın **hiçbirinde** `ozellik` yoktu (hepsi `NORMAL`) | `GET /muhasebe/defterler/kasa?ozellik=KASA` → **200 · `[]`** (BANKA da aynı) |
+| 3 | **Hiç muhasebe dönemi açılmıyordu** | 1 ve 2 kapatıldıktan sonra → **422** · *"2026-08-02 tarihini kapsayan bir muhasebe dönemi yok."* |
 
-ÃœÃ§Ã¼ de kapatÄ±ldÄ±ktan sonra uÃ§tan uca kanÄ±t: `POST /makbuzlar` â†’ **201**,
-`POST /makbuzlar/:id/muhasebelestir` â†’ **201 Â· `YEV-2026-000001`**.
-Kasa defteri artÄ±k `[]` deÄŸil, hesabÄ± dÃ¶ndÃ¼rÃ¼yor (satÄ±rlarÄ± boÅŸ, Ã§Ã¼nkÃ¼ fiÅŸ
-TASLAK ve `taslakMizanaGirer=false` â€” beklenen).
+Üçü de kapatıldıktan sonra uçtan uca kanıt: `POST /makbuzlar` → **201**,
+`POST /makbuzlar/:id/muhasebelestir` → **201 · `YEV-2026-000001`**.
+Kasa defteri artık `[]` değil, hesabı döndürüyor (satırları boş, çünkü fiş
+TASLAK ve `taslakMizanaGirer=false` — beklenen).
 
-> âš ï¸ **BoÅŸluk 3, ilk ikisi kapatÄ±lmadan GÃ–RÃœNMÃœYORDU.** Ä°lk hata sonrakini
-> maskeliyordu. "Bir hata dÃ¼zelttik, bitti" varsayÄ±mÄ±nÄ±n neden Ã¶lÃ§Ã¼mle
-> sÄ±nanmasÄ± gerektiÄŸinin somut Ã¶rneÄŸi.
+> ⚠️ **Boşluk 3, ilk ikisi kapatılmadan GÖRÜNMÜYORDU.** İlk hata sonrakini
+> maskeliyordu. "Bir hata düzelttik, bitti" varsayımının neden ölçümle
+> sınanması gerektiğinin somut örneği.
 
-#### H.2 Â· YANSITMA â€” varsayÄ±mÄ±m yanlÄ±ÅŸ Ã§Ä±ktÄ±, dÃ¼zeltildi
+#### H.2 · YANSITMA — varsayımım yanlış çıktı, düzeltildi
 
-Ã–nceki turda *"yansÄ±tma dÃ¶nem kapanÄ±ÅŸÄ±na kadar gÃ¶rÃ¼nmez, muhtemelen o da
-sessiz"* demiÅŸtim. **Ã–yle deÄŸil.** `donem.service.ts:632` aÃ§Ä±k hata veriyor:
+Önceki turda *"yansıtma dönem kapanışına kadar görünmez, muhtemelen o da
+sessiz"* demiştim. **Öyle değil.** `donem.service.ts:632` açık hata veriyor:
 
 ```
-422 Â· "YansÄ±tÄ±lacak hesap hareketi yok."
-      sonrakiEylem: "Hesap planÄ±nda Ã¶zelliÄŸi YANSITMA olan hesap tanÄ±mlÄ± mÄ±?"
+422 · "Yansıtılacak hesap hareketi yok."
+      sonrakiEylem: "Hesap planında özelliği YANSITMA olan hesap tanımlı mı?"
 ```
 
-Yani aynÄ± eksiklik sÄ±nÄ±fÄ± Ã¼rÃ¼nÃ¼n **iki farklÄ± yerinde iki farklÄ± ÅŸekilde**
-davranÄ±yor: yansÄ±tma yolu doÄŸruyu yapÄ±yor, kasa/banka defteri yapmÄ±yor. Bu
-tutarsÄ±zlÄ±k Ã¶lÃ§Ã¼lmeseydi "hepsi sessiz" ya da "hepsi aÃ§Ä±k" sanÄ±lacaktÄ±.
+Yani aynı eksiklik sınıfı ürünün **iki farklı yerinde iki farklı şekilde**
+davranıyor: yansıtma yolu doğruyu yapıyor, kasa/banka defteri yapmıyor. Bu
+tutarsızlık ölçülmeseydi "hepsi sessiz" ya da "hepsi açık" sanılacaktı.
 
-#### H.3 Â· â˜… KapatÄ±lan semptomdu, sebep deÄŸil
+#### H.3 · ★ Kapatılan semptomdu, sebep değil
 
-Tohum dÃ¼zeltmesi **tohumu** dÃ¼zeltir. Sebep ÅŸudur:
+Tohum düzeltmesi **tohumu** düzeltir. Sebep şudur:
 
-> Kurulumun tamamlanÄ±p tamamlanmadÄ±ÄŸÄ±nÄ± **hiÃ§bir yerde kontrol eden yok.**
-> Eksik kurulmuÅŸ proje, hata vermek yerine boÅŸ ekran gÃ¶steriyor.
+> Kurulumun tamamlanıp tamamlanmadığını **hiçbir yerde kontrol eden yok.**
+> Eksik kurulmuş proje, hata vermek yerine boş ekran gösteriyor.
 
-Elle kurulan yeni bir tenant aynÄ± duruma **bugÃ¼n de** dÃ¼ÅŸer. Bu yÃ¼zden
-`backend/test/contract/kurulum-butunlugu.spec.ts` (**CT-20 Â· 7 test**) iki
-bÃ¶lÃ¼mlÃ¼ yazÄ±ldÄ± ve **ikinci bÃ¶lÃ¼m kalÄ±cÄ±dÄ±r**:
+Elle kurulan yeni bir tenant aynı duruma **bugün de** düşer. Bu yüzden
+`backend/test/contract/kurulum-butunlugu.spec.ts` (**CT-20 · 7 test**) iki
+bölümlü yazıldı ve **ikinci bölüm kalıcıdır**:
 
-- **BÃ¶lÃ¼m 1 (5 test)** â€” tohumun kurulumu tam mÄ±. DÃ¼zeltmeden sonra yeÅŸil.
-- **BÃ¶lÃ¼m 2 (2 test)** â€” kurulum EKSÄ°KKEN sistem ne yapÄ±yor. Kendi iÅŸaretsiz
-  tenant'Ä±nÄ± kurar; **tohum dÃ¼zeltildikten sonra da koÅŸar.** AmacÄ± sessizliÄŸin
-  gÃ¶rÃ¼nÃ¼r kalmasÄ±dÄ±r. `it.skip` kullanÄ±lmadÄ± â€” atlanan test, olmayan testtir.
+- **Bölüm 1 (5 test)** — tohumun kurulumu tam mı. Düzeltmeden sonra yeşil.
+- **Bölüm 2 (2 test)** — kurulum EKSİKKEN sistem ne yapıyor. Kendi işaretsiz
+  tenant'ını kurar; **tohum düzeltildikten sonra da koşar.** Amacı sessizliğin
+  görünür kalmasıdır. `it.skip` kullanılmadı — atlanan test, olmayan testtir.
 
-#### H.4 Â· Migration YAZILMADI â€” gerekÃ§e
+#### H.4 · Migration YAZILMADI — gerekçe
 
-Var olan projelerin hesap planÄ±na `ozellik` atayan bir migration **bilerek
-yazÄ±lmadÄ±**:
+Var olan projelerin hesap planına `ozellik` atayan bir migration **bilerek
+yazılmadı**:
 
-> `kod='120'` varsayan bir migration, hesap planÄ±nÄ± Ã¶zelleÅŸtirmiÅŸ projede
-> **yanlÄ±ÅŸ hesabÄ± kontrol hesabÄ± yapar. Sessiz bozulma, iÅŸaretsiz kalmaktan
-> kÃ¶tÃ¼dÃ¼r.**
+> `kod='120'` varsayan bir migration, hesap planını özelleştirmiş projede
+> **yanlış hesabı kontrol hesabı yapar. Sessiz bozulma, işaretsiz kalmaktan
+> kötüdür.**
 
-Hangi hesabÄ±n kontrol hesabÄ± olduÄŸu **mali bir karardÄ±r** (ADR-0010) ve kod
-adÄ±na verilemez. Var olan projeler iÃ§in doÄŸru yol Â§H.3'teki kurulum kontrolÃ¼:
-eksikliÄŸi **sÃ¶yle**, tahmin etme.
+Hangi hesabın kontrol hesabı olduğu **mali bir karardır** (ADR-0010) ve kod
+adına verilemez. Var olan projeler için doğru yol §H.3'teki kurulum kontrolü:
+eksikliği **söyle**, tahmin etme.
 
-#### H.5 Â· Yol haritasÄ±na eklenen Ã¼Ã§ madde
+#### H.5 · Yol haritasına eklenen üç madde
 
-- **(b) Defter sorgusu aÃ§Ä±k hata versin.** `defter.query.service.ts:293-316` â€”
-  iÅŸaretli hesap yoksa `hesaplar` boÅŸ kalÄ±yor, dÃ¶ngÃ¼ hiÃ§ dÃ¶nmÃ¼yor, `200 Â· []`
-  dÃ¶nÃ¼yor. "Hesap iÅŸaretlenmemiÅŸ" ile "hesapta hareket yok" ayrÄ± iki durumdur;
-  ikisi de aynÄ± yanÄ±tÄ± veriyor. DoÄŸrusu: iÅŸaretli hesap yoksa **422 + Ã§Ä±kÄ±ÅŸ
-  yolu**. DÃ¼zeltildiÄŸinde CT-20 test (6) *422 bekleyecek ÅŸekilde GÃœNCELLENÄ°R,
+- **(b) Defter sorgusu açık hata versin.** `defter.query.service.ts:293-316` —
+  işaretli hesap yoksa `hesaplar` boş kalıyor, döngü hiç dönmüyor, `200 · []`
+  dönüyor. "Hesap işaretlenmemiş" ile "hesapta hareket yok" ayrı iki durumdur;
+  ikisi de aynı yanıtı veriyor. Doğrusu: işaretli hesap yoksa **422 + çıkış
+  yolu**. Düzeltildiğinde CT-20 test (6) *422 bekleyecek şekilde GÜNCELLENİR,
   silinmez.*
-- **(c) Kurulum tamamlanma kontrolÃ¼.** Proje "kullanÄ±ma hazÄ±r" sayÄ±lmadan Ã¶nce
-  neyin zorunlu olduÄŸunu tek yerde tanÄ±mlayan kontrol: parametre kaydÄ±,
-  kasa/banka/cari kontrol/yansÄ±tma iÅŸaretleri, bugÃ¼nÃ¼ kapsayan aÃ§Ä±k dÃ¶nem.
-  Eksikse yÃ¶netime **liste hÃ¢linde** gÃ¶ster. HenÃ¼z **yapÄ±lmadÄ±**, karar bekliyor.
-- **UÃ§ adÄ± tutarsÄ±zlÄ±ÄŸÄ±.** Tahsilat modÃ¼lÃ¼nÃ¼n ucu `POST /makbuzlar`, modÃ¼l adÄ±
-  `tahsilat`. `POST /tahsilat` **404** veriyor (Ã¶lÃ§Ã¼ldÃ¼). Ä°kisinden biri
-  seÃ§ilmeli; bu turda dokunulmadÄ±.
+- **(c) Kurulum tamamlanma kontrolü.** Proje "kullanıma hazır" sayılmadan önce
+  neyin zorunlu olduğunu tek yerde tanımlayan kontrol: parametre kaydı,
+  kasa/banka/cari kontrol/yansıtma işaretleri, bugünü kapsayan açık dönem.
+  Eksikse yönetime **liste hâlinde** göster. Henüz **yapılmadı**, karar bekliyor.
+- **Uç adı tutarsızlığı.** Tahsilat modülünün ucu `POST /makbuzlar`, modül adı
+  `tahsilat`. `POST /tahsilat` **404** veriyor (ölçüldü). İkisinden biri
+  seçilmeli; bu turda dokunulmadı.
 
-#### H.6 Â· Yan bulgu â€” testin kendisi de sessiz kalabiliyor
+#### H.6 · Yan bulgu — testin kendisi de sessiz kalabiliyor
 
-CT-20 test (2) ilk koÅŸumda **yanlÄ±ÅŸ sebeple yeÅŸil** geÃ§ti: kayÄ±t yokken
-`p?.varsayilanKasaHesapId` `undefined` Ã¼retiyor ve `not.toBeNull()` geÃ§iyor.
-Test dosyasÄ±na kural olarak yazÄ±ldÄ±: **iddia edilen ÅŸeyin varlÄ±ÄŸÄ± Ã¶nce
-daraltÄ±lÄ±r, `?.` ile geÃ§iÅŸtirilmez.**
+CT-20 test (2) ilk koşumda **yanlış sebeple yeşil** geçti: kayıt yokken
+`p?.varsayilanKasaHesapId` `undefined` üretiyor ve `not.toBeNull()` geçiyor.
+Test dosyasına kural olarak yazıldı: **iddia edilen şeyin varlığı önce
+daraltılır, `?.` ile geçiştirilmez.**
 
 ---
 
-### I. Demo akÄ±ÅŸÄ± Ã¶lÃ§Ã¼mÃ¼ + tohum tutarlÄ±lÄ±ÄŸÄ± (2 AÄŸustos 2026)
+### I. Demo akışı ölçümü + tohum tutarlılığı (2 Ağustos 2026)
 
-#### I.1 Â· UÃ§tan uca Ã¶lÃ§Ã¼m â€” 34 uÃ§, ham Ã§Ä±ktÄ±
+#### I.1 · Uçtan uca ölçüm — 34 uç, ham çıktı
 
-Tohum yeniden kurulup 34 uÃ§ sÄ±rayla Ã§aÄŸrÄ±ldÄ± (ilk koÅŸum kendi kanÄ±t betiÄŸimin
-bÄ±raktÄ±ÄŸÄ± makbuzla kirlenmiÅŸti; `db:reset` sonrasÄ± tekrarlandÄ±). Dolu dÃ¶nenler:
-apartman Â· blok Â· kat Â· bÃ¶lÃ¼m Â· kiÅŸi Â· malik Â· iliÅŸki Â· gider tÃ¼rÃ¼ Â·
-tahakkuk borÃ§larÄ± (36) Â· dÃ¶nemler (3) Â· cari ekstre Â· yaÅŸlandÄ±rma Â· hesaplar Â·
-kasa/banka defteri. BoÅŸ dÃ¶nenler: kiracÄ± Â· sakin Â· makbuz Â· fiÅŸ Â· yevmiye Â·
-muavin Â· mizan Â· sayaÃ§ Â· belge Â· araÃ§ Â· misafir Â· daire gÃ¶revlisi Â·
-site personeli Â· banka hesabÄ±.
+Tohum yeniden kurulup 34 uç sırayla çağrıldı (ilk koşum kendi kanıt betiğimin
+bıraktığı makbuzla kirlenmişti; `db:reset` sonrası tekrarlandı). Dolu dönenler:
+apartman · blok · kat · bölüm · kişi · malik · ilişki · gider türü ·
+tahakkuk borçları (36) · dönemler (3) · cari ekstre · yaşlandırma · hesaplar ·
+kasa/banka defteri. Boş dönenler: kiracı · sakin · makbuz · fiş · yevmiye ·
+muavin · mizan · sayaç · belge · araç · misafir · daire görevlisi ·
+site personeli · banka hesabı.
 
-`GET /daireler` iÃ§in aldÄ±ÄŸÄ±m 404 **benim hatamdÄ±** â€” liste ucu yok, rota
+`GET /daireler` için aldığım 404 **benim hatamdı** — liste ucu yok, rota
 `/daireler/:bolumId/kart`.
 
-#### I.2 Â· â˜… Tohum kendi kendini yalanlÄ±yordu â€” kapatÄ±ldÄ±
+#### I.2 · ★ Tohum kendi kendini yalanlıyordu — kapatıldı
 
 ```
-Ã–NCE : borc kapandi_mi=true â†’ 24 Â· Î£ odenen = 43.200,00 Â· tahsilat tablosu â†’ 0 satÄ±r
-       cari ekstre: 3 BORÃ‡ satÄ±rÄ±, hiÃ§ TAHSÄ°LAT satÄ±rÄ± yok, tahsilatToplam "0.0000"
+ÖNCE : borc kapandi_mi=true → 24 · Σ odenen = 43.200,00 · tahsilat tablosu → 0 satır
+       cari ekstre: 3 BORÇ satırı, hiç TAHSİLAT satırı yok, tahsilatToplam "0.0000"
 ```
 
-`odenen` elle yazÄ±lÄ±yordu (`odenen: d.kapali ? d.tutar : 0`) â€” oysa ÅŸema
-`Borc.odenen` notu aÃ§Ä±kÃ§a *"ARTIK BU SATIRLARDAN TÃœRETÄ°LÄ°R (0017 Â· ADR-0010),
-elle yazÄ±lmaz"* diyor. Tohum belgelenmiÅŸ bir deÄŸiÅŸmezi Ã§iÄŸniyordu.
+`odenen` elle yazılıyordu (`odenen: d.kapali ? d.tutar : 0`) — oysa şema
+`Borc.odenen` notu açıkça *"ARTIK BU SATIRLARDAN TÜRETİLİR (0017 · ADR-0010),
+elle yazılmaz"* diyor. Tohum belgelenmiş bir değişmezi çiğniyordu.
 
-DÃ¼zeltildi: tohum artÄ±k gerÃ§ek `Tahsilat` + `TahsilatTahsisi` kayÄ±tlarÄ± Ã¼retiyor,
-`odenen` ve `kapandiMi` **onlardan tÃ¼retiliyor**.
+Düzeltildi: tohum artık gerçek `Tahsilat` + `TahsilatTahsisi` kayıtları üretiyor,
+`odenen` ve `kapandiMi` **onlardan türetiliyor**.
 
 ```
-SONRA: odenen = 43.200,0000 Â· tahsis = 43.200,0000 Â· fark = 0,0000
-       cari ekstre: BORÃ‡ â†’ TAHSÄ°LAT â†’ BORÃ‡ â†’ TAHSÄ°LAT â†’ BORÃ‡,
-       her Ã¶demeden sonra yÃ¼rÃ¼yen bakiye 0, kapanÄ±ÅŸ 1.950 (tek aÃ§Ä±k borÃ§)
+SONRA: odenen = 43.200,0000 · tahsis = 43.200,0000 · fark = 0,0000
+       cari ekstre: BORÇ → TAHSİLAT → BORÇ → TAHSİLAT → BORÇ,
+       her ödemeden sonra yürüyen bakiye 0, kapanış 1.950 (tek açık borç)
 ```
 
-âš ï¸ Tahsilatlar **muhasebeleÅŸtirilmedi** (`yevmiyeFisiId` boÅŸ) ve bu bilinÃ§li:
-tahakkuk deftere dÃ¼ÅŸmediÄŸi iÃ§in yalnÄ±zca tahsilatÄ± muhasebeleÅŸtirmek 120'yi
-alacaklandÄ±rÄ±p mutabakat farkÄ±nÄ± **bÃ¼yÃ¼tÃ¼rdÃ¼**. Bkz. Â§I.4.
+⚠️ Tahsilatlar **muhasebeleştirilmedi** (`yevmiyeFisiId` boş) ve bu bilinçli:
+tahakkuk deftere düşmediği için yalnızca tahsilatı muhasebeleştirmek 120'yi
+alacaklandırıp mutabakat farkını **büyütürdü**. Bkz. §I.4.
 
-âš ï¸ BÃ¼tÃ¼n makbuzlar NAKÄ°T. `tahsilat_kanal_banka` CHECK kÄ±sÄ±tÄ± BANKA kanalÄ±nda
-`banka_hareketi_id` zorunlu kÄ±lÄ±yor ve tohumda banka hesabÄ± yok. **KÄ±sÄ±t doÄŸru
-Ã§alÄ±ÅŸÄ±yor** â€” gevÅŸetilmedi, kanal daraltÄ±ldÄ±.
+⚠️ Bütün makbuzlar NAKİT. `tahsilat_kanal_banka` CHECK kısıtı BANKA kanalında
+`banka_hareketi_id` zorunlu kılıyor ve tohumda banka hesabı yok. **Kısıt doğru
+çalışıyor** — gevşetilmedi, kanal daraltıldı.
 
-#### I.3 Â· Hisseli mÃ¼lkiyet fikstÃ¼rÃ¼ â€” ilk kez var
+#### I.3 · Hisseli mülkiyet fikstürü — ilk kez var
 
-Ã–lÃ§Ã¼m gÃ¶sterdi: 12 dairenin **hepsi** tek malikti, hisse `1/1`. Yani
-`borc_sorumlusu.pay` mantÄ±ÄŸÄ± ve pay bazÄ±nda tahsis kodda vardÄ± ama **hiÃ§bir
-fikstÃ¼r ona dokunmuyordu.** ÃœÃ§ daire hisseli yapÄ±ldÄ±:
+Ölçüm gösterdi: 12 dairenin **hepsi** tek malikti, hisse `1/1`. Yani
+`borc_sorumlusu.pay` mantığı ve pay bazında tahsis kodda vardı ama **hiçbir
+fikstür ona dokunmuyordu.** Üç daire hisseli yapıldı:
 
-| Daire | Hisse | BorÃ§ 1.950 nasÄ±l bÃ¶lÃ¼nÃ¼yor |
+| Daire | Hisse | Borç 1.950 nasıl bölünüyor |
 |---|---|---|
-| 4 | 1/2 + 1/2 (iki kardeÅŸ) | 975,00 + 975,00 |
-| 9 | 1/3 Ã— 3 (miras) | 650,00 Ã— 3 |
-| 12 | **3/4 + 1/4** (eÅŸit deÄŸil) | **1.462,50 + 487,50** |
+| 4 | 1/2 + 1/2 (iki kardeş) | 975,00 + 975,00 |
+| 9 | 1/3 × 3 (miras) | 650,00 × 3 |
+| 12 | **3/4 + 1/4** (eşit değil) | **1.462,50 + 487,50** |
 
-Daire 12 bilerek eÅŸit deÄŸil: eÅŸit paylÄ± fikstÃ¼r, `pay = tutar/n` varsayan bir
-hatayÄ± yakalayamaz.
+Daire 12 bilerek eşit değil: eşit paylı fikstür, `pay = tutar/n` varsayan bir
+hatayı yakalayamaz.
 
-Tohuma iki kontrol eklendi (kontrol **eklendi**, gevÅŸetilmedi):
-Î£ hisse â‰  1 ise tohum **durur**; pay daÄŸÄ±tÄ±mÄ±nda **son hissedar artÄ±ÄŸÄ± alÄ±r** ki
-`Î£ pay = borc.tutar` bozulmasÄ±n. Ä°kincisi bir daÄŸÄ±tÄ±m tekniÄŸidir, yuvarlama
-politikasÄ± deÄŸil â€” o karar tohumun iÅŸi deÄŸildir.
+Tohuma iki kontrol eklendi (kontrol **eklendi**, gevşetilmedi):
+Σ hisse ≠ 1 ise tohum **durur**; pay dağıtımında **son hissedar artığı alır** ki
+`Σ pay = borc.tutar` bozulmasın. İkincisi bir dağıtım tekniğidir, yuvarlama
+politikası değil — o karar tohumun işi değildir.
 
-DoÄŸrulama: `Î£ pay â‰  tutar` olan borÃ§ sayÄ±sÄ± **0**.
+Doğrulama: `Σ pay ≠ tutar` olan borç sayısı **0**.
 
-#### I.4 Â· â˜… DUR VE BÄ°LDÄ°R â€” tahakkuk deftere hiÃ§ dÃ¼ÅŸmÃ¼yor
+#### I.4 · ★ DUR VE BİLDİR — tahakkuk deftere hiç düşmüyor
 
-`kontrol-mutabakati` her projede `mutabikMi:false` dÃ¶ner. Sebep yapÄ±sal:
+`kontrol-mutabakati` her projede `mutabikMi:false` döner. Sebep yapısal:
 `Borc` modelinde `yevmiyeFisiId` yok, tahakkukta `muhasebelestir` ucu yok.
-Bu **eksik Ã¶zelliktir, veri eksiÄŸi deÄŸil** â€” tohuma elle yevmiye fiÅŸi yazmak
-Ã¼rÃ¼nÃ¼n yapamadÄ±ÄŸÄ± bir ÅŸeyi demoda gÃ¶stermek olurdu.
-[ADR-0017](docs/adr/log/ADR-0017-tahakkuk-muhasebelestirme.md) aÃ§Ä±ldÄ±, **karar
-yok**. Yol haritasÄ±nda **P0** ve virmandan Ã¶ncedir.
+Bu **eksik özelliktir, veri eksiği değil** — tohuma elle yevmiye fişi yazmak
+ürünün yapamadığı bir şeyi demoda göstermek olurdu.
+[ADR-0017](docs/adr/log/ADR-0017-tahakkuk-muhasebelestirme.md) açıldı, **karar
+yok**. Yol haritasında **P0** ve virmandan öncedir.
 
 ---
 
-### J. Tahakkuk muhasebeleÅŸtirmesi + apartman/site ayrÄ±mÄ± (2 AÄŸustos 2026)
+### J. Tahakkuk muhasebeleştirmesi + apartman/site ayrımı (2 Ağustos 2026)
 
-[ADR-0017](docs/adr/log/ADR-0017-tahakkuk-muhasebelestirme.md) karara baÄŸlandÄ±
-ve uygulandÄ±; kapsamÄ± **`CIFT_TARAFLI` muhasebedir**. AyrÄ±mÄ±n tamamÄ± tek
+[ADR-0017](docs/adr/log/ADR-0017-tahakkuk-muhasebelestirme.md) karara bağlandı
+ve uygulandı; kapsamı **`CIFT_TARAFLI` muhasebedir**. Ayrımın tamamı tek
 belgede: [docs/APARTMAN-SITE-AYRIMI.md](docs/APARTMAN-SITE-AYRIMI.md).
 
-#### J.1 Â· BitiÅŸin kanÄ±tÄ±
+#### J.1 · Bitişin kanıtı
 
 ```json
-SITE (Papatya Sitesi Â· CIFT_TARAFLI)
+SITE (Papatya Sitesi · CIFT_TARAFLI)
 {"yardimciDefterToplami":"15600.0000","kontrolHesabiKodu":"120",
  "kontrolHesabiBakiyesi":"15600.0000","fark":"0.0000","mutabikMi":true,
  "bolumSayisi":8}
 ```
 
-Ã–nceki hÃ¢li `{"fark":"15600.0000","mutabikMi":false}` idi. Tohum artÄ±k
-tahakkuklarÄ± **ve** tahsilatlarÄ± muhasebeleÅŸtiriyor; yalnÄ±zca biri
-muhasebeleÅŸseydi kontrol hesabÄ± Ã¶denen kadar sapardÄ±.
+Önceki hâli `{"fark":"15600.0000","mutabikMi":false}` idi. Tohum artık
+tahakkukları **ve** tahsilatları muhasebeleştiriyor; yalnızca biri
+muhasebeleşseydi kontrol hesabı ödenen kadar sapardı.
 
-âš ï¸ Tohumun Ã¼rettiÄŸi fiÅŸ, `muhasebelestir` ucunun Ã¼rettiÄŸinin **aynÄ±
-biÃ§imidir** (fiÅŸ tÃ¼rÃ¼ Â· kaynak baÄŸÄ± Â· iki satÄ±r Â· `ISLENDI`). Elle yevmiye
-fiÅŸi yazÄ±lmadÄ± â€” tohum, Ã¼rÃ¼nÃ¼n yapmadÄ±ÄŸÄ± bir ÅŸeyi gÃ¶stermez.
+⚠️ Tohumun ürettiği fiş, `muhasebelestir` ucunun ürettiğinin **aynı
+biçimidir** (fiş türü · kaynak bağı · iki satır · `ISLENDI`). Elle yevmiye
+fişi yazılmadı — tohum, ürünün yapmadığı bir şeyi göstermez.
 
-#### J.2 Â· Muhasebe derinliÄŸi
+#### J.2 · Muhasebe derinliği
 
 `MuhasebeParametresi.muhasebeDerinligi: BASIT | CIFT_TARAFLI` (migration 0034).
-VarsayÄ±lanÄ± kurulumda `Tenant.tip`'ten gelir ama **kural deÄŸildir** â€”
-politika koda gÃ¶mÃ¼lmediÄŸi gibi **yapÄ±ya da gÃ¶mÃ¼lmez**. `BASIT` projede
+Varsayılanı kurulumda `Tenant.tip`'ten gelir ama **kural değildir** —
+politika koda gömülmediği gibi **yapıya da gömülmez**. `BASIT` projede
 `muhasebelestir` ve `kontrol-mutabakati` **422** verir; alacak takibi
 **etkilenmez**.
 
-#### J.3 Â· CT-20 yanlÄ±ÅŸ teÅŸhis koyuyordu â€” dÃ¼zeltildi
+#### J.3 · CT-20 yanlış teşhis koyuyordu — düzeltildi
 
-Test, her projede hesap planÄ± + parametre + aÃ§Ä±k dÃ¶nem arÄ±yordu. `BASIT`
-derinlikte bunlarÄ±n olmamasÄ± **eksiklik deÄŸildir**. ArtÄ±k Ã¼Ã§ bÃ¶lÃ¼mlÃ¼ ve
-Ã¶znesi site tenant'Ä±: 12/12 yeÅŸil.
+Test, her projede hesap planı + parametre + açık dönem arıyordu. `BASIT`
+derinlikte bunların olmaması **eksiklik değildir**. Artık üç bölümlü ve
+öznesi site tenant'ı: 12/12 yeşil.
 
-#### J.4 Â· Tohumda hiÃ§ SITE yoktu
+#### J.4 · Tohumda hiç SITE yoktu
 
-`seed.ts` iÃ§inde `tip: 'SITE'` iÃ§in 0 eÅŸleÅŸme vardÄ±; site tarafÄ±na kod
-yazÄ±lÄ±yordu ama **hiÃ§bir fikstÃ¼r onu temsil etmiyordu**. Papatya Sitesi
-eklendi (2 blok Â· 8 bÃ¶lÃ¼m Â· hisseli daire dÃ¢hil).
+`seed.ts` içinde `tip: 'SITE'` için 0 eşleşme vardı; site tarafına kod
+yazılıyordu ama **hiçbir fikstür onu temsil etmiyordu**. Papatya Sitesi
+eklendi (2 blok · 8 bölüm · hisseli daire dâhil).
 
-#### J.5 Â· CanlÄ± Ã¶lÃ§Ã¼m â€” her iki taraf
+#### J.5 · Canlı ölçüm — her iki taraf
 
 ```json
-SITE (Papatya Â· CIFT_TARAFLI)
+SITE (Papatya · CIFT_TARAFLI)
 {"yardimciDefterToplami":"15600.0000","kontrolHesabiBakiyesi":"15600.0000",
  "fark":"0.0000","mutabikMi":true,"bolumSayisi":8}
 
-APARTMAN (GÃ¼zel Â· BASIT) â†’ HTTP 422
-{"detail":"Bu proje basit muhasebe kullanÄ±yor; kontrol hesabÄ± mutabakatÄ±
- yapÄ±lmaz.","sonrakiEylem":"â€¦ Alacak takibi ETKÄ°LENMEZ: â€¦"}
+APARTMAN (Güzel · BASIT) → HTTP 422
+{"detail":"Bu proje basit muhasebe kullanıyor; kontrol hesabı mutabakatı
+ yapılmaz.","sonrakiEylem":"… Alacak takibi ETKİLENMEZ: …"}
 ```
 
-#### J.6 Â· â˜… 404 SUNUCU ARIZASI â€” sebep BENDÄ°M, P0 deÄŸil
+#### J.6 · ★ 404 SUNUCU ARIZASI — sebep BENDİM, P0 değil
 
-BÃ¼tÃ¼n rotalar 404 veriyordu, `/api/v1/saglik` dÃ¢hil. TeÅŸhis:
+Bütün rotalar 404 veriyordu, `/api/v1/saglik` dâhil. Teşhis:
 
 ```text
 [RoutesResolver] HealthController {/C:/Program Files/Git/api/v1/saglik}
 ```
 
-Genel Ã¶nek `/api/v1` yerine **`/C:/Program Files/Git/api/v1`** olarak
-kaydedilmiÅŸ. Sebep: sunucuyu **Git Bash iÃ§inden** `set -a && . ./.env` ile
-baÅŸlatmÄ±ÅŸtÄ±m; MSYS yol dÃ¶nÃ¼ÅŸÃ¼mÃ¼ `.env`'deki `API_PREFIX="/api/v1"` deÄŸerini
-Windows yoluna Ã§evirdi.
+Genel önek `/api/v1` yerine **`/C:/Program Files/Git/api/v1`** olarak
+kaydedilmiş. Sebep: sunucuyu **Git Bash içinden** `set -a && . ./.env` ile
+başlatmıştım; MSYS yol dönüşümü `.env`'deki `API_PREFIX="/api/v1"` değerini
+Windows yoluna çevirdi.
 
-âš ï¸ **Denetim raporundaki P0 giriÅŸ noktasÄ± bulgusu DEÄÄ°LDÄ° ve o bulgu ÅŸu an
-yeniden Ã¼retmiyor:** `backend/dist/main.js` var ve taze, `dist/src/main.js`
-yok. `config-check.mjs` bunu zaten kapÄ± olarak doÄŸruluyor
+⚠️ **Denetim raporundaki P0 giriş noktası bulgusu DEĞİLDİ ve o bulgu şu an
+yeniden üretmiyor:** `backend/dist/main.js` var ve taze, `dist/src/main.js`
+yok. `config-check.mjs` bunu zaten kapı olarak doğruluyor
 (*"Giris noktasi dogrulandi: backend/dist/main.js"*).
 
-â˜… **Ders:** Windows'ta bir Node sunucusunu Git Bash'ten ortam yÃ¼kleyerek
-baÅŸlatmayÄ±n; eÄŸik Ã§izgiyle baÅŸlayan deÄŸerler sessizce yola Ã§evrilir. Hata
-mesajÄ± vermez â€” rota tablosu bozulur.
+★ **Ders:** Windows'ta bir Node sunucusunu Git Bash'ten ortam yükleyerek
+başlatmayın; eğik çizgiyle başlayan değerler sessizce yola çevrilir. Hata
+mesajı vermez — rota tablosu bozulur.
 
-#### J.7 Â· â˜…â˜… `pnpm verify` UYGULAMA KODUNU HÄ°Ã‡ TÄ°P DENETÄ°MÄ°NDEN GEÃ‡Ä°RMÄ°YORDU
+#### J.7 · ★★ `pnpm verify` UYGULAMA KODUNU HİÇ TİP DENETİMİNDEN GEÇİRMİYORDU
 
-Bu turda Ã¼Ã§ gerÃ§ek hata (`FIS_TURLERI`/`FisTuru` `TAHAKKUK` taÅŸÄ±mÄ±yor, gider
-tÃ¼rÃ¼ ucu zorunlu `muhasebeHesapId`'yi vermiyor) **`pnpm verify` YEÅÄ°LKEN**
-geÃ§ti ve ancak sunucu yeniden baÅŸlatÄ±lÄ±nca ortaya Ã§Ä±ktÄ±.
+Bu turda üç gerçek hata (`FIS_TURLERI`/`FisTuru` `TAHAKKUK` taşımıyor, gider
+türü ucu zorunlu `muhasebeHesapId`'yi vermiyor) **`pnpm verify` YEŞİLKEN**
+geçti ve ancak sunucu yeniden başlatılınca ortaya çıktı.
 
-**Sebep Ã¶lÃ§Ã¼ldÃ¼:**
+**Sebep ölçüldü:**
 
 | Ne | Kapsam |
 |---|---|
-| KÃ¶k `tsconfig.json` â†’ `references` | **yalnÄ±zca `shared/*`** â€” `backend` grafikte YOK |
-| `verify` adÄ±mÄ± *"TypeScript derleme (tsc -b)"* | kÃ¶k grafiÄŸi derler â†’ uygulama kodunu **gÃ¶rmez** |
-| `verify` adÄ±mÄ± *"Test derlemesi"* | `tests/tsconfig.json` â†’ framework baÄŸÄ±msÄ±z modÃ¼ller |
+| Kök `tsconfig.json` → `references` | **yalnızca `shared/*`** — `backend` grafikte YOK |
+| `verify` adımı *"TypeScript derleme (tsc -b)"* | kök grafiği derler → uygulama kodunu **görmez** |
+| `verify` adımı *"Test derlemesi"* | `tests/tsconfig.json` → framework bağımsız modüller |
 | Vitest | tip denetimi **yapmaz** |
-| CI `pnpm typecheck` â†’ `pnpm -r typecheck` | backend `tsc --noEmit` â€” **yakalardÄ±** |
+| CI `pnpm typecheck` → `pnpm -r typecheck` | backend `tsc --noEmit` — **yakalardı** |
 
-Yani **yerel kapÄ± ile CI aynÄ± ÅŸeyi Ã¶lÃ§mÃ¼yordu.** AdÄ±n *"TypeScript derleme"*
-olmasÄ± bÃ¼tÃ¼n deponun tarandÄ±ÄŸÄ± izlenimi veriyordu; taramÄ±yordu.
+Yani **yerel kapı ile CI aynı şeyi ölçmüyordu.** Adın *"TypeScript derleme"*
+olması bütün deponun tarandığı izlenimi veriyordu; taramıyordu.
 
-**KapatÄ±ldÄ±.** `verify` artÄ±k uygulama paketlerini de tarÄ±yor ve **liste elle
-yazÄ±lmadÄ±, TÃœRETÄ°LDÄ°**: workspace desenlerinden paketler bulunur,
-`typecheck` betiÄŸi `--noEmit` iÃ§erenler taranÄ±r (`tsc -b` kullananlar kÃ¶k
-grafikte zaten var). Yeni bir paket eklendiÄŸinde sessizce dÄ±ÅŸarÄ±da kalmaz.
-
-```text
-GECTI      Tip denetimi â€” backend
-GECTI      Tip denetimi â€” frontend/mobile
-GECTI      Tip denetimi â€” frontend/web
-GECTI      Tip denetimi â€” database
-```
-
-âš ï¸ `pnpm -r typecheck` Ã§aÄŸrÄ±lmadÄ±: `pnpm` Windows'ta `.cmd` shim'idir ve
-`execFileSync` onu kabuk olmadan Ã§alÄ±ÅŸtÄ±ramaz â€” denendi, adÄ±m **boÅŸ Ã§Ä±ktÄ±yla**
-baÅŸarÄ±sÄ±z oluyordu.
-
-**Negatif test yapÄ±ldÄ±** (kapÄ± gerÃ§ekten yakalÄ±yor mu):
+**Kapatıldı.** `verify` artık uygulama paketlerini de tarıyor ve **liste elle
+yazılmadı, TÜRETİLDİ**: workspace desenlerinden paketler bulunur,
+`typecheck` betiği `--noEmit` içerenler taranır (`tsc -b` kullananlar kök
+grafikte zaten var). Yeni bir paket eklendiğinde sessizce dışarıda kalmaz.
 
 ```text
-FIS_TURLERI'den 'TAHAKKUK' geÃ§ici olarak kaldÄ±rÄ±ldÄ±
-  â†’  BASARISIZ  Tip denetimi â€” backend
-dosya yedekten geri alÄ±ndÄ± (git checkout -- KULLANILMADI)
+GECTI      Tip denetimi — backend
+GECTI      Tip denetimi — frontend/mobile
+GECTI      Tip denetimi — frontend/web
+GECTI      Tip denetimi — database
 ```
 
-â˜… **Ders â€” "gÃ¼vence mekanizmasÄ±nÄ±n kendisi doÄŸrulanmamÄ±ÅŸ" sÄ±nÄ±fÄ±nÄ±n yeni
-Ã¶rneÄŸi.** Bir kapÄ±nÄ±n adÄ±, neyi kapsadÄ±ÄŸÄ±nÄ±n kanÄ±tÄ± deÄŸildir. Bu oturumda
-aynÄ± sÄ±nÄ±f dÃ¶rt kez Ã§Ä±ktÄ±: RLS politikalarÄ± hiÃ§ sÄ±nanmamÄ±ÅŸtÄ±, CI iÅŸ akÄ±ÅŸÄ± hiÃ§
-koÅŸmamÄ±ÅŸtÄ±, `Idempotency-Key` okunmuyordu, ve ÅŸimdi tip kapÄ±sÄ± uygulama
-kodunu gÃ¶rmÃ¼yordu. **Yeni bir kapÄ± eklendiÄŸinde negatif testi de eklenmeli:
-kapÄ±yÄ± bilerek ihlal et, kÄ±rmÄ±zÄ±ya dÃ¶ndÃ¼ÄŸÃ¼nÃ¼ gÃ¶r, geri al.**
+⚠️ `pnpm -r typecheck` çağrılmadı: `pnpm` Windows'ta `.cmd` shim'idir ve
+`execFileSync` onu kabuk olmadan çalıştıramaz — denendi, adım **boş çıktıyla**
+başarısız oluyordu.
 
-#### J.8 Â· â˜… CT-04 kÄ±rmÄ±zÄ±sÄ± â€” Ä°LK TEÅHÄ°SÄ°M YANLIÅTI, sebep Ã¶lÃ§Ã¼ldÃ¼
-
-Ã–nce *"sebep CT-19'un uygulanmamÄ±ÅŸ olmasÄ±; virman bitince kapanÄ±r"* demiÅŸtim.
-**KapanmadÄ±:** virman uygulandÄ±, CT-19 18/18 yeÅŸile dÃ¶ndÃ¼, CT-04 hÃ¢lÃ¢
-kÄ±rmÄ±zÄ±ydÄ±.
-
-GerÃ§ek sebep sayaÃ§lardan okundu:
+**Negatif test yapıldı** (kapı gerçekten yakalıyor mu):
 
 ```text
-21 <- sinir:POST:OturumController.giris:ip:::ffff:127.0.0.1     â† sÄ±nÄ±r 20
- 2 <- sinir:POST:OturumController.giris:kimlik:â€¦                â† sÄ±nÄ±r 5
+FIS_TURLERI'den 'TAHAKKUK' geçici olarak kaldırıldı
+  →  BASARISIZ  Tip denetimi — backend
+dosya yedekten geri alındı (git checkout -- KULLANILMADI)
 ```
 
-**IP baÅŸÄ±na 20 giriÅŸ / 5 dk** sÄ±nÄ±rÄ± doluyordu; kimlik sayaÃ§larÄ±nÄ±n en yÃ¼kseÄŸi
-2'ydi. Yani sebep kimlik deÄŸil **IP**'ydi ve sÃ¼it bÃ¼yÃ¼dÃ¼kÃ§e eÅŸiÄŸi aÅŸtÄ±. 21'inci
-giriÅŸ 429 alÄ±yor, CT-04 `expected undefined to be '/yonetim'` ile dÃ¼ÅŸÃ¼yordu â€”
-**hata, sÄ±nadÄ±ÄŸÄ± davranÄ±ÅŸla ilgisiz bir yerde Ã§Ä±kÄ±yordu.**
+★ **Ders — "güvence mekanizmasının kendisi doğrulanmamış" sınıfının yeni
+örneği.** Bir kapının adı, neyi kapsadığının kanıtı değildir. Bu oturumda
+aynı sınıf dört kez çıktı: RLS politikaları hiç sınanmamıştı, CI iş akışı hiç
+koşmamıştı, `Idempotency-Key` okunmuyordu, ve şimdi tip kapısı uygulama
+kodunu görmüyordu. **Yeni bir kapı eklendiğinde negatif testi de eklenmeli:
+kapıyı bilerek ihlal et, kırmızıya döndüğünü gör, geri al.**
 
-`global-setup.ts` sayaÃ§larÄ± zaten sÄ±fÄ±rlÄ±yordu ama **koÅŸum baÅŸÄ±nda bir kez**;
-21 giriÅŸin hepsi tek koÅŸumda Ã¼retiliyor. SÄ±fÄ±rlama **dosya baÅŸÄ±na** alÄ±ndÄ±
+#### J.8 · ★ CT-04 kırmızısı — İLK TEŞHİSİM YANLIŞTI, sebep ölçüldü
+
+Önce *"sebep CT-19'un uygulanmamış olması; virman bitince kapanır"* demiştim.
+**Kapanmadı:** virman uygulandı, CT-19 18/18 yeşile döndü, CT-04 hâlâ
+kırmızıydı.
+
+Gerçek sebep sayaçlardan okundu:
+
+```text
+21 <- sinir:POST:OturumController.giris:ip:::ffff:127.0.0.1     ← sınır 20
+ 2 <- sinir:POST:OturumController.giris:kimlik:…                ← sınır 5
+```
+
+**IP başına 20 giriş / 5 dk** sınırı doluyordu; kimlik sayaçlarının en yükseği
+2'ydi. Yani sebep kimlik değil **IP**'ydi ve süit büyüdükçe eşiği aştı. 21'inci
+giriş 429 alıyor, CT-04 `expected undefined to be '/yonetim'` ile düşüyordu —
+**hata, sınadığı davranışla ilgisiz bir yerde çıkıyordu.**
+
+`global-setup.ts` sayaçları zaten sıfırlıyordu ama **koşum başında bir kez**;
+21 girişin hepsi tek koşumda üretiliyor. Sıfırlama **dosya başına** alındı
 (`test/setup.ts`).
 
-âš ï¸ **SINIR KAPATILMADI, yalnÄ±zca sayaÃ§ sÄ±fÄ±rlanÄ±yor.** Guard testlerde de tam
-olarak Ã¼retimdeki kod yolunu koÅŸar. *"Test modunda sÄ±nÄ±r yok"* bayraÄŸÄ± hem
-Ã¼retimde yanlÄ±ÅŸlÄ±kla aÃ§Ä±labilir hem de guard'Ä± testlerde hiÃ§ Ã§alÄ±ÅŸtÄ±rmazdÄ±.
+⚠️ **SINIR KAPATILMADI, yalnızca sayaç sıfırlanıyor.** Guard testlerde de tam
+olarak üretimdeki kod yolunu koşar. *"Test modunda sınır yok"* bayrağı hem
+üretimde yanlışlıkla açılabilir hem de guard'ı testlerde hiç çalıştırmazdı.
 
-â˜… **Ders:** bir teÅŸhisi kanÄ±tlamadan yazmak, sonraki turda onu doÄŸru sanmaya
-yol aÃ§ar. Ä°lk aÃ§Ä±klamam makuldÃ¼ ve **yanlÄ±ÅŸtÄ±**; Ã¶lÃ§Ã¼m onu Ã§Ã¼rÃ¼ttÃ¼.
+★ **Ders:** bir teşhisi kanıtlamadan yazmak, sonraki turda onu doğru sanmaya
+yol açar. İlk açıklamam makuldü ve **yanlıştı**; ölçüm onu çürüttü.
 
-â˜… Yan bulgu: aynÄ± sÄ±nÄ±ftan ikinci bir olay â€” CT-20'ye eklediÄŸim giriÅŸ Ã¶nce
-tohum kullanÄ±cÄ±sÄ±nÄ± kullanÄ±yordu ve **kimlik** bÃ¼tÃ§esini tÃ¼ketiyordu.
-**PaylaÅŸÄ±lan kimlik, paylaÅŸÄ±lan fikstÃ¼rdÃ¼r**; CT-20 artÄ±k kendi kullanÄ±cÄ±sÄ±nÄ±
-aÃ§Ä±yor.
+★ Yan bulgu: aynı sınıftan ikinci bir olay — CT-20'ye eklediğim giriş önce
+tohum kullanıcısını kullanıyordu ve **kimlik** bütçesini tüketiyordu.
+**Paylaşılan kimlik, paylaşılan fikstürdür**; CT-20 artık kendi kullanıcısını
+açıyor.
 
-#### J.9 Â· VÄ°RMAN uygulandÄ± â€” CT-19 Â· 18/18
+#### J.9 · VİRMAN uygulandı — CT-19 · 18/18
 
-[ADR-0016 Â§C](docs/adr/log/ADR-0016-virman.md) karara baÄŸlandÄ± ve uygulandÄ±
-(Â§A kasa/banka ile Â§B hesap virmanÄ± **hÃ¢lÃ¢ aÃ§Ä±k**).
+[ADR-0016 §C](docs/adr/log/ADR-0016-virman.md) karara bağlandı ve uygulandı
+(§A kasa/banka ile §B hesap virmanı **hâlâ açık**).
 
-**â˜… VirmanÄ±n iki davranÄ±ÅŸÄ±** â€” asÄ±l kural: `satirlar` doluysa deftere fiÅŸ
-yazÄ±lÄ±r, **boÅŸsa yazÄ±lmaz**. Saf taÅŸÄ±nma virmanÄ±nda borcun toplamÄ± da hangi
-hesapta durduÄŸu da deÄŸiÅŸmez; yalnÄ±zca yardÄ±mcÄ± defterin iÃ§indeki daÄŸÄ±lÄ±m
-deÄŸiÅŸir ve deftere yazÄ±lacak **denk bir kayÄ±t yoktur**. Zorla Ã¼retilseydi
-yevmiye defteri taÅŸÄ±nma sayÄ±sÄ± kadar anlamsÄ±z fiÅŸle ÅŸiÅŸerdi. Test (17) bunu
-kalÄ±cÄ± olarak Ã¶lÃ§Ã¼yor. *FiÅŸsiz olmak izsiz olmak deÄŸildir:* virman kaydÄ± ve
-numarasÄ± her hÃ¢lÃ¼kÃ¢rda yazÄ±lÄ±r.
+**★ Virmanın iki davranışı** — asıl kural: `satirlar` doluysa deftere fiş
+yazılır, **boşsa yazılmaz**. Saf taşınma virmanında borcun toplamı da hangi
+hesapta durduğu da değişmez; yalnızca yardımcı defterin içindeki dağılım
+değişir ve deftere yazılacak **denk bir kayıt yoktur**. Zorla üretilseydi
+yevmiye defteri taşınma sayısı kadar anlamsız fişle şişerdi. Test (17) bunu
+kalıcı olarak ölçüyor. *Fişsiz olmak izsiz olmak değildir:* virman kaydı ve
+numarası her hâlükârda yazılır.
 
-**ÃœÃ§ fikstÃ¼r eksiÄŸi Ã¶lÃ§Ã¼lerek bulundu** (Ã¼rÃ¼n hatasÄ± deÄŸil, testin kendi
+**Üç fikstür eksiği ölçülerek bulundu** (ürün hatası değil, testin kendi
 kurulumu):
 
-| Bulgu | Kural doÄŸru muydu |
+| Bulgu | Kural doğru muydu |
 |---|---|
-| 2026 muhasebe dÃ¶nemi hiÃ§ yoktu | evet â€” dÃ¶nemsiz fiÅŸ yazÄ±lamaz |
-| `KAPALI` dÃ¶nem kapanÄ±ÅŸ alanlarÄ± olmadan yazÄ±lmak isteniyordu | evet â€” `muhasebe_donemi_kapanis_tutarlilik` |
-| Virman tarihi `2026-08-20`, yani **gelecek** | evet â€” *"FiÅŸ tarihi gelecekte olamaz"* |
+| 2026 muhasebe dönemi hiç yoktu | evet — dönemsiz fiş yazılamaz |
+| `KAPALI` dönem kapanış alanları olmadan yazılmak isteniyordu | evet — `muhasebe_donemi_kapanis_tutarlilik` |
+| Virman tarihi `2026-08-20`, yani **gelecek** | evet — *"Fiş tarihi gelecekte olamaz"* |
 
-â˜… AyrÄ±ca `/tahsis|iade/i` eÅŸleÅŸmesi TÃ¼rkÃ§e `Ä°` yÃ¼zÃ¼nden tutmuyordu
-(`'Ä°'.toLowerCase()` birleÅŸik karakter Ã¼retir). MesajÄ± bÃ¼yÃ¼k harfle
-vurgulamak, arayan tarafÄ±n metni bulamamasÄ±na yol aÃ§Ä±yordu.
+★ Ayrıca `/tahsis|iade/i` eşleşmesi Türkçe `İ` yüzünden tutmuyordu
+(`'İ'.toLowerCase()` birleşik karakter üretir). Mesajı büyük harfle
+vurgulamak, arayan tarafın metni bulamamasına yol açıyordu.
 
-#### J.10 Â· â˜… AYRI Ä°ZÄ°N â€” `FINANS_VIRMAN`
+#### J.10 · ★ AYRI İZİN — `FINANS_VIRMAN`
 
-UÃ§ Ã¶nce `FINANS_YEVMIYE_GIRIS` istiyordu ve `APARTMAN_YONETICISI` bu izni
-taÅŸÄ±mÄ±yor. **Tespit doÄŸruydu, Ã§Ã¶zÃ¼mÃ¼ yanlÄ±ÅŸ yerde arÄ±yordum:** sorun rolÃ¼n
-eksik izni deÄŸil, **ucun yanlÄ±ÅŸ izne baÄŸlanmÄ±ÅŸ olmasÄ±ydÄ±.**
+Uç önce `FINANS_YEVMIYE_GIRIS` istiyordu ve `APARTMAN_YONETICISI` bu izni
+taşımıyor. **Tespit doğruydu, çözümü yanlış yerde arıyordum:** sorun rolün
+eksik izni değil, **ucun yanlış izne bağlanmış olmasıydı.**
 
-**Karar:** virman bir **CARÄ° iÅŸlemdir, muhasebe iÅŸlemi deÄŸildir.** Deftere
-yazmasÄ± **yan etkidir** ve her virmanda olmaz â€” saf taÅŸÄ±nma virmanÄ± hiÃ§ fiÅŸ
-Ã¼retmez. Yevmiye iznine baÄŸlansaydÄ±, kiracÄ± taÅŸÄ±ndÄ±ÄŸÄ± iÃ§in pay bÃ¶len bir site
-yÃ¶neticisinden **serbest yevmiye fiÅŸi kesme yetkisi** istenmiÅŸ olurdu.
+**Karar:** virman bir **CARİ işlemdir, muhasebe işlemi değildir.** Deftere
+yazması **yan etkidir** ve her virmanda olmaz — saf taşınma virmanı hiç fiş
+üretmez. Yevmiye iznine bağlansaydı, kiracı taşındığı için pay bölen bir site
+yöneticisinden **serbest yevmiye fişi kesme yetkisi** istenmiş olurdu.
 
 | Rol | `FINANS_VIRMAN` |
 |---|---|
-| `APARTMAN_YONETICISI` Â· `YONETIM_SIRKETI` | âœ… |
-| `YK_BASKANI` Â· `YK_UYESI` | â›” denetim organÄ± |
-| `DENETCI` | â›” denetim, denetlediÄŸi kaydÄ± Ã¼retemez |
+| `APARTMAN_YONETICISI` · `YONETIM_SIRKETI` | ✅ |
+| `YK_BASKANI` · `YK_UYESI` | ⛔ denetim organı |
+| `DENETCI` | ⛔ denetim, denetlediği kaydı üretemez |
 
-â›” **Rol tanÄ±mÄ± "test geÃ§sin" diye gevÅŸetilmedi.**
+⛔ **Rol tanımı "test geçsin" diye gevşetilmedi.**
 
-**ÃœÃ§ negatif test** (CT-19 Â· 20/20): DENETCI 403 Â· `FINANS_VIRMAN` taÅŸÄ±mayan
-rol 403 Â· **virman izninin yevmiye iznine baÄŸlÄ± olmadÄ±ÄŸÄ±** â€” aynÄ± kullanÄ±cÄ±
-virman yapabiliyor ama `POST /muhasebe/fisler`'den 403 alÄ±yor. ÃœÃ§Ã¼ncÃ¼sÃ¼ kararÄ±n
-kendisini koruyor: kÄ±rmÄ±zÄ±ya dÃ¶nerse ya rol ya uÃ§ izni sessizce deÄŸiÅŸmiÅŸtir.
+**Üç negatif test** (CT-19 · 20/20): DENETCI 403 · `FINANS_VIRMAN` taşımayan
+rol 403 · **virman izninin yevmiye iznine bağlı olmadığı** — aynı kullanıcı
+virman yapabiliyor ama `POST /muhasebe/fisler`'den 403 alıyor. Üçüncüsü kararın
+kendisini koruyor: kırmızıya dönerse ya rol ya uç izni sessizce değişmiştir.
 
-â˜… **AÃ§Ä±k bÄ±rakÄ±lan:** fiÅŸ ÃœRETEN virman iÃ§in ek kontrol gerekir mi? Ä°zin guard
-aÅŸamasÄ±nda, gÃ¶vdeye bakÄ±lmadan kontrol edilir; davranÄ±ÅŸa gÃ¶re izin seÃ§mek
-mimari deÄŸiÅŸikliktir. **Karar Ã¶lÃ§Ã¼me baÄŸlandÄ±** â€” satÄ±rlÄ± virman pratikte kim
-tarafÄ±ndan yapÄ±lÄ±yor?
+★ **Açık bırakılan:** fiş ÜRETEN virman için ek kontrol gerekir mi? İzin guard
+aşamasında, gövdeye bakılmadan kontrol edilir; davranışa göre izin seçmek
+mimari değişikliktir. **Karar ölçüme bağlandı** — satırlı virman pratikte kim
+tarafından yapılıyor?
 
-#### J.11 Â· ADR-0016 Â§A ve Â§B soru listeleri yazÄ±ldÄ±
+#### J.11 · ADR-0016 §A ve §B soru listeleri yazıldı
 
-**Karar verilmedi.** Ä°ki Ã¶neri gerekÃ§esiyle kayda geÃ§ti:
+**Karar verilmedi.** İki öneri gerekçesiyle kayda geçti:
 
-- **Â§A birleÅŸme:** `POST /banka/virman` kaldÄ±rÄ±lmaz ama `Virman` kaydÄ±nÄ± da
-  Ã¼retir (`tur = KASA_BANKA`). **Tek kavram, tek kayÄ±t, iki uÃ§** â€” uÃ§larÄ±
-  tekleÅŸtirmek gÃ¶vdeyi tÃ¼r baÅŸÄ±na iki ayrÄ± ÅŸekle bÃ¶lerdi. Â§A'nÄ±n aÃ§Ä±k hatasÄ±
-  (bacaklarÄ±n baÄŸÄ±msÄ±z muhasebeleÅŸmesi) bu birleÅŸmenin doÄŸal sonucu olarak
-  kapanÄ±r.
-- **Â§A kasa/banka iki seviye:** `Hesap` tarafÄ± seÃ§ilsin â€”
-  `BankaHesabi.muhasebeHesapId` zaten zorunlu, dÃ¶nÃ¼ÅŸÃ¼m **kayÄ±psÄ±z**; ters yÃ¶n
-  deÄŸil. âš ï¸ Bedeli aÃ§Ä±kÃ§a yazÄ±ldÄ±: aynÄ± muhasebe hesabÄ±na baÄŸlÄ± iki banka
-  hesabÄ± varsa hangisinden para Ã§Ä±ktÄ±ÄŸÄ± bilinemez, bu yÃ¼zden uÃ§ banka bacaÄŸÄ±nÄ±
-  `bankaHesabiId` ile almalÄ±.
-- **Â§B belki hiÃ§ gerekmiyor:** mevcut `storno` + elle fiÅŸ yolu iÅŸlevsel olarak
-  yeterli; Â§B'nin eklediÄŸi ÅŸey kolaylÄ±k ve niyetin kayda geÃ§mesi. â˜… Karar
-  Ã¶lÃ§Ã¼tÃ¼ **Ã¶lÃ§Ã¼m**: kaÃ§ storno *"tek satÄ±r yanlÄ±ÅŸ hesapta"* durumuydu?
-- **Â§B ÅŸÃ¼pheli hesap Ã§iftleri:** `ISINMA_CAKISMASI` deseni (0030) uygulanabilir
-  â€” tanÄ±m veridir, motor kod bilmez, sonuÃ§ **engelleme deÄŸil uyarÄ±**.
-- **Â§B `500` fon hesabÄ±**, Â§A'nÄ±n fon sorusunun **muhasebe tarafÄ±ndaki
-  ikizidir**; aynÄ± hukuki cevaba baÄŸlÄ±, ayrÄ± cevaplanmamalÄ±.
+- **§A birleşme:** `POST /banka/virman` kaldırılmaz ama `Virman` kaydını da
+  üretir (`tur = KASA_BANKA`). **Tek kavram, tek kayıt, iki uç** — uçları
+  tekleştirmek gövdeyi tür başına iki ayrı şekle bölerdi. §A'nın açık hatası
+  (bacakların bağımsız muhasebeleşmesi) bu birleşmenin doğal sonucu olarak
+  kapanır.
+- **§A kasa/banka iki seviye:** `Hesap` tarafı seçilsin —
+  `BankaHesabi.muhasebeHesapId` zaten zorunlu, dönüşüm **kayıpsız**; ters yön
+  değil. ⚠️ Bedeli açıkça yazıldı: aynı muhasebe hesabına bağlı iki banka
+  hesabı varsa hangisinden para çıktığı bilinemez, bu yüzden uç banka bacağını
+  `bankaHesabiId` ile almalı.
+- **§B belki hiç gerekmiyor:** mevcut `storno` + elle fiş yolu işlevsel olarak
+  yeterli; §B'nin eklediği şey kolaylık ve niyetin kayda geçmesi. ★ Karar
+  ölçütü **ölçüm**: kaç storno *"tek satır yanlış hesapta"* durumuydu?
+- **§B şüpheli hesap çiftleri:** `ISINMA_CAKISMASI` deseni (0030) uygulanabilir
+  — tanım veridir, motor kod bilmez, sonuç **engelleme değil uyarı**.
+- **§B `500` fon hesabı**, §A'nın fon sorusunun **muhasebe tarafındaki
+  ikizidir**; aynı hukuki cevaba bağlı, ayrı cevaplanmamalı.
 
 ---
 
-## 4. Sonraki oturum â€” ilk komut ve ilk gÃ¶rev
+## 4. Sonraki oturum — ilk komut ve ilk görev
 
-> âš ï¸ **AÅAÄIDAKÄ° "Ã–NCEKÄ° Ä°LK GÃ–REV" VE "AÃ‡IK Ä°Å" BÃ–LÃœMLERÄ° ESKÄ°DÄ°R** ve
-> tarihsel kayÄ±t olarak duruyor. **3 AÄŸustos 2026 itibarÄ±yla gÃ¼ncel devir
-> aÅŸaÄŸÄ±daki kutudur.**
+> ⚠️ **AŞAĞIDAKİ "ÖNCEKİ İLK GÖREV" VE "AÇIK İŞ" BÖLÜMLERİ ESKİDİR** ve
+> tarihsel kayıt olarak duruyor. **3 Ağustos 2026 itibarıyla güncel devir
+> aşağıdaki kutudur.**
 
-### â–¶ DEVÄ°R â€” 3 AÄŸustos 2026
+### ▶ DEVİR — 3 Ağustos 2026
 
 ```bash
 pnpm db:up && pnpm db:reset && pnpm verify && pnpm --filter @bnos/backend exec vitest run
 ```
 
-Beklenen: `Tum kontroller yesil` Â· **145 passed (145)**.
+Beklenen: `Tum kontroller yesil` · **145 passed (145)**.
 
-âš ï¸ ArayÃ¼zÃ¼ de Ã§alÄ±ÅŸtÄ±racaksanÄ±z: `pnpm dev:web` â€” `NEXT_PUBLIC_MOCK`
-varsayÄ±lanÄ± artÄ±k **`'0'`** (gerÃ§ek backend). Mock'u aÃ§arsanÄ±z ekranÄ±n
-Ã¼stÃ¼nde **kapatÄ±lamaz** uyarÄ± bandÄ± gÃ¶rÃ¼nÃ¼r.
+⚠️ Arayüzü de çalıştıracaksanız: `pnpm dev:web` — `NEXT_PUBLIC_MOCK`
+varsayılanı artık **`'0'`** (gerçek backend). Mock'u açarsanız ekranın
+üstünde **kapatılamaz** uyarı bandı görünür.
 
-Docker Desktop kapalÄ±ysa Ã¶nce baÅŸlatÄ±lmalÄ±:
+Docker Desktop kapalıysa önce başlatılmalı:
 `C:\Users\HP\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`
 
-âš ï¸ **GeliÅŸtirme sunucusunu PowerShell'den baÅŸlatÄ±n, Git Bash'ten DEÄÄ°L**
-(Â§J.6): MSYS yol dÃ¶nÃ¼ÅŸÃ¼mÃ¼ `API_PREFIX` deÄŸerini bozar ve bÃ¼tÃ¼n rotalar 404
-verir. Åu an ayakta olan sÃ¼reÃ§ `node --env-file=.env backend/dist/main.js` ile
-koÅŸuyor â€” **derlenmiÅŸ Ã§Ä±ktÄ±, watch modu YOK**. GeliÅŸtirmeye devam etmeden Ã¶nce
-durdurup kendi `pnpm dev:backend` akÄ±ÅŸÄ±nÄ±zÄ± aÃ§Ä±n.
+⚠️ **Geliştirme sunucusunu PowerShell'den başlatın, Git Bash'ten DEĞİL**
+(§J.6): MSYS yol dönüşümü `API_PREFIX` değerini bozar ve bütün rotalar 404
+verir. Şu an ayakta olan süreç `node --env-file=.env backend/dist/main.js` ile
+koşuyor — **derlenmiş çıktı, watch modu YOK**. Geliştirmeye devam etmeden önce
+durdurup kendi `pnpm dev:backend` akışınızı açın.
 
 #### Bu oturumda kapananlar
 
-| Commit | Ä°ÅŸ |
+| Commit | İş |
 |---|---|
-| `ccf8fb0` | Tohum kurulumu tamamlanÄ±yor + CT-20 kurulum bÃ¼tÃ¼nlÃ¼ÄŸÃ¼ |
-| `f020b0b` | `odenen` tahsis satÄ±rlarÄ±ndan tÃ¼retiliyor + hisseli mÃ¼lkiyet fikstÃ¼rÃ¼ |
-| `a5a3285` | ADR-0017'ye hukuk/muhasebe araÅŸtÄ±rmasÄ± + iki atÄ±f dÃ¼zeltmesi |
-| `48d0647` | Tahakkukun dayanaÄŸÄ± kavramÄ± + bÃ¼tÃ§e farkÄ± sorularÄ± + terminoloji kuralÄ± |
-| `9abf128` | Tahakkuk muhasebeleÅŸtirmesi + daÄŸÄ±tÄ±m ezmesi + muhasebe derinliÄŸi |
-| `8e60d11` | SITE tenant muhasebeleÅŸiyor â€” `mutabikMi: true` |
-| `10950b2` | `verify` uygulama paketlerini tip denetimine aldÄ± |
-| `2ef78f4` | **Cari virman uygulandÄ±** (ADR-0016 Â§C) â€” CT-19 18/18 |
-| `e5297a8` | `FINANS_VIRMAN` ayrÄ± izin + ADR-0016 Â§A/Â§B soru listeleri |
-| `fdfbb48` Â· `877f1e4` | Referans envanteri â€” sÃ¼rÃ¼m ayrÄ±mÄ±, V16 sekme haritasÄ± sabit kayÄ±t |
-| `5a5e1f1` | `MOCK=0` Ã¶lÃ§Ã¼mÃ¼ â€” hiÃ§bir ekran kÄ±rÄ±lmÄ±yor Â· `/belgeler` menÃ¼den kaldÄ±rÄ±ldÄ± |
-| `35c57ca` Â· `e15dd80` | **CT-22 arayÃ¼z sÃ¶zleÅŸmesi** Â· `KatSatiri.blokId` Â· `Mock` Ã¶neki temizliÄŸi |
-| `cb4b9e0` | Sahte veri varsayÄ±lanÄ± **KAPALI** + kapatÄ±lamaz uyarÄ± bandÄ± |
-| `b67a36e` | **Muhasebe parametreleri ekranÄ±** (7. sekme) + derinlik geÃ§iÅŸ yasaÄŸÄ± |
+| `ccf8fb0` | Tohum kurulumu tamamlanıyor + CT-20 kurulum bütünlüğü |
+| `f020b0b` | `odenen` tahsis satırlarından türetiliyor + hisseli mülkiyet fikstürü |
+| `a5a3285` | ADR-0017'ye hukuk/muhasebe araştırması + iki atıf düzeltmesi |
+| `48d0647` | Tahakkukun dayanağı kavramı + bütçe farkı soruları + terminoloji kuralı |
+| `9abf128` | Tahakkuk muhasebeleştirmesi + dağıtım ezmesi + muhasebe derinliği |
+| `8e60d11` | SITE tenant muhasebeleşiyor — `mutabikMi: true` |
+| `10950b2` | `verify` uygulama paketlerini tip denetimine aldı |
+| `2ef78f4` | **Cari virman uygulandı** (ADR-0016 §C) — CT-19 18/18 |
+| `e5297a8` | `FINANS_VIRMAN` ayrı izin + ADR-0016 §A/§B soru listeleri |
+| `fdfbb48` · `877f1e4` | Referans envanteri — sürüm ayrımı, V16 sekme haritası sabit kayıt |
+| `5a5e1f1` | `MOCK=0` ölçümü — hiçbir ekran kırılmıyor · `/belgeler` menüden kaldırıldı |
+| `35c57ca` · `e15dd80` | **CT-22 arayüz sözleşmesi** · `KatSatiri.blokId` · `Mock` öneki temizliği |
+| `cb4b9e0` | Sahte veri varsayılanı **KAPALI** + kapatılamaz uyarı bandı |
+| `b67a36e` | **Muhasebe parametreleri ekranı** (7. sekme) + derinlik geçiş yasağı |
 
-#### â–¶â–¶ SIRADAKÄ° Ä°Å â€” TAHAKKUK Ã‡ALIÅTIRMA EKRANI (3 AÄŸustos'ta tarif edildi, BAÅLANMADI)
+#### ▶▶ SIRADAKİ İŞ — TAHAKKUK ÇALIŞTIRMA EKRANI (3 Ağustos'ta tarif edildi, BAŞLANMADI)
 
-Ekran yazÄ±mÄ± sÄ±rasÄ±: muhasebe parametreleri âœ… â†’ **tahakkuk Ã§alÄ±ÅŸtÄ±rma** â†’
-tahsilat + cari ekstre â†’ kasa/banka defteri â†’ virman.
+Ekran yazımı sırası: muhasebe parametreleri ✅ → **tahakkuk çalıştırma** →
+tahsilat + cari ekstre → kasa/banka defteri → virman.
 
-**Kapsam â€” Ã¼rÃ¼n sahibinin tarifi:**
+**Kapsam — ürün sahibinin tarifi:**
 
-1. DÃ¶nem ve gider tÃ¼rÃ¼ seÃ§imi
-2. Tutar giriÅŸi
-3. DaÄŸÄ±tÄ±m kuralÄ± â€” gider tÃ¼rÃ¼nden **varsayÄ±lan** gelir, **ezilebilir**
-4. â˜… **Ã–NÄ°ZLEME: daÄŸÄ±tÄ±m daire daire gÃ¶rÃ¼nÃ¼r, henÃ¼z yazÄ±lmaz**
-5. Onay â†’ tahakkuk oluÅŸur
-6. SonuÃ§ ekranÄ±
+1. Dönem ve gider türü seçimi
+2. Tutar girişi
+3. Dağıtım kuralı — gider türünden **varsayılan** gelir, **ezilebilir**
+4. ★ **ÖNİZLEME: dağıtım daire daire görünür, henüz yazılmaz**
+5. Onay → tahakkuk oluşur
+6. Sonuç ekranı
 
-> â˜… **Ã–NÄ°ZLEME ADIMI ATLANMASIN.** Mali kayÄ±t geri alÄ±namaz (ters kayÄ±tla
-> dÃ¼zeltilir); yÃ¶neticinin yanlÄ±ÅŸ tutarÄ± fark edebileceÄŸi **tek an** burasÄ±dÄ±r.
+> ★ **ÖNİZLEME ADIMI ATLANMASIN.** Mali kayıt geri alınamaz (ters kayıtla
+> düzeltilir); yöneticinin yanlış tutarı fark edebileceği **tek an** burasıdır.
 
-**Ekranda gÃ¶rÃ¼nmesi gerekenler:**
+**Ekranda görünmesi gerekenler:**
 
-- **Denge:** daÄŸÄ±tÄ±lan toplam = girilen tutar, **fark gÃ¶rÃ¼nÃ¼r**
-- **MÃ¼kerrer uyarÄ±sÄ±:** aynÄ± dÃ¶nem + gider tÃ¼rÃ¼ varsa **aÃ§Ä±k hata**
-- **`ISINMA_CAKISMASI`** uyarÄ±sÄ± (varsa)
-- Ezme veri gerektiriyorsa (`TUKETIM` Â· `MANUEL`) **eksik verinin hangi
-  bÃ¶lÃ¼mlerde olduÄŸu listelensin**
+- **Denge:** dağıtılan toplam = girilen tutar, **fark görünür**
+- **Mükerrer uyarısı:** aynı dönem + gider türü varsa **açık hata**
+- **`ISINMA_CAKISMASI`** uyarısı (varsa)
+- Ezme veri gerektiriyorsa (`TUKETIM` · `MANUEL`) **eksik verinin hangi
+  bölümlerde olduğu listelensin**
 
-**â›” Yapma:** yeni backend ucu Â· toplu dÃ¼zenleme/yuvarlama Â· otomatik
-tekrarlayan tahakkuk Â· baÅŸka ekrana geÃ§me.
+**⛔ Yapma:** yeni backend ucu · toplu düzenleme/yuvarlama · otomatik
+tekrarlayan tahakkuk · başka ekrana geçme.
 
-**BitiÅŸ Ã¶lÃ§Ã¼tÃ¼:** ekran gerÃ§ek API'ye baÄŸlÄ± Â· yeni tipler CT-22'de Â·
-Ã¶nizlemeâ†’onay uÃ§tan uca denenmiÅŸ (ham Ã§Ä±ktÄ±) Â· mÃ¼kerrer denemesinin ekranda
-ne gÃ¶sterdiÄŸi gÃ¶sterilmiÅŸ Â· sÃ¼it + verify + lint yeÅŸil.
+**Bitiş ölçütü:** ekran gerçek API'ye bağlı · yeni tipler CT-22'de ·
+önizleme→onay uçtan uca denenmiş (ham çıktı) · mükerrer denemesinin ekranda
+ne gösterdiği gösterilmiş · süit + verify + lint yeşil.
 
-â˜… **Ã–lÃ§Ã¼lmÃ¼ÅŸ olgu:** `POST /tahakkuk/onizleme` diye **ayrÄ± bir uÃ§ YOK**.
-Ã–nizleme, `POST /tahakkuk/calistir` gÃ¶vdesindeki **`onizleme: true`** bayraÄŸÄ±yla
-yapÄ±lÄ±r (`tahakkuk.dto.ts:181` â€” *"true ise borÃ§ YAZILMAZ, yalnÄ±zca daÄŸÄ±tÄ±m
-Ã¶nizlemesi dÃ¶ner"*). Yani yeni uÃ§ yazmaya gerek yok, tek uÃ§ iki kez Ã§aÄŸrÄ±lÄ±r.
+★ **Ölçülmüş olgu:** `POST /tahakkuk/onizleme` diye **ayrı bir uç YOK**.
+Önizleme, `POST /tahakkuk/calistir` gövdesindeki **`onizleme: true`** bayrağıyla
+yapılır (`tahakkuk.dto.ts:181` — *"true ise borç YAZILMAZ, yalnızca dağıtım
+önizlemesi döner"*). Yani yeni uç yazmaya gerek yok, tek uç iki kez çağrılır.
 
-#### â˜… Ä°LK GÃ–REV â€” karar bekleyen maddeler
+#### ★ İLK GÖREV — karar bekleyen maddeler
 
-Kod yazmadan Ã¶nce cevaplanmalÄ±; hepsi Ã¼rÃ¼n sahibine ait:
+Kod yazmadan önce cevaplanmalı; hepsi ürün sahibine ait:
 
-1. **ADR-0016 Â§A Â· kasa/banka virmanÄ±** (P1). AÃ§Ä±k hata duruyor: iki bacak
-   baÄŸÄ±msÄ±z muhasebeleÅŸebiliyor, *"paranÄ±n yarÄ±sÄ± deftere girer"*. **Ä°ki Ã¶neri
-   gerekÃ§esiyle yazÄ±ldÄ±** (birleÅŸme Â· `Hesap` tarafÄ±), karar bekliyor.
-2. **ADR-0016 Â§B Â· hesap virmanÄ±** (P2). â˜… Ä°lk soru *"gerekli mi"*: mevcut
-   storno + elle fiÅŸ yolu yeterli olabilir. Karar Ã¶lÃ§Ã¼tÃ¼ Ã¶lÃ§Ã¼m.
-3. **ADR-0015 soru 7** â€” yÄ±l sonu artÄ±/eksi bakiye nereye dÃ¼ÅŸer.
-4. **`APARTMAN_YONETICISI` yevmiye fiÅŸi kesebilmeli mi?** (P1) Virman kÄ±smÄ±
-   `FINANS_VIRMAN` ile Ã§Ã¶zÃ¼ldÃ¼; kalan yalnÄ±zca yevmiye yetkisi.
-5. **FiÅŸ Ã¼reten virman iÃ§in ek kontrol?** (P2) â€” karar **Ã¶lÃ§Ã¼me baÄŸlandÄ±**:
-   satÄ±rlÄ± virman pratikte kim tarafÄ±ndan yapÄ±lÄ±yor?
+1. **ADR-0016 §A · kasa/banka virmanı** (P1). Açık hata duruyor: iki bacak
+   bağımsız muhasebeleşebiliyor, *"paranın yarısı deftere girer"*. **İki öneri
+   gerekçesiyle yazıldı** (birleşme · `Hesap` tarafı), karar bekliyor.
+2. **ADR-0016 §B · hesap virmanı** (P2). ★ İlk soru *"gerekli mi"*: mevcut
+   storno + elle fiş yolu yeterli olabilir. Karar ölçütü ölçüm.
+3. **ADR-0015 soru 7** — yıl sonu artı/eksi bakiye nereye düşer.
+4. **`APARTMAN_YONETICISI` yevmiye fişi kesebilmeli mi?** (P1) Virman kısmı
+   `FINANS_VIRMAN` ile çözüldü; kalan yalnızca yevmiye yetkisi.
+5. **Fiş üreten virman için ek kontrol?** (P2) — karar **ölçüme bağlandı**:
+   satırlı virman pratikte kim tarafından yapılıyor?
 
-#### Sonra sÄ±rada (karar gerektirmeyen)
+#### Sonra sırada (karar gerektirmeyen)
 
-- `TahakkukDayanagi` uygulamasÄ± â€” model kararÄ± verildi (ADR-0017 Â§6.3), ayrÄ±
-  ADR ile. **Yol haritasÄ±nda P0**: bugÃ¼n tahakkuk tutarÄ± serbest giriliyor ve
-  tebligat/icra zincirinin ilk halkasÄ± tutulmuyor.
-- `GiderKapsami` / iki kademeli gider paylaÅŸÄ±mÄ± â€” site tarafÄ± bugÃ¼n ifade
+- `TahakkukDayanagi` uygulaması — model kararı verildi (ADR-0017 §6.3), ayrı
+  ADR ile. **Yol haritasında P0**: bugün tahakkuk tutarı serbest giriliyor ve
+  tebligat/icra zincirinin ilk halkası tutulmuyor.
+- `GiderKapsami` / iki kademeli gider paylaşımı — site tarafı bugün ifade
   edilemiyor.
-- Aidat artÄ±ÅŸ tavanÄ± (YDO) â€” Ã¼rÃ¼nde hiÃ§ yok.
-- Apartman tarafÄ±nÄ±n basit gelir-gider ekranÄ± (`BASIT` derinliÄŸin Ã§Ä±ktÄ±sÄ±).
+- Aidat artış tavanı (YDO) — üründe hiç yok.
+- Apartman tarafının basit gelir-gider ekranı (`BASIT` derinliğin çıktısı).
 
-### âœ… Ã–nceki ilk gÃ¶rev TAMAMLANDI
+### ✅ Önceki ilk görev TAMAMLANDI
 
-Â§3.G'deki iki dÃ¼zeltme uygulandÄ± ve doÄŸrulandÄ± (ayrÄ±ntÄ±: **Â§3.H**). Kabul
-Ã¶lÃ§Ã¼tÃ¼ karÅŸÄ±landÄ±: uygulama beyan edilen yoldan ayaÄŸa kalkÄ±yor, `/saglik` 200
-dÃ¶nÃ¼yor, giriÅŸ ucu 6. denemede 429 + `Retry-After` veriyor.
+§3.G'deki iki düzeltme uygulandı ve doğrulandı (ayrıntı: **§3.H**). Kabul
+ölçütü karşılandı: uygulama beyan edilen yoldan ayağa kalkıyor, `/saglik` 200
+dönüyor, giriş ucu 6. denemede 429 + `Retry-After` veriyor.
 
-### âš ï¸ AÃ‡IK Ä°Å â€” satÄ±r kapsamÄ± (31 Temmuz, oturum ortasÄ±nda kesildi)
+### ⚠️ AÇIK İŞ — satır kapsamı (31 Temmuz, oturum ortasında kesildi)
 
-**Durum: kod ve migration YAZILDI ve UYGULANDI; 0025 sonrasÄ± testler
-KOÅULMADI.** Sonraki oturumun ilk iÅŸi budur.
+**Durum: kod ve migration YAZILDI ve UYGULANDI; 0025 sonrası testler
+KOŞULMADI.** Sonraki oturumun ilk işi budur.
 
 #### Tamamlananlar
 
-| Ä°ÅŸ | Durum |
+| İş | Durum |
 |---|---|
-| CT-13 `satir-kapsami.spec.ts` (14 test) | âœ… yazÄ±ldÄ± Â· 0024'e kadar yeÅŸil |
-| CT-14 `kapsam-kenar-durumlari.spec.ts` (12 test) | âœ… yazÄ±ldÄ± Â· 0024'e kadar yeÅŸil |
-| Migration 0022 â€” kapsam ekseni, 15 RESTRICTIVE politika | âœ… uygulandÄ± |
-| Migration 0023 â€” kiraya verilen mÃ¼lkte yalnÄ±zca borÃ§/Ã¶deme | âœ… uygulandÄ± |
-| Migration 0024 â€” hisseli mÃ¼lkiyette yalnÄ±zca kendi payÄ± | âœ… uygulandÄ± |
-| Migration 0025 â€” InitPlan sarmalama | âœ… uygulandÄ± |
-| `docs/SATIR-KAPSAMI-KANITI.md` â€” 55 tablonun kapsam envanteri | âœ… |
-| Git geÃ§miÅŸi sÄ±zÄ±ntÄ± taramasÄ± (67 commit) | âœ… **temiz** |
+| CT-13 `satir-kapsami.spec.ts` (14 test) | ✅ yazıldı · 0024'e kadar yeşil |
+| CT-14 `kapsam-kenar-durumlari.spec.ts` (12 test) | ✅ yazıldı · 0024'e kadar yeşil |
+| Migration 0022 — kapsam ekseni, 15 RESTRICTIVE politika | ✅ uygulandı |
+| Migration 0023 — kiraya verilen mülkte yalnızca borç/ödeme | ✅ uygulandı |
+| Migration 0024 — hisseli mülkiyette yalnızca kendi payı | ✅ uygulandı |
+| Migration 0025 — InitPlan sarmalama | ✅ uygulandı |
+| `docs/SATIR-KAPSAMI-KANITI.md` — 55 tablonun kapsam envanteri | ✅ |
+| Git geçmişi sızıntı taraması (67 commit) | ✅ **temiz** |
 
-#### ğŸ”´ 0025 SONRASI TESTLER KOÅULMADI
+#### 🔴 0025 SONRASI TESTLER KOŞULMADI
 
-50 sÃ¶zleÅŸme testi **0024 durumunda** yeÅŸildi. `0025_kapsam_initplan`
-politika ifadelerini yeniden yazdÄ± ve **ondan sonra hiÃ§bir test koÅŸulmadÄ±**.
-Ä°lk iÅŸ: `pnpm test:contract` â†’ 50/50 beklenir. KÄ±rmÄ±zÄ± Ã§Ä±karsa DUR ve bildir.
+50 sözleşme testi **0024 durumunda** yeşildi. `0025_kapsam_initplan`
+politika ifadelerini yeniden yazdı ve **ondan sonra hiçbir test koşulmadı**.
+İlk iş: `pnpm test:contract` → 50/50 beklenir. Kırmızı çıkarsa DUR ve bildir.
 
-#### âš ï¸ `= ANY ((SELECT dizi))` YAZILAMAZ â€” 42883
+#### ⚠️ `= ANY ((SELECT dizi))` YAZILAMAZ — 42883
 
-Talimatta yazÄ±lan biÃ§im PostgreSQL'de **Ã§alÄ±ÅŸmaz**:
+Talimatta yazılan biçim PostgreSQL'de **çalışmaz**:
 
 ```sql
 id = ANY ((SELECT app_kapsam_kisileri()))
 -- ERROR 42883: operator does not exist: uuid = uuid[]
 ```
 
-PostgreSQL bunu *alt sorgu biÃ§imi* sanÄ±p `uuid = uuid[]` operatÃ¶rÃ¼ arar.
-0025'te kullanÄ±lan geÃ§erli biÃ§im:
+PostgreSQL bunu *alt sorgu biçimi* sanıp `uuid = uuid[]` operatörü arar.
+0025'te kullanılan geçerli biçim:
 
 ```sql
 id IN (SELECT unnest(app_kapsam_kisileri()))
 ```
 
-Bu da amaca ulaÅŸÄ±r: plan `hashed SubPlan` Ã¼retir, fonksiyon sorgu baÅŸÄ±na
-**bir kez** Ã§alÄ±ÅŸÄ±r. Skaler Ã§aÄŸrÄ±lar (`app_kapsam_serbest`,
-`app_kapsam_kisi_id`) `(SELECT f())` ile sarÄ±labilir ve InitPlan olur.
+Bu da amaca ulaşır: plan `hashed SubPlan` üretir, fonksiyon sorgu başına
+**bir kez** çalışır. Skaler çağrılar (`app_kapsam_serbest`,
+`app_kapsam_kisi_id`) `(SELECT f())` ile sarılabilir ve InitPlan olur.
 
-#### Ã–lÃ§Ã¼m â€” 0025 Ã¶ncesi/sonrasÄ± (uygulama rolÃ¼ `bnos_app`)
+#### Ölçüm — 0025 öncesi/sonrası (uygulama rolü `bnos_app`)
 
-Sentetik: 5.000 baÄŸÄ±msÄ±z bÃ¶lÃ¼m Â· 5.000 kiÅŸi Â· 5.000 malik.
+Sentetik: 5.000 bağımsız bölüm · 5.000 kişi · 5.000 malik.
 
-| Senaryo | Execution Ã–NCE | SONRA | Buffers Ã–NCE | SONRA |
+| Senaryo | Execution ÖNCE | SONRA | Buffers ÖNCE | SONRA |
 |---|---|---|---|---|
-| KÄ±sÄ±tsÄ±z | 0,295 ms | 1,474 ms | 54 | 54 |
+| Kısıtsız | 0,295 ms | 1,474 ms | 54 | 54 |
 | 1 daireli malik | 280,483 ms | 12,700 ms | 15.194 | 5.023 |
 | 200 daireli malik | **39.227 ms** | **10,639 ms** | **545.390** | **1.709** |
-| 5.000 daireli malik | 10 dk'da bitmedi | Ã¶lÃ§Ã¼lemedi (Ã§Ä±ktÄ± kesildi) | â€” | 10.057 |
+| 5.000 daireli malik | 10 dk'da bitmedi | ölçülemedi (çıktı kesildi) | — | 10.057 |
 
-Plan artÄ±k `InitPlan 1/2` + `hashed SubPlan 3` dÃ¼ÄŸÃ¼mlerini gÃ¶steriyor.
-KÄ±sÄ±tsÄ±z yol 0,295 â†’ 1,474 ms yavaÅŸladÄ± (InitPlan yÃ¶neticide de kuruluyor);
-mutlak deÄŸer kÃ¼Ã§Ã¼k ama gerÃ§ek.
+Plan artık `InitPlan 1/2` + `hashed SubPlan 3` düğümlerini gösteriyor.
+Kısıtsız yol 0,295 → 1,474 ms yavaşladı (InitPlan yöneticide de kuruluyor);
+mutlak değer küçük ama gerçek.
 
-`set_config` boyutu **deÄŸiÅŸmedi**: 200 daire = 7.399 bayt, 5.000 daire =
+`set_config` boyutu **değişmedi**: 200 daire = 7.399 bayt, 5.000 daire =
 184.999 bayt.
 
-#### ÃœrÃ¼n sahibi kararlarÄ± (bu oturumda alÄ±ndÄ±)
+#### Ürün sahibi kararları (bu oturumda alındı)
 
 | Konu | Karar |
 |---|---|
-| ReÅŸit olmayan | YalnÄ±zca **baÅŸka hane** gizlenir; veli kendi Ã§ocuÄŸunu gÃ¶rÃ¼r |
-| KÄ°RACI bina finansÄ± | Yeni izin `FINANS_BINA_OZET` â€” MALÄ°K'te var, KÄ°RACI'da yok |
-| Kiraya verilen mÃ¼lk | Malik yalnÄ±zca **borÃ§ + Ã¶deme** gÃ¶rÃ¼r (KMK md. 22) |
-| Hisseli mÃ¼lkiyet | Her malik **yalnÄ±zca kendi payÄ±nÄ±** gÃ¶rÃ¼r (0024) |
-| Ã‡ok rollÃ¼ kiÅŸi | BirleÅŸim korunur â€” bir rolÃ¼ kÄ±sÄ±tsÄ±zsa kapsam kurulmaz |
-| SECURITY DEFINER (AdÄ±m 2) | âŒ **GERÄ° Ã‡EKÄ°LDÄ°** â€” ADR-0002 ile Ã§eliÅŸiyor |
-| Ayar boyutunu kÃ¼Ã§Ã¼ltme | âŒ ÅŸimdilik yapÄ±lmayacak |
+| Reşit olmayan | Yalnızca **başka hane** gizlenir; veli kendi çocuğunu görür |
+| KİRACI bina finansı | Yeni izin `FINANS_BINA_OZET` — MALİK'te var, KİRACI'da yok |
+| Kiraya verilen mülk | Malik yalnızca **borç + ödeme** görür (KMK md. 22) |
+| Hisseli mülkiyet | Her malik **yalnızca kendi payını** görür (0024) |
+| Çok rollü kişi | Birleşim korunur — bir rolü kısıtsızsa kapsam kurulmaz |
+| SECURITY DEFINER (Adım 2) | ❌ **GERİ ÇEKİLDİ** — ADR-0002 ile çelişiyor |
+| Ayar boyutunu küçültme | ❌ şimdilik yapılmayacak |
 
-#### Sonraki oturumun sÄ±rasÄ±
+#### Sonraki oturumun sırası
 
-1. `pnpm test:contract` â€” 50/50 doÄŸrula (0025 sonrasÄ± ilk koÅŸu).
-2. Ã–lÃ§Ã¼mÃ¼ tekrarla: 30 kiÅŸi Â· 5.000 kiÅŸi Â· 200 daireli malik. 5.000 daireli
-   senaryonun `Execution Time`'Ä± **hÃ¢lÃ¢ eksik**.
-3. **Analiz sorularÄ±** (Â§ aÅŸaÄŸÄ±da) yanÄ±tlandÄ±; kararÄ± Ã¼rÃ¼n sahibi verecek.
-4. Veri temizliÄŸi: `prisma migrate reset` + seed. Ters kayÄ±t KULLANILMAZ â€”
-   yerel fikstÃ¼r muhasebe kaydÄ± deÄŸildir.
-5. Ters kayÄ±t / soft delete / toplu geri alma iÃ§in **ayrÄ±** testler.
-6. CI kilitleme ve README:151 â€” politika DDL'i durulana kadar **beklemede**.
+1. `pnpm test:contract` — 50/50 doğrula (0025 sonrası ilk koşu).
+2. Ölçümü tekrarla: 30 kişi · 5.000 kişi · 200 daireli malik. 5.000 daireli
+   senaryonun `Execution Time`'ı **hâlâ eksik**.
+3. **Analiz soruları** (§ aşağıda) yanıtlandı; kararı ürün sahibi verecek.
+4. Veri temizliği: `prisma migrate reset` + seed. Ters kayıt KULLANILMAZ —
+   yerel fikstür muhasebe kaydı değildir.
+5. Ters kayıt / soft delete / toplu geri alma için **ayrı** testler.
+6. CI kilitleme ve README:151 — politika DDL'i durulana kadar **beklemede**.
 
-#### VeritabanÄ±nda duran artÄ±klar
+#### Veritabanında duran artıklar
 
-- `perf-5000` tenant'Ä± (5.000 bÃ¶lÃ¼m Â· 5.000 kiÅŸi Â· 5.000 malik)
-- `malik-test@guzel-apartmani.test` kullanÄ±cÄ±sÄ±
-- 2026-03 dÃ¶nemi tahakkuku (4 borÃ§ kaydÄ±)
-- CT-13/CT-14 tenant'larÄ± (denetim kaydÄ± olanlar silinemedi â€” trigger)
+- `perf-5000` tenant'ı (5.000 bölüm · 5.000 kişi · 5.000 malik)
+- `malik-test@guzel-apartmani.test` kullanıcısı
+- 2026-03 dönemi tahakkuku (4 borç kaydı)
+- CT-13/CT-14 tenant'ları (denetim kaydı olanlar silinemedi — trigger)
 
-Hepsi `migrate reset` ile gidecek. VeritabanÄ± **yerel**, paylaÅŸÄ±mlÄ± deÄŸil.
+Hepsi `migrate reset` ile gidecek. Veritabanı **yerel**, paylaşımlı değil.
 
-#### ğŸ”´ Depo PUBLIC
+#### 🔴 Depo PUBLIC
 
-`90d085b` Â· `e7543f7` Â· `3220c3b` commit'leri kapatÄ±lmamÄ±ÅŸ aÃ§Ä±ÄŸÄ±n tarifini
-yayÄ±mladÄ±. ÃœrÃ¼n sahibi depoyu private yapacaÄŸÄ±nÄ± bildirdi. GeÃ§miÅŸ
-**yeniden yazÄ±lmayacak** (Ã¶nbellek ve Ã§atallar kalÄ±r); sÄ±zmÄ±ÅŸ bir sÄ±r
-bulunmadÄ±ÄŸÄ± iÃ§in iptal edilecek anahtar da yok.
+`90d085b` · `e7543f7` · `3220c3b` commit'leri kapatılmamış açığın tarifini
+yayımladı. Ürün sahibi depoyu private yapacağını bildirdi. Geçmiş
+**yeniden yazılmayacak** (önbellek ve çatallar kalır); sızmış bir sır
+bulunmadığı için iptal edilecek anahtar da yok.
 
-### L. CI yeÅŸile dÃ¶ndÃ¼ Â· virman analizi (1â€“2 AÄŸustos 2026)
+### L. CI yeşile döndü · virman analizi (1–2 Ağustos 2026)
 
-**CI ilk kez koÅŸtu ve tam yeÅŸile dÃ¶ndÃ¼.** Depo kurulduÄŸundan beri hiÃ§
-Ã§alÄ±ÅŸmamÄ±ÅŸtÄ±; tetikleyicide `master` yoktu. BeÅŸ turda beÅŸ ayrÄ± sÄ±nÄ±f arÄ±za
-Ã§Ä±ktÄ± â€” ayrÄ±ntÄ± ve **ortak sebep** [`YOL-HARITASI.md`](YOL-HARITASI.md)
-"Ã‡Ã¼rÃ¼tÃ¼len varsayÄ±mlar" bÃ¶lÃ¼mÃ¼ndedir.
+**CI ilk kez koştu ve tam yeşile döndü.** Depo kurulduğundan beri hiç
+çalışmamıştı; tetikleyicide `master` yoktu. Beş turda beş ayrı sınıf arıza
+çıktı — ayrıntı ve **ortak sebep** [`YOL-HARITASI.md`](YOL-HARITASI.md)
+"Çürütülen varsayımlar" bölümündedir.
 
-Son durum (koÅŸu `f7aeacf`): `mimari` âœ… Â· `belge` âœ… Â· `migration` âœ… Â·
-`kalite` âœ… â€” sÃ¶zleÅŸme testleri **uygulama rolÃ¼yle** koÅŸuyor, yani CT-01
-gerÃ§ekten RLS'i sÄ±nÄ±yor.
+Son durum (koşu `f7aeacf`): `mimari` ✅ · `belge` ✅ · `migration` ✅ ·
+`kalite` ✅ — sözleşme testleri **uygulama rolüyle** koşuyor, yani CT-01
+gerçekten RLS'i sınıyor.
 
-**KalÄ±cÄ± kapÄ±lar (hepsi bozukken kÄ±rmÄ±zÄ± verdiÄŸi gÃ¶rÃ¼lerek eklendi):**
+**Kalıcı kapılar (hepsi bozukken kırmızı verdiği görülerek eklendi):**
 
-| KapÄ± | Ne yakalar |
+| Kapı | Ne yakalar |
 |---|---|
-| `config-check` Â· Node sÃ¼rÃ¼mÃ¼ | `.nvmrc` Â· `engines` Â· iÅŸ akÄ±ÅŸlarÄ± ayrÄ±ÅŸÄ±rsa |
-| `scripts/test-onkosul.mjs` | derlenmiÅŸ Ã§Ä±ktÄ± yoksa `ERR_MODULE_NOT_FOUND` yerine aÃ§Ä±k mesaj |
-| `scripts/env-sozlesme-check.mjs` | ÅŸemadaki zorunlu anahtar `.env.example`'da yoksa |
-| CI `migration` iÅŸi | zincir boÅŸ veritabanÄ±na uygulanamÄ±yorsa Â· reset geri dÃ¼ÅŸÃ¼ÅŸe girerse |
-| `.github/actions/kosu-ve-raporla` | hata metnini `::error::` olarak yayÄ±nlar â€” log admin ister, annotation istemez |
+| `config-check` · Node sürümü | `.nvmrc` · `engines` · iş akışları ayrışırsa |
+| `scripts/test-onkosul.mjs` | derlenmiş çıktı yoksa `ERR_MODULE_NOT_FOUND` yerine açık mesaj |
+| `scripts/env-sozlesme-check.mjs` | şemadaki zorunlu anahtar `.env.example`'da yoksa |
+| CI `migration` işi | zincir boş veritabanına uygulanamıyorsa · reset geri düşüşe girerse |
+| `.github/actions/kosu-ve-raporla` | hata metnini `::error::` olarak yayınlar — log admin ister, annotation istemez |
 
-**Tohum artÄ±k demo fikstÃ¼rÃ¼dÃ¼r.** CI'Ä±n kullandÄ±ÄŸÄ± veri ile sunumda
-gÃ¶sterilecek veri **aynÄ±**: 12 daire, sÃ¶ylenebilir isimler, 3 kiracÄ±,
-3 dÃ¶nem tahakkuk geÃ§miÅŸi, 12 aÃ§Ä±k ve vadesi geÃ§miÅŸ borÃ§ (23.400 TL).
-GiriÅŸ: `yonetici@guzel-apartmani.test` / `bnos1234`.
+**Tohum artık demo fikstürüdür.** CI'ın kullandığı veri ile sunumda
+gösterilecek veri **aynı**: 12 daire, söylenebilir isimler, 3 kiracı,
+3 dönem tahakkuk geçmişi, 12 açık ve vadesi geçmiş borç (23.400 TL).
+Giriş: `yonetici@guzel-apartmani.test` / `bnos1234`.
 
-**Virman analizi** â€” kod yazÄ±lmadÄ±, [ADR-0016](docs/adr/log/ADR-0016-virman.md)
-taslaÄŸÄ± aÃ§Ä±ldÄ±. DÃ¶rt tÃ¼r ayrÄ±ldÄ± (A kasa/banka Â· B hesap Â· C cari Â·
-D kalem bazlÄ± tahsis) ve taramadan Ã§Ä±kan bulgular:
+**Virman analizi** — kod yazılmadı, [ADR-0016](docs/adr/log/ADR-0016-virman.md)
+taslağı açıldı. Dört tür ayrıldı (A kasa/banka · B hesap · C cari ·
+D kalem bazlı tahsis) ve taramadan çıkan bulgular:
 
-- âš ï¸ **Bankaâ†”banka virmanÄ±n iki bacaÄŸÄ± BAÄIMSIZ muhasebeleÅŸiyor.** Biri
-  deftere girip Ã¶teki girmezse para kaybolmuÅŸ gÃ¶rÃ¼nÃ¼r, mizan tutmaz.
-  Ã–neri: virman anÄ±nda **tek fiÅŸ**; karar bekliyor.
-- Kasa ayrÄ± bir varlÄ±k deÄŸil (hesap planÄ± kalemi) â€” **kasaâ†”banka yolu yok**.
-- **Elle kalem tahsisi zaten asÄ±l yoldur**; otomatik FIFO yalnÄ±zca Ã¶neri ve
-  hiÃ§bir ÅŸey yazmÄ±yor. D'nin eksiÄŸi motor deÄŸil **arayÃ¼z**.
-- **Ä°leri dÃ¶nem tahakkuku bugÃ¼n mÃ¼mkÃ¼n** (tek tarih kuralÄ± `vade >= donem`).
-- **`YevmiyeFisi`'nde belge tarihi alanÄ± yok** â€” dayanak bilgisi serbest
-  metne sÄ±kÄ±ÅŸÄ±yor.
+- ⚠️ **Banka↔banka virmanın iki bacağı BAĞIMSIZ muhasebeleşiyor.** Biri
+  deftere girip öteki girmezse para kaybolmuş görünür, mizan tutmaz.
+  Öneri: virman anında **tek fiş**; karar bekliyor.
+- Kasa ayrı bir varlık değil (hesap planı kalemi) — **kasa↔banka yolu yok**.
+- **Elle kalem tahsisi zaten asıl yoldur**; otomatik FIFO yalnızca öneri ve
+  hiçbir şey yazmıyor. D'nin eksiği motor değil **arayüz**.
+- **İleri dönem tahakkuku bugün mümkün** (tek tarih kuralı `vade >= donem`).
+- **`YevmiyeFisi`'nde belge tarihi alanı yok** — dayanak bilgisi serbest
+  metne sıkışıyor.
 
-ADR-0015'teki dÃ¶nem kilidi sorusu dÃ¼zeltildi: **mekanizma var ve Ã§alÄ±ÅŸÄ±yor.**
-Yenileme fonunun amaca Ã¶zgÃ¼lÃ¼ÄŸÃ¼ (KMK md. 72) Â§3.E'deki C-4 listesine eklendi.
+ADR-0015'teki dönem kilidi sorusu düzeltildi: **mekanizma var ve çalışıyor.**
+Yenileme fonunun amaca özgülüğü (KMK md. 72) §3.E'deki C-4 listesine eklendi.
 
-### Ä°LK GÃ–REV â€” sÄ±rada ne var (3 AÄŸustos 2026)
+### İLK GÖREV — sırada ne var (3 Ağustos 2026)
 
-CI yeÅŸil, demo fikstÃ¼rÃ¼ hazÄ±r. SÄ±radaki Ã¼Ã§ iÅŸ:
+CI yeşil, demo fikstürü hazır. Sıradaki üç iş:
 
-1. **ADR-0016 Â· B ve C soru listeleri.** BÃ¶lÃ¼mler aÃ§Ä±k, taramadan Ã§Ä±kan
-   girdiler iÃ§inde, ama Ã¼rÃ¼n sahibinin soru listeleri **gelmedi**. AyrÄ±ca
-   onay bekleyen Ã¼Ã§ karar var: sebep kodu baÅŸlangÄ±Ã§ listesi, `DIGER` kodu
-   olsun mu, virmanÄ±n taslak kalabilmesi.
+1. **ADR-0016 · B ve C soru listeleri.** Bölümler açık, taramadan çıkan
+   girdiler içinde, ama ürün sahibinin soru listeleri **gelmedi**. Ayrıca
+   onay bekleyen üç karar var: sebep kodu başlangıç listesi, `DIGER` kodu
+   olsun mu, virmanın taslak kalabilmesi.
 
-2. **â˜… VirmanÄ±n iki bacaÄŸÄ±nÄ±n baÄŸÄ±msÄ±z muhasebeleÅŸmesi.** ADR-0016 Â§A'daki
-   aÃ§Ä±k hata â€” para kaybolmuÅŸ gÃ¶rÃ¼nÃ¼yor. Ã–neri "tek fiÅŸ" yazÄ±lÄ±, karar
-   bekliyor. Karar Ã§Ä±kÄ±nca bu bir P0 dÃ¼zeltmesidir.
+2. **★ Virmanın iki bacağının bağımsız muhasebeleşmesi.** ADR-0016 §A'daki
+   açık hata — para kaybolmuş görünüyor. Öneri "tek fiş" yazılı, karar
+   bekliyor. Karar çıkınca bu bir P0 düzeltmesidir.
 
-3. **Demo ekranÄ±.** D bÃ¶lÃ¼mÃ¼nÃ¼n eksiÄŸi motor deÄŸil arayÃ¼z. ÃœÃ§ aday:
-   Tahakkuk SihirbazÄ± Â· `/belgeler` (menÃ¼de Ã¶lÃ¼ link) Â· Sakin paneli.
-   Hangisinin Ã¶nce yapÄ±lacaÄŸÄ± seÃ§ilmedi.
+3. **Demo ekranı.** D bölümünün eksiği motor değil arayüz. Üç aday:
+   Tahakkuk Sihirbazı · `/belgeler` (menüde ölü link) · Sakin paneli.
+   Hangisinin önce yapılacağı seçilmedi.
 
-**YapÄ±sal borÃ§, arka planda duruyor:** yerelde Linux yok. BeÅŸ CI arÄ±zasÄ±nÄ±n
-beÅŸi de yerelde gÃ¶rÃ¼nemezdi. WSL2 kurulu ama boÅŸ; kapanmazsa altÄ±ncÄ±sÄ± da
+**Yapısal borç, arka planda duruyor:** yerelde Linux yok. Beş CI arızasının
+beşi de yerelde görünemezdi. WSL2 kurulu ama boş; kapanmazsa altıncısı da
 CI'da bulunacak.
 
-Daha Ã¶nce sÄ±raya alÄ±nmÄ±ÅŸ ve **hÃ¢lÃ¢ aÃ§Ä±k** olanlar: kapsam Ã¶nbelleÄŸi TTL
-gÃ¼venlik doÄŸrulamasÄ± (A0.7'deki 17. negatif testin hangi yolu Ã¶lÃ§tÃ¼ÄŸÃ¼),
-ADR-0013 partileme kararÄ±, kapsam kurulumunun O(tenant) maliyeti,
-`yalnizcaKendiVerisi` uÃ§larÄ±nÄ±n kalan denetimi, ÅŸemaâ†”migration sÃ¼rÃ¼klenmesi
+Daha önce sıraya alınmış ve **hâlâ açık** olanlar: kapsam önbelleği TTL
+güvenlik doğrulaması (A0.7'deki 17. negatif testin hangi yolu ölçtüğü),
+ADR-0013 partileme kararı, kapsam kurulumunun O(tenant) maliyeti,
+`yalnizcaKendiVerisi` uçlarının kalan denetimi, şema↔migration sürüklenmesi
 (P1), imaj duman testi.
 
-### Muhasebe/Banka talebinin EKSÄ°K KALAN bÃ¶lÃ¼mleri
+### Muhasebe/Banka talebinin EKSİK KALAN bölümleri
 
-KullanÄ±cÄ± 10 bÃ¶lÃ¼mlÃ¼k bir liste verdi (~100+ ekran). Bu commit **1. bÃ¶lÃ¼mÃ¼n
-Ã§ekirdeÄŸini** tamamladÄ±; geri kalanÄ± aÅŸaÄŸÄ±da. SÄ±ralama baÄŸÄ±mlÄ±lÄ±ÄŸa gÃ¶redir:
-analiz/liste/ekstre/dÃ¶kÃ¼m ekranlarÄ±nÄ±n hepsi muhasebe Ã§ekirdeÄŸinin ve banka
-modÃ¼lÃ¼nÃ¼n Ã¼stÃ¼ne kurulur.
+Kullanıcı 10 bölümlük bir liste verdi (~100+ ekran). Bu commit **1. bölümün
+çekirdeğini** tamamladı; geri kalanı aşağıda. Sıralama bağımlılığa göredir:
+analiz/liste/ekstre/döküm ekranlarının hepsi muhasebe çekirdeğinin ve banka
+modülünün üstüne kurulur.
 
-| BÃ¶lÃ¼m | Durum |
+| Bölüm | Durum |
 |---|---|
-| **1. Muhasebe** | âœ… Ã§ekirdek tamam (fiÅŸ Â· hesap planÄ± Â· 3 defter Â· mizan Â· parametre Â· 6 kapanÄ±ÅŸ iÅŸlemi) Â· âŒ Muhasebe RaporlarÄ± (bkz. 6) |
-| **2. Banka YÃ¶netimi** (17 alt modÃ¼l) | âœ… **Ã§ekirdek tamam** (0016) â€” banka Â· ÅŸube Â· hesap Â· POS/sanal POS Â· hareket (havale/EFT/FAST/virman/masraf/faiz/POS) Â· ekstre Â· mutabakat Â· Ã§ek/senet Â· parametre. **API tam, EKRAN YOK** (kullanÄ±cÄ± talimatÄ±) |
-| **3. Muhasebe Analizleri** (11 ekran) | âŒ yok. Ã–deme skorlarÄ± `borc` + `borc_sorumlusu` Ã¼zerinden tÃ¼retilebilir; nakit akÄ±ÅŸÄ± artÄ±k **banka hareketlerinden tÃ¼retilebilir** (Ã¶n koÅŸul kalktÄ±) |
-| **4. Listeler** (14 ekran) | âš ï¸ veri temeli var (`borc` Â· `Malik/Kiraci/Sakin` Â· mizan), ekran yok. Makbuz numaralandÄ±rma serileri hazÄ±r |
-| **5. Ekstreler** (7 ekran) | âš ï¸ **Muavin bunun motoru**: cari/kasa/banka/genel hesap ekstresi `muavin` ucunun farklÄ± hesap seÃ§imleridir. Personel ve site sakini ekstresi cari hesap kavramÄ± ister (henÃ¼z yok) |
-| **6. DÃ¶kÃ¼mler** (7 dÃ¶kÃ¼m) | âš ï¸ **Mizan âœ… Â· Muavin âœ…** Â· BilanÃ§o Â· Gelir Tablosu Â· FiÅŸ dÃ¶kÃ¼mÃ¼ Â· Hesap planÄ± dÃ¶kÃ¼mÃ¼ Â· Gelir-gider muavini âŒ |
-| **7. Grafikler** (7 grafik) | âŒ yok. `dataviz` yÃ¶nergesi izlenmeli; veri kaynaklarÄ± (3) ve (6)'ya baÄŸlÄ± |
-| **8. Ä°letiÅŸim** (9 ekran) | âš ï¸ veri var (kiÅŸi Â· araÃ§ Â· misafir giriÅŸ-Ã§Ä±kÄ±ÅŸ Â· personel), ekran/Ã§Ä±ktÄ± yok |
-| **9. Evrak YÃ¶netimi** | âš ï¸ **Belge modÃ¼lÃ¼ tam** (versiyonlama Â· kategori Â· gizlilik Â· Ã¶nizleme Â· KVKK Â· MinIO). 0015 `YEVMIYE_FISI` + `MUHASEBE_DONEMI`, 0016 `BANKA_HAREKETI` + `BANKA_EKSTRESI` + `KIYMETLI_EVRAK` ekledi; **cari hesap iliÅŸkisi FAZ 2'de**. `/belgeler` EKRANI hÃ¢lÃ¢ yok |
-| **10. Genel Ã–zellikler** | âš ï¸ Audit âœ… (hash zincirli) Â· Yetkilendirme âœ… (ÃœÃ§ KapÄ±) Â· Listeleme/arama/filtreleme/sÄ±ralama âœ… Â· Sayfalama âš ï¸ (limit var, cursor yok) Â· YazdÄ±rma âœ… (`@media print`) Â· **Excel/PDF aktarma âŒ kÃ¼tÃ¼phane kararÄ± bekliyor** Â· Toplu iÅŸlem âš ï¸ kÄ±smÃ® Â· Ä°ÅŸlem geÃ§miÅŸi âš ï¸ audit'ten okunuyor, ekranÄ± yok |
+| **1. Muhasebe** | ✅ çekirdek tamam (fiş · hesap planı · 3 defter · mizan · parametre · 6 kapanış işlemi) · ❌ Muhasebe Raporları (bkz. 6) |
+| **2. Banka Yönetimi** (17 alt modül) | ✅ **çekirdek tamam** (0016) — banka · şube · hesap · POS/sanal POS · hareket (havale/EFT/FAST/virman/masraf/faiz/POS) · ekstre · mutabakat · çek/senet · parametre. **API tam, EKRAN YOK** (kullanıcı talimatı) |
+| **3. Muhasebe Analizleri** (11 ekran) | ❌ yok. Ödeme skorları `borc` + `borc_sorumlusu` üzerinden türetilebilir; nakit akışı artık **banka hareketlerinden türetilebilir** (ön koşul kalktı) |
+| **4. Listeler** (14 ekran) | ⚠️ veri temeli var (`borc` · `Malik/Kiraci/Sakin` · mizan), ekran yok. Makbuz numaralandırma serileri hazır |
+| **5. Ekstreler** (7 ekran) | ⚠️ **Muavin bunun motoru**: cari/kasa/banka/genel hesap ekstresi `muavin` ucunun farklı hesap seçimleridir. Personel ve site sakini ekstresi cari hesap kavramı ister (henüz yok) |
+| **6. Dökümler** (7 döküm) | ⚠️ **Mizan ✅ · Muavin ✅** · Bilanço · Gelir Tablosu · Fiş dökümü · Hesap planı dökümü · Gelir-gider muavini ❌ |
+| **7. Grafikler** (7 grafik) | ❌ yok. `dataviz` yönergesi izlenmeli; veri kaynakları (3) ve (6)'ya bağlı |
+| **8. İletişim** (9 ekran) | ⚠️ veri var (kişi · araç · misafir giriş-çıkış · personel), ekran/çıktı yok |
+| **9. Evrak Yönetimi** | ⚠️ **Belge modülü tam** (versiyonlama · kategori · gizlilik · önizleme · KVKK · MinIO). 0015 `YEVMIYE_FISI` + `MUHASEBE_DONEMI`, 0016 `BANKA_HAREKETI` + `BANKA_EKSTRESI` + `KIYMETLI_EVRAK` ekledi; **cari hesap ilişkisi FAZ 2'de**. `/belgeler` EKRANI hâlâ yok |
+| **10. Genel Özellikler** | ⚠️ Audit ✅ (hash zincirli) · Yetkilendirme ✅ (Üç Kapı) · Listeleme/arama/filtreleme/sıralama ✅ · Sayfalama ⚠️ (limit var, cursor yok) · Yazdırma ✅ (`@media print`) · **Excel/PDF aktarma ❌ kütüphane kararı bekliyor** · Toplu işlem ⚠️ kısmî · İşlem geçmişi ⚠️ audit'ten okunuyor, ekranı yok |
 
-**Neden hepsi yapÄ±lmadÄ±:** ~100 ekranÄ± tek oturumda Ã¼retmek, kullanÄ±cÄ±nÄ±n kendi
-koyduÄŸu iki kurala aykÄ±rÄ± olurdu â€” *"Gereksiz tekrar eden ekran oluÅŸturma"* ve
-*"Kod kalitesini dÃ¼ÅŸÃ¼rme"*. Muhasebe Ã§ekirdeÄŸi seÃ§ildi Ã§Ã¼nkÃ¼ 3 Â· 4 Â· 5 Â· 6 Â· 7
-bÃ¶lÃ¼mlerinin **tamamÄ±** onun okuma modelleridir; Ã§ekirdek yanlÄ±ÅŸsa yÃ¼z ekran da
-yanlÄ±ÅŸ olur.
+**Neden hepsi yapılmadı:** ~100 ekranı tek oturumda üretmek, kullanıcının kendi
+koyduğu iki kurala aykırı olurdu — *"Gereksiz tekrar eden ekran oluşturma"* ve
+*"Kod kalitesini düşürme"*. Muhasebe çekirdeği seçildi çünkü 3 · 4 · 5 · 6 · 7
+bölümlerinin **tamamı** onun okuma modelleridir; çekirdek yanlışsa yüz ekran da
+yanlış olur.
 
-**Ã–nerilen sÄ±ra:** ~~(a) Banka YÃ¶netimi Ã§ekirdeÄŸi~~ âœ… **bu commit** Â·
-**(b) Cari hesap kavramÄ±** â€” 4 ve 5'in Ã¶n koÅŸulu Â· (c) BilanÃ§o + Gelir Tablosu
-(mizandan tÃ¼retilir) Â· (d) Excel/PDF kÃ¼tÃ¼phane kararÄ±, sonra tÃ¼m dÃ¶kÃ¼mler Â·
-(e) Analizler ve grafikler Â· (f) `/belgeler` ve Ä°letiÅŸim ekranlarÄ± Â·
-(g) **ekranlarÄ±n toplu Ã¼retimi** â€” baÄŸÄ±mlÄ±lÄ±k sÄ±rasÄ±na gÃ¶re, her toplu grup
-kendi iÃ§inde Ã§alÄ±ÅŸÄ±r durumda.
+**Önerilen sıra:** ~~(a) Banka Yönetimi çekirdeği~~ ✅ **bu commit** ·
+**(b) Cari hesap kavramı** — 4 ve 5'in ön koşulu · (c) Bilanço + Gelir Tablosu
+(mizandan türetilir) · (d) Excel/PDF kütüphane kararı, sonra tüm dökümler ·
+(e) Analizler ve grafikler · (f) `/belgeler` ve İletişim ekranları ·
+(g) **ekranların toplu üretimi** — bağımlılık sırasına göre, her toplu grup
+kendi içinde çalışır durumda.
 
 ---
 
-## Mimari-Ã¶ncelikli plan â€” nerede kaldÄ±k
+## Mimari-öncelikli plan — nerede kaldık
 
-KullanÄ±cÄ±nÄ±n onayladÄ±ÄŸÄ± sÄ±ra: *"Finish the shared platform and domain
-foundation firstâ€¦ When the platform foundation is complete, automatically start
+Kullanıcının onayladığı sıra: *"Finish the shared platform and domain
+foundation first… When the platform foundation is complete, automatically start
 generating the remaining screens batch by batch."*
 
 | Faz | Kapsam | Durum |
 |---|---|---|
-| **FAZ 1** | Banka YÃ¶netimi Ã§ekirdeÄŸi (0016 Â· domain Â· CQRS servisleri) | âœ… **tamam** â€” 91/91 canlÄ± |
-| **FAZ 2** | **Cari hesap** â€” karar (ADR-0010) Â· 0017 Â· domain | âš ï¸ **YARIM** â€” aÅŸaÄŸÄ±da |
-| FAZ 3 | BilanÃ§o + Gelir Tablosu (mizandan tÃ¼retilir) | bekliyor |
-| FAZ 4 | Excel/PDF kÃ¼tÃ¼phane kararÄ± + aktarma altyapÄ±sÄ± | bekliyor |
-| FAZ 5+ | EkranlarÄ±n toplu Ã¼retimi (baÄŸÄ±mlÄ±lÄ±k sÄ±rasÄ±na gÃ¶re) | bekliyor |
+| **FAZ 1** | Banka Yönetimi çekirdeği (0016 · domain · CQRS servisleri) | ✅ **tamam** — 91/91 canlı |
+| **FAZ 2** | **Cari hesap** — karar (ADR-0010) · 0017 · domain | ⚠️ **YARIM** — aşağıda |
+| FAZ 3 | Bilanço + Gelir Tablosu (mizandan türetilir) | bekliyor |
+| FAZ 4 | Excel/PDF kütüphane kararı + aktarma altyapısı | bekliyor |
+| FAZ 5+ | Ekranların toplu üretimi (bağımlılık sırasına göre) | bekliyor |
 
-### FAZ 2 â€” cari hesap: karar VERÄ°LDÄ° (ADR-0010), asÄ±l eksik baÅŸkaydÄ±
+### FAZ 2 — cari hesap: karar VERİLDİ (ADR-0010), asıl eksik başkaydı
 
-Mimari soru â€” *cari, `hesap` aÄŸacÄ±nÄ±n altÄ±na mÄ± yoksa ayrÄ± bir `cari` tablosuna
-mÄ±?* â€” **referans belgelerde cevaplÄ±ydÄ±.** KullanÄ±cÄ±ya sorulmasÄ±na gerek
-kalmadÄ±:
+Mimari soru — *cari, `hesap` ağacının altına mı yoksa ayrı bir `cari` tablosuna
+mı?* — **referans belgelerde cevaplıydı.** Kullanıcıya sorulmasına gerek
+kalmadı:
 
-> **Debt follows the unit, not the person.** â€¦ The data model therefore attaches
+> **Debt follows the unit, not the person.** … The data model therefore attaches
 > the receivable to the **Daire**, with the responsible party recorded separately
-> and historically. â€” `07-Finance-Spec` Â§128
+> and historically. — `07-Finance-Spec` §128
 >
-> **The critical relationship:** `Receivable â†’ Daire`, not
-> `Receivable â†’ Resident`. â€” Â§561
+> **The critical relationship:** `Receivable → Daire`, not
+> `Receivable → Resident`. — §561
 >
-> `GET /statements/{unitId}` â€” **Unit** statement Â· `unit balance = Î£
-> receivables âˆ’ Î£ allocations`
+> `GET /statements/{unitId}` — **Unit** statement · `unit balance = Σ
+> receivables − Σ allocations`
 
-Referans prototipinde de yevmiye satÄ±rÄ± **`120 AlÄ±cÄ±lar (Daire Cari)`** â€”
-cari hesabÄ±n **birimi dairedir.** BNOS bunu zaten uygulamÄ±ÅŸ: `borc.bolum_id`
+Referans prototipinde de yevmiye satırı **`120 Alıcılar (Daire Cari)`** —
+cari hesabın **birimi dairedir.** BNOS bunu zaten uygulamış: `borc.bolum_id`
 zorunlu, `borc_sorumlusu` tarihsel snapshot.
 
 **Karar** ([ADR-0010](docs/adr/log/0010-cari-hesap-bolum-yardimci-defteri.md)):
-cari hesap ayrÄ± bir varlÄ±k deÄŸil, **kontrol hesabÄ± `120` ile mutabÄ±k olan bÃ¶lÃ¼m
-bazlÄ± yardÄ±mcÄ± defterdir.** KiÅŸi ekstresi bir **gÃ¶rÃ¼nÃ¼mdÃ¼r**
-(`borc_sorumlusu` sÃ¼zgeci), ayrÄ± defter deÄŸil. YardÄ±mcÄ± defter â†” kontrol hesabÄ±
-uyuÅŸmazlÄ±ÄŸÄ± **dÃ¶nem kapanÄ±ÅŸÄ±nÄ± bloke eder.**
+cari hesap ayrı bir varlık değil, **kontrol hesabı `120` ile mutabık olan bölüm
+bazlı yardımcı defterdir.** Kişi ekstresi bir **görünümdür**
+(`borc_sorumlusu` süzgeci), ayrı defter değil. Yardımcı defter ↔ kontrol hesabı
+uyuşmazlığı **dönem kapanışını bloke eder.**
 
-#### Karar netleÅŸince gÃ¶rÃ¼nen GERÃ‡EK eksik: `tahsilat` tablosu YOK
+#### Karar netleşince görünen GERÇEK eksik: `tahsilat` tablosu YOK
 
-Ã–deme bilgisi bugÃ¼n yalnÄ±zca `borc.odenen` ve `borc_sorumlusu.odenen`
-kolonlarÄ±nda **yÃ¼rÃ¼yen bir toplam**. SonuÃ§larÄ±:
+Ödeme bilgisi bugün yalnızca `borc.odenen` ve `borc_sorumlusu.odenen`
+kolonlarında **yürüyen bir toplam**. Sonuçları:
 
-- **Ekstre Ã¼retilemez** â€” ekstre "borÃ§ satÄ±rÄ± Â· Ã¶deme satÄ±rÄ± Â· yÃ¼rÃ¼yen bakiye"
-  ister; Ã¶deme satÄ±rÄ± diye bir kayÄ±t yok.
-- **Tahsis izlenemez** â€” bir Ã¶deme birden Ã§ok borcu kapatabilir; hangisine ne
-  kadar gittiÄŸi kayÄ±tsÄ±z.
-- **Denetlenemez** â€” `odenen` bir UPDATE ile artÄ±yor; kim, ne zaman, hangi
-  kanaldan tahsil etti belli deÄŸil. Bu FÄ°NANSAL kayÄ±ttÄ±r ve BFS v1 Â§5.1
-  uyarÄ±nca deÄŸiÅŸtirilemez olmalÄ±ydÄ±.
-- **Makbuz numarasÄ± baÄŸlanamaz** â€” boÅŸluksuz seri hazÄ±r ama baÄŸlanacak Ã¶deme
-  kaydÄ± yok.
-- **Banka mutabakatÄ± yarÄ±m kalÄ±yor** â€” 0016 ile aidat tahsilatÄ± arasÄ±nda baÄŸ
-  yok; para hesaba girdi ama hangi borcu kapattÄ±ÄŸÄ± kayÄ±tsÄ±z.
+- **Ekstre üretilemez** — ekstre "borç satırı · ödeme satırı · yürüyen bakiye"
+  ister; ödeme satırı diye bir kayıt yok.
+- **Tahsis izlenemez** — bir ödeme birden çok borcu kapatabilir; hangisine ne
+  kadar gittiği kayıtsız.
+- **Denetlenemez** — `odenen` bir UPDATE ile artıyor; kim, ne zaman, hangi
+  kanaldan tahsil etti belli değil. Bu FİNANSAL kayıttır ve BFS v1 §5.1
+  uyarınca değiştirilemez olmalıydı.
+- **Makbuz numarası bağlanamaz** — boşluksuz seri hazır ama bağlanacak ödeme
+  kaydı yok.
+- **Banka mutabakatı yarım kalıyor** — 0016 ile aidat tahsilatı arasında bağ
+  yok; para hesaba girdi ama hangi borcu kapattığı kayıtsız.
 
-> âš ï¸ `odenen` kolonu, Ã¶deme kaydÄ± olmadan da **doÄŸru gÃ¶rÃ¼nÃ¼r.** Toplam tuttuÄŸu
-> iÃ§in Ã¶deme geÃ§miÅŸinin var olduÄŸu sanÄ±lÄ±r; oysa yoktur. Eksiklik ancak ekstre
-> Ã¼retmeye Ã§alÄ±ÅŸÄ±nca ortaya Ã§Ä±kar.
+> ⚠️ `odenen` kolonu, ödeme kaydı olmadan da **doğru görünür.** Toplam tuttuğu
+> için ödeme geçmişinin var olduğu sanılır; oysa yoktur. Eksiklik ancak ekstre
+> üretmeye çalışınca ortaya çıkar.
 
-**FAZ 2 kapsamÄ±:** (1) `tahsilat` â€” FÄ°NANSAL, silinmez; kanal Â· makbuz no Â·
-`banka_hareketi_id?` Â· `yevmiye_fisi_id?` Â· (2) `tahsilat_tahsisi` â€” Î£ tahsis =
-tahsilat tutarÄ±; `borc.odenen` bundan **tÃ¼retilir**, elle yazÄ±lmaz Â·
-(3) bÃ¶lÃ¼m cari ekstresi Â· (4) kiÅŸi ekstresi (aynÄ± motor, sÃ¼zgeÃ§) Â·
-(5) yardÄ±mcÄ± defter â†” kontrol hesabÄ± mutabakat denetimi.
+**FAZ 2 kapsamı:** (1) `tahsilat` — FİNANSAL, silinmez; kanal · makbuz no ·
+`banka_hareketi_id?` · `yevmiye_fisi_id?` · (2) `tahsilat_tahsisi` — Σ tahsis =
+tahsilat tutarı; `borc.odenen` bundan **türetilir**, elle yazılmaz ·
+(3) bölüm cari ekstresi · (4) kişi ekstresi (aynı motor, süzgeç) ·
+(5) yardımcı defter ↔ kontrol hesabı mutabakat denetimi.
 
-#### Makbuzlar talebinden KARÅILANMAYANLAR â€” aÃ§Ä±kÃ§a eksik
+#### Makbuzlar talebinden KARŞILANMAYANLAR — açıkça eksik
 
-KullanÄ±cÄ± 17 alt modÃ¼l istedi. KarÅŸÄ±lanan: **Tahsilat Makbuzu Â· DetaylÄ±
-Tahsilat GiriÅŸi Â· Makbuz Ä°ptali Â· Makbuz GeÃ§miÅŸi** (+ Makbuz YazdÄ±r yalnÄ±zca
-tarayÄ±cÄ± yazdÄ±rmasÄ±). KarÅŸÄ±lanmayanlar ve **nedenleri**:
+Kullanıcı 17 alt modül istedi. Karşılanan: **Tahsilat Makbuzu · Detaylı
+Tahsilat Girişi · Makbuz İptali · Makbuz Geçmişi** (+ Makbuz Yazdır yalnızca
+tarayıcı yazdırması). Karşılanmayanlar ve **nedenleri**:
 
-| Ä°stenen | Neden yapÄ±lmadÄ± |
+| İstenen | Neden yapılmadı |
 |---|---|
-| **PDF OluÅŸtur** (otomatik) | PDF kÃ¼tÃ¼phanesi kararÄ± verilmedi (FAZ 4). Ekran ÅŸu an `window.print()` kullanÄ±r â€” gerÃ§ek PDF deÄŸildir ve Ã¶yle sunulmuyor |
-| **E-posta Â· SMS Â· WhatsApp** | Bildirim altyapÄ±sÄ± **yok**. AyrÄ±ca ticari elektronik ileti **Ä°YS kapsamÄ± belirsiz** ve bu, belgelerde aÃ§Ä±k bir bloke (`04-CAKISMA-KAYDI.md` C-6). SaÄŸlayÄ±cÄ± seÃ§ilmeden gÃ¶nderim yazmak, mevzuata aykÄ±rÄ± ileti Ã¼retebilirdi |
-| **Ä°ade Makbuzu** | Ä°ade kavramÄ± TANIMSIZ. ADR-0010 negatif tahsilatÄ± yasakladÄ±; iade ayrÄ± bir kayÄ±t tipi ve karÅŸÄ±lÄ±k hesabÄ± ister. Uydurmak yerine bÄ±rakÄ±ldÄ± |
-| **BorÃ§ Makbuzu Â· Toplu/Otomatik BorÃ§landÄ±rma Â· Gider/Gelir DaÄŸÄ±tÄ±mÄ±** | Bunlar **tahsilat deÄŸil TAHAKKUK** iÅŸlemleridir ve `TahakkukModule`'e aittir (API var, ekran yok). Makbuz modÃ¼lÃ¼ne kopyalamak aynÄ± daÄŸÄ±tÄ±m mantÄ±ÄŸÄ±nÄ± ikinci kez yazmak olurdu |
-| **Devir Bakiye GiriÅŸi** | Muhasebe **aÃ§Ä±lÄ±ÅŸ fiÅŸi** ile yapÄ±lÄ±r (`DonemServisi.acilisFisiUret` mevcut). Cari devir bakiyesi iÃ§in ayrÄ± bir akÄ±ÅŸ gerekir; kontrol hesabÄ± mutabakatÄ±nÄ± bozmadan yazÄ±lmalÄ± |
-| **Toplu Tahsilat** | Tek tahsilat Ã§ekirdeÄŸi yeni oturdu. Toplu akÄ±ÅŸ, kÄ±smÃ® baÅŸarÄ±sÄ±zlÄ±kta ne olacaÄŸÄ±na (hepsi mi geri alÄ±nÄ±r) dair karar ister |
-| **Makbuz versiyonlama** | Makbuz Ä°PTAL edilir, sÃ¼rÃ¼mlenmez (VUK: numara korunur). "Versiyon" isteniyorsa Belge modÃ¼lÃ¼ zaten sÃ¼rÃ¼mlÃ¼yor; makbuz PDF'i oraya `varlikTipi = TAHSILAT` ile baÄŸlanabilir â€” 0017 bu enum deÄŸerini ekledi |
-| **Geri Al arayÃ¼zÃ¼** | Backend tamam (`/geri-alma`), ekran yok |
+| **PDF Oluştur** (otomatik) | PDF kütüphanesi kararı verilmedi (FAZ 4). Ekran şu an `window.print()` kullanır — gerçek PDF değildir ve öyle sunulmuyor |
+| **E-posta · SMS · WhatsApp** | Bildirim altyapısı **yok**. Ayrıca ticari elektronik ileti **İYS kapsamı belirsiz** ve bu, belgelerde açık bir bloke (`04-CAKISMA-KAYDI.md` C-6). Sağlayıcı seçilmeden gönderim yazmak, mevzuata aykırı ileti üretebilirdi |
+| **İade Makbuzu** | İade kavramı TANIMSIZ. ADR-0010 negatif tahsilatı yasakladı; iade ayrı bir kayıt tipi ve karşılık hesabı ister. Uydurmak yerine bırakıldı |
+| **Borç Makbuzu · Toplu/Otomatik Borçlandırma · Gider/Gelir Dağıtımı** | Bunlar **tahsilat değil TAHAKKUK** işlemleridir ve `TahakkukModule`'e aittir (API var, ekran yok). Makbuz modülüne kopyalamak aynı dağıtım mantığını ikinci kez yazmak olurdu |
+| **Devir Bakiye Girişi** | Muhasebe **açılış fişi** ile yapılır (`DonemServisi.acilisFisiUret` mevcut). Cari devir bakiyesi için ayrı bir akış gerekir; kontrol hesabı mutabakatını bozmadan yazılmalı |
+| **Toplu Tahsilat** | Tek tahsilat çekirdeği yeni oturdu. Toplu akış, kısmî başarısızlıkta ne olacağına (hepsi mi geri alınır) dair karar ister |
+| **Makbuz versiyonlama** | Makbuz İPTAL edilir, sürümlenmez (VUK: numara korunur). "Versiyon" isteniyorsa Belge modülü zaten sürümlüyor; makbuz PDF'i oraya `varlikTipi = TAHSILAT` ile bağlanabilir — 0017 bu enum değerini ekledi |
+| **Geri Al arayüzü** | Backend tamam (`/geri-alma`), ekran yok |
 
-#### FAZ 2 nerede kaldÄ± â€” YARIM, kalan iÅŸ net
+#### FAZ 2 nerede kaldı — YARIM, kalan iş net
 
 | Katman | Durum |
 |---|---|
-| **ADR-0010** â€” cari = bÃ¶lÃ¼m yardÄ±mcÄ± defteri | âœ… yazÄ±ldÄ±, commit edildi |
-| **Migration 0017** â€” `tahsilat` + `tahsilat_tahsisi` + `CARI_KONTROL` | âœ… **uygulandÄ±** (48 tablo, RLS taramasÄ± temiz) |
-| **Prisma modelleri** + 7 ters iliÅŸki + client | âœ… tamam |
-| **Domain** `shared/apartman-domain/src/tahsilat` | âœ… tamam â€” **32 birim testi** |
-| **Backend `modules/tahsilat`** | âš ï¸ **YALNIZCA DTO yazÄ±ldÄ±.** Servisler Â· controller Â· module YOK |
-| CanlÄ± test | âŒ yapÄ±lamadÄ± (uÃ§ yok) |
+| **ADR-0010** — cari = bölüm yardımcı defteri | ✅ yazıldı, commit edildi |
+| **Migration 0017** — `tahsilat` + `tahsilat_tahsisi` + `CARI_KONTROL` | ✅ **uygulandı** (48 tablo, RLS taraması temiz) |
+| **Prisma modelleri** + 7 ters ilişki + client | ✅ tamam |
+| **Domain** `shared/apartman-domain/src/tahsilat` | ✅ tamam — **32 birim testi** |
+| **Backend `modules/tahsilat`** | ⚠️ **YALNIZCA DTO yazıldı.** Servisler · controller · module YOK |
+| Canlı test | ❌ yapılamadı (uç yok) |
 
-**SÄ±radaki oturumun ilk iÅŸi â€” `backend/src/modules/tahsilat/` tamamlamak.**
-DTO hazÄ±r (`dto/tahsilat.dto.ts`); yazÄ±lacaklar:
+**Sıradaki oturumun ilk işi — `backend/src/modules/tahsilat/` tamamlamak.**
+DTO hazır (`dto/tahsilat.dto.ts`); yazılacaklar:
 
 1. `tahsilat.command.service.ts`
-   - `ekle` â€” `tahsilatiDogrula` + `tahsisleriDogrula`, makbuz no
-     `NumaraServisi.tahsisEt(tx, {seriKodu: 'MAKBUZ'})`, tahsis satÄ±rlarÄ±,
-     **ardÄ±ndan `borc.odenen` ve `borc_sorumlusu.odenen` YENÄ°DEN HESAPLANIR**
-     (Î£ tahsis) â€” asla `increment` ile artÄ±rÄ±lmaz.
-   - `iptal` â€” `tahsilatIptalEdilebilirMi` (muhasebeleÅŸmiÅŸse RED), tahsisler
-     silinir, `odenen` yeniden hesaplanÄ±r, `durum = IPTAL` + gerekÃ§e.
-   - `muhasebelestir` â€” `FisCommandServisi.ekleIslemde` ile **aynÄ±
-     transaction'da** (banka modÃ¼lÃ¼ndeki desen). BorÃ§ tarafÄ± kanala gÃ¶re:
-     NAKIT â†’ `varsayilanKasaHesapId`, BANKA/POS â†’ banka hareketinin hesabÄ± ya
-     da `varsayilanBankaHesapId`. Alacak tarafÄ± **`ozellik = CARI_KONTROL`**
-     hesabÄ±. CEK/SENET/MAHSUP iÃ§in hesap tanÄ±mÄ± yok â†’ **aÃ§Ä±k hata mesajÄ±yla
-     reddedilmeli**, uydurma hesap seÃ§ilmemeli.
-2. `cari.query.service.ts` â€” `cariEkstre` (bÃ¶lÃ¼m), kiÅŸi ekstresi
-   (`borc_sorumlusu` sÃ¼zgeci), `alacakYaslandirmasi`, `otomatikTahsis`
-   Ã¶nizlemesi (**YAZMAZ**), `kontrolMutabakati`.
-3. `tahsilat.controller.ts` + `tahsilat.module.ts` (+ `app.module.ts` kaydÄ±).
+   - `ekle` — `tahsilatiDogrula` + `tahsisleriDogrula`, makbuz no
+     `NumaraServisi.tahsisEt(tx, {seriKodu: 'MAKBUZ'})`, tahsis satırları,
+     **ardından `borc.odenen` ve `borc_sorumlusu.odenen` YENİDEN HESAPLANIR**
+     (Σ tahsis) — asla `increment` ile artırılmaz.
+   - `iptal` — `tahsilatIptalEdilebilirMi` (muhasebeleşmişse RED), tahsisler
+     silinir, `odenen` yeniden hesaplanır, `durum = IPTAL` + gerekçe.
+   - `muhasebelestir` — `FisCommandServisi.ekleIslemde` ile **aynı
+     transaction'da** (banka modülündeki desen). Borç tarafı kanala göre:
+     NAKIT → `varsayilanKasaHesapId`, BANKA/POS → banka hareketinin hesabı ya
+     da `varsayilanBankaHesapId`. Alacak tarafı **`ozellik = CARI_KONTROL`**
+     hesabı. CEK/SENET/MAHSUP için hesap tanımı yok → **açık hata mesajıyla
+     reddedilmeli**, uydurma hesap seçilmemeli.
+2. `cari.query.service.ts` — `cariEkstre` (bölüm), kişi ekstresi
+   (`borc_sorumlusu` süzgeci), `alacakYaslandirmasi`, `otomatikTahsis`
+   önizlemesi (**YAZMAZ**), `kontrolMutabakati`.
+3. `tahsilat.controller.ts` + `tahsilat.module.ts` (+ `app.module.ts` kaydı).
    Yetki: okuma `FINANS_BORCLU_DETAY`/`FINANS_DEFTER_GORUNTULE`, yazma
-   `FINANS_TAHSILAT`, makbuz `FINANS_MAKBUZ`, muhasebeleÅŸtirme
+   `FINANS_TAHSILAT`, makbuz `FINANS_MAKBUZ`, muhasebeleştirme
    `FINANS_YEVMIYE_GIRIS`.
-4. `DonemServisi.kapat` iÃ§ine **kontrol mutabakatÄ± bloÄŸu**: uyuÅŸmazlÄ±k
-   kapanÄ±ÅŸÄ± engeller (ADR-0010).
+4. `DonemServisi.kapat` içine **kontrol mutabakatı bloğu**: uyuşmazlık
+   kapanışı engeller (ADR-0010).
 
-> âš ï¸ Domain kurallarÄ± hazÄ±r ve testli ama **hiÃ§bir uÃ§tan Ã§aÄŸrÄ±lmÄ±yor.** Bu
-> durum 0004/0005'te yaÅŸananÄ±n aynÄ±sÄ±dÄ±r: kural katmanÄ± var, kalÄ±cÄ±lÄ±k var,
-> arada uÃ§ yok. `git grep tahsisleriDogrula` bugÃ¼n yalnÄ±zca testte eÅŸleÅŸir.
+> ⚠️ Domain kuralları hazır ve testli ama **hiçbir uçtan çağrılmıyor.** Bu
+> durum 0004/0005'te yaşananın aynısıdır: kural katmanı var, kalıcılık var,
+> arada uç yok. `git grep tahsisleriDogrula` bugün yalnızca testte eşleşir.
 
-**Kapsam dÄ±ÅŸÄ± ve aÃ§Ä±kÃ§a eksik:** tedarikÃ§i carisi, personel bordro/avans
-defteri, `120` kontrol hesabÄ±nÄ±n `HesapOzelligi` ile iÅŸaretlenmesi. Bunlar
-ADR-0010'da bekleyen karar olarak kayÄ±tlÄ± â€” **uydurma veriyle ekran
-Ã¼retilmeyecek.**
+**Kapsam dışı ve açıkça eksik:** tedarikçi carisi, personel bordro/avans
+defteri, `120` kontrol hesabının `HesapOzelligi` ile işaretlenmesi. Bunlar
+ADR-0010'da bekleyen karar olarak kayıtlı — **uydurma veriyle ekran
+üretilmeyecek.**
 
-### Ä°lk gÃ¶rev â€” `/belgeler` ekranÄ± (menÃ¼de Ã¶lÃ¼ link)
+### İlk görev — `/belgeler` ekranı (menüde ölü link)
 
-**En dÃ¼ÅŸÃ¼k maliyet, en gÃ¶rÃ¼nÃ¼r kazanÃ§.** `components/uygulama-kabugu.tsx`
-menÃ¼sÃ¼nde `/belgeler` girdisi var ama `app/belgeler/` **yok**; link 404
-veriyor. Backend Belge modÃ¼lÃ¼ **tam** (versiyonlama Â· kategori Â· Ã§oklu iliÅŸki Â·
-etiket Â· arama Â· gizlilik Â· Ã¶nizleme Â· KVKK imha) ve MinIO baÄŸlÄ±.
+**En düşük maliyet, en görünür kazanç.** `components/uygulama-kabugu.tsx`
+menüsünde `/belgeler` girdisi var ama `app/belgeler/` **yok**; link 404
+veriyor. Backend Belge modülü **tam** (versiyonlama · kategori · çoklu ilişki ·
+etiket · arama · gizlilik · önizleme · KVKK imha) ve MinIO bağlı.
 
-EkranÄ±n taÅŸÄ±masÄ± gerekenler (backend hazÄ±r):
+Ekranın taşıması gerekenler (backend hazır):
 
-- YÃ¼kleme **iki adÄ±mlÄ±dÄ±r**: `POST /belgeler/yukleme-izni` â†’ Ã¶nimzalÄ± URL'ye
-  `PUT` â†’ `POST /belgeler`. Dosya API'den geÃ§mez.
-- SÃ¼rÃ¼m geÃ§miÅŸi zinciri; gÃ¼ncel sÃ¼rÃ¼m silinemez.
-- Kategori Â· etiket Â· tarih aralÄ±ÄŸÄ± Â· iliÅŸki (apartman/blok/bÃ¶lÃ¼m/kiÅŸi) sÃ¼zgeci.
-- "GeÃ§erliliÄŸi dolanlar" listesi.
-- Gizlilik yÃ¼kseltilebilir, DÃœÅÃœRÃœLEMEZ â€” arayÃ¼z dÃ¼ÅŸÃ¼rmeyi teklif etmemeli.
-- Ã–nizleme yalnÄ±zca betik taÅŸÄ±yamayan tiplerde (PDF Â· resim Â· dÃ¼z metin).
+- Yükleme **iki adımlıdır**: `POST /belgeler/yukleme-izni` → önimzalı URL'ye
+  `PUT` → `POST /belgeler`. Dosya API'den geçmez.
+- Sürüm geçmişi zinciri; güncel sürüm silinemez.
+- Kategori · etiket · tarih aralığı · ilişki (apartman/blok/bölüm/kişi) süzgeci.
+- "Geçerliliği dolanlar" listesi.
+- Gizlilik yükseltilebilir, DÜŞÜRÜLEMEZ — arayüz düşürmeyi teklif etmemeli.
+- Önizleme yalnızca betik taşıyamayan tiplerde (PDF · resim · düz metin).
 
-### Ä°kinci gÃ¶rev â€” Tahakkuk SihirbazÄ±
+### İkinci görev — Tahakkuk Sihirbazı
 
-BoÅŸluk analizinin 2. Ã¶nceliÄŸi: sistemin **para Ã¼reten tek akÄ±ÅŸÄ±** ve ekranÄ±
-yok. AyrÄ±ntÄ±lÄ± kapsam aÅŸaÄŸÄ±da.
+Boşluk analizinin 2. önceliği: sistemin **para üreten tek akışı** ve ekranı
+yok. Ayrıntılı kapsam aşağıda.
 
-> SÄ±ralamanÄ±n tamamÄ± ve gerekÃ§eleri:
-> [`docs/V23-V24-BOSLUK-ANALIZI.md`](docs/V23-V24-BOSLUK-ANALIZI.md) Â§5.
-> KÄ±saca: (3) Muhasebe ekranÄ± Â· (4) Malik/KiracÄ± liste ekranlarÄ± Â·
-> (5) **v24 iskeleti** (Ä°ÅŸ Emri + Onay AkÄ±ÅŸÄ± + Bildirim Merkezi â€” "Teknik
-> Ä°ÅŸler", "AÃ§Ä±k Ä°ÅŸ Emirleri" ve personel gÃ¶rev onayÄ±nÄ±n ORTAK temeli; Ã¼Ã§Ã¼nÃ¼
-> ayrÄ± kurmak Ã¼Ã§ farklÄ± onay mekanizmasÄ± doÄŸurur) Â· (6) personel gÃ¶rev
-> yÃ¼rÃ¼tme akÄ±ÅŸÄ± Â· (7) v23 pano derinliÄŸi.
+> Sıralamanın tamamı ve gerekçeleri:
+> [`docs/V23-V24-BOSLUK-ANALIZI.md`](docs/V23-V24-BOSLUK-ANALIZI.md) §5.
+> Kısaca: (3) Muhasebe ekranı · (4) Malik/Kiracı liste ekranları ·
+> (5) **v24 iskeleti** (İş Emri + Onay Akışı + Bildirim Merkezi — "Teknik
+> İşler", "Açık İş Emirleri" ve personel görev onayının ORTAK temeli; üçünü
+> ayrı kurmak üç farklı onay mekanizması doğurur) · (6) personel görev
+> yürütme akışı · (7) v23 pano derinliği.
 
-### Tahakkuk SihirbazÄ± â€” kapsam
+### Tahakkuk Sihirbazı — kapsam
 
-KullanÄ±cÄ± bu iÅŸi tarif etti ama bÃ¼tÃ§e Belge + Site Personeli / Daire GÃ¶revlisi
-ayrÄ±mÄ± + hÄ±zlÄ± kayÄ±t + PortfÃ¶y Merkezi'ne gitti; **hiÃ§ baÅŸlanmadÄ±**.
+Kullanıcı bu işi tarif etti ama bütçe Belge + Site Personeli / Daire Görevlisi
+ayrımı + hızlı kayıt + Portföy Merkezi'ne gitti; **hiç başlanmadı**.
 
-Talep edilen kapsam (kullanÄ±cÄ±nÄ±n kendi sÃ¶zleriyle: *"ticari muhasebe
-mantÄ±ÄŸÄ±yla deÄŸil, Kat MÃ¼lkiyeti Kanunu ve profesyonel site yÃ¶netimi
-mantÄ±ÄŸÄ±yla"*):
+Talep edilen kapsam (kullanıcının kendi sözleriyle: *"ticari muhasebe
+mantığıyla değil, Kat Mülkiyeti Kanunu ve profesyonel site yönetimi
+mantığıyla"*):
 
-**1. Motorun desteklemesi gereken tahakkuk tÃ¼rleri.** BugÃ¼n `PaylasimKurali`
-ekseni var (ESIT Â· ARSA_PAYI Â· BRUT_M2 Â· NET_M2 Â· TUKETIM Â· SABIT_TUTAR Â·
-KULLANIM_BAZLI Â· BLOK_BAZLI Â· MANUEL Â· KARMA) ama bunlar *nasÄ±l daÄŸÄ±tÄ±lacaÄŸÄ±*.
-Eksik olan *ne olduÄŸu*: **aidat Â· avans Â· ek bÃ¼tÃ§e Â· demirbaÅŸ Â· gecikme
-tazminatÄ±**. Bunlar yeni bir eksen (`TahakkukTuru`) ister; paylaÅŸÄ±m kuralÄ±yla
-karÄ±ÅŸtÄ±rÄ±lmamalÄ±:
-   - **Avans** ileriki dÃ¶neme mahsuptur; Ã¶dendiÄŸinde borÃ§ kapatmaz, alacak
-     doÄŸurur (KMK md. 20 iÅŸletme projesi avansÄ±).
-   - **Ek bÃ¼tÃ§e** genel kurul kararÄ± ister â€” `kaynakReferansi` zorunlu olmalÄ±.
-   - **DemirbaÅŸ** MALÄ°KE aittir (KMK md. 20/b), kiracÄ±ya yansÄ±tÄ±lamaz.
-   - **Gecikme tazminatÄ±** KMK md. 20/son: aylÄ±k **%5**'i geÃ§emez ve ANA
-     BORÃ‡TAN AYRI bir kalemdir; ana borca eklenip Ã¼zerine yeniden faiz
-     iÅŸletilirse bileÅŸik faize dÃ¶nÃ¼ÅŸÃ¼r ve talep edilemez hale gelir.
+**1. Motorun desteklemesi gereken tahakkuk türleri.** Bugün `PaylasimKurali`
+ekseni var (ESIT · ARSA_PAYI · BRUT_M2 · NET_M2 · TUKETIM · SABIT_TUTAR ·
+KULLANIM_BAZLI · BLOK_BAZLI · MANUEL · KARMA) ama bunlar *nasıl dağıtılacağı*.
+Eksik olan *ne olduğu*: **aidat · avans · ek bütçe · demirbaş · gecikme
+tazminatı**. Bunlar yeni bir eksen (`TahakkukTuru`) ister; paylaşım kuralıyla
+karıştırılmamalı:
+   - **Avans** ileriki döneme mahsuptur; ödendiğinde borç kapatmaz, alacak
+     doğurur (KMK md. 20 işletme projesi avansı).
+   - **Ek bütçe** genel kurul kararı ister — `kaynakReferansi` zorunlu olmalı.
+   - **Demirbaş** MALİKE aittir (KMK md. 20/b), kiracıya yansıtılamaz.
+   - **Gecikme tazminatı** KMK md. 20/son: aylık **%5**'i geçemez ve ANA
+     BORÇTAN AYRI bir kalemdir; ana borca eklenip üzerine yeniden faiz
+     işletilirse bileşik faize dönüşür ve talep edilemez hale gelir.
 
-**2. Ã–nizlemede denetim listesi.** BugÃ¼n Ã¶nizleme daÄŸÄ±tÄ±mÄ± gÃ¶steriyor.
-Eklenmesi istenen kontroller: borÃ§lular Â· paylaÅŸÄ±m kurallarÄ± Â· **muafiyetler**
-Â· **yÃ¶netim planÄ± istisnalarÄ±** Â· **genel kurul kararlarÄ±** Â· **geÃ§miÅŸ
-tahakkuklar**. BunlarÄ±n bir kÄ±smÄ± iÃ§in veri kaynaÄŸÄ± henÃ¼z yok (yÃ¶netim planÄ±
-istisnasÄ± ve genel kurul kararÄ± yalnÄ±zca `kaynakReferansi` metni olarak var) â€”
-**Ã¶nce o eksik netleÅŸtirilmeli**, uydurma alan eklenmemeli.
+**2. Önizlemede denetim listesi.** Bugün önizleme dağıtımı gösteriyor.
+Eklenmesi istenen kontroller: borçlular · paylaşım kuralları · **muafiyetler**
+· **yönetim planı istisnaları** · **genel kurul kararları** · **geçmiş
+tahakkuklar**. Bunların bir kısmı için veri kaynağı henüz yok (yönetim planı
+istisnası ve genel kurul kararı yalnızca `kaynakReferansi` metni olarak var) —
+**önce o eksik netleştirilmeli**, uydurma alan eklenmemeli.
 
-**3. Geriye dÃ¶nÃ¼k deÄŸiÅŸmezlik ve dÃ¼zeltme akÄ±ÅŸlarÄ±.** BugÃ¼n tahakkuk yazÄ±ldÄ±ktan
-sonra deÄŸiÅŸtirilemiyor (iyi) ama dÃ¼zeltme YOLU YOK. Gereken Ã¼Ã§ kayÄ±t tipi:
-   - **Ä°ptal** (ters kayÄ±t / storno) â€” borÃ§ sÄ±fÄ±rlanÄ±r, iki kayÄ±t da durur.
-   - **Mahsup** â€” fazla tahsilat sonraki dÃ¶neme sayÄ±lÄ±r.
-   - **Devir** â€” kapanmayan borÃ§ sonraki dÃ¶neme taÅŸÄ±nÄ±r.
-   `borc` tablosu FINANSAL sÄ±nÄ±ftÄ±r ve silinmez; bu Ã¼Ã§Ã¼ yeni satÄ±r olarak
-   yazÄ±lmalÄ± ve orijinale referans vermeli (`ters_kayit_id` gibi).
+**3. Geriye dönük değişmezlik ve düzeltme akışları.** Bugün tahakkuk yazıldıktan
+sonra değiştirilemiyor (iyi) ama düzeltme YOLU YOK. Gereken üç kayıt tipi:
+   - **İptal** (ters kayıt / storno) — borç sıfırlanır, iki kayıt da durur.
+   - **Mahsup** — fazla tahsilat sonraki döneme sayılır.
+   - **Devir** — kapanmayan borç sonraki döneme taşınır.
+   `borc` tablosu FINANSAL sınıftır ve silinmez; bu üçü yeni satır olarak
+   yazılmalı ve orijinale referans vermeli (`ters_kayit_id` gibi).
 
-HazÄ±r olan altyapÄ±: `POST /tahakkuk/calistir` Ã¶nizlemeli Ã§alÄ±ÅŸÄ±yor,
-`satirlar[].sorumlular` her bÃ¶lÃ¼m iÃ§in borcun kime yazÄ±lacaÄŸÄ±nÄ±
-(malik/kiracÄ±/sakin Â· ASIL/Ä°KÄ°NCÄ°L) gÃ¶steriyor â€” **onay ekranÄ±nÄ±n asÄ±l deÄŸeri
-budur**, yÃ¶netici parayÄ± kimden isteyeceÄŸini uygulamadan Ã–NCE gÃ¶rÃ¼r. SayaÃ§
-entegrasyonu da hazÄ±r: eksik okuma varsa uÃ§ 422 dÃ¶ner ve eksik kapÄ±
-numaralarÄ±nÄ± yazar.
+Hazır olan altyapı: `POST /tahakkuk/calistir` önizlemeli çalışıyor,
+`satirlar[].sorumlular` her bölüm için borcun kime yazılacağını
+(malik/kiracı/sakin · ASIL/İKİNCİL) gösteriyor — **onay ekranının asıl değeri
+budur**, yönetici parayı kimden isteyeceğini uygulamadan ÖNCE görür. Sayaç
+entegrasyonu da hazır: eksik okuma varsa uç 422 döner ve eksik kapı
+numaralarını yazar.
 
-| Sihirbaz adÄ±mÄ± | UÃ§ |
+| Sihirbaz adımı | Uç |
 |---|---|
-| 1. Gider tÃ¼rÃ¼ seÃ§ | `GET /gider-turleri?yalnizcaAktif=true` |
-| 2. Tutar Â· dÃ¶nem Â· vade | â€” |
-| 3. TUKETIM ise sayaÃ§ tÃ¼rÃ¼ | `GET /sayaclar/tuketim/donem` |
-| 4. DaÄŸÄ±tÄ±mÄ± ve borÃ§lularÄ± gÃ¶r | `POST /tahakkuk/calistir` + `onizleme: true` |
-| 5. Onayla ve uygula | aynÄ± uÃ§, `onizleme` olmadan |
+| 1. Gider türü seç | `GET /gider-turleri?yalnizcaAktif=true` |
+| 2. Tutar · dönem · vade | — |
+| 3. TUKETIM ise sayaç türü | `GET /sayaclar/tuketim/donem` |
+| 4. Dağıtımı ve borçluları gör | `POST /tahakkuk/calistir` + `onizleme: true` |
+| 5. Onayla ve uygula | aynı uç, `onizleme` olmadan |
 
 ---
 
-## 5. Bu oturumda alÄ±nan Ã¶nemli kararlar
+## 5. Bu oturumda alınan önemli kararlar
 
-Hepsi geri alÄ±nabilir; nedenleri burada yazÄ±lÄ± ki tartÄ±ÅŸÄ±labilsin.
+Hepsi geri alınabilir; nedenleri burada yazılı ki tartışılabilsin.
 
-| Karar | GerekÃ§e | Nerede |
+| Karar | Gerekçe | Nerede |
 |---|---|---|
-| **0001 ve 0002 tek temele birleÅŸtirildi** | 0001 uygulanamaz durumdaydÄ± (tablo DDL'i yoktu) ve ikisi de hiÃ§bir veritabanÄ±na uygulanmamÄ±ÅŸtÄ±. AyrÄ± tutmak, 0001 dÃ¶nemine ait kurgusal bir ÅŸema uydurmayÄ± gerektirirdi. | `migrations/0001_init` baÅŸlÄ±ÄŸÄ± |
-| **GiriÅŸ iÃ§in RLS'siz `oturum_dizini` katalogu** | `kullanici` RLS taÅŸÄ±r, giriÅŸ tenant'Ä± bilmeden okumak zorunda. Reddedilenler: BYPASSRLS'li rol (ele geÃ§irilirse izolasyon tÃ¼mÃ¼yle kalkar), SECURITY DEFINER (FORCE RLS sahibi de kapsar), giriÅŸte tÃ¼m tenant'larÄ± dolaÅŸmak (10 000 tenant = 10 000 sorgu). Senkronu **trigger** tutar. | `migrations/0002_oturum_dizini` |
-| **Ä°stek baÄŸlamÄ± interceptor'dan middleware'e alÄ±ndÄ±** | NestJS sÄ±rasÄ± middleware â†’ guard â†’ interceptor. BaÄŸlam interceptor'da kurulunca ÃœÃ§ KapÄ± ona yazamÄ±yordu ve **bÃ¼tÃ¼n yazma uÃ§larÄ±** 403 dÃ¶nÃ¼yordu. | `common/context/correlation.middleware.ts` |
-| **`tenant.setup` YÃ¶netim Åirketi'ne taÅŸÄ±ndÄ±** | Yeni yerleÅŸke aÃ§mak onboarding iÅŸlemidir; tek bina yÃ¶neten rolde olmamalÄ±. Belgelerde yetki matrisi **yok** â€” bu bir yorum, farklÄ± isteniyorsa tek yerden deÄŸiÅŸir. | `shared/core-domain/src/yetki/roller.ts` |
-| **`prisma migrate diff` Ã§Ä±ktÄ±sÄ± elle sÃ¼zÃ¼lÃ¼r** | Diff, ÅŸemada karÅŸÄ±lÄ±ÄŸÄ± olmayan elle yazÄ±lmÄ±ÅŸ kÄ±smi index'leri dÃ¼ÅŸÃ¼rmek ister; uygulanÄ±rsa mÃ¼kerrer tahakkuk numarasÄ± sessizce mÃ¼mkÃ¼n olur. Migration'lar elle yazÄ±lÄ±yor. | `migrations/0004` Â· `0005` Â· `0006` |
-| **Dosya API'den geÃ§mez (Ã¶nimzalÄ± URL)** | 50 MB'lÄ±k bir belgeyi Node Ã¼zerinden akÄ±tmak olay dÃ¶ngÃ¼sÃ¼nÃ¼ tÄ±kar; iÃ§erik hiÃ§ uygulama belleÄŸine girmez. Bedeli: dosyasÄ±z kayÄ±t riski â€” `HeadObject` ile kapatÄ±ldÄ±. | `common/storage/nesne-deposu.service.ts` |
-| **Yeni baÄŸÄ±mlÄ±lÄ±klar: `@aws-sdk/client-s3`, `unplugin-swc`** | S3 imzalama elle yazÄ±lamayacak kadar gÃ¼venlik-kritik. `unplugin-swc` olmadan sÃ¶zleÅŸme testleri hiÃ§ koÅŸamÄ±yordu (esbuild `emitDecoratorMetadata` desteklemez). | `backend/package.json` |
-| **Personel `kisi` tablosuna KONULMADI** | `Kisi` malik/kiracÄ±/sakin iliÅŸkilerinin dayandÄ±ÄŸÄ± kimlik kaydÄ±; personel bir istihdam kaydÄ±. AynÄ± tabloda olsaydÄ± bir kapÄ±cÄ±nÄ±n o binada kiracÄ± olmasÄ± durumunda "iÅŸten ayrÄ±ldÄ±" iÅŸareti kiracÄ±lÄ±k kaydÄ±nÄ± da etkilerdi. KullanÄ±cÄ± "Malik/KiracÄ±/Sakin'e dokunma" dedi; ayrÄ± tablo bunu garanti eder. | `migrations/0008` |
-| **`kisi` API'si KALDIRILMADI, yalnÄ±zca menÃ¼ girdisi kaldÄ±rÄ±ldÄ±** | `POST /kisiler`, bir malik/kiracÄ±/sakin eklemenin TEK yoludur (hepsi var olan `kisiId` ister). KaldÄ±rÄ±lsaydÄ± kullanÄ±cÄ±nÄ±n korunmasÄ±nÄ± istediÄŸi Ã¼Ã§ modÃ¼l Ã§alÄ±ÅŸamaz hale gelirdi. MenÃ¼deki "KiÅŸiler" girdisi zaten var olmayan bir rotayÄ± gÃ¶steriyordu; o kaldÄ±rÄ±ldÄ±. | `uygulama-kabugu.tsx` |
-| **Etiket ASCII katlanÄ±r, TÃ¼rkÃ§e katlanmaz** | Etiket bir KÄ°MLÄ°KTÄ°R. `'ACIL'.toLocaleLowerCase('tr')` â†’ `'acÄ±l'` verir (noktasÄ±z I'nÄ±n kÃ¼Ã§Ã¼ÄŸÃ¼ Ä±'dÄ±r); dilbilgisel olarak doÄŸru ama caps lock ile yazan kullanÄ±cÄ±nÄ±n etiketi "acil" ile eÅŸleÅŸmezdi. Prose aramasÄ±nda (ad/notlar) TÃ¼rkÃ§e katlama doÄŸru olandÄ±r â€” ayrÄ±m korunmalÄ±. | `shared/apartman-domain/src/belge/belge.ts` |
-| **Site Personeli ile Daire GÃ¶revlisi AYRI tablolara ayrÄ±ldÄ±** | 0009'da ikisi tek tabloda birleÅŸtirilmiÅŸti; bu hataydÄ±. Ä°ÅŸveren farklÄ±dÄ±r (yÃ¶netim â†” malik/kiracÄ±), dolayÄ±sÄ±yla SGK/vardiya/zimmet yÃ¼kÃ¼mlÃ¼lÃ¼ÄŸÃ¼, KVKK veri sorumlusu ve TC tekillik kapsamÄ± da farklÄ±dÄ±r. Tek tabloda tutmak yÃ¶netimi, olmadÄ±ÄŸÄ± bir iliÅŸkide iÅŸveren gibi gÃ¶sterirdi. 0008 uygulanmÄ±ÅŸ olduÄŸu iÃ§in **dÃ¼zenlenmedi**, 0010 ile taÅŸÄ±ndÄ±. | `migrations/0010_site_personeli_ayrimi` |
-| **Misafir ve daire gÃ¶revlisi `Kisi` kaydÄ± AÃ‡MAZ** | Ä°kisi de hak sahibi deÄŸildir: borÃ§ sorumlusu olmaz, tahakkuka girmez, arsa payÄ± taÅŸÄ±maz. `Kisi`ye yazÄ±lsalardÄ± malik/kiracÄ± listelerine karÄ±ÅŸÄ±r ve borÃ§ sorumluluÄŸu sorgularÄ±nda gÃ¶rÃ¼nÃ¼rlerdi. Misafirde ayrÄ±ca KVKK: verisi kÄ±sa Ã¶mÃ¼rlÃ¼dÃ¼r, kalÄ±cÄ± kimlik kaydÄ± yanlÄ±ÅŸ Ã¶mre baÄŸlardÄ±. | `migrations/0011` Â· `misafir.service.ts` |
-| **Kefil ayrÄ± `Kisi` DEÄÄ°L, sÃ¶zleÅŸme Ã¼zerinde inline** | YÃ¶netimin ortak gider alacaÄŸÄ± malike (KMK md. 20) ve kiracÄ±ya (md. 22, kira bedeli kadar mÃ¼teselsil) yÃ¶nelir; **kefile yÃ¶nelmez** â€” kefalet kira sÃ¶zleÅŸmesinin tarafÄ±dÄ±r, yÃ¶netim planÄ±nÄ±n deÄŸil. AyrÄ± kimlik kaydÄ± borÃ§ sorumluluÄŸu sorgularÄ±nda gÃ¶rÃ¼nÃ¼rdÃ¼. | `migrations/0012_kiraci_kefil` |
-| **Tek araÃ§ kÃ¼tÃ¼ÄŸÃ¼ + kapsam ayrÄ±mÄ±** | Otopark kapasitesi malik aracÄ±yla bakÄ±cÄ±nÄ±n/gÃ¼venliÄŸin aracÄ±nÄ± ayÄ±rt etmez; ayrÄ± tablolar sayÄ±mÄ± bÃ¶lerdi. Ama **personel aracÄ± yÃ¶netime**, diÄŸerleri **ilgili bÃ¶lÃ¼me** kayÄ±tlÄ±dÄ±r: personel aracÄ±nÄ± daireye yazmak o dairenin otopark hakkÄ±nÄ± tÃ¼ketmiÅŸ gÃ¶sterir ve KULLANIM_BAZLI daÄŸÄ±tÄ±mda ona fazla pay Ã§Ä±karÄ±r. | `migrations/0011` Â· `0013_arac_kapsami` |
-| **`kisiId` zorunluluÄŸu kalktÄ±; tekilleÅŸtirme TC + e-postaya devredildi** | ZorunluluÄŸun asÄ±l iÅŸlevi mÃ¼kerrer kimlik kaydÄ±nÄ± engellemekti. KaldÄ±rÄ±rken bu koruma bÄ±rakÄ±lsaydÄ± aynÄ± kiÅŸi iki `Kisi` satÄ±rÄ±na bÃ¶lÃ¼nÃ¼r ve borÃ§ geÃ§miÅŸi, tahakkuk sorumluluÄŸu, KVKK silme talebi iki kayda daÄŸÄ±lÄ±rdÄ±. `kisi_eposta_uq` tenant genelinde tekil olduÄŸu iÃ§in e-posta da kimlik anahtarÄ± sayÄ±ldÄ±. | `common/kayit/hizli-kayit.ts` |
-| **PortfÃ¶y, RLS gevÅŸetilerek DEÄÄ°L aÃ§Ä±k devirle Ã§Ã¶zÃ¼ldÃ¼** | ADR-0002 kolay yolu (RLS by-pass / `BYPASSRLS` rolÃ¼) ismiyle yasaklamÄ±ÅŸ ve Ã§Ã¶zÃ¼m yolunu ÅŸimdiden yazmÄ±ÅŸtÄ±. Devir modeli **yetkilendirme ile izolasyonu ayÄ±rÄ±r**: firma neye eriÅŸeceÄŸini devir kaydÄ±ndan Ã¶ÄŸrenir, ama her sorgu yine tek tenant baÄŸlamÄ±nda koÅŸar. Devir kaydÄ± silinse bile RLS ayakta kalÄ±r. | [ADR-0009](docs/adr/log/0009-yonetim-sirketi-acik-devir.md) |
-| **Devir yetkisi KapÄ± 2'de doÄŸrulanÄ±r, projede `kullanici` kaydÄ± AÃ‡ILMAZ** | Firma kullanÄ±cÄ±sÄ±nÄ± her projeye kopyalamak, KVKK silme talebinde kiÅŸinin kaÃ§ tenant'a yayÄ±ldÄ±ÄŸÄ±nÄ± takip edilemez kÄ±lardÄ±. Bunun yerine jeton `dvr` claim'i taÅŸÄ±r ve KapÄ± 2 aktif devri sorgular. | `common/guards/tenant.guard.ts` |
-| **Devir doÄŸrulamasÄ± Ã–NBELLEKLENMEZ** | Ãœyelik 5 dk Ã¶nbelleklenir (deÄŸiÅŸimi nadir, etkisi sÄ±nÄ±rlÄ±). Devrin sona ermesi bir YETKÄ° KALDIRMADIR; 5 dakika boyunca geÃ§erli gÃ¶rÃ¼nmesi kabul edilemez. | `common/prisma/tenant.reader.ts` |
-| **`Tenant.olustur` Ã¼Ã§ tipi de kabul ediyor; birim testi buna gÃ¶re GÃœNCELLENDÄ°** | Test "yalnizca APARTMAN kabul edilir" diye assert ediyordu. O kÄ±sÄ±t kaynaÄŸÄ±n kendisinde "v1 kapsamÄ±nda" diye yazÄ±lmÄ±ÅŸ geÃ§ici bir kÄ±sÄ±ttÄ±; ADR-0008 SITE'yi, ADR-0009 YONETIM_SIRKETI'ni kapsama aldÄ±. Testi olduÄŸu gibi bÄ±rakmak, kararÄ± koda yansÄ±tmayÄ± imkÃ¢nsÄ±z kÄ±lardÄ±. | `tests/unit/domain.smoke.mjs` |
+| **0001 ve 0002 tek temele birleştirildi** | 0001 uygulanamaz durumdaydı (tablo DDL'i yoktu) ve ikisi de hiçbir veritabanına uygulanmamıştı. Ayrı tutmak, 0001 dönemine ait kurgusal bir şema uydurmayı gerektirirdi. | `migrations/0001_init` başlığı |
+| **Giriş için RLS'siz `oturum_dizini` katalogu** | `kullanici` RLS taşır, giriş tenant'ı bilmeden okumak zorunda. Reddedilenler: BYPASSRLS'li rol (ele geçirilirse izolasyon tümüyle kalkar), SECURITY DEFINER (FORCE RLS sahibi de kapsar), girişte tüm tenant'ları dolaşmak (10 000 tenant = 10 000 sorgu). Senkronu **trigger** tutar. | `migrations/0002_oturum_dizini` |
+| **İstek bağlamı interceptor'dan middleware'e alındı** | NestJS sırası middleware → guard → interceptor. Bağlam interceptor'da kurulunca Üç Kapı ona yazamıyordu ve **bütün yazma uçları** 403 dönüyordu. | `common/context/correlation.middleware.ts` |
+| **`tenant.setup` Yönetim Şirketi'ne taşındı** | Yeni yerleşke açmak onboarding işlemidir; tek bina yöneten rolde olmamalı. Belgelerde yetki matrisi **yok** — bu bir yorum, farklı isteniyorsa tek yerden değişir. | `shared/core-domain/src/yetki/roller.ts` |
+| **`prisma migrate diff` çıktısı elle süzülür** | Diff, şemada karşılığı olmayan elle yazılmış kısmi index'leri düşürmek ister; uygulanırsa mükerrer tahakkuk numarası sessizce mümkün olur. Migration'lar elle yazılıyor. | `migrations/0004` · `0005` · `0006` |
+| **Dosya API'den geçmez (önimzalı URL)** | 50 MB'lık bir belgeyi Node üzerinden akıtmak olay döngüsünü tıkar; içerik hiç uygulama belleğine girmez. Bedeli: dosyasız kayıt riski — `HeadObject` ile kapatıldı. | `common/storage/nesne-deposu.service.ts` |
+| **Yeni bağımlılıklar: `@aws-sdk/client-s3`, `unplugin-swc`** | S3 imzalama elle yazılamayacak kadar güvenlik-kritik. `unplugin-swc` olmadan sözleşme testleri hiç koşamıyordu (esbuild `emitDecoratorMetadata` desteklemez). | `backend/package.json` |
+| **Personel `kisi` tablosuna KONULMADI** | `Kisi` malik/kiracı/sakin ilişkilerinin dayandığı kimlik kaydı; personel bir istihdam kaydı. Aynı tabloda olsaydı bir kapıcının o binada kiracı olması durumunda "işten ayrıldı" işareti kiracılık kaydını da etkilerdi. Kullanıcı "Malik/Kiracı/Sakin'e dokunma" dedi; ayrı tablo bunu garanti eder. | `migrations/0008` |
+| **`kisi` API'si KALDIRILMADI, yalnızca menü girdisi kaldırıldı** | `POST /kisiler`, bir malik/kiracı/sakin eklemenin TEK yoludur (hepsi var olan `kisiId` ister). Kaldırılsaydı kullanıcının korunmasını istediği üç modül çalışamaz hale gelirdi. Menüdeki "Kişiler" girdisi zaten var olmayan bir rotayı gösteriyordu; o kaldırıldı. | `uygulama-kabugu.tsx` |
+| **Etiket ASCII katlanır, Türkçe katlanmaz** | Etiket bir KİMLİKTİR. `'ACIL'.toLocaleLowerCase('tr')` → `'acıl'` verir (noktasız I'nın küçüğü ı'dır); dilbilgisel olarak doğru ama caps lock ile yazan kullanıcının etiketi "acil" ile eşleşmezdi. Prose aramasında (ad/notlar) Türkçe katlama doğru olandır — ayrım korunmalı. | `shared/apartman-domain/src/belge/belge.ts` |
+| **Site Personeli ile Daire Görevlisi AYRI tablolara ayrıldı** | 0009'da ikisi tek tabloda birleştirilmişti; bu hataydı. İşveren farklıdır (yönetim ↔ malik/kiracı), dolayısıyla SGK/vardiya/zimmet yükümlülüğü, KVKK veri sorumlusu ve TC tekillik kapsamı da farklıdır. Tek tabloda tutmak yönetimi, olmadığı bir ilişkide işveren gibi gösterirdi. 0008 uygulanmış olduğu için **düzenlenmedi**, 0010 ile taşındı. | `migrations/0010_site_personeli_ayrimi` |
+| **Misafir ve daire görevlisi `Kisi` kaydı AÇMAZ** | İkisi de hak sahibi değildir: borç sorumlusu olmaz, tahakkuka girmez, arsa payı taşımaz. `Kisi`ye yazılsalardı malik/kiracı listelerine karışır ve borç sorumluluğu sorgularında görünürlerdi. Misafirde ayrıca KVKK: verisi kısa ömürlüdür, kalıcı kimlik kaydı yanlış ömre bağlardı. | `migrations/0011` · `misafir.service.ts` |
+| **Kefil ayrı `Kisi` DEĞİL, sözleşme üzerinde inline** | Yönetimin ortak gider alacağı malike (KMK md. 20) ve kiracıya (md. 22, kira bedeli kadar müteselsil) yönelir; **kefile yönelmez** — kefalet kira sözleşmesinin tarafıdır, yönetim planının değil. Ayrı kimlik kaydı borç sorumluluğu sorgularında görünürdü. | `migrations/0012_kiraci_kefil` |
+| **Tek araç kütüğü + kapsam ayrımı** | Otopark kapasitesi malik aracıyla bakıcının/güvenliğin aracını ayırt etmez; ayrı tablolar sayımı bölerdi. Ama **personel aracı yönetime**, diğerleri **ilgili bölüme** kayıtlıdır: personel aracını daireye yazmak o dairenin otopark hakkını tüketmiş gösterir ve KULLANIM_BAZLI dağıtımda ona fazla pay çıkarır. | `migrations/0011` · `0013_arac_kapsami` |
+| **`kisiId` zorunluluğu kalktı; tekilleştirme TC + e-postaya devredildi** | Zorunluluğun asıl işlevi mükerrer kimlik kaydını engellemekti. Kaldırırken bu koruma bırakılsaydı aynı kişi iki `Kisi` satırına bölünür ve borç geçmişi, tahakkuk sorumluluğu, KVKK silme talebi iki kayda dağılırdı. `kisi_eposta_uq` tenant genelinde tekil olduğu için e-posta da kimlik anahtarı sayıldı. | `common/kayit/hizli-kayit.ts` |
+| **Portföy, RLS gevşetilerek DEĞİL açık devirle çözüldü** | ADR-0002 kolay yolu (RLS by-pass / `BYPASSRLS` rolü) ismiyle yasaklamış ve çözüm yolunu şimdiden yazmıştı. Devir modeli **yetkilendirme ile izolasyonu ayırır**: firma neye erişeceğini devir kaydından öğrenir, ama her sorgu yine tek tenant bağlamında koşar. Devir kaydı silinse bile RLS ayakta kalır. | [ADR-0009](docs/adr/log/0009-yonetim-sirketi-acik-devir.md) |
+| **Devir yetkisi Kapı 2'de doğrulanır, projede `kullanici` kaydı AÇILMAZ** | Firma kullanıcısını her projeye kopyalamak, KVKK silme talebinde kişinin kaç tenant'a yayıldığını takip edilemez kılardı. Bunun yerine jeton `dvr` claim'i taşır ve Kapı 2 aktif devri sorgular. | `common/guards/tenant.guard.ts` |
+| **Devir doğrulaması ÖNBELLEKLENMEZ** | Üyelik 5 dk önbelleklenir (değişimi nadir, etkisi sınırlı). Devrin sona ermesi bir YETKİ KALDIRMADIR; 5 dakika boyunca geçerli görünmesi kabul edilemez. | `common/prisma/tenant.reader.ts` |
+| **`Tenant.olustur` üç tipi de kabul ediyor; birim testi buna göre GÜNCELLENDİ** | Test "yalnizca APARTMAN kabul edilir" diye assert ediyordu. O kısıt kaynağın kendisinde "v1 kapsamında" diye yazılmış geçici bir kısıttı; ADR-0008 SITE'yi, ADR-0009 YONETIM_SIRKETI'ni kapsama aldı. Testi olduğu gibi bırakmak, kararı koda yansıtmayı imkânsız kılardı. | `tests/unit/domain.smoke.mjs` |
 
 ---
 
 ## 6. Sonraki oturumda dikkat edilecekler
 
-- **`sistemIslemi` RLS'i ATLAMAZ**, yalnÄ±zca tenant baÄŸlamÄ± **kurmaz**.
-  YalnÄ±zca RLS taÅŸÄ±mayan katalog tablolarÄ± (`tenant`, `oturum_dizini`) iÃ§in
-  kullanÄ±lÄ±r. `scripts/rls-scan.mjs` bunu denetler.
-- **ÃœÃ§ KapÄ± baÄŸlamÄ± middleware'den gelir.** Bir interceptor'da baÄŸlam kurmak
-  guard'lara ulaÅŸmaz (NestJS sÄ±rasÄ±: middleware â†’ guard â†’ interceptor).
-- **Audit `varlik_id` bir UUID'dir.** BileÅŸik anahtar (`KOD:donem`) yazma
-  anÄ±nda patlar; Ã§alÄ±ÅŸtÄ±rmaya kendi kimliÄŸi verilmelidir.
-- **Snapshot kuralÄ± Ã¼Ã§ yerde geÃ§erli:** borÃ§ sorumlusu, sayaÃ§ tÃ¼ketimi ve
-  belge sÃ¼rÃ¼mÃ¼. ÃœÃ§Ã¼ de yazÄ±ldÄ±ÄŸÄ± anda sabitlenir; sorgu anÄ±nda yeniden
-  hesaplanÄ±rsa geÃ§miÅŸ sessizce deÄŸiÅŸir ve tahsil edilmiÅŸ tutarla tutmaz.
-- **Yeni bir tenant aÃ§an her yol politikalarÄ± da yazmalÄ±dÄ±r.** Belge saklama
-  politikalarÄ± `VARSAYILAN_BELGE_POLITIKALARI` (domain) iÃ§indedir; tohum ve
-  `TenantCommandService.olustur` ikisi de oradan okur. ÃœÃ§Ã¼ncÃ¼ bir yol
-  eklenirse aynÄ± listeyi kullanmalÄ± â€” politikasÄ±z tenant'ta fatura
+- **`sistemIslemi` RLS'i ATLAMAZ**, yalnızca tenant bağlamı **kurmaz**.
+  Yalnızca RLS taşımayan katalog tabloları (`tenant`, `oturum_dizini`) için
+  kullanılır. `scripts/rls-scan.mjs` bunu denetler.
+- **Üç Kapı bağlamı middleware'den gelir.** Bir interceptor'da bağlam kurmak
+  guard'lara ulaşmaz (NestJS sırası: middleware → guard → interceptor).
+- **Audit `varlik_id` bir UUID'dir.** Bileşik anahtar (`KOD:donem`) yazma
+  anında patlar; çalıştırmaya kendi kimliği verilmelidir.
+- **Snapshot kuralı üç yerde geçerli:** borç sorumlusu, sayaç tüketimi ve
+  belge sürümü. Üçü de yazıldığı anda sabitlenir; sorgu anında yeniden
+  hesaplanırsa geçmiş sessizce değişir ve tahsil edilmiş tutarla tutmaz.
+- **Yeni bir tenant açan her yol politikaları da yazmalıdır.** Belge saklama
+  politikaları `VARSAYILAN_BELGE_POLITIKALARI` (domain) içindedir; tohum ve
+  `TenantCommandService.olustur` ikisi de oradan okur. Üçüncü bir yol
+  eklenirse aynı listeyi kullanmalı — politikasız tenant'ta fatura
   silinebilir hale gelir.
-- **Para ve pay hiÃ§bir yerde ondalÄ±k tutulmaz.** KuruÅŸu `Number`'a Ã§evirip
-  bÃ¶lmek float yuvarlamasÄ± yapar (`moneyKurustan` kullanÄ±n). Arsa payÄ± ve
-  hisse kesirdir (`lib/kesir.ts` Â· `shared/apartman-domain/src/kesir.ts`).
-- **Sahte veri Ã¼retilmez.** Backend'i olmayan alanlar `HazirDegil` bileÅŸeniyle
-  iÅŸaretlidir.
-- **CT-05 disiplini:** kullanÄ±cÄ±ya gÃ¶rÃ¼nen her metin `messages/tr.json`
-  iÃ§inde bir i18n anahtarÄ±dÄ±r.
-- **Web paketinin birim testi neredeyse yok.** `tests/unit` Ã§oÄŸunlukla
-  `shared/*/dist` ve `backend/src/common` derlemesini koÅŸar; `filtre.ts`,
-  `csv-oku.ts` ve `lib/kesir.ts` yalnÄ±zca tip denetimi ve derleme ile
-  korunuyor. **Ä°stisna:** `lib/sekme-hata.ts` React'ten ayrÄ± tutulduÄŸu iÃ§in
-  `tests/unit/sekme-hata.test.mjs` ile test edilir â€” aynÄ± yol, saf mantÄ±ÄŸÄ±
-  bileÅŸenden Ã§Ä±kararak baÅŸka web modÃ¼lleri iÃ§in de kullanÄ±labilir.
-- **TarayÄ±cÄ± koÅŸum harness'Ä± YOK** (playwright/puppeteer/jsdom kurulu deÄŸil).
-  EtkileÅŸimli davranÄ±ÅŸ (sekme deÄŸiÅŸimi, form gÃ¶nderimi) tip denetimi, derleme,
-  i18n anahtar denetimi ve saf mantÄ±k testleriyle korunuyor; gerÃ§ek tÄ±klama
-  doÄŸrulanmÄ±yor. Sekmeli formlarda bu sÄ±nÄ±r Ã¶zellikle Ã¶nemli.
-- **SEKMELÄ° FORMDA GÄ°ZLÄ° ALANDA `required` KULLANILMAZ.** TarayÄ±cÄ± gizli bir
-  zorunlu alanÄ± odaklayamaz ve gÃ¶nderimi *sessizce* durdurur. Yeni bir sekme
-  eklerken bu kural tekrar hatÄ±rlanmalÄ±.
-- **Enum kodlarÄ± iki yerde aynalÄ±:** `frontend/web/lib/kodlar.ts` ve
+- **Para ve pay hiçbir yerde ondalık tutulmaz.** Kuruşu `Number`'a çevirip
+  bölmek float yuvarlaması yapar (`moneyKurustan` kullanın). Arsa payı ve
+  hisse kesirdir (`lib/kesir.ts` · `shared/apartman-domain/src/kesir.ts`).
+- **Sahte veri üretilmez.** Backend'i olmayan alanlar `HazirDegil` bileşeniyle
+  işaretlidir.
+- **CT-05 disiplini:** kullanıcıya görünen her metin `messages/tr.json`
+  içinde bir i18n anahtarıdır.
+- **Web paketinin birim testi neredeyse yok.** `tests/unit` çoğunlukla
+  `shared/*/dist` ve `backend/src/common` derlemesini koşar; `filtre.ts`,
+  `csv-oku.ts` ve `lib/kesir.ts` yalnızca tip denetimi ve derleme ile
+  korunuyor. **İstisna:** `lib/sekme-hata.ts` React'ten ayrı tutulduğu için
+  `tests/unit/sekme-hata.test.mjs` ile test edilir — aynı yol, saf mantığı
+  bileşenden çıkararak başka web modülleri için de kullanılabilir.
+- **Tarayıcı koşum harness'ı YOK** (playwright/puppeteer/jsdom kurulu değil).
+  Etkileşimli davranış (sekme değişimi, form gönderimi) tip denetimi, derleme,
+  i18n anahtar denetimi ve saf mantık testleriyle korunuyor; gerçek tıklama
+  doğrulanmıyor. Sekmeli formlarda bu sınır özellikle önemli.
+- **SEKMELİ FORMDA GİZLİ ALANDA `required` KULLANILMAZ.** Tarayıcı gizli bir
+  zorunlu alanı odaklayamaz ve gönderimi *sessizce* durdurur. Yeni bir sekme
+  eklerken bu kural tekrar hatırlanmalı.
+- **Enum kodları iki yerde aynalı:** `frontend/web/lib/kodlar.ts` ve
   `messages/tr.json`. Domain'e yeni kod eklenirse ikisine de eklenmelidir.
-- **SÄ°TE PERSONELÄ° â‰  DAÄ°RE GÃ–REVLÄ°SÄ°.** Ä°ÅŸveren farklÄ±dÄ±r ve bu, alan listesini
-  belirler: SGK Â· departman Â· vardiya Â· zimmet YALNIZCA site personelinde
-  bulunur. Yeni bir alan eklerken "bu yÃ¼kÃ¼mlÃ¼lÃ¼k kimin?" sorusu sorulmalÄ±dÄ±r.
-  Ä°ki ekran birbirine gÃ¶nderme yapan bir uyarÄ± satÄ±rÄ± taÅŸÄ±r; kaldÄ±rÄ±lmamalÄ±.
-- **i18n anahtarlarÄ± toptan arama-deÄŸiÅŸtirme ile YENÄ°DEN ADLANDIRILAMAZ.**
-  0009'da blanket bir `Personel â†’ GÃ¶revli` deÄŸiÅŸimi `yeniPersonel`
-  ANAHTARINI `yeniGÃ¶revli` yapÄ±p Next.js'i `MISSING_MESSAGE` ile patlatmÄ±ÅŸtÄ±.
-  Bu oturumda `tr.json` **programatik olarak** (JSON dÃ¼zeyinde) ayrÄ±ldÄ±.
-- **Kabuk Ã¼zerinden node betiÄŸi yazarken ÅŸablon dizgi kullanmayÄ±n.** `bash -c`
-  iÃ§indeki `\`${...}\`` ve `\"` kaÃ§Ä±ÅŸlarÄ± sessizce yeniyor: bu oturumda bir
-  Prisma modelinin bÃ¼tÃ¼n `@map("...")` tÄ±rnaklarÄ± kayboldu ve ÅŸema geÃ§ersiz
-  hale geldi; baÅŸka bir seferde Malik ile KiracÄ± modellerine yanlÄ±ÅŸ alan
-  bloÄŸu yazÄ±ldÄ±. Betikler **dosyaya yazÄ±lÄ±p** `node dosya.mjs` ile koÅŸulmalÄ±.
-- **Git Bash `/api/v1` gibi env deÄŸerlerini Windows yoluna Ã§evirir.** Backend'i
-  elle baÅŸlatÄ±rken `MSYS_NO_PATHCONV=1` verilmezse API Ã¶neki
-  `C:/Program Files/Git/api/v1` olur ve bÃ¼tÃ¼n uÃ§lar 404 dÃ¶ner. AyrÄ±ca giriÅŸ
-  noktasÄ± `dist/src/main.js`'tir (`dist/main.js` deÄŸil).
-- **Backend Ã§alÄ±ÅŸÄ±rken `prisma generate` EPERM verir.** Motor DLL'i
-  (`query_engine-windows.dll.node`) kilitlidir. `pnpm -r build` Ã¶ncesi node
-  sÃ¼reÃ§leri durdurulmalÄ±.
-- **PORTFÃ–Y Ã–ZETÄ° Ã‡APRAZ-TENANT SORGU DEÄÄ°LDÄ°R.** Proje baÅŸÄ±na ayrÄ±
-  `tenantIslemi(projeId)` Ã§aÄŸrÄ±sÄ±dÄ±r. "Tek sorguda toplayalÄ±m" fikri
-  ADR-0002'nin ismiyle yasakladÄ±ÄŸÄ± ÅŸeydir; hÄ±zlandÄ±rma yolu da yazÄ±lÄ±dÄ±r â€”
-  RLS'i delmek deÄŸil, event ile bakÄ±mÄ± yapÄ±lan Ã¶zet tablolarÄ±
+- **SİTE PERSONELİ ≠ DAİRE GÖREVLİSİ.** İşveren farklıdır ve bu, alan listesini
+  belirler: SGK · departman · vardiya · zimmet YALNIZCA site personelinde
+  bulunur. Yeni bir alan eklerken "bu yükümlülük kimin?" sorusu sorulmalıdır.
+  İki ekran birbirine gönderme yapan bir uyarı satırı taşır; kaldırılmamalı.
+- **i18n anahtarları toptan arama-değiştirme ile YENİDEN ADLANDIRILAMAZ.**
+  0009'da blanket bir `Personel → Görevli` değişimi `yeniPersonel`
+  ANAHTARINI `yeniGörevli` yapıp Next.js'i `MISSING_MESSAGE` ile patlatmıştı.
+  Bu oturumda `tr.json` **programatik olarak** (JSON düzeyinde) ayrıldı.
+- **Kabuk üzerinden node betiği yazarken şablon dizgi kullanmayın.** `bash -c`
+  içindeki `\`${...}\`` ve `\"` kaçışları sessizce yeniyor: bu oturumda bir
+  Prisma modelinin bütün `@map("...")` tırnakları kayboldu ve şema geçersiz
+  hale geldi; başka bir seferde Malik ile Kiracı modellerine yanlış alan
+  bloğu yazıldı. Betikler **dosyaya yazılıp** `node dosya.mjs` ile koşulmalı.
+- **Git Bash `/api/v1` gibi env değerlerini Windows yoluna çevirir.** Backend'i
+  elle başlatırken `MSYS_NO_PATHCONV=1` verilmezse API öneki
+  `C:/Program Files/Git/api/v1` olur ve bütün uçlar 404 döner. Ayrıca giriş
+  noktası `dist/src/main.js`'tir (`dist/main.js` değil).
+- **Backend çalışırken `prisma generate` EPERM verir.** Motor DLL'i
+  (`query_engine-windows.dll.node`) kilitlidir. `pnpm -r build` öncesi node
+  süreçleri durdurulmalı.
+- **PORTFÖY ÖZETİ ÇAPRAZ-TENANT SORGU DEĞİLDİR.** Proje başına ayrı
+  `tenantIslemi(projeId)` çağrısıdır. "Tek sorguda toplayalım" fikri
+  ADR-0002'nin ismiyle yasakladığı şeydir; hızlandırma yolu da yazılıdır —
+  RLS'i delmek değil, event ile bakımı yapılan özet tabloları
   (IMPLEMENTATION-ROADMAP R-4).
-- **Kontrol merkezinde karÅŸÄ±lÄ±ÄŸÄ± olmayan gÃ¶sterge `-1` dÃ¶ner**, sÄ±fÄ±r DEÄÄ°L.
-  SÄ±fÄ±r basmak "iÅŸ emri yok" ile "iÅŸ emri modÃ¼lÃ¼ yok" ayrÄ±mÄ±nÄ± gizler.
-- **Yetki modeli kararÄ±:** `tenant.setup` Apartman YÃ¶neticisi'nden alÄ±nÄ±p
-  YÃ¶netim Åirketi'ne verildi (yeni yerleÅŸke aÃ§mak bir onboarding iÅŸlemidir).
-  Belgelerde yetki matrisi yok; farklÄ± isteniyorsa tek yerden deÄŸiÅŸir:
+- **Kontrol merkezinde karşılığı olmayan gösterge `-1` döner**, sıfır DEĞİL.
+  Sıfır basmak "iş emri yok" ile "iş emri modülü yok" ayrımını gizler.
+- **Yetki modeli kararı:** `tenant.setup` Apartman Yöneticisi'nden alınıp
+  Yönetim Şirketi'ne verildi (yeni yerleşke açmak bir onboarding işlemidir).
+  Belgelerde yetki matrisi yok; farklı isteniyorsa tek yerden değişir:
   `shared/core-domain/src/yetki/roller.ts`.
 
 ---
 
-*Ä°lgili belgeler:* [`DEVLOG.md`](DEVLOG.md) Â·
-[`VALIDATION_REPORT.md`](VALIDATION_REPORT.md) Â·
+*İlgili belgeler:* [`DEVLOG.md`](DEVLOG.md) ·
+[`VALIDATION_REPORT.md`](VALIDATION_REPORT.md) ·
 [`docs/adr/log/`](docs/adr/log/)
-
