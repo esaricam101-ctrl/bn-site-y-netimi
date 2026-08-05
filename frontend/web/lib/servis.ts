@@ -1105,6 +1105,100 @@ export const makbuzlar = {
   }[]> => api('/makbuzlar/rapor/yaslandirma', gecerliJeton()),
 };
 
+/* ------------------------------- Tahsilat --------------------------------- */
+//
+// ⚠️  MOCK YOKTUR — muhasebe ve tahakkuk bloklarıyla aynı gerekçe: uydurma
+//     bir borç listesi gerçek sanılır ve tahsilat kararına dayanak olur.
+//
+// ⚠️  UÇ ADI `/makbuzlar`, modül adı `tahsilat`. Ölçüldü: `POST /tahsilat`
+//     404 döner. Tutarsızlık yol haritasında açık madde olarak duruyor;
+//     burada MEVCUT uç kullanılır, adlandırma kararı ayrı.
+
+/** Bir bağımsız bölümün AÇIK borç kalemi. Alanlar canlı yanıttan alındı. */
+export interface AcikBorcSatiri {
+  readonly borcId: string;
+  /**
+   * HİSSELİ MÜLKİYETTE ayrım noktası: borç maliklere bölünür ve biri kendi
+   * payını ödediğinde ötekilerinki AÇIK kalır. Tahsis bu kimliği taşır.
+   */
+  readonly borcSorumlusuId: string;
+  readonly sorumluAdi: string;
+  /** Gider türü kodu — `KAPICI`, `ELEKTRIK_ORTAK`… */
+  readonly borcKalemi: string;
+  readonly donem: string;
+  readonly vadeTarihi: string;
+  readonly tutar: string;
+  readonly odenen: string;
+  readonly kalan: string;
+  /**
+   * ⚠️  YALNIZCA VADE KARŞILAŞTIRMASI: `vadeTarihi < bugün`. Gecikme
+   *     TAZMİNATIYLA ilgisi yoktur — o motor üründe henüz yok. Ekranda
+   *     "vadesi geçmiş" denir, "gecikme faizi işliyor" DENMEZ.
+   */
+  readonly gecikmisMi: boolean;
+}
+
+export interface TahsisOnerisiSatiri {
+  readonly borcId: string;
+  readonly borcSorumlusuId: string;
+  readonly borcKalemi: string;
+  readonly donem: string;
+  readonly tutar: string;
+}
+
+export interface TahsisOnerisi {
+  readonly tahsisler: readonly TahsisOnerisiSatiri[];
+  /** Borçlara dağıtılamayan kısım. Sıfırdan büyükse avans demektir → reddedilir. */
+  readonly kalan: string;
+  readonly not: string | null;
+}
+
+export interface TahsilatGirdisi {
+  readonly kanal: string;
+  readonly tutar: string;
+  readonly tahsilatTarihi: string;
+  readonly aciklama?: string;
+  readonly odeyenKisiId?: string;
+  readonly bankaHareketiId?: string;
+  readonly tahsisler: readonly {
+    readonly borcId: string;
+    readonly borcSorumlusuId?: string;
+    readonly tutar: string;
+  }[];
+}
+
+export interface MakbuzSonucu {
+  readonly id: string;
+  readonly durum: string;
+  /** BOŞLUKSUZ seri (VUK) — `MKB-2026-000065`. */
+  readonly makbuzNo: string;
+}
+
+export const tahsilat = {
+  acikBorclar: (bolumId: string): Promise<readonly AcikBorcSatiri[]> =>
+    api(`/makbuzlar/borclar/${bolumId}`, gecerliJeton()),
+
+  /**
+   * FIFO ÖNERİSİ — HİÇBİR ŞEY YAZMAZ ve BAĞLAYICI DEĞİLDİR.
+   *
+   * ⚠️  TBK m.101: hangi borcun kapatılacağını **borçlu** belirler. Öneri
+   *     yalnızca en eski vadeyi önde tutan bir kolaylıktır; ekran onu
+   *     dayatmaz, kullanıcı her satırı değiştirebilir.
+   */
+  tahsisOnerisi: (tutar: string, bolumId: string): Promise<TahsisOnerisi> =>
+    api('/makbuzlar/tahsis-onerisi', {
+      method: 'POST', govde: { tutar, bolumId },
+      idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+
+  /** Yanıt ÖLÇÜLDÜ: `{ id, durum, makbuzNo }` — alan adı `numara` DEĞİL. */
+  makbuzKes: (dto: TahsilatGirdisi): Promise<MakbuzSonucu> =>
+    api('/makbuzlar', {
+      method: 'POST', govde: dto,
+      idempotencyKey: crypto.randomUUID(), ...gecerliJeton(),
+    }),
+};
+
 /* ------------------------------- Tahakkuk --------------------------------- */
 //
 // ⚠️  MOCK YOKTUR. Uydurma bir dağıtım tablosu gerçek sanılır ve mali karar

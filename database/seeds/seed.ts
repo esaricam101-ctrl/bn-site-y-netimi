@@ -165,14 +165,48 @@ const APARTMANLAR: ApartmanTohumu[] = [
  * borç varsa gösterilebilir. Önceki iki dönem kapalıdır (ödenmiş), böylece
  * ekstre ve yürüyen bakiye de dolu görünür.
  */
-const DEMO_DONEMLER: readonly {
-  donem: string; vade: string; tutar: number; kapali: boolean;
+/**
+ * DEMO TAHAKKUKLARI — kalem ÇEŞİTLİLİĞİ ve durum ÇEŞİTLİLİĞİ birlikte.
+ *
+ * ⚠️  TEK KALEM TÜRÜ, TEK DURUM KADAR YANILTICIDIR. Önce yalnızca `KAPICI`
+ *     vardı ve borçlar ya tümüyle ödenmiş ya hiç ödenmemişti; tahsilat
+ *     ekranı "temiz" görünüyordu çünkü sınanacak durum yoktu. Ekranın
+ *     gerçekten sınanabilmesi için üçü de bulunmalıdır:
+ *       · kısmen ödenmiş borç   (`odenen > 0` ve `kalan > 0`)
+ *       · vadesi geçmiş borç    (`gecikmisMi = true`)
+ *       · farklı dönemler       (FIFO önerisinin SIRASI görünsün)
+ *
+ * ⚠️  YALNIZCA `ESIT` KURALLI TÜRLER kullanılır ve bu bilinçlidir. Aşağıdaki
+ *     üretici tutarı bölümlere EŞİT dağıtır (`toplamTutar = tutar × bölüm`).
+ *     `ARSA_PAYI` ya da `TUKETIM` kurallı bir tür eklenseydi çalışma kaydı
+ *     o kuralı yazar ama tutarlar eşit çıkardı — kayıt kendi kuralıyla
+ *     çelişirdi. Ölçüm verisi gerektiren türler (SU · ISITMA) ve olay bazlı
+ *     türler (YAKIT · SIGORTA) bu yüzden DIŞARIDA: onlar `referans` ve sayaç
+ *     okuması ister, uydurulamaz.
+ */
+const DEMO_TAHAKKUKLAR: readonly {
+  giderTuruKodu: string; donem: string; vade: string; tutar: number;
+  /** 0 = hiç ödenmedi · 1 = tamamı · arası = KISMİ ödeme. */
+  odemeOrani: number;
 }[] = [
-  { donem: '2026-05-01', vade: '2026-05-31', tutar: 1_800, kapali: true },
-  { donem: '2026-06-01', vade: '2026-06-30', tutar: 1_800, kapali: true },
+  // Aidat zinciri — üç dönem, FIFO önerisinin sırası buradan görünür.
+  { giderTuruKodu: 'KAPICI', donem: '2026-05-01', vade: '2026-05-31', tutar: 1_800, odemeOrani: 1 },
+  { giderTuruKodu: 'KAPICI', donem: '2026-06-01', vade: '2026-06-30', tutar: 1_800, odemeOrani: 1 },
   // ⚠️ Vadesi geçmiş ve AÇIK — gecikmiş borç listesi ve tahsilat ekranı
   //    bu satırlar olmadan boş görünür.
-  { donem: '2026-07-01', vade: '2026-07-31', tutar: 1_950, kapali: false },
+  { giderTuruKodu: 'KAPICI', donem: '2026-07-01', vade: '2026-07-31', tutar: 1_950, odemeOrani: 0 },
+
+  // Ortak alan elektriği — ikinci kalem türü.
+  { giderTuruKodu: 'ELEKTRIK_ORTAK', donem: '2026-06-01', vade: '2026-06-30', tutar: 320, odemeOrani: 1 },
+  /*
+   * ★ KISMİ ÖDEME. `odenen` elle YAZILMAZ; aşağıdaki üretici bu orana göre
+   *   gerçek bir tahsis satırı yazar ve `odenen` ondan TÜRETİLİR. Ekranda
+   *   "kalan" sütununun çalıştığı ancak böyle görülür.
+   */
+  { giderTuruKodu: 'ELEKTRIK_ORTAK', donem: '2026-07-01', vade: '2026-07-31', tutar: 365, odemeOrani: 0.4 },
+
+  // Temizlik — üçüncü kalem türü, hiç ödenmemiş.
+  { giderTuruKodu: 'TEMIZLIK', donem: '2026-07-01', vade: '2026-07-31', tutar: 250, odemeOrani: 0 },
 ];
 
 /**
@@ -577,16 +611,15 @@ async function tahakkukGecmisiOlustur(
   tenantId: string,
   sorumlular: ReadonlyMap<string, readonly BorcTarafi[]>,
 ): Promise<void> {
-  const GIDER = 'KAPICI';                 // KULLANANA_AIT · EŞİT paylaşım
   const bolumIdler = [...sorumlular.keys()];
   let sira = 0;
   const tahsilEdilecek: TahsilEdilecek[] = [];
 
-  for (const d of DEMO_DONEMLER) {
+  for (const d of DEMO_TAHAKKUKLAR) {
     const calismaId = randomUUID();
     await prisma.tahakkukCalismasi.create({
       data: {
-        id: calismaId, tenantId, giderTuruKodu: GIDER,
+        id: calismaId, tenantId, giderTuruKodu: d.giderTuruKodu,
         donem: new Date(d.donem), tip: 'ASIL', sira: 1,
         // DAĞITIM SNAPSHOT'I (ADR-0017 · K7a). Türün kuralı sonradan
         // değişirse geçmiş tahakkuk yine doğru okunur. Tohum ezme yapmaz.
@@ -606,7 +639,7 @@ async function tahakkukGecmisiOlustur(
       await prisma.borc.create({
         data: {
           id: borcId, tenantId, bolumId, calismaId,
-          giderTuruKodu: GIDER,
+          giderTuruKodu: d.giderTuruKodu,
           tahakkukNo: `THK-2026-${String(sira).padStart(6, '0')}`,
           tutar: d.tutar,
           // ⚠️ `odenen` BURADA YAZILMAZ. Tahsis satırlarından TÜRETİLİR
@@ -646,11 +679,23 @@ async function tahakkukGecmisiOlustur(
           },
         });
 
-        if (d.kapali) {
-          tahsilEdilecek.push({
-            borcId, sorumluId, bolumId, kisiId: taraf.kisiId,
-            tutar: Number(payKurus) / 100, tarih: d.vade,
-          });
+        /*
+         * TAHSİL EDİLECEK PAY — orana göre. `odenen` hiçbir yerde ELLE
+         * yazılmaz; gerçek tahsis satırı üretilir ve `odenen` ondan
+         * türetilir (yukarıdaki not). Kısmi oranda kuruş TABANA yuvarlanır:
+         * fazla yuvarlamak, tahsis toplamını borcu AŞIRAN bir satır
+         * üretirdi ve motor onu haklı olarak reddederdi.
+         */
+        if (d.odemeOrani > 0) {
+          const odenecekKurus = d.odemeOrani >= 1
+            ? payKurus
+            : BigInt(Math.floor(Number(payKurus) * d.odemeOrani));
+          if (odenecekKurus > 0n) {
+            tahsilEdilecek.push({
+              borcId, sorumluId, bolumId, kisiId: taraf.kisiId,
+              tutar: Number(odenecekKurus) / 100, tarih: d.vade,
+            });
+          }
         }
       }
     }
@@ -667,10 +712,12 @@ async function tahakkukGecmisiOlustur(
     },
   });
 
-  const acik = DEMO_DONEMLER.filter((d) => !d.kapali).length * bolumIdler.length;
+  const acik = DEMO_TAHAKKUKLAR.filter((d) => d.odemeOrani < 1).length * bolumIdler.length;
+  const kalemler = new Set(DEMO_TAHAKKUKLAR.map((d) => d.giderTuruKodu)).size;
+  const kismi = DEMO_TAHAKKUKLAR.filter((d) => d.odemeOrani > 0 && d.odemeOrani < 1).length;
   console.log(
-    `     tahakkuk: ${DEMO_DONEMLER.length} dönem · ${sira} borç kaydı · ` +
-      `${acik} tanesi AÇIK ve vadesi geçmiş`,
+    `     tahakkuk: ${DEMO_TAHAKKUKLAR.length} çalışma · ${kalemler} kalem türü · `
+      + `${sira} borç kaydı · ${acik} tanesi AÇIK · ${kismi} çalışma KISMİ ödenmiş`,
   );
 }
 
@@ -752,11 +799,11 @@ async function apartmanOlustur(t: ApartmanTohumu): Promise<string> {
    *     GÜNÜ kapsayan açık dönem yoksa hiçbir fiş kesilemez:
    *     "2026-08-02 tarihini kapsayan bir muhasebe dönemi yok." Ölçüldü.
    *
-   * ⚠️  DEMO YILINA SABİTLENMEZ. `DEMO_DONEMLER` 2026'ya sabit ama tohum
+   * ⚠️  DEMO YILINA SABİTLENMEZ. `DEMO_TAHAKKUKLAR` 2026'ya sabit ama tohum
    *     başka bir yılda kurulabilir; o zaman bugünü kapsayan dönem yine
    *     olmazdı. Bu yüzden kurulum yılı ile demo yılı AYRI AYRI açılır.
    */
-  const demoYil = new Date(DEMO_DONEMLER[0]?.donem ?? '2026-01-01').getUTCFullYear();
+  const demoYil = new Date(DEMO_TAHAKKUKLAR[0]?.donem ?? '2026-01-01').getUTCFullYear();
   const yillar = [...new Set([new Date().getUTCFullYear(), demoYil])];
   await prisma.muhasebeDonemi.createMany({
     data: yillar.map((yil) => ({

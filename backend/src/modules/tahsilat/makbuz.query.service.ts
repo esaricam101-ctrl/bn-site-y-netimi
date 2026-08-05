@@ -14,6 +14,7 @@ import {
   apiBicimi, money, takvimTarihi, type Principal, type TakvimTarihi,
 } from '@bnos/kernel';
 import { IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
+import { BORC_KAPATMA_SIRASI } from './tahsis-sirasi';
 import {
   alacakYaslandirmasi, cariEkstre, kontrolMutabakati, otomatikTahsis,
   type AcikBorc, type CariEkstreGirdisi,
@@ -430,7 +431,8 @@ export class MakbuzQueryServisi {
             ...(kisiId === undefined
               ? {} : { sorumlular: { some: { kisiId } } }),
           },
-          orderBy: [{ vadeTarihi: 'asc' }],
+          // Sıra TEK KAYNAKTAN gelir — gerekçesi `tahsis-sirasi.ts` başlığında.
+          orderBy: [...BORC_KAPATMA_SIRASI],
           select: {
             id: true, tutar: true, odenen: true, vadeTarihi: true,
             giderTuruKodu: true, tahakkukDonemi: true,

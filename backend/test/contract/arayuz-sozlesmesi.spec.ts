@@ -403,6 +403,46 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
         },
       });
 
+      /*
+       * AÇIK BORÇ FİKSTÜRÜ — `AcikBorcSatiri` ve `TahsisOnerisi` tipleri
+       * bunsuz doğrulanamaz.
+       *
+       * ⚠️  BOŞ YANIT ŞEKLİ KANITLAMAZ. Bu blok olmasaydı iki uç da boş
+       *     dizi döner, testin kendi guard'ı ("örnek yok") düşerdi — yani
+       *     tip sessizce doğrulanmamış kalmazdı ama test de yazılamazdı.
+       *
+       * ⚠️  ÇALIŞMA KAYDI ATLANMAZ: `borc.calismaId` zorunludur ve mükerrer
+       *     koruması oradadır (ADR-0014). Borcu çalışma kaydı olmadan
+       *     yazmak, üretimde imkânsız bir durum kurgulamak olurdu.
+       */
+      const calismaId = randomUUID();
+      await tx.tahakkukCalismasi.create({
+        data: {
+          id: calismaId, tenantId: T, giderTuruKodu: 'CT22_AIDAT',
+          donem: new Date('2026-01-01'), tip: 'ASIL', sira: 1,
+          toplamTutar: 1000, bolumSayisi: 1,
+          kullanilanPaylasimKurali: 'ESIT', paylasimKuraliEzildi: false,
+        },
+      });
+      const borcId = randomUUID();
+      await tx.borc.create({
+        data: {
+          id: borcId, tenantId: T, bolumId: kimlik.bolumId, calismaId,
+          giderTuruKodu: 'CT22_AIDAT', tahakkukNo: 'THK-2026-000001',
+          tutar: 1000,
+          // `odenen` YAZILMAZ — tahsis satırlarından türetilir (ADR-0010).
+          vadeTarihi: new Date('2026-01-31'),
+          tahakkukDonemi: new Date('2026-01-01'),
+        },
+      });
+      await tx.borcSorumlusu.create({
+        data: {
+          id: randomUUID(), tenantId: T, borcId, kisiId: kimlik.malikKisi,
+          sira: 'ASIL', rol: 'MALIK', cozumlemeTarihi: new Date('2026-01-01'),
+          pay: 1000, agirlik: 1,
+        },
+      });
+
       for (const [eposta, ad, rol] of [
         [EPOSTA, 'Yönetim', 'YONETIM_SIRKETI'],
         [DENETCI_EPOSTA, 'Denetçi', 'DENETCI'],
@@ -474,7 +514,47 @@ describe('CT-22 · Arayüz sözleşmesi', () => {
      *     `veri.ts` okunuyordu ve muhasebe/portföy tarafı hiç doğrulanmıyordu.
      */
     ['MuhasebeParametreleri', '/muhasebe/parametreler', (g) => g],
+    ['AcikBorcSatiri', `/makbuzlar/borclar/${kimlik.bolumId}`, (g) => (g as unknown[])[0]],
   ];
+
+  /*
+   * POST İLE OKUNAN TİPLER — ayrı tablo, çünkü yukarıdaki yardımcı yalnızca
+   * GET yapar.
+   *
+   * ⚠️  YALNIZCA YAZMAYAN uçlar buraya girer. `tahsis-onerisi` POST'tur ama
+   *     HİÇBİR ŞEY YAZMAZ (öneri üretir). Gerçekten yazan uçlar
+   *     (`POST /makbuzlar` → `MakbuzSonucu`) burada doğrulanmaz: sözleşme
+   *     testi yan etki üretmemelidir. O tip yol haritasında "istek/yazma
+   *     tipleri için sözleşme testi yok" maddesinin kapsamındadır.
+   */
+  const POST_SOZLESMELER: readonly [string, string, unknown, (g: unknown) => unknown][] = [
+    [
+      'TahsisOnerisi', '/makbuzlar/tahsis-onerisi',
+      { tutar: '400.00', bolumId: kimlik.bolumId }, (g) => g,
+    ],
+    [
+      'TahsisOnerisiSatiri', '/makbuzlar/tahsis-onerisi',
+      { tutar: '400.00', bolumId: kimlik.bolumId },
+      (g) => (g as { tahsisler: unknown[] }).tahsisler[0],
+    ],
+  ];
+
+  for (const [tip, yol, govde, ornekAl] of POST_SOZLESMELER) {
+    it(`(${tip}) POST yanıtı tipe uyuyor`, async () => {
+      const y = await request(sunucu())
+        .post(`/api/v1${yol}`)
+        .set('Authorization', `Bearer ${jeton}`)
+        .set('Idempotency-Key', randomUUID())
+        .send(govde as object);
+      expect(y.status, `${yol} → ${y.status}: ${JSON.stringify(y.body).slice(0, 160)}`)
+        .toBeLessThan(300);
+
+      const ornek = ornekAl(y.body);
+      expect(ornek, `${yol}: doğrulanacak örnek yok`).toBeTruthy();
+      const eksik = eksikAlanlar(tip, ornek);
+      expect(eksik, `EKSİK ALANLAR → ${eksik.join(' · ')}`).toEqual([]);
+    });
+  }
 
   for (const [tip, yol, ornekAl] of SOZLESMELER) {
     it(`(${tip}) gerçek API yanıtı tipe uyuyor — iç içe alanlar dâhil`, async () => {
