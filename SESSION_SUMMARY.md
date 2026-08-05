@@ -6,7 +6,50 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
-## ▶▶▶ SIRADAKİ İŞ — CT-27 senaryo 7 + 9 ile BAŞLA
+## ▶▶▶ SIRADAKİ İŞ — CT-27 7a (artık VERİTABANISIZ yazılabilir)
+
+| Commit | Durum |
+|---|---|
+| `f0a8c50` | Çıkarma — davranış **bayt bayt aynı**, ölçüm commit mesajında |
+| `df7def1` | **Hâlâ testsiz** — 7a ile kapanacak |
+
+**7a artık DB'siz yazılabilir:** `zincireDagit` saf fonksiyon; fikstür
+**elle kurulmuş zincir + hisse dizisi** olacak. Senaryo 9 da aynı yerden,
+aynı biçimde.
+
+### ⚠️ 7a'DA YUVARLAMA TUTARI — iki tuzak
+
+**(1) Bölünen tutar hiçbir şey sınamaz.** Çıkarma ölçümünde `1500 / 3 =
+500` tam bölüyordu, yani **K4 kanıtı o ölçümde YOKTU**. `1.950,00`
+(195000 kuruş) da üçe tam bölünür (65000). **Bölünmeyen bir tutar
+seçilecek** — ör. `1.000,01` → `100001 / 3 = 33333`, **kalan 2** ve artık
+en büyük paya gider.
+
+**(2) Üç EŞİT hissede "en büyük pay" YOKTUR.** Ölçüldü
+([`money.ts:182-185`](shared/kernel/src/money/money.ts)):
+
+```ts
+let hedef = 0;
+for (let i = 1; i < agirliklar.length; i++) {
+  if ((agirliklar[i] ?? 0n) > (agirliklar[hedef] ?? 0n)) hedef = i;
+}
+```
+
+Karşılaştırma **kesin büyüktür (`>`)**, yani eşitlikte `hedef` **0'da
+kalır** — artık **dizideki ilk** sorumluya gider.
+
+⛔ İddia bunu hedeflemezse test **dizi sıralamasına** bağlı olur ve
+**CT-26'da çözülen determinizm sorunu burada yeniden doğar.** İki yoldan
+biri seçilecek:
+
+- Hisseler **eşit değil** yapılır (ör. 1/2 + 1/4 + 1/4) → en büyük pay
+  belirsizlik taşımaz
+- Ya da eşit hissede iddia açıkça **"ilk sorumlu"** der ve `dagit`'in bu
+  davranışı **kasıtlı** olduğu teste yazılır
+
+---
+
+## ▶▶ (ESKİ) CT-27 senaryo 7 + 9 planı
 
 > ⚠️ **ASIL HATA DÜZELTİLMEDİ.** Kapı 7 ekstresi hâlâ **4.452** gösteriyor.
 > `df7def1` **resolver'ı** düzeltti, **ekstre sorgusuna dokunmadı**.
