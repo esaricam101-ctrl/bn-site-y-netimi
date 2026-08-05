@@ -162,22 +162,94 @@ müteselsil davranır**.
 Bu, K5'in doğrulama maddesinin asıl gerekçesidir: bugün eksik veri hataya
 değil, **sessizce farklı bir hukuki yoruma** düşüyor.
 
-#### ★ Koşul göründüğünden bir adım daha zayıf: uzunluk ≠ kimlik
+#### ★ TEŞHİS DÜZELTİLDİ (6 Ağustos 2026) — kusur uzunluk/kimlik değil, NÜFUS
 
-`donemHisseleri.length === asillar.length` bir **sayı** karşılaştırmasıdır,
-**kimlik** karşılaştırması değil.
+> ⚠️ **Bu bölümün ilk hâli yanlış teşhis taşıyordu.** *"Uzunluk eşitliği
+> kimlik eşitliği değildir"* deniyor ve hisse kayıtlarının ayrı bir
+> kaynaktan geldiği **varsayılıyordu**. Ölçülmedi; ölçülünce çürüdü.
+> Kayıt yanlış teşhis taşıyamaz — aşağısı düzeltilmiş hâlidir.
 
-Senaryo: iki ASIL malik var, hisse kaydı da iki tane — ama biri **başka
-bir kişiye** ait (devir yarım kalmış, eski malikin hissesi silinmemiş).
-Koşul **geçer** ve `malikBorcunuBol` **yanlış kişilerin hisseleriyle**
-böler.
+**Ölçüm:** `iliskiHaritasi` ve `hisseHaritasi` **tek bir**
+`tx.malik.findMany` sonucundan kuruluyor
+([`tahakkuk.command.service.ts:534`](../../../backend/src/modules/tahakkuk/tahakkuk.command.service.ts))
+ve tarih süzgeçleri **birebir aynı yüklem**:
 
-⚠️ Bu sessiz düşüş değil, **sessiz yanlış hesaptır** — düşüşten daha
-kötüdür: sonuç makul görünür, kimse şüphelenmez.
+```ts
+// tarihtekiIliskiler (borc-sorumlusu.ts:48)
+i.baslangic <= tarih && (i.bitis === null || i.bitis >= tarih)
+// donemHisseleri (tahakkuk.command.service.ts, satır içi)
+h.baslangic <= donem && (h.bitis === null || h.bitis >= donem)
+```
 
-**Kontrol küme eşitliği olmalıdır:** ASIL malik `kisiId` kümesi = hisse
-kaydı `kisiId` kümesi. Tutmazsa K5 gereği **hata**; mesaj **hangi kişinin**
-hisse kaydının eksik ya da fazla olduğunu söylemelidir.
+Aynı kaynak + aynı yüklem ⇒ **malik kimlik kümesi ile hisse kimlik kümesi
+yapısal olarak her zaman eşittir.** *"Silinmemiş eski malik"* senaryosu
+üretilemez: eski malik `Malik` tablosunda duruyorsa **hem ilişki hem
+hisse** olarak görünür.
+
+**Gerçek kusur: İKİ FARKLI NÜFUS karşılaştırılıyordu.**
+
+Eski koşul `donemHisseleri.length === asillar.length` idi — `asillar`
+**zincirin ASIL satırları**, `donemHisseleri` ise **her zaman malikler**:
+
+| Gider türü | `asillar` | `donemHisseleri` | Sonuç |
+|---|---|---|---|
+| `KULLANANA_AIT` + kiracı | **1** (kiracı) | **2** (malikler) | eşit değil → `null` → **herkes tam tutar** |
+| `MALIKE_AIT` | 2 (malikler) | 2 | eşit → bölüşüm çalışır |
+
+★ **IKINCIL maliklerin tam tutar almasının sebebi budur** — ayrı bir kusur
+değil, bu nüfus uyuşmazlığının doğrudan sonucu. Kiracılı her bölümde
+bölüşüm **hiç çalışmıyordu**.
+
+#### Kümelerin eşitliği bir KORUMA değil, YAPISAL DEĞİŞMEZDİR
+
+Koddaki küme karşılaştırması kalır ama **koruma diye sayılmaz**: bugünkü
+veri yolunda tetiklenemez. Yorumu bunu açıkça söyler, aksi hâlde yeşil
+test listesinde görünmeyen bir kontrol zamanla **kanıtlanmış sanılır**.
+
+⏳ **Daha temiz olan:** iki haritayı **tek fonksiyondan** üretmek —
+tautoloji kodun yapısına gömülür, kontrole gerek kalmaz, garanti tip
+seviyesine çıkar. Düzeltmenin kapsamını genişlettiği için **yol
+haritasına** yazıldı.
+
+#### ★ ULAŞILABİLİR OLAN KONTROL: Σ hisse = 1
+
+K5'in asıl sorusu `Σ pay = borc.tutar` idi. **O da tautoloji çıktı:**
+`dagit` ağırlıkları **toplama bölerek normalize eder** ve kalan kuruşu en
+büyük paya ekler ([`money.ts:168-189`](../../../shared/kernel/src/money/money.ts));
+toplam **yapısal olarak** korunur.
+
+**Ölçülmeyen ve ulaşılabilir olan şey `Σ hisse = 1`'dir:**
+
+| Kayıtlı hisse | Bugünkü davranış |
+|---|---|
+| 1/2 + 1/2 | 975 / 975 ✓ |
+| 1/2 + 3/5 (toplam 1,1) | 886,36 / 1.063,64 — **Σ = 1.950, hata yok** |
+| **1/1 + 1/1** (silinmemiş devir) | 975 / 975 — **hiçbir uyarı yok** |
+
+⚠️ Son satır kritik: **yarım kalmış devirde mülkiyeti devretmiş kişi
+adına borç doğuyor**, `BorcSorumlusu` snapshot'ına yazılıyor, kişi
+ekstresinde çıkıyor, gecikme bildirimi listesine giriyor. Sessizce yanlış
+borçlandırmaktansa **durmak** asgari doğru davranıştır.
+
+**Karar:** `Σ hisse ≠ 1` ise tahakkuk **reddedilir**. Mesaj **bölümü,
+bulunan toplamı ve kayıtlı hisseleri** söyler.
+
+⚠️ **Tolerans `HISSE_OLCEGI` üzerinden TÜRETİLİR, sabit epsilon yoktur.**
+`hisseAgirligi` `(pay × ÖLÇEK) / payda` ile bigint'e çevirir; 1/3 gibi
+oranlarda kırpma artığı sorumlu sayısı kadar birim olabilir ve tolerans
+buradan hesaplanır.
+
+**Üç şart (onaylandı):**
+
+1. **Asıl yer malik/devir YAZMA anıdır.** Tahakkuktaki kontrol **ikinci
+   savunma hattıdır**. Yazma anındaki kontrol bu turun kapsamı dışıysa yol
+   haritasına gider — ama niyet burada yazılıdır.
+2. **Doğrulama ÖNİZLEMEYE taşınır.** Bozuk bölümler listelenir, *"işle"*
+   kilitli kalır. ⛔ **Kısmi tahakkuk YOK:** bozuk bölümü atlayıp
+   ötekileri işlemek **sessiz eksik borçlandırma** üretir. Çalışma zamanı
+   kontrolü son kapıdır.
+3. **Kontrol açılmadan önce mevcut veri TARANIR.** Düzeltme yolu olmayan
+   bir kilit ürünü kilitler.
 
 ### 2.6 · ADR-0007 "hukuki parametre seti" DEĞİL
 

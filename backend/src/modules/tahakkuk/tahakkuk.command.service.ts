@@ -645,14 +645,30 @@ export class TahakkukCommandService {
         const zincirMalikleri = zincir.filter((s) => s.rol === 'MALIK');
 
         /*
-         * ⚠️  KÜME EŞİTLİĞİ — UZUNLUK DEĞİL (ADR-0018 · §2.5).
+         * ⚠️  BU BİR KORUMA DEĞİL, YAPISAL DEĞİŞMEZ İDDİASIDIR (ADR-0018 §2.5).
          *
-         *     Eskiden `donemHisseleri.length === asillar.length` bakılıyordu.
-         *     Uzunluk eşitliği KİMLİK eşitliği değildir: iki malik ve iki
-         *     hisse kaydı olup biri BAŞKA BİR KİŞİYE aitse (yarım kalmış
-         *     devir, silinmemiş eski hisse) koşul geçer ve borç YANLIŞ
-         *     KİŞİLERİN hisseleriyle bölünürdü. Sessiz düşüş değil, sessiz
-         *     YANLIŞ HESAP — sonuç makul görünür, kimse şüphelenmez.
+         *     Ölçüldü: `zincirMalikleri` ve `donemHisseleri` AYNI
+         *     `tx.malik.findMany` sonucundan türüyor ve tarih süzgeçleri
+         *     birebir aynı yüklem (`tarihtekiIliskiler` ile satır içi filtre).
+         *     Yani iki küme BUGÜN yapısal olarak eşittir ve bu dal
+         *     TETİKLENEMEZ.
+         *
+         *     ⛔ YEŞİL TEST LİSTESİNDE GÖRÜNMEDİĞİ İÇİN "kanıtlanmış"
+         *        SAYILMAZ. Testi yoktur çünkü ulaşılamaz; uydurma bir test
+         *        yazmak onu kanıtlanmış gösterirdi.
+         *
+         *     Duruyor çünkü hisse kaynağı ayrıştığında (tapu entegrasyonu)
+         *     eşitlik garantisi kalkar ve o gün sessiz yanlış hesap doğar.
+         *
+         *     ⏳ Daha temizi: iki haritayı TEK fonksiyondan üretmek —
+         *        tautoloji kodun yapısına gömülür. Yol haritasında.
+         *
+         *     ⚠️  ESKİ KOŞUL BUNU KARŞILAŞTIRMIYORDU. `donemHisseleri.length
+         *         === asillar.length` İKİ FARKLI NÜFUSU ölçüyordu: `asillar`
+         *         KULLANANA_AIT'te KİRACIYI sayar, `donemHisseleri` her zaman
+         *         MALİKLERİ. Kiracılı bölümde 1 ≠ 2 olduğu için bölüşüm HİÇ
+         *         çalışmıyordu — IKINCIL maliklerin tam tutar almasının
+         *         sebebi buydu.
          */
         const malikKimlikleri = new Set(zincirMalikleri.map((s) => s.kisiId));
         const hisseKimlikleri = new Set(donemHisseleri.map((h) => h.kisiId));
