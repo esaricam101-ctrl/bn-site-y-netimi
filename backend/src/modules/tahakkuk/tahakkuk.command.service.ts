@@ -24,11 +24,13 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import {
   apiBicimi, money, moneyKurustan, takvimTarihi,
-  type Money, type Principal, type TakvimTarihi,
+  // `Money` KALDIRILDI: pay dağıtımı `zincireDagit`'e taşınınca burada
+  // Money tipiyle doğrudan çalışan kod kalmadı (ADR-0018 §4b).
+  type Principal, type TakvimTarihi,
 } from '@bnos/kernel';
 import { CakismaHatasi, IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
 import {
-  BagimsizBolum, borcSorumlulariniCoz, gideriPaylastir, malikBorcunuBol,
+  BagimsizBolum, borcSorumlulariniCoz, gideriPaylastir, zincireDagit,
   type BolumIliskisi, type GiderTuru, type MalikHissesi, type PaylasimGirdisi,
 } from '@bnos/apartman-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -642,82 +644,26 @@ export class TahakkukCommandService {
           (h) => h.baslangic <= donem && (h.bitis === null || h.bitis >= donem),
         );
 
-        const zincirMalikleri = zincir.filter((s) => s.rol === 'MALIK');
-
         /*
-         * ⚠️  BU BİR KORUMA DEĞİL, YAPISAL DEĞİŞMEZ İDDİASIDIR (ADR-0018 §2.5).
+         * ★ PAY DAĞITIMI TEK ÇAĞRI — mantık `@bnos/apartman-domain`
+         *   `zincireDagit` içinde ve `tx` GÖRMEZ (ADR-0018 §4b).
          *
-         *     Ölçüldü: `zincirMalikleri` ve `donemHisseleri` AYNI
-         *     `tx.malik.findMany` sonucundan türüyor ve tarih süzgeçleri
-         *     birebir aynı yüklem (`tarihtekiIliskiler` ile satır içi filtre).
-         *     Yani iki küme BUGÜN yapısal olarak eşittir ve bu dal
-         *     TETİKLENEMEZ.
-         *
-         *     ⛔ YEŞİL TEST LİSTESİNDE GÖRÜNMEDİĞİ İÇİN "kanıtlanmış"
-         *        SAYILMAZ. Testi yoktur çünkü ulaşılamaz; uydurma bir test
-         *        yazmak onu kanıtlanmış gösterirdi.
-         *
-         *     Duruyor çünkü hisse kaynağı ayrıştığında (tapu entegrasyonu)
-         *     eşitlik garantisi kalkar ve o gün sessiz yanlış hesap doğar.
-         *
-         *     ⏳ Daha temizi: iki haritayı TEK fonksiyondan üretmek —
-         *        tautoloji kodun yapısına gömülür. Yol haritasında.
-         *
-         *     ⚠️  ESKİ KOŞUL BUNU KARŞILAŞTIRMIYORDU. `donemHisseleri.length
-         *         === asillar.length` İKİ FARKLI NÜFUSU ölçüyordu: `asillar`
-         *         KULLANANA_AIT'te KİRACIYI sayar, `donemHisseleri` her zaman
-         *         MALİKLERİ. Kiracılı bölümde 1 ≠ 2 olduğu için bölüşüm HİÇ
-         *         çalışmıyordu — IKINCIL maliklerin tam tutar almasının
-         *         sebebi buydu.
+         *   Süzme BURADA yapılır, fonksiyon SÜZÜLMÜŞ veri alır: tarih
+         *   yüklemi iki yerde durursa §2.5'te çürütülen "iki nüfus"
+         *   kusurunun ikinci kopyası doğar.
          */
-        const malikKimlikleri = new Set(zincirMalikleri.map((s) => s.kisiId));
-        const hisseKimlikleri = new Set(donemHisseleri.map((h) => h.kisiId));
-        const eksik = [...malikKimlikleri].filter((k) => !hisseKimlikleri.has(k));
-        const fazla = [...hisseKimlikleri].filter((k) => !malikKimlikleri.has(k));
-
-        if (eksik.length > 0 || fazla.length > 0) {
-          const ad = (k: string): string => kisiAdi.get(k) ?? k;
-          throw new IsKuraliIhlali(
-            `${pay.kapiNo} nolu bölümde malik kayıtları ile tapu hisseleri `
-              + 'örtüşmüyor; borç kime ne kadar yazılacağı belirsiz.',
-            [
-              eksik.length > 0
-                ? `Hisse kaydı OLMAYAN malik: ${eksik.map(ad).join(', ')}.`
-                : '',
-              fazla.length > 0
-                ? `Malik kaydı OLMAYAN hisse: ${fazla.map(ad).join(', ')}.`
-                : '',
-              'Tapu ve malik kayıtlarını eşitleyip tahakkuku tekrar çalıştırın.',
-            ].filter((x) => x !== '').join(' '),
-          );
-        }
-
-        // Kimlik → pay. Tek malikte de çalışır: `malikBorcunuBol` tutarın
-        // tamamını o malike verir, sonuç eski davranışla birebir aynıdır.
-        const malikPaylari = new Map<string, { tutar: Money; agirlik: bigint }>();
-        if (donemHisseleri.length > 0) {
-          const bolusum = malikBorcunuBol(
-            pay.tutar, donemHisseleri, gider.malikPaylasimi ?? 'HISSE_ORANI',
-          );
-          for (const b of bolusum) {
-            malikPaylari.set(b.kisiId, { tutar: b.tutar, agirlik: b.agirlik });
-          }
-        }
-
-        const sorumlular = zincir.map((s, i) => {
-          // Malik satırı payını alır — SIRASI FARK ETMEZ (K5). Kiracı/sakin
-          // hisse taşımaz; borcun tamamından sorumludur.
-          const malikPayi = s.rol === 'MALIK' ? malikPaylari.get(s.kisiId) : undefined;
-          return {
-            kisiId: s.kisiId,
-            kisiAdi: kisiAdi.get(s.kisiId) ?? '—',
-            rol: s.rol,
-            sira: s.sira,
-            pay: apiBicimi(malikPayi?.tutar ?? pay.tutar),
-            agirlik: malikPayi?.agirlik ?? 1n,
-            sirano: i,
-          };
-        });
+        const sorumlular = zincireDagit(
+          pay.tutar, zincir, donemHisseleri, gider.malikPaylasimi ?? 'HISSE_ORANI',
+          { kapiNo: pay.kapiNo, kisiAdi },
+        ).map((s, i) => ({
+          kisiId: s.kisiId,
+          kisiAdi: kisiAdi.get(s.kisiId) ?? '—',
+          rol: s.rol,
+          sira: s.sira,
+          pay: apiBicimi(s.pay),
+          agirlik: s.agirlik,
+          sirano: i,
+        }));
 
         satirlar.push({
           bolumId: pay.bolumId,

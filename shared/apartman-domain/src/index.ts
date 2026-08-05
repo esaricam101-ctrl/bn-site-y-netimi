@@ -5,6 +5,7 @@ export * from './bolum/bagimsiz-bolum.js';
 export * from './gider/gider-turu.js';
 export * from './gider/paylastir.js';
 export * from './borc/borc-sorumlusu.js';
+export * from './borc/pay-dagitimi.js';
 export * from './malik/malik.js';
 // Operasyonel varliklar. Domain kurallari hazirdir; KALICILIK migration bekler
 // (DEVLOG Oturum 11 TODO) — bu moduller henuz veritabani tablosu tasimaz.
