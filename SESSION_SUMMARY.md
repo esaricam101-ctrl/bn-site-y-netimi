@@ -6,6 +6,44 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
+## ▶▶▶ SIRADAKİ İŞ — KİŞİ EKSTRESİ HATASI (P0), sonra cari ekstre ekranı
+
+★ **Cari ekstre ekranı bu hata düzeltilmeden YAZILMAMALI.** Ekranın
+dayanacağı yanıt tipi düzeltmeyle değişecek; sözleşmeyi önce yazmak
+uydurma alan adı üretir.
+
+**Ölçüldü (canlı · Papatya kapı 7 · iki malik):**
+
+| | Borç | Tahsilat | Kapanış |
+|---|---|---|---|
+| Bölüm | 6.485 | 4.066 | **2.419** |
+| Malik A | 6.485 | 2.033 | **4.452** |
+| Malik B | 6.485 | 2.033 | **4.452** |
+
+İki kişinin kapanışı toplamı **8.904**, bölümünki 2.419.
+
+**Kök sebep — asimetri** (`makbuz.query.service.ts` · `cariEkstreDokumu`):
+
+- Borç tarafı `sorumlular: { some: { kisiId } }` süzgeciyle
+  `borc.tutar`'ın **TAMAMINI** topluyor
+- Tahsilat tarafı `borcSorumlusu.kisiId` ile kişinin **PAYINI** topluyor
+- Kişinin payı `borcSorumlusu.pay` alanında duruyor ve **hiç kullanılmıyor**
+- Açılış bakiyesi de aynı süzgeci kullanıyor — hata her yerde tutarlı
+
+**Yapılacaklar:**
+
+1. Borç tarafı `borcSorumlusu.pay` üzerinden toplansın (kişi süzgeci varken)
+2. `CariEkstreDokumu`'na **kişi kimliği** eklensin — bugün yanıtta yok, bu
+   yüzden ekran *"Kapı 10 · Yılmaz'ın payı"* yazamaz
+3. Negatif test: hisseli bölümde **Σ kişi kapanışı = bölüm kapanışı**
+4. Sonra cari ekstre ekranı sözleşmesi
+
+⚠️ Ekstrede **ödeyen izi de yok** (üç katmanda birden kopuk — yol
+haritasına yazıldı) ve **iptal edilmiş makbuzlar hiç görünmüyor**
+([Çelişki Ç-3](docs/CELISKI-KAYDI.md) · bugün etkin).
+
+---
+
 ## ★★★ İŞ SIRASI — 5 Ağustos 2026, ürün sahibi
 
 > **AKTİF ÇALIŞMA KAPSAMI: APARTMAN**
