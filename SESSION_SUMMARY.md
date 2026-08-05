@@ -6,7 +6,45 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
-## ▶▶▶ SIRADAKİ İŞ — KİŞİ EKSTRESİ HATASI (P0), sonra cari ekstre ekranı
+## ▶▶▶ SIRADAKİ İŞ — CT-27 senaryo 7 + 9 ile BAŞLA
+
+> ⚠️ **ASIL HATA DÜZELTİLMEDİ.** Kapı 7 ekstresi hâlâ **4.452** gösteriyor.
+> `df7def1` **resolver'ı** düzeltti, **ekstre sorgusuna dokunmadı**.
+>
+> **Sonraki oturum CT-27/7+9 ile başlar, sonra ekstre sorgusu.**
+>
+> **Tohum sadakati bulgusu açık** — teminat katmanı hiçbir demo veride yok.
+
+### Sıra — 6 Ağustos'ta revize edildi
+
+| # | İş | Durum |
+|---|---|---|
+| 1 | ADR-0018 + hukuk seti commit | ✅ `5b74ac1` |
+| 2 | Resolver (K1 semantiği · K5 küme eşitliği · IKINCIL) | ✅ `df7def1` — **testsiz** |
+| 3 | Tohum yeniden üretimi | ✅ |
+| **4** | **CT-27 senaryo 7 + 9** — resolver'ı hedefleyenler, **kendi fikstürleriyle, tohumdan bağımsız** | ❌ **buradan başla** |
+| 5 | Ekstre sorgusu (K2 · K3 · K6) | ❌ |
+| 6 | CT-27 kalan yedi senaryo | ❌ |
+| 7 | §2.5 asimetrik süzgeç avı — liste, düzeltme değil | ❌ |
+| 8 | Canlı ölçüm: kapı 7 öncesi/sonrası · kapı 2 · hisseli-kiracılı | ❌ |
+
+★ **5. adımın bir parçası öne alındı.** Gerekçe tek cümle: **her commit
+kendi kanıtıyla kapanmalı.** Testsiz kodun (`df7def1`) üstüne testsiz kod
+binerse iki değişikliğin hangisinin kırdığı ayrılamaz.
+
+⚠️ **Senaryo 7 tohum verisiyle test EDİLEMEZ** — tohum ikincil sorumlu
+satırı yazmıyor (yol haritası · tohum sadakati maddesi). Kendi fikstürü
+gerekir.
+
+### Ekran sözleşmesi için beklenen dört parça
+
+**CT-27 yeşil olduğunda** gönderilecek: `CariEkstreDokumu` (düzeltilmiş) ·
+uç imzası + `ApiQuery` · biçimleme deseni (`kurusa`/`kurustan`/`paraTr`) ·
+ADR-0010 karar bölümü.
+
+---
+
+## ▶▶ KİŞİ EKSTRESİ HATASI — ölçüm ve kök sebep (kayıt)
 
 ★ **Cari ekstre ekranı bu hata düzeltilmeden YAZILMAMALI.** Ekranın
 dayanacağı yanıt tipi düzeltmeyle değişecek; sözleşmeyi önce yazmak
