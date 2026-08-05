@@ -121,6 +121,46 @@ gözden geçirilecek.
 
 ---
 
+## Ç-3 · İptal edilmiş makbuzun görünmezliği ↔ "mali kayıt silinmez"
+
+**Durum:** açık · **Karşımıza çıkacağı an:** **BUGÜN ETKİN** — ileri
+tarihli değil · **Kapsam:** `[ORTAK]`
+
+### Çatışan iki karar
+
+| | Karar | Kaynak |
+|---|---|---|
+| A | **İptal edilmiş makbuzların tahsisleri ekstrede YOKTUR.** | `tahsilat.controller.ts` · uygulanıyor (`tahsilat: { durum: 'GECERLI' }`) |
+| B | **Mali kayıt SİLİNMEZ, ters kayıtla düzeltilir.** Fiş silme ucu yoktur ve olmayacaktır. | ADR-0003 · `muhasebe.controller.ts` başlığı |
+
+### Somut sonuç
+
+Aynı tarih aralığı iki kez basıldığında **farklı bakiye** çıkar ve fark
+ekstrede **görünmez**:
+
+- Denetçi ikisini yan yana koyduğunda açıklama üretemez.
+- Kat malikine verilmiş bir ekstre sonradan geçersizleşir ve **neden**
+  geçersizleştiği belgelenmemiş olur.
+- İptal, mali kaydı fiilen **silmiş** gibi davranır — B'nin yasakladığı şey.
+
+⚠️ Bu, Ç-1 ve Ç-2'den farklı olarak **bugün etkin bir çelişkidir**: iptal
+ucu (`POST /makbuzlar/:id/iptal`) yazılmış ve çalışıyor.
+
+### Önerilen çözüm — karar ürün sahibinde
+
+İptal satırı ekstrede **durur**: üstü çizili ya da `İPTAL` etiketli,
+**tutarı yürüyen bakiyeye etki etmez**, ve iptal işlemi **ayrı satır**
+olarak görünür (ters kayıt mantığının ekstredeki karşılığı).
+
+İsteğe bağlı *"iptalleri gizle"* anahtarı olabilir — ama **varsayılan
+görünür** olmalıdır. Bugünkü davranış varsayılanı "gizli" yapmış ve
+anahtarı hiç sunmamıştır.
+
+★ Bu bir uç değişikliği gerektirir: `durum: 'GECERLI'` süzgeci
+gevşetilip satıra `durum` alanı eklenmelidir.
+
+---
+
 ## Kapananlar
 
 *(Henüz yok. Çözülen çatışma ilgili ADR'ye taşınır ve buraya tarihiyle
