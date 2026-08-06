@@ -423,6 +423,22 @@ söyler.
 hata vermiyor, **sessizce müteselsile kayıyor.** Eksik veri bir hukuki
 yorum değiştirmemelidir.
 
+#### ⛔ K5'İN MESAJ ŞARTI İKİYE BÖLÜNDÜ (7a/7b deseninin aynısı)
+
+`hisseleriZorunluKil` **bölümü bilmez ve bilmemelidir** — domain katmanı,
+bölüm kavramı yok. Mesajı yalnızca **tarih + bulunan toplam + yön** taşır.
+
+| Test | Kanıtladığı |
+|---|---|
+| **A2** (yazıldı, yeşil) | Domain mesajı **bulunan toplamı** ve **yönü** söylüyor |
+| **A2b** (bağlamada) | Mesaj **bölümü** ve **kayıtlı hisseleri** de söylüyor |
+
+> ⚠️ **K5 ANCAK İKİSİ BİRDEN YEŞİLKEN kapanır.** A2 tek başına yeşilken
+> K5'in kanıtlandığı izlenimi doğar — 7a/7b'de kaçınılan hatanın aynısı.
+
+Zenginleştirme **bağlama yerinde** yapılır; `zincireDagit`in
+`PayEtiketleri` deseni bunun emsalidir.
+
 ### K6 · Yanıt tipine dört alan eklenir
 
 `CariEkstreDokumu` bugün yalnızca `bolumId` ve `daire` döndürüyor; ekran
@@ -478,6 +494,7 @@ Değişmezin kendisi K3'tedir. Koşulacak senaryolar:
 | 5 | Payları tutmayan bozuk veri | **Hata bekleniyor** (K5) |
 | 6 | **Hisseli + kiracılı** | ASIL = kiracı, IKINCIL = iki malik — **K5'in yeni hâli** |
 | **7a** | **Resolver:** ikincil malik satırı doğru `pay` ve `sira` ile **yazılıyor** | `df7def1`'in kanıtı — pay dağıtımı katmandan bağımsız |
+| **A2** | **Domain mesajı:** `hisseleriZorunluKil` bulunan toplamı ve yönü söylüyor | K5'in **yalnızca yarısı** — bkz. aşağıdaki not |
 | **7b** | **Ekstre:** ASIL/IKINCIL bölümleri görünüyor, yürüyen bakiye **yalnızca ASIL** | K3'ün ekran/sorgu tarafı |
 | 8 | **Devir sonrası** | `cozumlemeTarihi` geçmiş sorumluluğu koruyor; yeni malik eski borcun ASIL'i **olmuyor** |
 | 9 | **Hisse kaydı sayıca doğru, KİMLİKÇE yanlış** | **Hata bekleniyor** — küme eşitliği kontrolü (§2.5). Uzunluk kontrolü bunu kaçırır ve yanlış kişilerin hisseleriyle böler |
