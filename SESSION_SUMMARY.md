@@ -34,11 +34,29 @@ mesajla ayırıyor (*"Bölüm sahipsiz görünüyor"*).
 `borcSorumlulariniCoz` *"malik kaydi yok. Borc olusturulamaz."* fırlatıyor.
 Yani bağlanacak kontrol yalnızca **Σ ≠ 1** durumunu ekler.
 
+⚠️ **SONUÇ "SIFIR" DEĞİL, "HENÜZ SIFIR".** Tohum **yarım kalmış devir
+üretmiyor**; yani tarama bu sınıfı **arayabileceği bir yerde aramadı**.
+Şart 3 karşılandı sayılır çünkü bugün başka veri yok — ama sonucun anlamı
+*"veri temiz"* değil, **"kilidi açmak bugün maliyetsiz"**.
+
 ### Yapılacaklar
 
 1. **`hisseleriZorunluKil` BAĞLANACAK — yeniden yazılmayacak.** Fonksiyon
    var, hata fırlatıyor ve **süzülmüş listeyi döndürüyor**; hiçbir çağıranı
    yok.
+
+   ⛔ **ÖNCE KENDİ TESTİ.** Hiçbir çağıranı olmaması, **bugüne kadar hiç
+   koşulmamış** olabileceği anlamına gelir. Onu kritik yola bağlamak,
+   **testsiz kodu tahakkuk yoluna koymak** olur — `df7def1` dersinin
+   aynısı. Test kapsamı: tam toplam geçer · eksik toplam hata · fazla
+   toplam hata · malik kaydı yok ayrı mesaj · **süzülmüş liste doğru
+   dönüyor**. İki temsil testi (kesirli ↔ ölçekli) aynı commit'te olabilir.
+
+   ⚠️ **Bağlama commit'inden ÖNCE CT-18 ve CT-26 fikstürlerine bakılacak.**
+   Taramada çıkan altı bölüm o fikstürlerde ve **malik kaydı yok**. Bugün
+   tahakkuk yoluna girmiyor olabilirler; ama doğrulama önizlemeye taşınınca
+   davranışları değişebilir. Kırmızı çıkarsa sebebi **ürün değil fikstür**
+   olur ve **bu ayrım commit mesajında yazılı olmalı**.
 2. ⚠️ Bağlamadan önce **iki temsilin aynı sonucu verdiği** bir testle
    sabitlensin: doğrulama **kesirli** aritmetik (`kesirleriTopla`),
    dağıtım **ölçekli bigint** (`hisseAgirligi`, 1/3 → 333333). Sonuç
