@@ -6,7 +6,53 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
-## ▶▶▶ SIRADAKİ İŞ — Σ hisse kontrolünü BAĞLA + senaryo 9
+## ▶▶▶ SIRADAKİ İŞ — BAĞLAMA (test hazır, çağıran yok)
+
+`hisseleriZorunluKil` testi yazıldı (**8/8**, DB'siz). Bağlama **bir
+sonraki commit** — bu commit'e çağıran eklenmedi.
+
+### ★ B1 açık soruyu ÖLÇÜMLE kapattı
+
+*"Kesirli doğrulama ile ölçekli dağıtım ayrışır mı?"* — önceki turda akıl
+yürütmeyle *"ayrışmıyor"* denmişti. **Ölçüldü: ayrışmıyor.**
+
+Doğrulamayı geçen beş kümenin hepsinde `Σ pay = tutar`
+(`1/2+1/2` · `1/3+1/3+1/3` · `1/2+1/4+1/4` · `6 × 1/6` · tek malik),
+bölünmeyen tutarla (`1.000,0001`) ve üçe/dörde/altıya bölünmediğini
+sınayan guard'larla.
+
+### ★ C ölçümü — CT-18 / CT-26 ETKİLENMİYOR
+
+| Spec | Malik kaydı | Tahakkuk **servis** yolu |
+|---|---|---|
+| CT-18 `yevmiye-kapsami` | 0 | **hiç yok** |
+| CT-26 `tahsis` | 0 | **yok** — `tahakkukCalismasi`'nı doğrudan Prisma ile yazıyor |
+
+> **Cevap: HAYIR.** Bağlama bu iki testi kırmızıya düşürmez; ikisi de
+> tahakkuk **servis** yolundan geçmiyor.
+
+⚠️ **Ama CT-26 çalışma kaydını doğrudan yazıyor** — yani ürünün yolunu
+değil, benzerini kuruyor. **Tohum sadakati bulgusunun aynı sınıfı.** Bugün
+zararsız; ileride servis yoluna kontrol eklendiğinde CT-26 onu **hiç
+sınamayacak**.
+
+### ⛔ BAĞLAMA SIRASINDA KAPATILACAK EKSİK
+
+K5 hata mesajının **bölümü ve kayıtlı hisseleri** söylemesini istiyor.
+`hisseleriZorunluKil` **bunları bilmez** (domain katmanı; bölüm kavramı
+yok) — mesajı yalnızca **tarih + toplam + yön** taşıyor:
+
+```text
+2026-07-01 tarihinde hisse oranlari toplami 1 degil (0.750000).
+Bolumun bir kismi sahipsiz; eksik pay hicbir kisiye tahakkuk etmez.
+```
+
+★ Eksik **burada kapatılamaz.** Zenginleştirme **bağlama yerinde**
+yapılacak — `zincireDagit`in `PayEtiketleri` deseninin aynısı.
+
+---
+
+## ▶▶ Σ hisse kontrolü — arka plan
 
 | Commit | Durum |
 |---|---|
