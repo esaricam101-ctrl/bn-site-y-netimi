@@ -6,7 +6,51 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
-## ▶▶▶ SIRADAKİ İŞ — CT-27 7a (artık VERİTABANISIZ yazılabilir)
+## ▶▶▶ SIRADAKİ İŞ — Σ hisse kontrolünü BAĞLA + senaryo 9
+
+| Commit | Durum |
+|---|---|
+| `f0a8c50` | Çıkarma — davranış bayt bayt aynı |
+| `c06ef2f` | **CT-27/7a — `df7def1` KAPANDI**, kırmızı görülerek |
+
+### Veri taraması yapıldı — 6 Ağustos 2026
+
+Ürünün **kendi** fonksiyonuyla (`hisseleriDogrula`), tüm tenant'lar:
+
+```text
+tenant : 41 · bölüm : 54 · Σ ≠ 1 : 6 (%11,1)
+```
+
+★ **Altısının da sebebi `Σ ≠ 1` DEĞİL:** hepsi **malik kaydı hiç olmayan**
+test fikstürü (`ct18-*`, `ct26-*`). `hisseleriDogrula` bu durumu ayrı bir
+mesajla ayırıyor (*"Bölüm sahipsiz görünüyor"*).
+
+> **Gerçek Σ hisse ≠ 1 vakası: SIFIR.** Tohumla kurulmuş üç projede
+> (`guzel-apartmani` · `papatya-sitesi` · `yesil-vadi-apartmani`) ihlal yok.
+
+⚠️ **Kilit güvenle açılabilir** — ADR-0018 §2.5 şart 3 karşılandı.
+
+⚠️ Malik kaydı **hiç olmayan** bölüm zaten tahakkukta engelleniyor:
+`borcSorumlulariniCoz` *"malik kaydi yok. Borc olusturulamaz."* fırlatıyor.
+Yani bağlanacak kontrol yalnızca **Σ ≠ 1** durumunu ekler.
+
+### Yapılacaklar
+
+1. **`hisseleriZorunluKil` BAĞLANACAK — yeniden yazılmayacak.** Fonksiyon
+   var, hata fırlatıyor ve **süzülmüş listeyi döndürüyor**; hiçbir çağıranı
+   yok.
+2. ⚠️ Bağlamadan önce **iki temsilin aynı sonucu verdiği** bir testle
+   sabitlensin: doğrulama **kesirli** aritmetik (`kesirleriTopla`),
+   dağıtım **ölçekli bigint** (`hisseAgirligi`, 1/3 → 333333). Sonuç
+   ayrışmıyor çünkü `dagit` gerçek ağırlık toplamına bölerek normalize
+   ediyor — ama bu **ölçülmedi, akıl yürütmeyle bulundu**.
+3. Doğrulama **önizlemeye** taşınacak, bozuk bölümler listelenecek,
+   *"işle"* kilitli kalacak. ⛔ **Kısmi tahakkuk YOK.**
+4. **Senaryo 9** — artık DB'siz yazılabilir, `zincireDagit` seviyesinde.
+
+---
+
+## ▶▶ (BİTTİ) CT-27 7a
 
 | Commit | Durum |
 |---|---|
