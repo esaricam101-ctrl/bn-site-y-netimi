@@ -247,26 +247,113 @@ her koşuda denetliyor.
 
 ---
 
-## Ürün sahibine sorular
+## ✅ Kararlar — 6 Ağustos 2026, ürün sahibi
+
+### 1 · İki seri AYRI KALIR — şimdilik
+
+Seri B'nin tamamı depoda yok ve Architecture Board süreci ayrı yürüyor.
+**Birleştirme kararı bu oturumda verilemez:** Seri B metinleri görülmeden
+alınacak her karar **tahmine** dayanır.
+
+> ⛔ **AMA *"ilişki tanımsız"* DURUMU KABUL EDİLEBİLİR DEĞİLDİR.**
+> İki seri arasındaki sınır **YAZILI DEĞİL** ve bu **bir eksikliktir**.
+> Seri B metinleri depoya alınana kadar sürer.
+
+### 2 · Sınır — GEÇİCİ kural
+
+Seri B metinleri gelene kadar:
+
+| Seri | Kapsam |
+|---|---|
+| **A** | Apartman/site modülüne **özgü** iş kuralları ve **veri modeli** kararları |
+| **B** | Platform çekirdeği · çok kiracılılık **altyapısı** · AI hattı · yönetişim |
+
+> ⛔ **Belirsiz kalan bir konu çıkarsa KARAR VERME, SOR.**
+> Örnek: **outbox ve audit** — bunlar hangi seride? *(aşağıda açık soru)*
+
+### 3 · Seri A GV32'ye TABİ DEĞİL
+
+**Geriye dönük metadata İSTENMİYOR.** Gerekçe kabul edildi: *Aggregate
+Ownership* ve *Domain Events* bugün **doğrulanamaz**; sonradan doldurmak
+**tahmin** olur.
+
+Yeni ADR'ler için de **mevcut yedi alanlık şema** devam eder. GV32'ye
+geçiş, **iki seri birleştirilirse** gündeme gelir.
+
+---
+
+## ⛔ AÇIK RİSK — `business_rules` bağımlılığı
+
+> **Çekirdekteki `business_rules` tablosu tenant kapsamsızsa bizim
+> modülün kuralları da sızar. Kusur bizde değil, sonucu bizde.**
+> **Platform ekibine iletilmelidir.**
+
+Modül manifesti `BUSINESS_RULES`'u **gerektirdiğini bildiriyor**
+(`gerektirdigiCekirdek`); motor bu depoda değil, dolayısıyla düzeltme de
+burada yapılamaz. Ama bağımlılık gerçek: çekirdek sızdırırsa **bir sitede
+tanımlanan kural bütün sitelerde değerlendirilir.**
+
+### Karşılaştırma — aynı sınıf, bizde temiz çözülmüş
+
+| | Çekirdek `business_rules` *(rapora göre)* | Bizim `OtomatikBildirimKurali` *(ölçüldü)* |
+|---|---|---|
+| Tenant kolonu | ⛔ `projectId` **yok** | ✅ `tenantId` **NOT NULL** |
+| Benzersizlik | ⛔ `key` **global** | ✅ `[tenantId, olayKodu, kanal]` — **tenant kapsamlı** |
+| RLS | ⏳ bilinmiyor | ✅ `ENABLE` + `FORCE` + izolasyon politikası |
+| Sonuç | Kural **bütün projelerde** değerlendirilir | Kural **yalnızca kendi projesinde** |
+
+★ Bu tesadüf değil: ADR-0002 ve ADR-0011 bunu zorunlu kılıyor ve `verify`
+içindeki *"RLS politika kapsamı"* kapısı **her koşuda** denetliyor.
+
+---
+
+## Ürün sahibine AÇIK SORU
 
 ⛔ **Cevaplanmadı — karar ürün sahibinindir.**
 
-**1 · İki seri birleşecek mi, ayrı mı kalacak?**
-Bugün ilişki **tanımsız**. Birleşirse numaralandırma çakışması yok
-(`0001…0018` ↔ `100…146`) ama **yönetişim** ve **kapsam** birleşmeli.
+### ★ `outbox` ve `audit` ADR'siz — en kırılgan bulgu
 
-**2 · Ayrı kalacaksa sınır nerede — hangi konu hangi seride?**
-En keskin ihtiyaç **outbox** ve **audit**: ikisi de bizde **uygulanmış
-ama ADR'siz**. Seri B'de karşılıkları varsa sınır oradan geçmeli; yoksa
-Seri A'ya iki ADR borcumuz var.
+İkisi de **uygulanmış** — `OutboxServisi` ile outbox tablosu, `AuditServisi`
+ile `audit_kaydi` — ama **hiçbir ADR'de kayıtlı değil**.
 
-**3 · Seri A, ADR-118 yönetişimine tabi mi?**
-Tabiyse: **geriye dönük** metadata mı, yalnızca **yeni** ADR'ler mi?
-⚠️ Geriye dönük istenirse, 17 ADR için sekiz alanın bir kısmı
-(*Aggregate Ownership*, *Domain Events*) **bugün doğrulanamaz** —
-kararlar o çerçeveyle alınmadı ve sonradan doldurmak **tahmin**
-olur. Bu depoda tahmini kayda geçirmek, defalarca çarptığımız hata
-sınıfıdır.
+> **Uygulanmış ama yazısız bir karar, çelişkiden KÖTÜDÜR:** çelişkide en
+> az **iki yazılı kayıt** vardır ve hangisinin geçerli olduğu tartışılır;
+> burada **hiç kayıt yok** — davranış yalnızca kodda durur ve gerekçesi
+> kimsenin elinde değildir.
+
+**İki seçenek:**
+
+| | Seçenek | Artı | Eksi |
+|---|---|---|---|
+| **(a)** | **Seri A'ya yeni ADR** — uygulanmış davranış kayda geçsin | Boşluk **bugün** kapanır; gerekçe yazılırken kod okunur ve varsa kusur görülür | Seri B'de karşılığı çıkarsa **iki kayıt** olur ve §2'deki sınır kuralı çiğnenmiş olur (bunlar altyapı konusu, Seri B'ye daha yakın) |
+| **(b)** | **Seri B'de karşılığı var mı diye beklensin** | Sınır kuralına uyar; mükerrer ADR doğmaz | ⛔ Boşluk **belirsiz süre** açık kalır — Seri B metinlerinin ne zaman geleceği bilinmiyor |
+
+★ **Önerim: (a) ama sınırlı kapsamda.** Gerekçe: §2'nin geçici sınırı
+outbox/audit'i **Seri B'ye** yakın gösteriyor, ama o sınır *"Seri B
+metinleri gelene kadar"* geçerli ve metinlerin **ne zaman geleceği
+bilinmiyor**. Yazısızlığın bedeli sürekli; mükerrer ADR'nin bedeli ise
+**birleşme anında bir kez** ödenir ve o an zaten iki seri gözden
+geçirilecektir.
+
+⚠️ **Ama bu §2'deki *"belirsizse sor"* kuralına giriyor — karar sizin.**
+
+---
+
+## Ölçülemeyenler *(tahmin eklenmedi)*
+
+Bunlar **metin görülmeden cevaplanamaz** ve tahminle doldurulmadı:
+
+| # | Ölçülemeyen | Neden |
+|---|---|---|
+| §2 | Her çakışma için *"çelişiyor mu"* | Seri B karar metinleri yok — elde yalnızca **başlıklar** var |
+| §3 | ADR-113'ün .NET sorusuna **cevap olup olmadığı** | Başlık *"Technology Agnostic"* diyor ama bu **başlıktan çıkarımdır**, ölçüm değil |
+| §3 | Zorlama mekanizmalarının TypeScript'te **uygulanabilirliği** | *Conformance Profile*'ın ne istediği bilinmiyor |
+| §5 | Terminoloji çerçevesiyle **çelişki** | *Legacy Accepted* statüsündeki terim listesi yok |
+| §6 | Çekirdek `business_rules`'un **düzeltilip düzeltilmediği** | Tablo bu depoda değil; buradan görülemez |
+
+★ **Numaralandırma çakışması YOK** — ölçüldü: `0001…0018` ile `100…146`
+aralıkları kesişmiyor. Birleşme kararı verilirse **numaralar değil,
+yönetişim ve kapsam** birleştirilmelidir.
 
 ---
 
