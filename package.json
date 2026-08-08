@@ -18,7 +18,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings 0",
     "lint:md": "markdownlint-cli2 && node scripts/link-check.mjs",
-    "test": "pnpm -r test",
+    "test": "node scripts/test-hepsi.mjs",
     "test:unit": "node scripts/test-onkosul.mjs && node --test tests/unit/*.mjs",
     "test:contract": "pnpm --filter @bnos/backend test:contract",
     "dev": "pnpm --parallel --filter @bnos/backend --filter @bnos/web dev",
@@ -34,7 +34,8 @@
     "setup": "bash scripts/setup.sh",
     "test:negative": "bash scripts/negative-tests.sh",
     "verify:all": "pnpm verify && pnpm test:negative && pnpm lint:md",
-    "build:test": "tsc -p tests/tsconfig.json"
+    "build:test": "tsc -p tests/tsconfig.json",
+    "test:paketler": "pnpm -r test"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
