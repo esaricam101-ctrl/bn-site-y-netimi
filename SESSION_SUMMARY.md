@@ -6,7 +6,61 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
-## ▶▶▶ SIRADAKİ İŞ — BAĞLAMA (test hazır, çağıran yok)
+## ▶▶▶ SIRADAKİ İŞ — BAĞLAMA (7 Ağustos akşamı burada durduk)
+
+**Tahsilat ekranı BİTTİ** — beş madde de kapandı, görsel onayı alındı
+(`656c94b`). **Sırada bağlama var, sonra cari ekstre ekranı.**
+
+### ⚠️ Karar bekleyen iki şey
+
+**1 · `infrastructure/marketing/` — kaynağı belirsiz, İZLENMİYOR**
+
+7 Ağustos 20:09'da oluşmuş; ne ürün sahibi ne de bu oturumlar oluşturdu.
+Tek dosya: **n8n** iş akışı otomasyonu `docker-compose.yml`
+(`bnos-marketing-n8n`, port 5678). Apartman modülüyle **ilgisi yok**.
+
+⛔ **`.gitignore`'da DEĞİL** — geniş bir `git add` ile sessizce içeri
+girer. Bu yüzden commit'lerde **hep dosya adı verilerek** ekleniyor.
+
+Üç gözlem: kimlik doğrulaması tanımsız · `N8N_ENCRYPTION_KEY` yok (birim
+kaybolursa kimlik bilgileri geri gelmez) · `:latest` etiketi.
+**Seçenekler:** `.gitignore`'a al · depo dışına taşı · bilinçli commit'le.
+
+**2 · `outbox` / `audit` ADR'siz** — [ADR-SERI-ILISKISI](docs/ADR-SERI-ILISKISI.md)
+sonundaki açık soru. İki seçenek gerekçeleriyle yazılı; önerim **(a)
+sınırlı kapsamda yeni ADR**.
+
+### Bağlama adımları
+
+1. `hisseleriZorunluKil` tahakkuk yoluna bağlanacak *(testi hazır:
+   `4b71f38`, 8/8)*
+2. **Mesaj zenginleştirme** — K5'in **bölüm + kayıtlı hisseler** kısmı;
+   `zincireDagit`in `PayEtiketleri` deseniyle. ⚠️ **A2b testi olmadan K5
+   kapanmaz** (ADR-0018 §2.5)
+3. Doğrulama **önizlemeye** taşınacak — ⛔ **kısmi tahakkuk YOK**, bozuk
+   bölümler listelenir, *"işle"* kilitli kalır
+4. **Senaryo 9** — DB'siz yazılabilir
+5. Verify raporu, R4 iki başlık
+
+### ★ 7 Ağustos'ta çıkan bulgu — `pnpm test` yanıltıcıydı
+
+`pnpm -r test` **yalnızca sözleşme süitini** koşuyordu; `tests/unit` hiç
+çalışmıyordu. Tek kapı vardı ama **bir yolu kaçırıyordu** — `pnpm test`
+yazan biri 189 görüp her şeyin koştuğunu sanıyordu.
+
+Düzeltildi (`852010d`). **İki sayaç artık ayrı yazılıyor:**
+
+```text
+  GECTI  Birim testleri       352
+  GECTI  Sözleşme testleri    189
+```
+
+⚠️ Node 22+ `.cmd` dosyalarını kabuksuz çalıştırmayı reddediyor
+(CVE-2024-27980) — `shell: true` zorunlu, tercih değil.
+
+---
+
+## ▶▶ Σ hisse — arka plan (test hazır, çağıran yok)
 
 `hisseleriZorunluKil` testi yazıldı (**8/8**, DB'siz). Bağlama **bir
 sonraki commit** — bu commit'e çağıran eklenmedi.
