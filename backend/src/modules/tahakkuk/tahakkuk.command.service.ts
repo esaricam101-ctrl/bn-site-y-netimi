@@ -28,9 +28,12 @@ import {
   // Money tipiyle doğrudan çalışan kod kalmadı (ADR-0018 §4b).
   type Principal, type TakvimTarihi,
 } from '@bnos/kernel';
-import { CakismaHatasi, IsKuraliIhlali, KayitBulunamadi } from '@bnos/core-domain';
 import {
-  BagimsizBolum, borcSorumlulariniCoz, gideriPaylastir, zincireDagit,
+  CakismaHatasi, DogrulamaHatasi, IsKuraliIhlali, KayitBulunamadi,
+} from '@bnos/core-domain';
+import {
+  BagimsizBolum, borcSorumlulariniCoz, gideriPaylastir, hisseleriZorunluKil,
+  tarihtekiMalikler, zincireDagit,
   type BolumIliskisi, type GiderTuru, type MalikHissesi, type PaylasimGirdisi,
 } from '@bnos/apartman-domain';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -637,20 +640,38 @@ export class TahakkukCommandService {
          *       hisse taşımaz, borcun tamamını yüklenir.
          */
         const hisseler = hisseHaritasi.get(pay.bolumId) ?? [];
-        // Tahakkuk dönemindeki GEÇERLİ hisseler. Devredilmiş bir tapu payı
-        // dönem dışındaysa bölüşüme girmez; aksi halde eski malik bugünkü
-        // borcun bir kısmından sorumlu görünür.
-        const donemHisseleri = hisseler.filter(
-          (h) => h.baslangic <= donem && (h.bitis === null || h.bitis >= donem),
+
+        /*
+         * ★ Σ HİSSE = 1 KAPISI (ADR-0018 · K5). DAVRANIŞ DEĞİŞİKLİĞİDİR.
+         *
+         * ⚠️  ÖNCESİ: bozuk hisse toplamı SESSİZCE NORMALİZE EDİLİYORDU.
+         *     `dagit` ağırlıkları gerçek toplama bölerek dağıttığı için
+         *     `1/1 + 1/1` (yarım kalmış devir) yarı yarıya paylaşıyor ve
+         *     **hiçbir uyarı vermiyordu**. Sonucu: mülkiyeti devretmiş kişi
+         *     adına borç doğuyor, `BorcSorumlusu` snapshot'ına yazılıyor,
+         *     kişi ekstresinde çıkıyor, gecikme bildirimi listesine giriyor.
+         *     Sessizce yanlış borçlandırmaktansa DURMAK asgari doğru
+         *     davranıştır.
+         *
+         * ★ SÜZME İÇERİDE — burada TEKRARLANMIYOR. `hisseleriZorunluKil`
+         *   hem doğrular hem `tarihtekiMalikler` ile süzülmüş listeyi
+         *   döndürür (CT `A5` bunu sabitliyor). Yüklemi burada da yazmak,
+         *   §2.5'te çürütülen "iki nüfus" kusurunun ikinci kopyasını
+         *   üretirdi: aynı ölçüt iki yerde durur, biri değişince öteki
+         *   sessizce ayrışır.
+         *
+         * ⚠️  `dagit`'in normalizasyonuna DOKUNULMADI — o ayrı bir madde
+         *     (yol haritası P2). Girdi buradan itibaren garantili olduğu
+         *     için normalizasyon zararsızlaşır, ama koruma çağrı yerine
+         *     bağlı kalır.
+         */
+        const donemHisseleri = this.hisseleriDogrulaVeSuz(
+          hisseler, donem, pay.kapiNo,
         );
 
         /*
          * ★ PAY DAĞITIMI TEK ÇAĞRI — mantık `@bnos/apartman-domain`
          *   `zincireDagit` içinde ve `tx` GÖRMEZ (ADR-0018 §4b).
-         *
-         *   Süzme BURADA yapılır, fonksiyon SÜZÜLMÜŞ veri alır: tarih
-         *   yüklemi iki yerde durursa §2.5'te çürütülen "iki nüfus"
-         *   kusurunun ikinci kopyası doğar.
          */
         const sorumlular = zincireDagit(
           pay.tutar, zincir, donemHisseleri, gider.malikPaylasimi ?? 'HISSE_ORANI',
@@ -973,5 +994,73 @@ export class TahakkukCommandService {
           'yalnızca deftere düşmez. Çift taraflı muhasebeye geçmek için ' +
           'Muhasebe → Parametreler ekranından derinliği değiştirin.',
     );
+  }
+
+  /**
+   * `hisseleriZorunluKil` + BAĞLAM ZENGİNLEŞTİRME (ADR-0018 · K5).
+   *
+   * ★ NEDEN BURADA: `hisseleriZorunluKil` domain katmanındadır; BÖLÜMÜ ve
+   *   KAYITLI HİSSELERİ bilmez ve bilmemelidir — kesir aritmetiği bağımsız
+   *   bölüm kavramına bağlanırsa tapu dışı hisseli varlıklarda (ortak alan,
+   *   arsa payı) tekrar yazılması gerekir. Bu, `zincireDagit`'in
+   *   `PayEtiketleri` parametresiyle çözülen sorunun aynısıdır: domain hesabı
+   *   yapar, çağıran taraf insanın okuyacağı bağlamı ekler.
+   *
+   * ★ DOMAIN MESAJI KORUNUR, ÜSTÜNE EKLENİR. Tarih, toplam oran ve yön
+   *   (eksik mi fazla mı) domain'in ölçtüğü şeydir; burada yeniden
+   *   üretilmez — `hata.message` olduğu gibi taşınır. `sonrakiEylem` de
+   *   aynen geçer.
+   */
+  private hisseleriDogrulaVeSuz(
+    hisseler: readonly MalikHissesi[],
+    donem: TakvimTarihi,
+    kapiNo: string,
+  ): readonly MalikHissesi[] {
+    try {
+      return hisseleriZorunluKil(hisseler, donem);
+    } catch (hata) {
+      // Yalnızca hisse doğrulaması sarılır. Başka bir hata türü (programlama
+      // hatası, veritabanı hatası) yutulmaz — olduğu gibi yukarı gider.
+      if (!(hata instanceof DogrulamaHatasi)) throw hata;
+
+      throw new DogrulamaHatasi(
+        `${kapiNo} nolu bağımsız bölüm — ${hata.message} ` +
+          `Kayıtlı hisseler: ${this.hisseDokumu(hisseler, donem)}.`,
+        hata.sonrakiEylem,
+      );
+    }
+  }
+
+  /**
+   * Hata mesajına giren hisse dökümü.
+   *
+   * ★ DÖNEM DIŞI KAYITLAR DA YAZILIR. En sık görülen sebep yarım kalmış bir
+   *   devirdir: eski malik `tapuBitis` almamış, yeni malik eklenmiştir. Bu
+   *   durumda dönem İÇİ kayıtlara bakan yönetici iki tam hisse görür ve
+   *   hatayı anlamaz; dönem DIŞI kayıtla birlikte görünce hangi tapunun
+   *   kapatılmadığı belli olur.
+   *
+   * ★ Dönem içi/dışı ayrımı `tarihtekiMalikler` ile yapılır — tarih yüklemi
+   *   BURADA TEKRAR YAZILMAZ (ADR-0018 §2.5 "iki nüfus" kusuru).
+   *
+   * ⚠️  KİŞİ ADI YAZILMAZ. Bu metin 422 gövdesine girer ve günlüklere
+   *     düşebilir; hangi kaydın düzeltileceği kesir + tarih aralığıyla
+   *     zaten belirlidir (bkz. "Kişisel veri LOGLAMA" kuralı).
+   */
+  private hisseDokumu(
+    hisseler: readonly MalikHissesi[], donem: TakvimTarihi,
+  ): string {
+    if (hisseler.length === 0) return 'bölümde hiç malik kaydı yok';
+
+    const gecerliler = new Set(tarihtekiMalikler(hisseler, donem));
+
+    return hisseler
+      .map((h) => {
+        const kesir = `${h.hissePay}/${h.hissePayda}`;
+        if (gecerliler.has(h)) return `${kesir} (dönem içi)`;
+        const bitis = h.bitis ?? 'süresiz';
+        return `${kesir} (dönem dışı: ${h.baslangic}–${bitis})`;
+      })
+      .join(', ');
   }
 }

@@ -30,9 +30,28 @@ import { spawnSync } from 'node:child_process';
  *     dolayısıyla kabuk enjeksiyonu yüzeyi yoktur.
  */
 
+/*
+ * ⚠️  RENK KODLARI SÖKÜLÜR — bu bir kozmetik dokunuş değil, ÖLÇÜLMÜŞ BİR
+ *     KUSURUN düzeltmesidir. `FORCE_COLOR` tanımlı bir ortamda (CI günlük
+ *     görünümleri, IDE gömülü uçbirimleri, ajan koşumları) vitest özetini
+ *     renklendirir ve satır şöyle gelir:
+ *
+ *       Tests \e[22m \e[1m\e[32m194 passed
+ *
+ *     `Tests\s+(\d+)` bunu YAKALAMAZ: kaçış dizisi boşluk değildir. Sonuç
+ *     "okunamadı" idi — yani iki sayacı ayrı yazma amacı, tam da sayacın
+ *     gerektiği ortamda çalışmıyordu. Birim deseni `\D*` kullandığı için
+ *     TESADÜFEN kurtulmuştu; iki desenin farklı davranması kusuru
+ *     yarısı çalışır hâlde gizliyordu.
+ *
+ * Desen `\x1b` ile başlayan CSI dizilerini söker; başka hiçbir şeye
+ * dokunmaz, çıktının BASILAN hâli ham kalır.
+ */
+const RENK_KODU = /\x1b\[[0-9;]*m/gu;
+
 /** Koşucunun kendi çıktısındaki test sayısını yakalar; bulamazsa `null`. */
 function sayiyiCikar(metin, desen) {
-  const e = metin.match(desen);
+  const e = metin.replace(RENK_KODU, '').match(desen);
   return e === null ? null : e[1];
 }
 

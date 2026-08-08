@@ -6,41 +6,53 @@ Bu dosya **sonraki oturuma devir notudur**. Ayrıntılı geçmiş
 
 ---
 
-## ▶▶▶ SIRADAKİ İŞ — BAĞLAMA (7 Ağustos akşamı burada durduk)
+## ▶▶▶ SIRADAKİ İŞ — DOĞRULAMAYI ÖNİZLEMEYE TAŞIMA (8 Ağustos'ta burada durduk)
 
-**Tahsilat ekranı BİTTİ** — beş madde de kapandı, görsel onayı alındı
-(`656c94b`). **Sırada bağlama var, sonra cari ekstre ekranı.**
+**Bağlama BİTTİ** — Σ hisse = 1 kapısı tahakkuk yoluna bağlandı, K5'in
+mesaj yarısı da kapandı. **Sırada önizlemeye taşıma, sonra senaryo 9,
+sonra cari ekstre ekranı.**
 
-### ⚠️ Karar bekleyen iki şey
+### ⚠️ Karar bekleyen tek şey
 
-**1 · `infrastructure/marketing/` — kaynağı belirsiz, İZLENMİYOR**
+**`outbox` / `audit` ADR'siz** — [ADR-SERI-ILISKISI](docs/ADR-SERI-ILISKISI.md)
+sonundaki açık soru. İki seçenek gerekçeleriyle **kullanıcıya sunuldu**,
+cevap bekleniyor; önerim **(a) sınırlı kapsamda yeni ADR** — yazısızlığın
+bedeli sürekli ödenir, mükerrer ADR'nin bedeli birleşme anında bir kez.
 
-7 Ağustos 20:09'da oluşmuş; ne ürün sahibi ne de bu oturumlar oluşturdu.
-Tek dosya: **n8n** iş akışı otomasyonu `docker-compose.yml`
-(`bnos-marketing-n8n`, port 5678). Apartman modülüyle **ilgisi yok**.
+*(`infrastructure/marketing/` kapandı: `b34a5c0` ile depo dışına taşındı
+ve gerekçeli `.gitignore` satırı eklendi.)*
 
-⛔ **`.gitignore`'da DEĞİL** — geniş bir `git add` ile sessizce içeri
-girer. Bu yüzden commit'lerde **hep dosya adı verilerek** ekleniyor.
+### Bağlama adımları — 1 ve 2 BİTTİ
 
-Üç gözlem: kimlik doğrulaması tanımsız · `N8N_ENCRYPTION_KEY` yok (birim
-kaybolursa kimlik bilgileri geri gelmez) · `:latest` etiketi.
-**Seçenekler:** `.gitignore`'a al · depo dışına taşı · bilinçli commit'le.
+1. ✅ `hisseleriZorunluKil` tahakkuk yoluna **bağlandı**
+   ([tahakkuk.command.service.ts](backend/src/modules/tahakkuk/tahakkuk.command.service.ts)).
+   ⚠️ **Süzme İÇERİDE:** çağıran taraf tarih yüklemini tekrarlamıyor,
+   fonksiyonun döndürdüğü süzülmüş liste kullanılıyor — §2.5'te
+   çürütülen *"iki nüfus"* kusurunun kopyası doğmadı. `dagit`'in
+   normalizasyonuna dokunulmadı (P2, ayrı iş).
+2. ✅ **Mesaj zenginleştirme** — `hisseleriDogrulaVeSuz` + `hisseDokumu`,
+   `PayEtiketleri` deseninin aynısı: domain hesabı yapar, bağlama yeri
+   insanın okuyacağı bağlamı ekler. **A2b testi yazıldı** ve K5 burada
+   kapandı ([hisse-kapisi.spec.ts](backend/test/contract/hisse-kapisi.spec.ts)
+   · CT-28, 5/5). Üretilen mesaj:
 
-**2 · `outbox` / `audit` ADR'siz** — [ADR-SERI-ILISKISI](docs/ADR-SERI-ILISKISI.md)
-sonundaki açık soru. İki seçenek gerekçeleriyle yazılı; önerim **(a)
-sınırlı kapsamda yeni ADR**.
+   ```text
+   3 nolu bağımsız bölüm — 2026-10-01 tarihinde hisse oranlari toplami
+   1 degil (0.500000). Bolumun bir kismi sahipsiz; eksik pay hicbir
+   kisiye tahakkuk etmez. Kayıtlı hisseler:
+   1/2 (dönem dışı: 2020-01-01–2025-12-31), 1/2 (dönem içi).
+   ```
 
-### Bağlama adımları
-
-1. `hisseleriZorunluKil` tahakkuk yoluna bağlanacak *(testi hazır:
-   `4b71f38`, 8/8)*
-2. **Mesaj zenginleştirme** — K5'in **bölüm + kayıtlı hisseler** kısmı;
-   `zincireDagit`in `PayEtiketleri` deseniyle. ⚠️ **A2b testi olmadan K5
-   kapanmaz** (ADR-0018 §2.5)
-3. Doğrulama **önizlemeye** taşınacak — ⛔ **kısmi tahakkuk YOK**, bozuk
-   bölümler listelenir, *"işle"* kilitli kalır
-4. **Senaryo 9** — DB'siz yazılabilir
-5. Verify raporu, R4 iki başlık
+   ★ **Dönem DIŞI tapu da yazılıyor** — en sık sebep yarım kalmış
+   devirdir; yalnızca dönem içine bakan yönetici tek bir `1/2` görür ve
+   neyin eksik olduğunu anlamaz. Kişi adı **yazılmıyor** (kesir + tarih
+   kaydı zaten tekilleştirir).
+3. ⬜ Doğrulama **önizlemeye** taşınacak — ⛔ **kısmi tahakkuk YOK**, bozuk
+   bölümler listelenir, *"işle"* kilitli kalır. ⚠️ Bugün koruma
+   `$transaction` geri alımından geliyor, kuralın kendisinden değil;
+   CT-28 `(5)` bunu ölçüyor ve taşımadan sonra da geçmeli.
+4. ⬜ **Senaryo 9** — DB'siz yazılabilir
+5. ⬜ Verify raporu, R4 iki başlık
 
 ### ★ 7 Ağustos'ta çıkan bulgu — `pnpm test` yanıltıcıydı
 
@@ -52,11 +64,23 @@ Düzeltildi (`852010d`). **İki sayaç artık ayrı yazılıyor:**
 
 ```text
   GECTI  Birim testleri       352
-  GECTI  Sözleşme testleri    189
+  GECTI  Sözleşme testleri    194
 ```
 
 ⚠️ Node 22+ `.cmd` dosyalarını kabuksuz çalıştırmayı reddediyor
 (CVE-2024-27980) — `shell: true` zorunlu, tercih değil.
+
+### ★ 8 Ağustos — sayaç okuyucusu YARISI ÇALIŞIYORDU
+
+`852010d`'nin amacı iki sayacı ayrı yazmaktı; **sözleşme sayacı
+`FORCE_COLOR` tanımlı ortamlarda `okunamadı` veriyordu.** Vitest özetini
+renklendirince satır `Tests \e[22m \e[1m\e[32m194 passed` hâline geliyor
+ve `Tests\s+(\d+)` bunu yakalamıyor — kaçış dizisi boşluk değildir.
+Birim deseni `\D*` kullandığı için **tesadüfen** kurtulmuştu; iki desenin
+farklı davranması kusuru *yarısı çalışır* hâlde gizliyordu.
+
+Renk kodları artık sökülüyor. ★ **`okunamadı` düşüşü yakalayan şey oldu:**
+"0" yazılsaydı sessiz bir yanlış rapor çıkardı.
 
 ---
 
@@ -86,23 +110,34 @@ sınayan guard'larla.
 > tahakkuk **servis** yolundan geçmiyor.
 
 ⚠️ **Ama CT-26 çalışma kaydını doğrudan yazıyor** — yani ürünün yolunu
-değil, benzerini kuruyor. **Tohum sadakati bulgusunun aynı sınıfı.** Bugün
-zararsız; ileride servis yoluna kontrol eklendiğinde CT-26 onu **hiç
-sınamayacak**.
+değil, benzerini kuruyor. **Tohum sadakati bulgusunun aynı sınıfı.**
 
-### ⛔ BAĞLAMA SIRASINDA KAPATILACAK EKSİK
+⛔ **8 Ağustos: tahmin GERÇEKLEŞTİ.** Kapı servis yoluna bağlandı, CT-26
+yeşil kaldı ve kapıyı **bir kez bile çalıştırmadı**. Maliyeti ödendi:
+kanıt yeni bir dosyada (CT-28) üretilmek zorunda kaldı, aynı fikstür işi
+ikinci kez yazıldı. **CT-26'yı servis yoluna taşımak hâlâ bekliyor.**
 
-K5 hata mesajının **bölümü ve kayıtlı hisseleri** söylemesini istiyor.
-`hisseleriZorunluKil` **bunları bilmez** (domain katmanı; bölüm kavramı
-yok) — mesajı yalnızca **tarih + toplam + yön** taşıyor:
+### ✅ K5 KAPANDI — mesaj zenginleştirme (8 Ağustos)
+
+K5 hata mesajının **bölümü ve kayıtlı hisseleri** söylemesini istiyordu.
+`hisseleriZorunluKil` bunları **bilmez** (domain katmanı; bölüm kavramı
+yok) — mesajı yalnızca **tarih + toplam + yön** taşıyordu:
 
 ```text
 2026-07-01 tarihinde hisse oranlari toplami 1 degil (0.750000).
 Bolumun bir kismi sahipsiz; eksik pay hicbir kisiye tahakkuk etmez.
 ```
 
-★ Eksik **burada kapatılamaz.** Zenginleştirme **bağlama yerinde**
-yapılacak — `zincireDagit`in `PayEtiketleri` deseninin aynısı.
+★ Eksik **orada kapatılamazdı.** Zenginleştirme **bağlama yerinde**
+yapıldı — `zincireDagit`in `PayEtiketleri` deseninin aynısı. Domain
+mesajı **korundu**, üstüne bölüm ve kayıtlı hisseler eklendi; `sonrakiEylem`
+aynen taşındı. Sonuç için bkz. yukarıdaki bağlama adımı 2.
+
+⚠️ **Yan bulgu — karma Türkçe.** `shared/*-domain` metinleri diakritiksiz,
+`backend/` metinleri diakritikli. İki katman tek cümlede birleşince
+kullanıcı karma metin görüyor. **Yerel yama yapılmadı** (depo geneli tek
+karar gerektirir); mevcut hâl CT-28 `(2)`'de sabitlendi, yol haritasında
+P2 olarak kayıtlı.
 
 ---
 
