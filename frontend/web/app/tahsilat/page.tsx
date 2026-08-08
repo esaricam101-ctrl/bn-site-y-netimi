@@ -264,8 +264,25 @@ export default function TahsilatSayfasi() {
   if (yukleniyor) return <Yukleniyor />;
   if (yuklemeHatasi !== null) return <HataDurumu hata={yuklemeHatasi} tekrarDene={yukle} />;
 
-  const kaydedilebilir = denk && asanSatirlar.length === 0 && !kaydediliyor
-    && bolumId !== '' && tarih !== '';
+  /*
+   * ★ ENGELLER TEK TEK AYIRT EDİLİR — `kaydedilebilir` bir boolean, ama
+   *   kullanıcıya gösterilecek SEBEP tek dallı olamaz.
+   *
+   * ⚠️  Eskiden mesaj yalnızca "aşan satır mı, değil mi" diye bakıyordu;
+   *     tarih boşken **yanlış sebep** (denge mesajı) gösteriyordu. O hata
+   *     bugün görünmüyordu çünkü 3. kart tarih boşken de açık kalıyor ama
+   *     kullanıcı oraya bakmıyordu. ⛔ "Pratikte görünmüyor" bir savunma
+   *     DEĞİLDİR: akış değişince görünür hâle gelir ve kimse fark etmez.
+   */
+  const engel: string | null = asanSatirlar.length > 0
+    ? 'avansYok'
+    : tarih === ''
+      ? 'tarihGerekli'
+      : !denk
+        ? 'dengeGerekli'
+        : null;
+
+  const kaydedilebilir = engel === null && !kaydediliyor && bolumId !== '';
 
   return (
     <UygulamaKabugu
@@ -385,6 +402,9 @@ export default function TahsilatSayfasi() {
                       {borclar.map((b) => {
                         const girilen = kurusa(tahsisler[b.borcId] ?? '');
                         const kalanKurus = sunucuKurus(b.kalan);
+                        const odenenKurus = sunucuKurus(b.odenen);
+                        // Kısmi = bir kısmı ödenmiş AMA kapanmamış.
+                        const kismiMi = odenenKurus > 0n && kalanKurus > 0n;
                         const asiyor = girilen !== null && girilen > kalanKurus;
                         const gun = b.gecikmisMi ? gecikmeGunu(b.vadeTarihi) : 0;
                         return (
@@ -408,9 +428,22 @@ export default function TahsilatSayfasi() {
                               )}
                             </td>
                             <td className="py-1 pr-3 num text-right">{paraTr(sunucuKurus(b.tutar))}</td>
-                            <td className="py-1 pr-3 num text-right">{paraTr(sunucuKurus(b.odenen))}</td>
-                            <td className="py-1 pr-3 num text-right font-semibold">
-                              {paraTr(kalanKurus)}
+                            <td className="py-1 pr-3 num text-right">{paraTr(odenenKurus)}</td>
+                            <td className="py-1 pr-3 text-right">
+                              {/*
+                                ★ KISMİ ÖDEME İŞARETİ. Sayıları karşılaştırmak
+                                  zorunda bırakmak, listeye bakan kullanıcının
+                                  hangi borcun kısmen ödendiğini GÖRMEMESİ
+                                  demekti. FIFO önerisi geldiğinde o satıra ne
+                                  kadar yazılacağını anlaması buna bağlı.
+                              */}
+                              {kismiMi && (
+                                <span className="block text-[10px] uppercase tracking-wide"
+                                      style={{ color: 'var(--warn)' }}>
+                                  {t('kismenOdendi')}
+                                </span>
+                              )}
+                              <span className="num font-semibold">{paraTr(kalanKurus)}</span>
                             </td>
                             <td className="py-1">
                               <div className="flex items-center gap-1 justify-end">
@@ -523,9 +556,9 @@ export default function TahsilatSayfasi() {
                           style={{ backgroundImage: 'var(--grad)' }}>
                     {kaydediliyor ? t('kaydediliyor') : t('tahsilatiKaydet')}
                   </button>
-                  {!kaydedilebilir && (
+                  {engel !== null && (
                     <span id="tahsilat-engel" className="text-xs" style={{ color: 'var(--warn)' }}>
-                      {asanSatirlar.length > 0 ? t('avansYok') : t('dengeGerekli')}
+                      {t(engel)}
                     </span>
                   )}
                 </div>

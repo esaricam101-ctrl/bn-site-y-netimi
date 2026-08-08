@@ -1103,6 +1103,8 @@
     "farkEksik": "Tahsis toplamı tahsilat tutarından AZ. Kalan para hiçbir borca sayılmaz: kasada duran ama defterde görünmeyen para olur. Farkı sıfırlayın.",
     "farkFazla": "Tahsis toplamı tahsilat tutarını AŞIYOR. Dağıtılan para alınan paradan fazla olamaz.",
     "dengeGerekli": "Tahsis toplamı tahsilat tutarına eşit olmadan makbuz kesilemez.",
+    "tarihGerekli": "Tahsilat tarihi girilmeden kayıt yapılamaz: hangi güne ait olduğu belirsiz bir tahsilat, dönem raporlarında hiçbir yere düşmez.",
+    "kismenOdendi": "kısmen ödendi",
 
     "avansYok": "Bir borca kalanından fazla tahsis edilmiş.",
     "avansCikisYolu": "Avans (borcu aşan ödeme) kabul edilmez: hangi borca ait olduğu belirsiz para mutabakatı bozar. Peşin ödeme alınacaksa önce ilgili ileri dönemin tahakkuku oluşturulmalı, sonra tahsil edilmelidir.",
