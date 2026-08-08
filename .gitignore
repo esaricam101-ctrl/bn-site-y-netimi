@@ -15,3 +15,20 @@ database/prisma/*.db
 frontend/mobile/.expo/
 
 tests/.derleme/
+
+# Pazarlama otomasyonu (n8n) BU DEPOYA AIT DEGIL — ayri depo: bnos-marketing
+#
+# Ayri tutulmasinin uc gerekcesi:
+#   1. Farkli yasam dongusu — pazarlama otomasyonu bu modulun surum, CI ve
+#      dagitim dongusune bagli degil. Ayni depoda dururken `docker compose up`
+#      ile birlikte ayaga kalkmasi an meselesidir.
+#   2. Farkli veri rejimi — n8n reklam hesaplarina, potansiyel musteri
+#      listelerine ve IYS/KVKK kapsamindaki iletisim verisine dokunur. Bu
+#      modulun RLS/tenant izolasyon disiplini orada islemez; iki guvenlik
+#      modeli tek depoda karismamali.
+#   3. Gizlilik siniri — reklam API anahtarlari, sayfa token'lari ve donusum
+#      pikseli bilgileri urun deposunda HIC bulunmamali.
+#
+# Satir, klasor yanlislikla geri belirirse sessizce commit'lenmesin diye
+# duruyor. 7 Agustos 2026'da `../bnos-marketing/` altina tasindi.
+infrastructure/marketing/
